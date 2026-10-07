@@ -9,10 +9,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Places API Field Mask & Edge Function Rating Ingestion' (Protocol in workflow.md)
 
 ## Phase 2: Database Map Markers RPC Expansion, Type Synchronization & Fixture Hardening
-- [ ] Task: Expand `get_map_markers` RPC with ratings, review count, and Vibe Tag columns (TDD)
-    - [ ] Write failing database RPC integration tests in `lib/services/__tests__/db-optimization.integration.test.ts` checking returned ratings, review counts, and Vibe Tag fields
-    - [ ] Author safe transaction migration `supabase/migrations/<timestamp>_enrich_map_markers_rpc.sql` executing `DROP FUNCTION IF EXISTS public.get_map_markers(uuid);` and `CREATE OR REPLACE FUNCTION public.get_map_markers` with expanded `RETURNS TABLE`
-    - [ ] Run migration on local Supabase stack (`npm run db:start`) and verify integration tests pass
+- [x] Task: Expand `get_map_markers` RPC with ratings, review count, and Vibe Tag columns (TDD) [commit: 3ccf775e]
+    - [x] Write failing database RPC integration tests in `lib/services/__tests__/db-optimization.integration.test.ts` checking returned ratings, review counts, and Vibe Tag fields
+    - [x] Author safe transaction migration `supabase/migrations/<timestamp>_enrich_map_markers_rpc.sql` executing `DROP FUNCTION IF EXISTS public.get_map_markers(uuid);` and `CREATE OR REPLACE FUNCTION public.get_map_markers` with expanded `RETURNS TABLE`
+    - [x] Run migration on local Supabase stack (`npm run db:start`) and verify integration tests pass
 - [ ] Task: Synchronize TypeScript types, E2E fixtures, and `standardizeWineryData` (TDD)
     - [ ] Update `MapMarkerRpc` interface in `lib/types.ts` and regenerate types via `npm run db:gen-types`
     - [ ] Update E2E mock fixtures in `e2e/fixtures/handlers/favorites.handler.ts` to include expanded marker columns
