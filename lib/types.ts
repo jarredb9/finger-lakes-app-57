@@ -46,7 +46,7 @@ export interface MapMarkerRpc {
   id: WineryDbId;
   google_place_id: GooglePlaceId;
   name: string;
-  address: string;
+  address?: string;
   latitude: number;
   longitude: number;
   is_favorite: boolean;
@@ -55,6 +55,12 @@ export interface MapMarkerRpc {
   is_favorite_private?: boolean;
   on_wishlist_private?: boolean;
   google_rating?: number | null;
+  user_rating_count?: number | null;
+  allows_dogs?: boolean | null;
+  good_for_children?: boolean | null;
+  outdoor_seating?: boolean | null;
+  has_ev_charging?: boolean | null;
+  enrichment_tier?: 'basic' | 'enriched' | 'full' | string | null;
   opening_hours?: Json | null;
   phone?: string | null;
 }

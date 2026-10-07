@@ -718,7 +718,12 @@ export type Database = {
       get_map_markers: {
         Args: { p_user_id?: string }
         Returns: {
+          allows_dogs: boolean
+          enrichment_tier: string
+          good_for_children: boolean
           google_place_id: string
+          google_rating: number
+          has_ev_charging: boolean
           id: number
           is_favorite: boolean
           is_favorite_private: boolean
@@ -727,6 +732,8 @@ export type Database = {
           name: string
           on_wishlist: boolean
           on_wishlist_private: boolean
+          outdoor_seating: boolean
+          user_rating_count: number
           user_visited: boolean
         }[]
       }

@@ -8,6 +8,7 @@ import {
   parseOpeningHoursJson,
   parseParkingOptionsJson,
   parseAccessibilityOptionsJson,
+  parseTriStateBoolean,
 } from '../winery';
 import { createMockWinery, createMockVisitWithWinery, createMockMapMarkerRpc } from '@/lib/test-utils/fixtures';
 import { Winery, MapMarkerRpc, WineryDbId } from '@/lib/types';
@@ -413,6 +414,182 @@ describe('standardizeWineryData', () => {
       expect(result?.wishlistIsPrivate).toBe(true);
       expect(result?.isFavorite).toBe(true);
       expect(result?.favoriteIsPrivate).toBe(true);
+    });
+  });
+
+  describe('tri-state Vibe Tag parsing, rating mapping, and ghost visit clearing (Issue #44 / Phase 2 Task 2)', () => {
+    describe('parseTriStateBoolean', () => {
+      it('returns true for boolean true and string "true"', () => {
+        expect(parseTriStateBoolean(true)).toBe(true);
+        expect(parseTriStateBoolean('true')).toBe(true);
+      });
+
+      it('returns false for boolean false and string "false"', () => {
+        expect(parseTriStateBoolean(false)).toBe(false);
+        expect(parseTriStateBoolean('false')).toBe(false);
+      });
+
+      it('returns null for null', () => {
+        expect(parseTriStateBoolean(null)).toBeNull();
+      });
+
+      it('returns undefined for undefined or non-boolean primitives', () => {
+        expect(parseTriStateBoolean(undefined)).toBeUndefined();
+        expect(parseTriStateBoolean('')).toBeUndefined();
+        expect(parseTriStateBoolean(1)).toBeUndefined();
+        expect(parseTriStateBoolean({})).toBeUndefined();
+      });
+    });
+
+    describe('Vibe Tag tri-state preservation', () => {
+      it('preserves null for un-enriched Vibe Tags and does not coerce null to false', () => {
+        const unenrichedMarker: MapMarkerRpc = {
+          ...createMockMapMarkerRpc(),
+          allows_dogs: null,
+          good_for_children: null,
+          outdoor_seating: null,
+          has_ev_charging: null,
+          enrichment_tier: 'basic',
+        };
+
+        const result = standardizeWineryData(unenrichedMarker);
+
+        expect(result).not.toBeNull();
+        expect(result?.allows_dogs).toBeNull();
+        expect(result?.good_for_children).toBeNull();
+        expect(result?.outdoor_seating).toBeNull();
+        expect(result?.has_ev_charging).toBeNull();
+        expect(result?.serves_wine).toBeNull();
+      });
+
+      it('preserves true and false flags when explicitly provided', () => {
+        const enrichedMarker: MapMarkerRpc = {
+          ...createMockMapMarkerRpc(),
+          allows_dogs: true,
+          good_for_children: false,
+          outdoor_seating: true,
+          has_ev_charging: false,
+          enrichment_tier: 'enriched',
+        };
+
+        const result = standardizeWineryData(enrichedMarker);
+
+        expect(result).not.toBeNull();
+        expect(result?.allows_dogs).toBe(true);
+        expect(result?.good_for_children).toBe(false);
+        expect(result?.outdoor_seating).toBe(true);
+        expect(result?.has_ev_charging).toBe(false);
+      });
+
+      it('prevents basic marker with null Vibe Tags from overwriting an already-enriched winery', () => {
+        const existingEnriched: Winery = {
+          ...createMockWinery(),
+          enrichment_tier: 'enriched',
+          allows_dogs: true,
+          outdoor_seating: true,
+          has_ev_charging: true,
+        };
+
+        const basicMarker: MapMarkerRpc = {
+          ...createMockMapMarkerRpc(),
+          id: (existingEnriched.dbId || 1) as WineryDbId,
+          google_place_id: existingEnriched.id,
+          allows_dogs: null,
+          outdoor_seating: null,
+          has_ev_charging: null,
+          enrichment_tier: 'basic',
+        };
+
+        const result = standardizeWineryData(basicMarker, existingEnriched);
+
+        expect(result).not.toBeNull();
+        expect(result?.allows_dogs).toBe(true);
+        expect(result?.outdoor_seating).toBe(true);
+        expect(result?.has_ev_charging).toBe(true);
+      });
+    });
+
+    describe('Rating and review count mapping', () => {
+      it('maps google_rating and user_rating_count from MapMarkerRpc to standardized winery', () => {
+        const marker: MapMarkerRpc = {
+          ...createMockMapMarkerRpc(),
+          google_rating: 4.75,
+          user_rating_count: 342,
+        };
+
+        const result = standardizeWineryData(marker);
+
+        expect(result).not.toBeNull();
+        expect(result?.rating).toBe(4.75);
+        expect(result?.userRatingCount).toBe(342);
+      });
+
+      it('preserves existing rating and review count when incoming basic marker omits or has null ratings', () => {
+        const existing: Winery = {
+          ...createMockWinery(),
+          rating: 4.8,
+          userRatingCount: 200,
+        };
+
+        const unratedMarker: MapMarkerRpc = {
+          ...createMockMapMarkerRpc(),
+          id: (existing.dbId || 1) as WineryDbId,
+          google_place_id: existing.id,
+          google_rating: null,
+          user_rating_count: null,
+        };
+
+        const result = standardizeWineryData(unratedMarker, existing);
+
+        expect(result).not.toBeNull();
+        expect(result?.rating).toBe(4.8);
+        expect(result?.userRatingCount).toBe(200);
+      });
+    });
+
+    describe('Ghost visit prevention', () => {
+      it('clears existing visits when incoming record has user_visited: false', () => {
+        const existing: Winery = {
+          ...createMockWinery(),
+          userVisited: true,
+          visits: [createMockVisitWithWinery()],
+        };
+
+        const marker: MapMarkerRpc = {
+          ...createMockMapMarkerRpc(),
+          id: (existing.dbId || 1) as WineryDbId,
+          google_place_id: existing.id,
+          user_visited: false,
+        };
+
+        const result = standardizeWineryData(marker, existing);
+
+        expect(result).not.toBeNull();
+        expect(result?.userVisited).toBe(false);
+        expect(result?.visits).toEqual([]);
+      });
+
+      it('clears existing visits when incoming record has userVisited: false (camelCase)', () => {
+        const existing: Winery = {
+          ...createMockWinery(),
+          userVisited: true,
+          visits: [createMockVisitWithWinery()],
+        };
+
+        const update = {
+          id: existing.id,
+          name: existing.name,
+          latitude: existing.latitude,
+          longitude: existing.longitude,
+          userVisited: false,
+        };
+
+        const result = standardizeWineryData(update, existing);
+
+        expect(result).not.toBeNull();
+        expect(result?.userVisited).toBe(false);
+        expect(result?.visits).toEqual([]);
+      });
     });
   });
 });
