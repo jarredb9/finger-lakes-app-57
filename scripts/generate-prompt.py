@@ -11,6 +11,9 @@ Usage:
     python3 scripts/generate-prompt.py                 # Auto-detects active track and next pending task
     python3 scripts/generate-prompt.py 3 1 --plan      # Outputs only the plan prompt
     python3 scripts/generate-prompt.py 3 1 --exec      # Outputs only the exec prompt
+    python3 scripts/generate-prompt.py 3 1 --red       # Force Red phase prompt (failing tests only)
+    python3 scripts/generate-prompt.py 3 1 --green     # Force Green phase prompt (implement to pass tests)
+    python3 scripts/generate-prompt.py 3 1 --full      # Force Full TDD cycle prompt (Red -> Green -> Refactor)
     python3 scripts/generate-prompt.py 3 1 --copy-plan # Copies plan prompt to clipboard
     python3 scripts/generate-prompt.py 3 1 --copy-exec # Copies exec prompt to clipboard
     python3 scripts/generate-prompt.py --recovery      # Outputs recovery prompt for uncommitted changes
@@ -157,7 +160,7 @@ def copy_to_clipboard(text):
     return False
 
 
-def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", is_red_phase=False, subtasks=None):
+def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", subtasks=None, mode=None):
     """Infers the optimal targeted verification strategy and commit message
     by inspecting the task description, subtasks, target files, and plan document."""
     scope = derive_scope(track_name)
@@ -210,6 +213,39 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
 
     all_task_text = task_desc + "\n" + "\n".join(subtasks)
     desc_lower = all_task_text.lower()
+    task_desc_lower = task_desc.lower()
+
+    # Determine execution mode: 'red', 'green', or 'full'
+    if mode in ("red", "green", "full"):
+        resolved_mode = mode
+    else:
+        # Intelligent default based on task_desc (NEVER let subtasks alone force Red-only halt)
+        if (
+            task_desc_lower.startswith("write failing")
+            or "red phase" in task_desc_lower
+            or "(red)" in task_desc_lower
+            or "failing unit test" in task_desc_lower
+            or "failing test" in task_desc_lower
+            or "failing integration" in task_desc_lower
+        ):
+            resolved_mode = "red"
+        elif (
+            task_desc_lower.startswith("implement")
+            or "green phase" in task_desc_lower
+            or "(green)" in task_desc_lower
+            or task_desc_lower.startswith("fix ")
+            or task_desc_lower.startswith("refactor ")
+        ):
+            resolved_mode = "green"
+        elif "(tdd)" in task_desc_lower or (
+            any("failing" in st.lower() for st in subtasks)
+            and any("implement" in st.lower() or "update" in st.lower() or "green" in st.lower() for st in subtasks)
+        ):
+            resolved_mode = "full"
+        else:
+            resolved_mode = "green"
+
+    is_red = (resolved_mode == "red")
 
     # Only fall back to regex scanning task_desc/subtasks if the task plan did not define any targets
     if not plan_targets and not plan_verification_cmds:
@@ -247,12 +283,6 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
         or "quality gates" in desc_lower
         or "repository-wide verification" in desc_lower
     )
-    is_red = (
-        is_red_phase
-        or "failing unit" in desc_lower
-        or "red phase" in desc_lower
-        or "failing test" in desc_lower
-    )
 
     # Look for explicit executable commands in subtasks (e.g. `npm run db:check-types:local`, `npm run lint`)
     explicit_subtask_cmds = []
@@ -268,8 +298,8 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
         if is_red
         else (
             "refactor"
-            if "refactor" in task_desc.lower()
-            else ("chore" if ("cleanup" in task_desc.lower() or "scaffolding" in task_desc.lower()) else "feat")
+            if "refactor" in task_desc_lower
+            else ("chore" if ("cleanup" in task_desc_lower or "scaffolding" in task_desc_lower) else "feat")
         )
     )
 
@@ -360,6 +390,7 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
         "commands": commands,
         "instruction": instruction,
         "commit_msg": commit_msg,
+        "mode": resolved_mode,
         "is_red": is_red,
     }
 
@@ -380,19 +411,27 @@ Gate & Planning Protocol:
 - Halt for user approval via modal before modifying any files."""
 
 
-def build_exec_prompt(track_name, phase_num, task_num, task_desc="", is_red_phase=False, subtasks=None):
+def build_exec_prompt(track_name, phase_num, task_num, task_desc="", subtasks=None, mode=None):
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = track_dir.relative_to(PROJECT_ROOT) if track_dir else f"conductor/tracks/{track_name}"
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
-    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, is_red_phase, subtasks)
+    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode)
 
     cmd_lines = "\n".join(f"     {c}" for c in strategy["commands"])
 
-    if strategy["is_red"]:
+    if strategy["mode"] == "red":
         verification_block = f"""3. Targeted Verification (Red Phase):
    - Run containerized test runner to confirm new tests fail with expected assertions:
 {cmd_lines}
    - DO NOT implement application code. Verify failures match expectations."""
+    elif strategy["mode"] == "full":
+        verification_block = f"""3. Targeted Verification (Full TDD Cycle):
+   - Step 3.1 (Red Phase): Run containerized test runner to confirm new tests fail with expected assertions:
+{cmd_lines}
+   - Step 3.2 (Green Phase): Implement application code in target files and re-run runner:
+{cmd_lines}
+   {strategy['instruction']}
+   - Confirm all tests pass cleanly. Do NOT commit failing tests."""
     else:
         verification_block = f"""3. Targeted Verification:
    - Run targeted test runner for created/modified files:
@@ -445,11 +484,25 @@ def main():
     parser.add_argument("--copy-exec", action="store_true", help="Copy the Exec prompt to clipboard")
     parser.add_argument("--recovery", "-r", action="store_true", help="Generate recovery prompt for uncommitted work")
 
+    phase_group = parser.add_mutually_exclusive_group()
+    phase_group.add_argument("--red", action="store_true", help="Force Red phase prompt (failing tests only, halt after test commit)")
+    phase_group.add_argument("--green", action="store_true", help="Force Green phase prompt (implement application code to pass tests)")
+    phase_group.add_argument("--full", action="store_true", help="Force Full TDD prompt (write tests, verify Red, implement, verify Green)")
+
     parsed = parser.parse_args()
 
     track_name = parsed.track
     phase_num = parsed.phase
     task_num = parsed.task
+
+    # Determine explicit execution mode from CLI flags
+    mode = None
+    if parsed.red:
+        mode = "red"
+    elif parsed.green:
+        mode = "green"
+    elif parsed.full:
+        mode = "full"
 
     # Parse positional arguments if provided
     pos_args = parsed.args
@@ -496,8 +549,6 @@ def main():
         task_desc = phases[phase_num]["tasks"][task_num - 1]["description"]
         subtasks = phases[phase_num]["tasks"][task_num - 1].get("subtasks", [])
 
-    is_red = "failing unit" in task_desc.lower() or "red phase" in task_desc.lower()
-
     if parsed.recovery:
         rec_prompt = build_recovery_prompt(track_name, phase_num, task_num)
         print(rec_prompt)
@@ -508,7 +559,7 @@ def main():
         return
 
     plan_prompt = build_plan_prompt(track_name, phase_num, task_num, task_desc)
-    exec_prompt = build_exec_prompt(track_name, phase_num, task_num, task_desc, is_red, subtasks)
+    exec_prompt = build_exec_prompt(track_name, phase_num, task_num, task_desc, subtasks, mode)
 
     if parsed.copy_plan or (parsed.copy and parsed.plan_only):
         copied = copy_to_clipboard(plan_prompt)

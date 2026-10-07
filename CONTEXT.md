@@ -9,7 +9,7 @@ A commercial establishment producing or offering wine tasting in the region.
 _Avoid_: Venue, place, location, vineyard
 
 **Visit**:
-A historical record of a user physically attending a winery on or before today, containing personal impressions such as a rating, notes, or photos.
+A historical record of a user physically attending a winery on or before today, containing personal impressions such as a rating, notes, or photos. Invariant: If a data source reports `user_visited: false`, any cached visit records for that winery are cleared (ghost visit prevention).
 _Avoid_: Check-in, trip stop, attendance, booking
 
 **Visit Note**:
@@ -83,7 +83,7 @@ A specific grape or wine variety produced or poured by a Winery (e.g., Riesling,
 _Avoid_: Grape, blend, wine type
 
 **Vibe Tag**:
-A descriptive ambiance or lifestyle amenity associated with a Winery (e.g., dog-friendly, scenic views).
+A descriptive ambiance or lifestyle amenity associated with a Winery (e.g., dog-friendly, scenic views). Invariant: Tri-state boolean (`true` = confirmed amenity present, `false` = confirmed absent, `null` = un-enriched/unknown). Un-enriched wineries must retain `null` and never be coerced to `false`. Downstream filtering strictly matches `=== true`.
 _Avoid_: Feature, tag, label, amenity
 
 **Operational Hours**:
