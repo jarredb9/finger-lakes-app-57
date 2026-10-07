@@ -90,7 +90,7 @@ This track establishes a single source of truth in `wineryStore.persistentWineri
 ## Non-Functional Requirements
 - **Performance:** Merging search results into persistent cache must be efficient (`O(N)` via Map lookup) and memoized to avoid unnecessary React re-renders or frame drops during map pan/zoom.
 - **Backwards Compatibility:** Database migration runs safely inside a transaction following expand-and-contract principles.
-- **Type Safety & Runtime Invariants:** Strict TypeScript types, normalization of relational IDs via `Number()`, coordinate validation via `standardizeWineryData`, tri-state Vibe Tag parsing, and ghost visit clearing.
+- **Type Safety & Scoped Strictness:** Strict TypeScript types with zero new `any` types introduced. All newly added functions, hooks, and modified data pipeline signatures (such as `calculateDistanceKm`, `FloatingSearchAreaButton`, `MapMarkerRpc`, and viewport bounds utilities) must be strictly typed. Normalization of relational IDs via `Number()`, coordinate validation via `standardizeWineryData`, tri-state Vibe Tag parsing, and ghost visit clearing. Blanket sweeps of pre-existing `any` types across touched files (e.g., unrelated domain fields like `trip_info` in `lib/types.ts` or defensive test-fuzz `as any` casts in `winery.test.ts`) are explicitly out of scope to prevent track scope creep.
 - **Testing Standards:** Adhere strictly to Red-Green-Refactor TDD. Unit tests in Jest container runner (`./scripts/run-jest-container.sh`), Edge Function tests (`npm run test:functions`), and E2E in Playwright container runner.
 
 ## Acceptance Criteria
@@ -108,3 +108,4 @@ This track establishes a single source of truth in `wineryStore.persistentWineri
 ## Out of Scope
 - Redesigning the WineryModal layout or introducing new third-party map providers.
 - Direct remote database mutations (all schema changes tested locally per critical guardrails).
+- Blanket sweeps or wholesale elimination of legacy `any` types in touched files (including unrelated domain models like Trips/Friends and existing test-fuzz `as any` casts); strict typing is scoped to newly introduced or directly modified pipeline signatures.
