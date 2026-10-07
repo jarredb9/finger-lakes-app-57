@@ -9,14 +9,34 @@ let mockRpc: any = jest.fn((name: string) => {
   }
   return Promise.resolve({ data: null, error: null });
 });
+let mockInvoke: any = jest.fn().mockResolvedValue({ data: null, error: null });
+let mockFrom: any = jest.fn(() => ({
+  select: jest.fn(() => ({
+    eq: jest.fn(() => ({
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      single: jest.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  })),
+}));
 
 (globalThis as any)._WINERY_ENRICH_RPC = mockRpc;
+(globalThis as any)._WINERY_ENRICH_INVOKE = mockInvoke;
+(globalThis as any)._WINERY_ENRICH_FROM = mockFrom;
 
 jest.mock('@/utils/supabase/client', () => ({
   createClient: jest.fn(() => ({
     rpc: (...args: any[]) => (globalThis as any)._WINERY_ENRICH_RPC(...args),
+    from: (...args: any[]) => (globalThis as any)._WINERY_ENRICH_FROM(...args),
   })),
 }));
+
+jest.mock('@/lib/utils', () => {
+  const actual = jest.requireActual('@/lib/utils');
+  return {
+    ...actual,
+    invokeFunction: (...args: any[]) => (globalThis as any)._WINERY_ENRICH_INVOKE(...args),
+  };
+});
 
 describe('WineryDataStore', () => {
   beforeEach(() => {
@@ -28,7 +48,18 @@ describe('WineryDataStore', () => {
       }
       return Promise.resolve({ data: null, error: null });
     });
+    mockInvoke = jest.fn().mockResolvedValue({ data: null, error: null });
+    mockFrom = jest.fn(() => ({
+      select: jest.fn(() => ({
+        eq: jest.fn(() => ({
+          maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+          single: jest.fn().mockResolvedValue({ data: null, error: null }),
+        })),
+      })),
+    }));
     (globalThis as any)._WINERY_ENRICH_RPC = mockRpc;
+    (globalThis as any)._WINERY_ENRICH_INVOKE = mockInvoke;
+    (globalThis as any)._WINERY_ENRICH_FROM = mockFrom;
 
     useWineryStore.getState().reset();
   });
@@ -179,5 +210,336 @@ describe('WineryDataStore', () => {
     expect(updatedWinery?.has_ev_charging).toBe(true);
     expect(updatedWinery?.openingHours).toBeDefined();
     expect(updatedWinery?.reviews).toHaveLength(1);
+  });
+
+  describe('Search Merging & Authoritative Cache Ingestion', () => {
+    it('should preserve existing user flags and rich enrichment when merging search results via bulkUpsertWineries', () => {
+      // 1. Setup Initial State with User Flags and Rich Enriched Data
+      const existingWinery: Winery = createMockWinery({
+        id: 'ChIJ_seneca_lake' as GooglePlaceId,
+        dbId: 101 as WineryDbId,
+        name: 'Seneca Shore Winery',
+        address: '123 Seneca Rd',
+        latitude: 42.5,
+        longitude: -76.5,
+        isFavorite: true,
+        onWishlist: true,
+        userVisited: true,
+        rating: 4.5,
+        userRatingCount: 100,
+        enrichment_tier: 'enriched',
+        generative_summary: 'Scenic vineyard on Seneca Lake.',
+        allows_dogs: true,
+        has_ev_charging: true,
+        vibe_tags: ['Dog Friendly', 'Scenic Views'],
+        reviews: [{ author_name: 'Tester', rating: 5, text: 'Great!', time: 123, relative_time_description: 'Now' }],
+      });
+
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [existingWinery] });
+      });
+
+      // 2. Incoming search candidate with updated basic fields but unpersonalized / default false flags
+      const searchCandidate: any = {
+        id: 'ChIJ_seneca_lake' as GooglePlaceId,
+        google_place_id: 'ChIJ_seneca_lake' as GooglePlaceId,
+        name: 'Seneca Shore Wine Cellars (Updated)',
+        address: '123 Seneca Rd Suite A',
+        latitude: 42.55,
+        longitude: -76.55,
+        rating: 4.8,
+        userRatingCount: 150,
+        // Search results from Google Places API or text searches do not carry user personalization:
+        isFavorite: false,
+        onWishlist: false,
+        userVisited: false,
+        is_favorite: false,
+        on_wishlist: false,
+        user_visited: false,
+        enrichment_tier: 'basic',
+        generative_summary: null,
+        allows_dogs: null,
+      };
+
+      // 3. Ingest search candidate
+      act(() => {
+        useWineryStore.getState().bulkUpsertWineries([searchCandidate]);
+      });
+
+      // 4. Assertions
+      const cached = useWineryStore.getState().getWinery('ChIJ_seneca_lake');
+      expect(cached).toBeDefined();
+      // Basic info updated from search
+      expect(cached?.name).toBe('Seneca Shore Wine Cellars (Updated)');
+      expect(cached?.address).toBe('123 Seneca Rd Suite A');
+      expect(cached?.latitude).toBe(42.55);
+      expect(cached?.longitude).toBe(-76.55);
+      expect(cached?.rating).toBe(4.8);
+      expect(cached?.userRatingCount).toBe(150);
+
+      // User state flags MUST NOT be wiped by search results
+      expect(cached?.isFavorite).toBe(true);
+      expect(cached?.onWishlist).toBe(true);
+      expect(cached?.userVisited).toBe(true);
+
+      // Enriched fields MUST NOT be overwritten by basic/null search fields
+      expect(cached?.enrichment_tier).toBe('enriched');
+      expect(cached?.generative_summary).toBe('Scenic vineyard on Seneca Lake.');
+      expect(cached?.allows_dogs).toBe(true);
+      expect(cached?.vibe_tags).toEqual(['Dog Friendly', 'Scenic Views']);
+      expect(cached?.reviews).toHaveLength(1);
+    });
+
+    it('should seamlessly ingest newly discovered wineries from search results into persistentWineries with default user state', () => {
+      const existingWinery = createMockWinery({
+        id: 'ChIJ_existing_1' as GooglePlaceId,
+        name: 'Existing Estate',
+        isFavorite: true,
+      });
+
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [existingWinery] });
+      });
+
+      const newSearchCandidate: any = {
+        id: 'ChIJ_newly_discovered' as GooglePlaceId,
+        google_place_id: 'ChIJ_newly_discovered' as GooglePlaceId,
+        name: 'Newly Discovered Vineyard',
+        latitude: 42.75,
+        longitude: -76.85,
+        rating: 4.6,
+        userRatingCount: 42,
+      };
+
+      act(() => {
+        useWineryStore.getState().bulkUpsertWineries([newSearchCandidate]);
+      });
+
+      const wineries = useWineryStore.getState().persistentWineries;
+      expect(wineries).toHaveLength(2);
+
+      const added = useWineryStore.getState().getWinery('ChIJ_newly_discovered');
+      expect(added).toBeDefined();
+      expect(added?.name).toBe('Newly Discovered Vineyard');
+      expect(added?.rating).toBe(4.6);
+      expect(added?.userRatingCount).toBe(42);
+      expect(added?.isFavorite).toBe(false);
+      expect(added?.onWishlist).toBe(false);
+      expect(added?.userVisited).toBe(false);
+      expect(added?.visits).toEqual([]);
+
+      // Existing winery was not affected
+      expect(useWineryStore.getState().getWinery('ChIJ_existing_1')?.isFavorite).toBe(true);
+    });
+
+    it('should deduplicate search candidates matching by id or google_place_id without duplicating entries', () => {
+      const initial = createMockWinery({
+        id: 'ChIJ_dedup_test' as GooglePlaceId,
+        name: 'Dedup Winery',
+      });
+
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [initial] });
+      });
+
+      const batch: any[] = [
+        { id: 'ChIJ_dedup_test', name: 'Dedup Winery (Pass 1)', latitude: 42.5, longitude: -76.5 },
+        { id: 'ChIJ_dedup_test', name: 'Dedup Winery (Pass 2)', latitude: 42.5, longitude: -76.5 },
+        { id: 'ChIJ_other_place', name: 'Other Winery', latitude: 42.6, longitude: -76.6 },
+      ];
+
+      act(() => {
+        useWineryStore.getState().bulkUpsertWineries(batch);
+      });
+
+      const wineries = useWineryStore.getState().persistentWineries;
+      expect(wineries).toHaveLength(2);
+      expect(useWineryStore.getState().getWinery('ChIJ_dedup_test')?.name).toBe('Dedup Winery (Pass 2)');
+      expect(useWineryStore.getState().getWinery('ChIJ_other_place')?.name).toBe('Other Winery');
+    });
+  });
+
+  describe('ensureWineryDetails Seamless Cache Hydration', () => {
+    it('should seamlessly hydrate and update a basic winery in persistentWineries when enriched details are fetched', async () => {
+      const basicWinery: Winery = createMockWinery({
+        id: 'ChIJ_basic_to_enrich' as GooglePlaceId,
+        dbId: 200 as WineryDbId,
+        name: 'Basic Winery',
+        enrichment_tier: 'basic',
+        isFavorite: true,
+        userVisited: true,
+        rating: 4.2,
+        openingHours: null,
+        reviews: [],
+        vibe_tags: [],
+      });
+
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [basicWinery] });
+      });
+
+      mockRpc.mockImplementation((name: string) => {
+        if (name === 'get_winery_details_by_id') {
+          return Promise.resolve({ data: null, error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      });
+
+      mockInvoke.mockResolvedValueOnce({
+        data: {
+          id: 'ChIJ_basic_to_enrich',
+          name: 'Basic Winery (Enriched)',
+          rating: 4.8,
+          user_rating_count: 320,
+          userRatingCount: 320,
+          enrichment_tier: 'enriched',
+          opening_hours: { weekday_text: ['Mon-Sun: 10am-6pm'] },
+          reviews: [{ author_name: 'Wine Connoisseur', rating: 5, text: 'Outstanding Pinot Noir!', time: 12345 }],
+          generative_summary: 'Premier Finger Lakes estate.',
+          allows_dogs: true,
+          vibe_tags: ['Dog Friendly', 'Scenic Views'],
+          // External Edge Function does not know user state:
+          is_favorite: false,
+          isFavorite: false,
+          user_visited: false,
+          userVisited: false,
+        },
+        error: null,
+      });
+
+      const enrichedResult: Winery | null = await act(async () => {
+        return await useWineryStore.getState().ensureWineryDetails('ChIJ_basic_to_enrich' as GooglePlaceId);
+      });
+
+      expect(enrichedResult).toBeDefined();
+      expect(enrichedResult?.name).toBe('Basic Winery (Enriched)');
+      expect(enrichedResult?.enrichment_tier).toBe('enriched');
+      expect(enrichedResult?.openingHours?.weekday_text).toEqual(['Mon-Sun: 10am-6pm']);
+      expect(enrichedResult?.generative_summary).toBe('Premier Finger Lakes estate.');
+      expect(enrichedResult?.allows_dogs).toBe(true);
+
+      // Verify persistentWineries was updated in place
+      const cached = useWineryStore.getState().getWinery('ChIJ_basic_to_enrich');
+      expect(cached).toBeDefined();
+      expect(cached?.name).toBe('Basic Winery (Enriched)');
+      expect(cached?.enrichment_tier).toBe('enriched');
+      expect(cached?.openingHours?.weekday_text).toEqual(['Mon-Sun: 10am-6pm']);
+      expect(cached?.reviews).toHaveLength(1);
+      expect(cached?.rating).toBe(4.8);
+      expect(cached?.userRatingCount).toBe(320);
+
+      // Verify user flags were preserved and not wiped out by enrichment payload
+      expect(cached?.isFavorite).toBe(true);
+      expect(cached?.userVisited).toBe(true);
+      expect(useWineryStore.getState().loadingWineryId).toBeNull();
+    });
+
+    it('should hydrate uncached winery directly into persistentWineries when ensureWineryDetails is called', async () => {
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [] });
+      });
+
+      mockInvoke.mockResolvedValueOnce({
+        data: {
+          id: 'ChIJ_uncached_123',
+          name: 'Uncached Winery',
+          latitude: 42.65,
+          longitude: -76.88,
+          rating: 4.5,
+          user_rating_count: 55,
+          userRatingCount: 55,
+          enrichment_tier: 'enriched',
+          opening_hours: { weekday_text: ['Wed-Sun: 11am-5pm'] },
+          generative_summary: 'Hidden gem with picturesque vistas.',
+          allows_dogs: true,
+        },
+        error: null,
+      });
+
+      const result: Winery | null = await act(async () => {
+        return await useWineryStore.getState().ensureWineryDetails('ChIJ_uncached_123' as GooglePlaceId);
+      });
+
+      expect(result).toBeDefined();
+      expect(result?.name).toBe('Uncached Winery');
+      expect(useWineryStore.getState().persistentWineries).toHaveLength(1);
+
+      const cached = useWineryStore.getState().getWinery('ChIJ_uncached_123');
+      expect(cached).toBeDefined();
+      expect(cached?.name).toBe('Uncached Winery');
+      expect(cached?.openingHours?.weekday_text).toEqual(['Wed-Sun: 11am-5pm']);
+      expect(cached?.allows_dogs).toBe(true);
+      expect(cached?.isFavorite).toBe(false);
+      expect(cached?.userVisited).toBe(false);
+      expect(useWineryStore.getState().loadingWineryId).toBeNull();
+    });
+
+    it('should seamlessly update persistentWineries during background revalidation for stale enriched record without losing user flags', async () => {
+      // Stale timestamp (more than 30 days old)
+      const staleDate = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+      const staleWinery: Winery = createMockWinery({
+        id: 'ChIJ_stale_revalidate' as GooglePlaceId,
+        name: 'Stale Estate',
+        enrichment_tier: 'enriched',
+        last_enriched_at: staleDate,
+        isFavorite: true,
+        onWishlist: true,
+        userVisited: true,
+        rating: 4.1,
+        userRatingCount: 50,
+        openingHours: { weekday_text: ['Mon: 12pm-4pm'] },
+        reviews: [{ author_name: 'Old User', rating: 4, text: 'Decent', time: 100, relative_time_description: 'old' }],
+        generative_summary: 'Old summary.',
+        vibe_tags: ['Dog Friendly'],
+      });
+
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [staleWinery] });
+      });
+
+      mockInvoke.mockResolvedValueOnce({
+        data: {
+          id: 'ChIJ_stale_revalidate',
+          name: 'Stale Estate (Fresh)',
+          rating: 4.9,
+          user_rating_count: 140,
+          userRatingCount: 140,
+          enrichment_tier: 'enriched',
+          last_enriched_at: new Date().toISOString(),
+          opening_hours: { weekday_text: ['Mon-Sun: 10am-6pm'] },
+          reviews: [{ author_name: 'New User', rating: 5, text: 'Fantastic!', time: 200, relative_time_description: 'recent' }],
+          generative_summary: 'Fresh summary with newly added deck.',
+          allows_dogs: true,
+          vibe_tags: ['Dog Friendly', 'Outdoor Seating'],
+          // External Places payload without user flags:
+          is_favorite: false,
+          user_visited: false,
+        },
+        error: null,
+      });
+
+      let returnedWinery: Winery | null = null;
+      await act(async () => {
+        returnedWinery = await useWineryStore.getState().ensureWineryDetails('ChIJ_stale_revalidate' as GooglePlaceId);
+      });
+
+      // Immediate return gives cached version while background revalidation executes
+      expect(returnedWinery).toBeDefined();
+
+      // Verify invokeFunction was called in background
+      expect(mockInvoke).toHaveBeenCalledWith('get-winery-details', { body: { placeId: 'ChIJ_stale_revalidate' } });
+
+      // After background promise resolves, persistentWineries has fresh data
+      const cached = useWineryStore.getState().getWinery('ChIJ_stale_revalidate');
+      expect(cached?.name).toBe('Stale Estate (Fresh)');
+      expect(cached?.rating).toBe(4.9);
+      expect(cached?.userRatingCount).toBe(140);
+      expect(cached?.openingHours?.weekday_text).toEqual(['Mon-Sun: 10am-6pm']);
+
+      // User state flags MUST NOT be wiped out
+      expect(cached?.isFavorite).toBe(true);
+      expect(cached?.onWishlist).toBe(true);
+      expect(cached?.userVisited).toBe(true);
+    });
   });
 });
