@@ -1,6 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2"
 import { ESSENTIALS_FIELD_MASK, ENRICHMENT_FIELD_MASK } from "../_shared/google-maps.ts"
-import { normalizeGooglePlaceV1 } from "../_shared/normalization.ts"
+import { normalizeGooglePlaceV1, GooglePlaceInput, NormalizedWinery } from "../_shared/normalization.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,7 +67,7 @@ export const handler = async (req: Request): Promise<Response> => {
     console.log(`[SearchWineries] Google returned ${googlePlaces.length} places.`);
 
     // Normalize results using shared utility
-    const dbWineries = googlePlaces.map((place: any) => 
+    const dbWineries = googlePlaces.map((place: GooglePlaceInput) => 
       normalizeGooglePlaceV1(place, useEnrichment ? 'enriched' : 'basic')
     );
 
@@ -89,10 +89,12 @@ export const handler = async (req: Request): Promise<Response> => {
     }
 
     // Map to client format (preserving legacy field names for frontend compatibility)
-    const clientWineries = dbWineries.map((w: any) => ({
+    const clientWineries = dbWineries.map((w: NormalizedWinery) => ({
       ...w,
       id: w.google_place_id,
       rating: typeof w.google_rating === 'number' && w.google_rating > 0 ? w.google_rating : null,
+      user_rating_count: typeof w.user_rating_count === 'number' && w.user_rating_count > 0 ? w.user_rating_count : null,
+      userRatingCount: typeof w.user_rating_count === 'number' && w.user_rating_count > 0 ? w.user_rating_count : null,
       generative_summary: w.generative_summary?.overview?.text || null,
       neighborhood_summary: w.neighborhood_summary?.overview?.text || null,
     }));
@@ -100,7 +102,7 @@ export const handler = async (req: Request): Promise<Response> => {
     return new Response(JSON.stringify(clientWineries), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     const error = err as Error;
     return new Response(JSON.stringify({ error: error.message }), {
       status: 400,
