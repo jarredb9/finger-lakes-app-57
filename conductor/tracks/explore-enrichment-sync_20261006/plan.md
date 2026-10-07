@@ -83,3 +83,7 @@
     - [ ] Run Edge Function tests (`npm run test:functions`)
     - [ ] Run targeted Playwright E2E verification (`./scripts/run-e2e-container.sh webkit e2e/map-viewport.spec.ts` or relevant specs)
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions ba2f5f3
+
