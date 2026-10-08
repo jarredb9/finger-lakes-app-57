@@ -87,6 +87,9 @@ export function useWineryMap(userId: string) {
         const currentBounds = typeof mapInstance.getBounds === "function" ? mapInstance.getBounds() : null;
         if (currentBounds) {
           setBounds(currentBounds);
+          if (!useMapStore.getState().lastSearchedBounds) {
+            useMapStore.getState().setLastSearchedBounds(currentBounds);
+          }
         }
 
         if (typeof mapInstance.getCenter === "function") {
