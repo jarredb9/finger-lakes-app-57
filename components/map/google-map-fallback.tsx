@@ -104,6 +104,23 @@ export function GoogleMapFallback({
         all.push(...favoriteWineries.map((w) => ({ ...w, type: "favorite" })));
       }
     }
+
+    const activeAttributes = filter.filter((f) =>
+      ["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f)
+    );
+
+    if (activeAttributes.length > 0) {
+      return all.filter((winery) =>
+        activeAttributes.every((attr) => {
+          if (attr === "allowsDogs") return winery.allows_dogs === true;
+          if (attr === "goodForChildren") return winery.good_for_children === true;
+          if (attr === "outdoorSeating") return winery.outdoor_seating === true;
+          if (attr === "hasEvCharging") return winery.has_ev_charging === true;
+          return true;
+        })
+      );
+    }
+
     return all;
   }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, selectedTrip]);
 

@@ -38,6 +38,9 @@ export default function WineryCardThumbnail({ winery, onClick }: WineryCardProps
             <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded">
               <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
               <span>{winery.rating}</span>
+              {typeof winery.userRatingCount === 'number' && winery.userRatingCount > 0 && (
+                <span>({winery.userRatingCount})</span>
+              )}
             </div>
           )}
         </div>
