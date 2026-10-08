@@ -1,4 +1,10 @@
-import { coordToMapbox, mapboxToCoord, isCoordinateInBounds, getCoordinatesFromBounds } from '../map-utils';
+import {
+  coordToMapbox,
+  mapboxToCoord,
+  isCoordinateInBounds,
+  getCoordinatesFromBounds,
+  calculateDistanceKm,
+} from '../map-utils';
 
 describe('Map Utilities', () => {
   describe('coordToMapbox', () => {
@@ -83,6 +89,58 @@ describe('Map Utilities', () => {
         neLat: 43.0,
         neLng: -76.0
       });
+    });
+  });
+
+  describe('calculateDistanceKm', () => {
+    it('returns 0 when coordinates are identical', () => {
+      const coord = { latitude: 42.7, longitude: -76.9 };
+      expect(calculateDistanceKm(coord, coord)).toBe(0);
+    });
+
+    it('calculates accurate Haversine distance in km between known landmarks', () => {
+      // Geneva, NY to Watkins Glen, NY: ~54.8 km
+      const geneva = { latitude: 42.868, longitude: -76.980 };
+      const watkinsGlen = { latitude: 42.380, longitude: -76.874 };
+
+      const distance = calculateDistanceKm(geneva, watkinsGlen);
+      expect(distance).toBeCloseTo(54.8, 1);
+    });
+
+    it('supports both { latitude, longitude } and { lat, lng } coordinate formats', () => {
+      const p1 = { lat: 42.868, lng: -76.980 };
+      const p2 = { lat: 42.380, lng: -76.874 };
+      const p3 = { latitude: 42.380, longitude: -76.874 };
+
+      expect(calculateDistanceKm(p1, p2)).toBeCloseTo(54.8, 1);
+      expect(calculateDistanceKm(p1, p3)).toBeCloseTo(54.8, 1);
+    });
+
+    it('correctly discriminates viewport distance threshold of 5 km', () => {
+      const center = { latitude: 42.7000, longitude: -76.9000 };
+      // Small shift (~3.0 km north)
+      const nearPoint = { latitude: 42.7270, longitude: -76.9000 };
+      // Larger shift (~7.0 km north)
+      const farPoint = { latitude: 42.7630, longitude: -76.9000 };
+
+      const nearDistance = calculateDistanceKm(center, nearPoint);
+      const farDistance = calculateDistanceKm(center, farPoint);
+
+      expect(nearDistance).toBeLessThan(5);
+      expect(farDistance).toBeGreaterThan(5);
+    });
+
+    it('calculates large global distances accurately (Equator to North Pole)', () => {
+      const equator = { lat: 0, lng: 0 };
+      const northPole = { lat: 90, lng: 0 };
+
+      // Quarter circumference of Earth (~10,007.5 km)
+      expect(calculateDistanceKm(equator, northPole)).toBeCloseTo(10007.5, 0);
+    });
+
+    it('handles missing or invalid coordinate fields gracefully', () => {
+      expect(calculateDistanceKm({} as any, { lat: 42.7, lng: -76.9 })).toBeNaN();
+      expect(calculateDistanceKm(undefined as any, { lat: 42.7, lng: -76.9 })).toBeNaN();
     });
   });
 });
