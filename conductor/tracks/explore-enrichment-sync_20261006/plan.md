@@ -71,12 +71,12 @@
     - [x] Assert button appears upon panning viewport center >5 km away with `autoSearch: false`
     - [x] Assert clicking button initiates area search and dismisses button
     - [x] Confirm E2E test fails against current stub implementation (Red phase)
-- [ ] Task: Implement Haversine distance utility and FloatingSearchAreaButton overlay (TDD Green phase)
-    - [ ] Implement `calculateDistanceKm` in `lib/utils/map-utils.ts`
-    - [ ] Create `FloatingSearchAreaButton` component and embed at top-center of the map canvas in `components/WineryMap.tsx`
-    - [ ] Wire button click to trigger `handleManualSearchArea()` and dismiss button
-    - [ ] Add map `resize` listener so sidebar expand/collapse recalculates viewport `bounds`
-    - [ ] Run unit and E2E tests to verify green status
+- [x] Task: Implement Haversine distance utility and FloatingSearchAreaButton overlay (TDD Green phase) [commit: 80168697]
+    - [x] Implement `calculateDistanceKm` in `lib/utils/map-utils.ts`
+    - [x] Create `FloatingSearchAreaButton` component and embed at top-center of the map canvas in `components/WineryMap.tsx`
+    - [x] Wire button click to trigger `handleManualSearchArea()` and dismiss button
+    - [x] Add map `resize` listener so sidebar expand/collapse recalculates viewport `bounds`
+    - [x] Run unit and E2E tests to verify green status
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: Viewport Search UX & Map Event Sync' (Protocol in workflow.md)
 
 ## Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification
