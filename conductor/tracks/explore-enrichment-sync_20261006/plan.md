@@ -32,9 +32,9 @@
     - [x] Update search ingestion in `wineryStore` / `useWinerySearch` to merge search results into `persistentWineries` via `bulkUpsertWineries` and `standardizeWineryData`, preserving user flags (`isFavorite`, `onWishlist`, `userVisited`)
     - [x] Ensure `ensureWineryDetails` updates `persistentWineries` seamlessly
     - [x] Run store tests to verify green status
-- [ ] Task: Write failing unit tests for reactive propagation of favorite, wishlist, and visit actions (TDD Red phase)
-    - [ ] Add unit tests verifying user state actions (`toggleFavorite`, `toggleWishlist`, visit logs) immediately update `persistentWineries` and propagate across map pins and sidebar
-    - [ ] Confirm tests fail (Red phase)
+- [x] Task: Write failing unit tests for reactive propagation of favorite, wishlist, and visit actions (TDD Red phase) [commit: b3626865]
+    - [x] Add unit tests verifying user state actions (`toggleFavorite`, `toggleWishlist`, visit logs) immediately update `persistentWineries` and propagate across map pins and sidebar
+    - [x] Confirm tests fail (Red phase)
 - [ ] Task: Implement reactive propagation of user actions across persistentWineries (TDD Green phase)
     - [ ] Update user state action reducers/mutations to propagate updates across `persistentWineries`
     - [ ] Verify state updates adhere to domain invariants and run store tests to verify green status
