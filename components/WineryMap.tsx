@@ -18,6 +18,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { AlertTriangle } from "lucide-react";
 import MapView from "./map/MapView";
 import { useWineryMapContext } from "@/components/winery-map-context";
+import FloatingSearchAreaButton from "./map/floating-search-area-button";
 
 interface WineryMapProps {
   className?: string;
@@ -33,6 +34,7 @@ export default function WineryMap({ className }: WineryMapProps) {
     proposedWinery,
     setProposedWinery,
     selectedTrip,
+    handleManualSearchArea,
   } = useWineryMapContext();
 
   return (
@@ -53,6 +55,9 @@ export default function WineryMap({ className }: WineryMapProps) {
           selectedTrip={selectedTrip}
         />
       </div>
+
+      {/* Floating "Search this area" Button Overlay */}
+      <FloatingSearchAreaButton onClick={handleManualSearchArea} />
 
       {/* Floating Non-Destructive Error Overlay */}
       {error && (
