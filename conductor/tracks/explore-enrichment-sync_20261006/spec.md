@@ -79,6 +79,12 @@ This track establishes a single source of truth in `wineryStore.persistentWineri
   - Visibility condition: button appears when `autoSearch` is `false` and the distance between the current viewport center and `lastSearchedBounds` center exceeds 5 km.
   - Clicking "Search this area" triggers area search for current map bounds/center and hides the button.
   - Retain the existing manual button in `MapSearchBar` in the sidebar for accessibility.
+- **End-to-End Viewport & Floating Button Verification:**
+  - Author an E2E test in `e2e/map-viewport.spec.ts` exercising the real browser map canvas:
+    - Verifies "Search this area" button is initially absent with `autoSearch: false` and viewport at Finger Lakes seed.
+    - Pans the map canvas center >5 km away from last search center.
+    - Asserts the floating "Search this area" button appears over the canvas.
+    - Clicks the button and verifies it triggers search and dismisses.
 - **Map Resize Synchronization:**
   - Add a map `resize` listener / `ResizeObserver` so sidebar expand/collapse recalculates viewport `bounds` and keeps "Wineries in View" in sync.
 
