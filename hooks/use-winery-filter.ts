@@ -71,29 +71,6 @@ export function useWineryFilter() {
   const listResultsInView = useMemo(() => {
     if (selectedTrip) return [];
 
-    // When a search has been performed, the results list should ONLY show those results
-    // that are within the current map bounds (or all search results if bounds not yet set).
-    if (searchResults.length > 0) {
-        let results = searchResults;
-        if (filter.includes("allowsDogs")) {
-          results = results.filter((w) => w.allows_dogs === true);
-        }
-        if (filter.includes("goodForChildren")) {
-          results = results.filter((w) => w.good_for_children === true);
-        }
-        if (filter.includes("outdoorSeating")) {
-          results = results.filter((w) => w.outdoor_seating === true);
-        }
-        if (filter.includes("hasEvCharging")) {
-          results = results.filter((w) => w.has_ev_charging === true);
-        }
-        if (!bounds) return results;
-        return results.filter(
-            (w) => w && w.latitude && w.longitude && isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, bounds)
-        );
-    }
-
-    // If no search is active, filter all known wineries by the current view
     let wineriesToFilter: Winery[] = [];
     if (filter.includes("all")) {
       wineriesToFilter = [
@@ -125,29 +102,20 @@ export function useWineryFilter() {
       ];
     }
 
-    if (filter.includes("allowsDogs")) {
-      wineriesToFilter = wineriesToFilter.filter((w) => w.allows_dogs === true);
-    }
-    if (filter.includes("goodForChildren")) {
-      wineriesToFilter = wineriesToFilter.filter((w) => w.good_for_children === true);
-    }
-    if (filter.includes("outdoorSeating")) {
-      wineriesToFilter = wineriesToFilter.filter((w) => w.outdoor_seating === true);
-    }
-    if (filter.includes("hasEvCharging")) {
-      wineriesToFilter = wineriesToFilter.filter((w) => w.has_ev_charging === true);
-    }
-    
     const uniqueWineries = Array.from(
-        new Map(wineriesToFilter.map(w => [w.id, w])).values()
+      new Map(wineriesToFilter.map((w) => [w.id, w])).values()
     );
 
     if (!bounds) return uniqueWineries;
 
     return uniqueWineries.filter(
-      (w) => w && w.latitude && w.longitude && isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, bounds)
+      (w) =>
+        w &&
+        typeof w.latitude === "number" &&
+        typeof w.longitude === "number" &&
+        isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, bounds)
     );
-  }, [filter, mapWineries, bounds, selectedTrip, searchResults]);
+  }, [filter, mapWineries, bounds, selectedTrip]);
 
   const handleFilterChange = (newFilter: string[]) => {
     const categories = ["all", "visited", "favorites", "wantToGo", "notVisited"];
