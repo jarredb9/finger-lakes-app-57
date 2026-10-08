@@ -269,4 +269,45 @@ describe("MapView Container Component", () => {
       expect(isNaN(lat)).toBe(false);
     });
   });
+
+  it("filters map pins by active Vibe Tag attributes strictly matching === true and excluding null and false", () => {
+    const dogFriendlyWinery: Winery = {
+      ...sampleWinery,
+      id: "winery-dog" as any,
+      name: "Dog Friendly Winery",
+      allows_dogs: true,
+      outdoor_seating: true,
+    };
+
+    const nonDogWinery: Winery = {
+      ...sampleWinery,
+      id: "winery-non-dog" as any,
+      name: "Non Dog Winery",
+      allows_dogs: false,
+      outdoor_seating: true,
+    };
+
+    const unenrichedWinery: Winery = {
+      ...sampleWinery,
+      id: "winery-unenriched" as any,
+      name: "Unenriched Winery",
+      allows_dogs: null,
+      outdoor_seating: null,
+    };
+
+    render(
+      <MapView
+        discoveredWineries={[dogFriendlyWinery, nonDogWinery, unenrichedWinery]}
+        visitedWineries={[]}
+        wishlistWineries={[]}
+        favoriteWineries={[]}
+        filter={["all", "allowsDogs"]}
+        onMarkerClick={jest.fn()}
+      />
+    );
+
+    const features = lastSourceProps.data?.features || [];
+    expect(features.length).toBe(1);
+    expect(features[0].properties.id).toBe("winery-dog");
+  });
 });
