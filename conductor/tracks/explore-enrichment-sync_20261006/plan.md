@@ -35,9 +35,9 @@
 - [x] Task: Write failing unit tests for reactive propagation of favorite, wishlist, and visit actions (TDD Red phase) [commit: b3626865]
     - [x] Add unit tests verifying user state actions (`toggleFavorite`, `toggleWishlist`, visit logs) immediately update `persistentWineries` and propagate across map pins and sidebar
     - [x] Confirm tests fail (Red phase)
-- [ ] Task: Implement reactive propagation of user actions across persistentWineries (TDD Green phase)
-    - [ ] Update user state action reducers/mutations to propagate updates across `persistentWineries`
-    - [ ] Verify state updates adhere to domain invariants and run store tests to verify green status
+- [x] Task: Implement reactive propagation of user actions across persistentWineries (TDD Green phase) [commit: 062b0717]
+    - [x] Update user state action reducers/mutations to propagate updates across `persistentWineries`
+    - [x] Verify state updates adhere to domain invariants and run store tests to verify green status
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Authoritative Store Caching & Reactive User State Synchronization' (Protocol in workflow.md)
 
 ## Phase 4: Unified Sidebar List & Viewport Filtering
