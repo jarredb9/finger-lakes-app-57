@@ -54,7 +54,7 @@
     - [x] Add failing component tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying card thumbnail renders ratings, review count, and status badges accurately
     - [x] Add component tests verifying filter Vibe Tag toggles filter both map pins and sidebar list
     - [x] Confirm tests fail (Red phase)
-- [x] Task: Implement WineryCardThumbnail badges and synchronize Vibe Tag filtering (TDD Green phase)
+- [x] Task: Implement WineryCardThumbnail badges and synchronize Vibe Tag filtering (TDD Green phase) [commit: 299581c3]
     - [x] Update `WineryCardThumbnail` to render ratings, review counts, and status badges
     - [x] Ensure filter Vibe Tag toggles accurately filter both map pins and sidebar list on initial load
     - [x] Run component tests to verify green status
