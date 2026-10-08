@@ -40,7 +40,7 @@
     - [x] Verify state updates adhere to domain invariants and run store tests to verify green status
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Authoritative Store Caching & Reactive User State Synchronization' (Protocol in workflow.md) [commit: 6022e933]
 
-## Phase 4: Unified Sidebar List & Viewport Filtering
+## Phase 4: Unified Sidebar List & Viewport Filtering [checkpoint: b7dee990]
 - [x] Task: Write failing unit tests for useWineryFilter viewport list unification and Vibe Tag filtering (TDD Red phase) [commit: c6ce230d]
     - [x] Add unit tests in `hooks/__tests__/use-winery-filter.test.ts` verifying `listResultsInView` includes all cached wineries within viewport bounds even when searches have been performed
     - [x] Add unit tests verifying user badges (`isFavorite`, `userVisited`, `onWishlist`) are preserved in `listResultsInView`
@@ -58,7 +58,7 @@
     - [x] Update `WineryCardThumbnail` to render ratings, review counts, and status badges
     - [x] Ensure filter Vibe Tag toggles accurately filter both map pins and sidebar list on initial load
     - [x] Run component tests to verify green status
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Unified Sidebar List & Viewport Filtering' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Unified Sidebar List & Viewport Filtering' (Protocol in workflow.md) [commit: b7dee990]
 
 ## Phase 5: Viewport Search UX & Map Event Sync
 - [ ] Task: Write failing unit tests for Haversine distance and FloatingSearchAreaButton (TDD Red phase)
