@@ -395,20 +395,44 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", s
     }
 
 
+def get_preceding_context(track_name, phase_num, task_num):
+    """Gathers links to preceding task plans within the phase for progressive disclosure."""
+    track_dir = resolve_track_dir(track_name)
+    if not track_dir or task_num is None or task_num <= 1:
+        return ""
+
+    prior_plans = []
+    for i in range(1, task_num):
+        p = track_dir / f"phase-{phase_num}-task-{i}-plan.md"
+        if p.exists():
+            rel_p = p.relative_to(PROJECT_ROOT)
+            prior_plans.append(f"@[{rel_p}]")
+
+    if prior_plans:
+        return f"Preceding Phase Context: " + ", ".join(prior_plans)
+    return ""
+
+
 def build_plan_prompt(track_name, phase_num, task_num, task_desc=""):
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = track_dir.relative_to(PROJECT_ROOT) if track_dir else f"conductor/tracks/{track_name}"
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
     task_focus = f" for '{task_desc}'" if task_desc else ""
+    context_hint = get_preceding_context(track_name, phase_num, task_num)
+    context_line = f"\n\n{context_hint}" if context_hint else ""
 
-    return f"""/conductor:implement @[{rel_track_dir}] Plan Phase {phase_num} Task {task_num} only{task_focus}.
+    return f"""/conductor:implement @[{rel_track_dir}] Plan Phase {phase_num} Task {task_num} only{task_focus}.{context_line}
 
 Gate & Planning Protocol:
 - Perform static inspection only (NO test runners, build commands, or background docs). Seam-bounded inspection.
 - Write the implementation plan directly to: {plan_file}
-- CRITICAL: The plan must provide EXACT drop-in code blocks (imports, functions, replacement chunks) and precise line anchors for target files so the executor does not need to inspect surrounding files.
-- CRITICAL: If introducing or modifying test files (unit, integration, or E2E), the plan's Execution Verification Protocol MUST specify the exact command to run those tests (e.g. ./scripts/run-e2e-container.sh webkit <spec> or ./scripts/run-jest-container.sh <test>). Never leave new test code unverified in the execution phase.
-- CRITICAL: In the plan's Post-Execution section, format the `git notes add` command using the standard fields: Task, Summary, Files, and Rationale.
+- Plan Blueprint Requirements:
+  1. Exact target file paths (format as `- **Path:** `filepath``) and semantic insertion anchors (e.g. "inside ComponentX before <ChildY>").
+  2. Full TypeScript interfaces, prop types, and exported function signatures.
+  3. Precise behavioral logic (formulas, state transitions, conditions, error handling, edge cases).
+  4. Execution Verification Protocol with exact test commands to run (e.g. ./scripts/run-jest-container.sh <test> or ./scripts/run-e2e-container.sh webkit <spec>). Never leave new code unverified.
+  Omit verbatim multi-page code implementations; the executor will synthesize code directly using the blueprint with compiler and test feedback.
+- In the plan's Post-Execution section, format the `git notes add` command using the standard fields: Task, Summary, Files, and Rationale.
 - Halt for user approval via modal before modifying any files."""
 
 
@@ -443,8 +467,8 @@ def build_exec_prompt(track_name, phase_num, task_num, task_desc="", subtasks=No
     return f"""Execute Phase {phase_num} Task {task_num} strictly following @{plan_file}.
 
 Execution Directives (Seam-Bounded & Empirically Verified):
-1. The plan is 100% authoritative. Stay strictly within the planned seam (DO NOT view unmentioned files or explore git history).
-2. Proceed immediately to apply planned additions or edits using write_to_file or replace_file_content.
+1. The plan blueprint is authoritative. Implement the specified interfaces, logic, and anchors strictly within the planned files without exploring unrelated files.
+2. Proceed immediately to apply additions or edits using write_to_file or replace_file_content, guided by the blueprint and verified by the compiler and test runner.
 {verification_block}
 4. Once verified, commit changes with message: "{strategy['commit_msg']}", record git notes, append [commit: <hash>] to the completed task line in plan.md, and commit plan.md.
 5. Halt immediately after commit."""
