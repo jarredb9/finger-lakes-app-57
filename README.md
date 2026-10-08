@@ -4,7 +4,7 @@
 
 ## Overview
 
-This is a Next.js web application for planning and tracking visits to wineries. It allows users to explore wineries, create trips, track visits, and manage friends.
+This is a Next.js web application for discovering wineries worldwide, planning day trips, and tracking tasting visits. While seeded with the Finger Lakes as its default regional view, the platform provides global winery exploration and location tracking.
 
 **Live URL:** [https://vercel.com/jarreds-projects-8ff50eea/v0-fingerlakes-winery-app](https://vercel.com/jarreds-projects-8ff50eea/v0-fingerlakes-winery-app)
 
