@@ -128,3 +128,21 @@ export function getCoordinatesFromBounds(bounds: any): { swLat: number; swLng: n
   return null;
 }
 
+export interface CoordinatePoint {
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
+}
+
+/**
+ * Calculates the great-circle distance between two coordinates in kilometers using the Haversine formula.
+ * @returns Distance in kilometers.
+ */
+export function calculateDistanceKm(
+  _coord1: CoordinatePoint,
+  _coord2: CoordinatePoint
+): number {
+  return 0; // Stub for TDD Red phase
+}
+
