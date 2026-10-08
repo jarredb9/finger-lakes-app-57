@@ -99,4 +99,34 @@ describe("useWineryMap", () => {
     // Movement handler is invoked on mount, which auto-dismisses previous error
     expect(useMapStore.getState().error).toBeNull();
   });
+
+  it("seeds lastSearchedBounds from currentBounds on initial map mount if not previously set", () => {
+    const mockMapInstance = {
+      on: jest.fn(),
+      off: jest.fn(),
+      getBounds: jest.fn().mockReturnValue({
+        north: 43,
+        south: 42,
+        east: -76,
+        west: -77,
+      }),
+      getZoom: jest.fn().mockReturnValue(10),
+    };
+
+    (useMap as jest.Mock).mockReturnValue({
+      current: mockMapInstance,
+    });
+
+    expect(useMapStore.getState().lastSearchedBounds).toBeNull();
+
+    renderHook(() => useWineryMap(""));
+
+    // On initial mount, lastSearchedBounds must be seeded with initial map bounds
+    expect(useMapStore.getState().lastSearchedBounds).toEqual({
+      north: 43,
+      south: 42,
+      east: -76,
+      west: -77,
+    });
+  });
 });

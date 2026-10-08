@@ -95,6 +95,30 @@ test.describe('Map Viewport Panning & FloatingSearchAreaButton Overlay (E2E)', (
     await expect(floatingButton).toHaveText(/search this area/i);
   });
 
+  test('floating search button appears on fresh map load when viewport pans >5 km without manual store seeding', async ({ page }) => {
+    // 1. Fresh map load with default autoSearch: false and NO manual setLastSearchedBounds call
+    const floatingButton = page.getByTestId('floating-search-area-button');
+    await expect(floatingButton).not.toBeVisible();
+
+    // 2. Pan viewport north toward Geneva/Seneca Lake (~13.3 km shift: lat 42.82, lng -76.90)
+    await page.evaluate(() => {
+      const store = window.useMapStore?.getState();
+      if (store) {
+        store.setCenter({ lat: 42.82, lng: -76.90 });
+        store.setBounds({
+          north: 42.87,
+          south: 42.77,
+          east: -76.85,
+          west: -76.95,
+        });
+      }
+    });
+
+    // 3. Assert floating "Search this area" button appears over map canvas
+    await expect(floatingButton).toBeVisible();
+    await expect(floatingButton).toHaveText(/search this area/i);
+  });
+
   test('clicking floating search button initiates area search and dismisses the button', async ({ page }) => {
     // 1. Seed state with viewport panned >5 km away (lat 42.82, lng -76.90)
     await page.evaluate((bounds) => {
