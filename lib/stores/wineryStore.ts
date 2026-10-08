@@ -86,7 +86,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
             (winery.id && w.id === String(winery.id)) ||
             (w.dbId && (w.dbId === winery.dbId || Number(w.dbId) === Number(winery.id)))
           );
-          const standardized = standardizeWineryData(winery, exists);
+          const standardized = standardizeWineryData(winery, exists, { preserveUserFlags: true });
           if (!standardized) return {};
           const sanitized = sanitizeWineryForCache(standardized);
           if (exists) {
@@ -112,7 +112,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
               (existing.dbId && (existing.dbId === w.dbId || Number(existing.dbId) === Number(w.id)))
             );
             const exists = idx !== -1 ? current[idx] : undefined;
-            const standardized = standardizeWineryData(w, exists);
+            const standardized = standardizeWineryData(w, exists, { preserveUserFlags: true });
             if (standardized) {
               const sanitized = sanitizeWineryForCache(standardized);
               if (idx !== -1) {
@@ -222,7 +222,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
             .then(({ data: googleData, error: functionError }) => {
               if (!functionError && googleData) {
                 const currentExisting = get().getWinery(resolvedPlaceId);
-                const standardized = standardizeWineryData(googleData, currentExisting || undefined);
+                const standardized = standardizeWineryData(googleData, currentExisting || undefined, { preserveUserFlags: true });
                 if (standardized) {
                   get().upsertWinery(standardized);
                 }
@@ -334,7 +334,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
 
               if (!functionError && googleData) {
                 const currentExisting = get().getWinery(effectivePlaceId) || get().getWinery(placeId);
-                const standardized = standardizeWineryData(googleData, currentExisting || existing || standardizedDb || undefined);
+                const standardized = standardizeWineryData(googleData, currentExisting || existing || standardizedDb || undefined, { preserveUserFlags: true });
                 if (standardized) {
                   get().upsertWinery(standardized);
                   set({ loadingWineryId: null });

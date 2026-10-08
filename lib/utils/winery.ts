@@ -375,13 +375,18 @@ export function parseTriStateBoolean(val: unknown): boolean | null | undefined {
   return undefined;
 }
 
+export interface StandardizeOptions {
+  preserveUserFlags?: boolean;
+}
+
 /**
- * Standardizes winery data from various sources (DB, Google API, Mixed) into a single Winery object.
+ * Main standardizer function for raw winery sources.
  * This is the single source of truth for data shape transformations.
  */
 export const standardizeWineryData = (
   source: unknown, 
-  existing?: Winery
+  existing?: Winery,
+  options?: StandardizeOptions
 ): Winery | null => {
   if (!isRecord(source)) return null;
   const record = source;
@@ -534,7 +539,7 @@ export const standardizeWineryData = (
   const sanitizedExistingRating = typeof existing?.rating === 'number' && existing.rating > 0 
     ? existing.rating 
     : (typeof existing?.rating === 'string' && Number(existing.rating) > 0 ? Number(existing.rating) : null);
-  const rating = mergeField(parsedRating, sanitizedExistingRating);
+  const rating = parsedRating !== undefined && parsedRating !== null ? parsedRating : mergeField(parsedRating, sanitizedExistingRating);
 
   let rawUserRatingCount: unknown;
   if (isGoogleWinery(source)) {
@@ -552,7 +557,7 @@ export const standardizeWineryData = (
   const sanitizedExistingRatingCount = typeof existing?.userRatingCount === 'number' && existing.userRatingCount > 0 
     ? existing.userRatingCount 
     : (typeof existing?.userRatingCount === 'string' && Number(existing.userRatingCount) > 0 ? Number(existing.userRatingCount) : null);
-  const userRatingCount = mergeField(parsedUserRatingCount, sanitizedExistingRatingCount);
+  const userRatingCount = parsedUserRatingCount !== undefined && parsedUserRatingCount !== null ? parsedUserRatingCount : mergeField(parsedUserRatingCount, sanitizedExistingRatingCount);
 
   // Handle openingHours more carefully to avoid overwriting with null if missing from source
   let sourceOpeningHoursRaw: unknown;
@@ -593,19 +598,32 @@ export const standardizeWineryData = (
   }
   const reservable = sourceReservable !== undefined && sourceReservable !== null ? sourceReservable : existing?.reservable;
 
-  const userVisited = record['user_visited'] !== undefined ? Boolean(record['user_visited']) : (record['userVisited'] !== undefined ? Boolean(record['userVisited']) : (existing?.userVisited ?? false));
+  const shouldPreserveUserFlags = Boolean(options?.preserveUserFlags || isGoogleWinery(source));
+
+  const rawUserVisited = record['user_visited'] !== undefined ? Boolean(record['user_visited']) : (record['userVisited'] !== undefined ? Boolean(record['userVisited']) : undefined);
+  const userVisited = shouldPreserveUserFlags && existing
+    ? (Boolean(rawUserVisited) || Boolean(existing.userVisited))
+    : (rawUserVisited !== undefined ? rawUserVisited : (existing?.userVisited ?? false));
 
   const rawOnWishlist = record['on_wishlist'] !== undefined ? Boolean(record['on_wishlist']) : (record['onWishlist'] !== undefined ? Boolean(record['onWishlist']) : undefined);
-  const onWishlist = rawOnWishlist !== undefined ? rawOnWishlist : (existing?.onWishlist ?? false);
+  const onWishlist = shouldPreserveUserFlags && existing
+    ? (Boolean(rawOnWishlist) || Boolean(existing.onWishlist))
+    : (rawOnWishlist !== undefined ? rawOnWishlist : (existing?.onWishlist ?? false));
 
   const rawIsFavorite = record['is_favorite'] !== undefined ? Boolean(record['is_favorite']) : (record['isFavorite'] !== undefined ? Boolean(record['isFavorite']) : undefined);
-  const isFavorite = rawIsFavorite !== undefined ? rawIsFavorite : (existing?.isFavorite ?? false);
+  const isFavorite = shouldPreserveUserFlags && existing
+    ? (Boolean(rawIsFavorite) || Boolean(existing.isFavorite))
+    : (rawIsFavorite !== undefined ? rawIsFavorite : (existing?.isFavorite ?? false));
   
   const rawFavPriv = record['is_favorite_private'] !== undefined ? Boolean(record['is_favorite_private']) : (record['favorite_is_private'] !== undefined ? Boolean(record['favorite_is_private']) : (record['favoriteIsPrivate'] !== undefined ? Boolean(record['favoriteIsPrivate']) : undefined));
-  const favoriteIsPrivate = rawFavPriv !== undefined ? rawFavPriv : (existing?.favoriteIsPrivate ?? false);
+  const favoriteIsPrivate = shouldPreserveUserFlags && existing
+    ? (Boolean(rawFavPriv) || Boolean(existing.favoriteIsPrivate))
+    : (rawFavPriv !== undefined ? rawFavPriv : (existing?.favoriteIsPrivate ?? false));
 
   const rawWishPriv = record['on_wishlist_private'] !== undefined ? Boolean(record['on_wishlist_private']) : (record['wishlist_is_private'] !== undefined ? Boolean(record['wishlist_is_private']) : (record['wishlistIsPrivate'] !== undefined ? Boolean(record['wishlistIsPrivate']) : undefined));
-  const wishlistIsPrivate = rawWishPriv !== undefined ? rawWishPriv : (existing?.wishlistIsPrivate ?? false);
+  const wishlistIsPrivate = shouldPreserveUserFlags && existing
+    ? (Boolean(rawWishPriv) || Boolean(existing.wishlistIsPrivate))
+    : (rawWishPriv !== undefined ? rawWishPriv : (existing?.wishlistIsPrivate ?? false));
 
   // Enrichment (Places API v1)
   const lastEnrichedAt = (typeof record['last_enriched_at'] === 'string' ? record['last_enriched_at'] : undefined) || existing?.last_enriched_at;
@@ -678,12 +696,16 @@ export const standardizeWineryData = (
   // from persisting in the local cache after a deletion sync.
   let visits = (isWineryDetailsRpc(source) && source.visits) ? source.visits : (Array.isArray(record['visits']) ? (record['visits'] as Visit[]) : existing?.visits || []);
   
-  if (
-    ('user_visited' in record && (record['user_visited'] === false || record['user_visited'] === 0)) ||
-    ('userVisited' in record && record['userVisited'] === false) ||
-    userVisited === false
-  ) {
+  if (!shouldPreserveUserFlags) {
+    if (
+      ('user_visited' in record && (record['user_visited'] === false || record['user_visited'] === 0)) ||
+      ('userVisited' in record && record['userVisited'] === false) ||
+      userVisited === false
+    ) {
       visits = [];
+    }
+  } else if (!userVisited) {
+    visits = [];
   }
 
   let rawTripInfo: Record<string, unknown> | undefined;
