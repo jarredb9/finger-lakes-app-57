@@ -55,6 +55,8 @@ jest.mock('../wineryStore', () => ({
       confirmOptimisticUpdate: jest.fn(),
       revertOptimisticUpdate: jest.fn(),
       getWineries: jest.fn().mockReturnValue([]),
+      getWinery: jest.fn().mockReturnValue(undefined),
+      upsertWinery: jest.fn(),
     }),
   },
 }));

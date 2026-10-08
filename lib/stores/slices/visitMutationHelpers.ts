@@ -29,7 +29,7 @@ export async function saveVisitHelper(
   };
 
   if (!existingWinery) {
-    upsertWinery({
+    upsertWinery?.({
       ...winery,
       userVisited: true,
       onWishlist: false,
@@ -133,7 +133,7 @@ export async function saveVisitHelper(
     get().setLastActionTimestamp(String(visitId), finishedNow);
     
     if (wineryDbId && wineryDbId !== winery.dbId) {
-      useWineryStore.getState().upsertWinery({
+      useWineryStore.getState().upsertWinery?.({
         ...winery,
         dbId: wineryDbId as WineryDbId,
         userVisited: true,

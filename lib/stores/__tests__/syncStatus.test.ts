@@ -21,6 +21,8 @@ const mockWineryStoreState = {
   optimisticallyDeleteVisit: jest.fn(),
   confirmOptimisticUpdate: jest.fn(),
   getWineries: jest.fn(() => []),
+  getWinery: jest.fn(() => undefined),
+  upsertWinery: jest.fn(),
 };
 
 const mockWineryStore = {
