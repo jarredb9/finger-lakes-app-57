@@ -118,4 +118,97 @@ describe('WineryCardThumbnail', () => {
       expect(screen.queryByText(/hours/i)).not.toBeInTheDocument();
     });
   });
+
+  describe("Ratings and Review Counts (Phase 4 Task 3)", () => {
+    it("renders star rating and user review count when both are provided", () => {
+      const wineryWithReviews = {
+        ...mockWinery,
+        rating: 4.8,
+        userRatingCount: 125,
+      };
+      render(<WineryCardThumbnail winery={wineryWithReviews} />);
+      expect(screen.getByText("4.8")).toBeInTheDocument();
+      expect(screen.getByText("(125)")).toBeInTheDocument();
+    });
+
+    it("omits review count when userRatingCount is null, undefined, or 0", () => {
+      const wineryNoReviews = {
+        ...mockWinery,
+        rating: 4.5,
+        userRatingCount: null,
+      };
+      render(<WineryCardThumbnail winery={wineryNoReviews} />);
+      expect(screen.getByText("4.5")).toBeInTheDocument();
+      expect(screen.queryByText(/\(\d+\)/)).not.toBeInTheDocument();
+    });
+
+    it("omits rating and review count container when rating is null, undefined, or 0", () => {
+      const wineryUnrated = {
+        ...mockWinery,
+        rating: null,
+        userRatingCount: 50,
+      };
+      render(<WineryCardThumbnail winery={wineryUnrated} />);
+      expect(screen.queryByText("50")).not.toBeInTheDocument();
+      expect(screen.queryByText("(50)")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Status Badges and Visual Indicators (Phase 4 Task 3)", () => {
+    it("renders unvisited winery with default muted indicator strip and no status badges", () => {
+      const plainWinery = {
+        ...mockWinery,
+        isFavorite: false,
+        userVisited: false,
+        onWishlist: false,
+      };
+      const { container } = render(<WineryCardThumbnail winery={plainWinery} />);
+
+      const statusIndicator = container.querySelector(".w-1");
+      expect(statusIndicator).toHaveClass("bg-muted");
+      expect(statusIndicator).not.toHaveClass("bg-amber-500");
+      expect(statusIndicator).not.toHaveClass("bg-emerald-500");
+      expect(statusIndicator).not.toHaveClass("bg-purple-500");
+
+      expect(screen.queryByText("Favorite")).not.toBeInTheDocument();
+      expect(screen.queryByText("Visited")).not.toBeInTheDocument();
+      expect(screen.queryByText("Want to Go")).not.toBeInTheDocument();
+    });
+
+    it("renders Favorite badge with amber styling and indicator", () => {
+      const favWinery = { ...mockWinery, isFavorite: true, userVisited: false, onWishlist: false };
+      const { container } = render(<WineryCardThumbnail winery={favWinery} />);
+
+      const badge = screen.getByText("Favorite");
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass("bg-amber-100", "text-amber-800");
+
+      const statusIndicator = container.querySelector(".w-1");
+      expect(statusIndicator).toHaveClass("bg-amber-500");
+    });
+
+    it("renders Visited badge with emerald styling and indicator", () => {
+      const visitedWinery = { ...mockWinery, isFavorite: false, userVisited: true, onWishlist: false };
+      const { container } = render(<WineryCardThumbnail winery={visitedWinery} />);
+
+      const badge = screen.getByText("Visited");
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass("bg-emerald-100", "text-emerald-800");
+
+      const statusIndicator = container.querySelector(".w-1");
+      expect(statusIndicator).toHaveClass("bg-emerald-500");
+    });
+
+    it("renders Want to Go badge with purple styling and indicator", () => {
+      const wishWinery = { ...mockWinery, isFavorite: false, userVisited: false, onWishlist: true };
+      const { container } = render(<WineryCardThumbnail winery={wishWinery} />);
+
+      const badge = screen.getByText("Want to Go");
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveClass("bg-purple-100", "text-purple-800");
+
+      const statusIndicator = container.querySelector(".w-1");
+      expect(statusIndicator).toHaveClass("bg-purple-500");
+    });
+  });
 });
