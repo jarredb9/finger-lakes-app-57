@@ -26,9 +26,28 @@ export async function deleteVisitHelper(
 ): Promise<void> {
   const { optimisticallyDeleteVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
   const supabase = createClient();
-  
-  optimisticallyDeleteVisit(visitId);
+
   const originalVisits = get().visits;
+  const visitToDelete = originalVisits.find(v => String(v.id) === String(visitId));
+  const wineryIdentifier = (visitToDelete?.wineryId ||
+    visitToDelete?.wineries?.google_place_id ||
+    (visitToDelete?.wineries?.id != null ? String(visitToDelete.wineries.id) : undefined)) as string | undefined;
+
+  const remainingVisits = originalVisits.filter(v =>
+    String(v.id) !== String(visitId) && (
+      (visitToDelete?.wineryId && v.wineryId === visitToDelete.wineryId) ||
+      (visitToDelete?.wineries?.google_place_id && v.wineries?.google_place_id === visitToDelete.wineries.google_place_id) ||
+      (visitToDelete?.wineries?.id != null && v.wineries?.id === visitToDelete.wineries.id)
+    )
+  );
+  const hasOtherVisits = remainingVisits.length > 0;
+
+  if (!hasOtherVisits && wineryIdentifier) {
+    optimisticallyDeleteVisit(visitId, wineryIdentifier);
+  } else {
+    optimisticallyDeleteVisit(visitId);
+  }
+
   const now = Date.now();
   set(state => ({
     visits: state.visits.filter(v => String(v.id) !== String(visitId)),
@@ -62,6 +81,9 @@ export async function deleteVisitHelper(
 
     console.error("Failed to delete visit, marking as error:", error);
     revertOptimisticUpdate();
+    if (!hasOtherVisits && wineryIdentifier) {
+      useWineryStore.getState().addVisitToWinery(wineryIdentifier);
+    }
     const revertedVisits = originalVisits.map(v => 
       String(v.id) === String(visitId) ? { ...v, syncStatus: 'error' as const } : v
     );

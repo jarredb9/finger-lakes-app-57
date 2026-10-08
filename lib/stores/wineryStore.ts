@@ -8,6 +8,7 @@ import { WineryService } from '@/lib/services/wineryService';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
 import { idbStorage } from './idb-persist-storage';
 import { isE2E, shouldMockWineries } from './e2e-utils';
+import { useMapStore } from './mapStore';
 
 export interface WineryState {
   // Master Cache
@@ -38,7 +39,7 @@ export interface WineryState {
   // Visit Compatibility Operations (ST-03: visits stored in visitStore)
   addVisitToWinery: (wineryId: GooglePlaceId | string, visit?: Visit) => void;
   optimisticallyUpdateVisit: (visitId: string, visitData: Partial<Visit>) => void;
-  optimisticallyDeleteVisit: (visitId: string) => void;
+  optimisticallyDeleteVisit: (visitId: string, wineryId?: GooglePlaceId | string) => void;
   replaceVisit: (wineryId: GooglePlaceId, tempId: string, finalVisit: Visit) => void;
   confirmOptimisticUpdate: (updatedVisit?: Visit) => void;
   revertOptimisticUpdate: () => void;
@@ -360,16 +361,49 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
       toggleFavorite: async (target) => {
         const wineryId = typeof target === 'string' ? target : target.id;
         const original = get().persistentWineries;
-        const winery = original.find(w => w.id === wineryId);
+        const originalSearchResults = useMapStore.getState().searchResults;
+        let winery = original.find(w => w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId)));
+        if (!winery) {
+          if (typeof target !== 'string') {
+            winery = target;
+          } else {
+            winery = originalSearchResults.find(w => w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId)));
+          }
+        }
         if (!winery) {
           return;
         }
 
         const nextState = !winery.isFavorite;
 
-        set({
-          persistentWineries: original.map(w => w.id === wineryId ? { ...w, isFavorite: nextState } : w),
-        });
+        const existsInCache = original.some(w => w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId));
+        if (existsInCache) {
+          set({
+            persistentWineries: original.map(w =>
+              w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId)
+                ? { ...w, isFavorite: nextState }
+                : w
+            ),
+          });
+        } else {
+          const standardized = standardizeWineryData(
+            { ...winery, isFavorite: nextState },
+            undefined,
+            { preserveUserFlags: true }
+          );
+          const sanitized = sanitizeWineryForCache(standardized || { ...winery, isFavorite: nextState });
+          set({
+            persistentWineries: [...original, sanitized],
+          });
+        }
+
+        useMapStore.setState(state => ({
+          searchResults: state.searchResults.map(w =>
+            w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId)
+              ? { ...w, isFavorite: nextState }
+              : w
+          ),
+        }));
 
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -392,7 +426,16 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           const result = await WineryService.toggleFavorite(winery);
           set(state => ({
             persistentWineries: state.persistentWineries.map(w =>
-              w.id === wineryId ? { ...w, isFavorite: result.isFavorite, dbId: (result.dbId || w.dbId) as WineryDbId } : w
+              w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId)
+                ? { ...w, isFavorite: result.isFavorite, dbId: (result.dbId || w.dbId) as WineryDbId }
+                : w
+            ),
+          }));
+          useMapStore.setState(state => ({
+            searchResults: state.searchResults.map(w =>
+              w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId)
+                ? { ...w, isFavorite: result.isFavorite, dbId: (result.dbId || w.dbId) as WineryDbId }
+                : w
             ),
           }));
         } catch (err: any) {
@@ -401,22 +444,56 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           }
           console.error('[wineryStore] Fav toggle failed:', err);
           set({ persistentWineries: original, error: err.message });
+          useMapStore.setState({ searchResults: originalSearchResults });
         }
       },
 
       toggleWishlist: async (target) => {
         const wineryId = typeof target === 'string' ? target : target.id;
         const original = get().persistentWineries;
-        const winery = original.find(w => w.id === wineryId);
+        const originalSearchResults = useMapStore.getState().searchResults;
+        let winery = original.find(w => w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId)));
+        if (!winery) {
+          if (typeof target !== 'string') {
+            winery = target;
+          } else {
+            winery = originalSearchResults.find(w => w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId)));
+          }
+        }
         if (!winery) {
           return;
         }
 
         const nextState = !winery.onWishlist;
 
-        set({
-          persistentWineries: original.map(w => w.id === wineryId ? { ...w, onWishlist: nextState } : w),
-        });
+        const existsInCache = original.some(w => w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId));
+        if (existsInCache) {
+          set({
+            persistentWineries: original.map(w =>
+              w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId)
+                ? { ...w, onWishlist: nextState }
+                : w
+            ),
+          });
+        } else {
+          const standardized = standardizeWineryData(
+            { ...winery, onWishlist: nextState },
+            undefined,
+            { preserveUserFlags: true }
+          );
+          const sanitized = sanitizeWineryForCache(standardized || { ...winery, onWishlist: nextState });
+          set({
+            persistentWineries: [...original, sanitized],
+          });
+        }
+
+        useMapStore.setState(state => ({
+          searchResults: state.searchResults.map(w =>
+            w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId)
+              ? { ...w, onWishlist: nextState }
+              : w
+          ),
+        }));
 
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -439,7 +516,16 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           const result = await WineryService.toggleWishlist(winery);
           set(state => ({
             persistentWineries: state.persistentWineries.map(w =>
-              w.id === wineryId ? { ...w, onWishlist: result.onWishlist, dbId: (result.dbId || w.dbId) as WineryDbId } : w
+              w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId)
+                ? { ...w, onWishlist: result.onWishlist, dbId: (result.dbId || w.dbId) as WineryDbId }
+                : w
+            ),
+          }));
+          useMapStore.setState(state => ({
+            searchResults: state.searchResults.map(w =>
+              w.id === wineryId || (winery?.dbId && w.dbId === winery.dbId)
+                ? { ...w, onWishlist: result.onWishlist, dbId: (result.dbId || w.dbId) as WineryDbId }
+                : w
             ),
           }));
         } catch (err: any) {
@@ -448,19 +534,25 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           }
           console.error('[wineryStore] Wishlist toggle failed:', err);
           set({ persistentWineries: original, error: err.message });
+          useMapStore.setState({ searchResults: originalSearchResults });
         }
       },
 
       toggleFavoritePrivacy: async (wineryId) => {
         const original = get().persistentWineries;
-        const winery = original.find(w => w.id === wineryId);
+        const originalSearchResults = useMapStore.getState().searchResults;
+        const winery = original.find(w => w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId)));
         if (!winery) {
           return;
         }
 
+        const nextPrivacy = !winery.favoriteIsPrivate;
         set({
-          persistentWineries: original.map(w => w.id === wineryId ? { ...w, favoriteIsPrivate: !w.favoriteIsPrivate } : w),
+          persistentWineries: original.map(w => (w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))) ? { ...w, favoriteIsPrivate: nextPrivacy } : w),
         });
+        useMapStore.setState(state => ({
+          searchResults: state.searchResults.map(w => (w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))) ? { ...w, favoriteIsPrivate: nextPrivacy } : w),
+        }));
 
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -478,7 +570,12 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           const result = await WineryService.toggleFavoritePrivacy(winery);
           set(state => ({
             persistentWineries: state.persistentWineries.map(w =>
-              w.id === wineryId ? { ...w, favoriteIsPrivate: result.isPrivate, dbId: result.dbId as WineryDbId } : w
+              (w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))) ? { ...w, favoriteIsPrivate: result.isPrivate, dbId: result.dbId as WineryDbId } : w
+            ),
+          }));
+          useMapStore.setState(state => ({
+            searchResults: state.searchResults.map(w =>
+              (w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))) ? { ...w, favoriteIsPrivate: result.isPrivate, dbId: (result.dbId || w.dbId) as WineryDbId } : w
             ),
           }));
         } catch (err: any) {
@@ -486,20 +583,26 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
             return;
           }
           set({ persistentWineries: original, error: err.message });
+          useMapStore.setState({ searchResults: originalSearchResults });
           throw err;
         }
       },
 
       toggleWishlistPrivacy: async (wineryId) => {
         const original = get().persistentWineries;
-        const winery = original.find(w => w.id === wineryId);
+        const originalSearchResults = useMapStore.getState().searchResults;
+        const winery = original.find(w => w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId)));
         if (!winery) {
           return;
         }
 
+        const nextPrivacy = !winery.wishlistIsPrivate;
         set({
-          persistentWineries: original.map(w => w.id === wineryId ? { ...w, wishlistIsPrivate: !w.wishlistIsPrivate } : w),
+          persistentWineries: original.map(w => (w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))) ? { ...w, wishlistIsPrivate: nextPrivacy } : w),
         });
+        useMapStore.setState(state => ({
+          searchResults: state.searchResults.map(w => (w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))) ? { ...w, wishlistIsPrivate: nextPrivacy } : w),
+        }));
 
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -517,7 +620,12 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           const result = await WineryService.toggleWishlistPrivacy(winery);
           set(state => ({
             persistentWineries: state.persistentWineries.map(w =>
-              w.id === wineryId ? { ...w, wishlistIsPrivate: result.isPrivate, dbId: result.dbId as WineryDbId } : w
+              (w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))) ? { ...w, wishlistIsPrivate: result.isPrivate, dbId: result.dbId as WineryDbId } : w
+            ),
+          }));
+          useMapStore.setState(state => ({
+            searchResults: state.searchResults.map(w =>
+              (w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))) ? { ...w, wishlistIsPrivate: result.isPrivate, dbId: (result.dbId || w.dbId) as WineryDbId } : w
             ),
           }));
         } catch (err: any) {
@@ -526,6 +634,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           }
           console.error('[wineryStore] Wishlist privacy toggle failed:', err);
           set({ persistentWineries: original, error: err.message });
+          useMapStore.setState({ searchResults: originalSearchResults });
           throw err;
         }
       },
@@ -535,12 +644,81 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
         if (existing) {
           get().upsertWinery({ ...existing, ...updates });
         }
+        useMapStore.setState(state => ({
+          searchResults: state.searchResults.map(w =>
+            w.id === id || (w.dbId && existing?.dbId && w.dbId === existing.dbId)
+              ? { ...w, ...updates }
+              : w
+          ),
+        }));
       },
 
       // ST-03: Compatibility stubs for visits (visitStore owns visits directly)
-      addVisitToWinery: (wineryId) => {
-        set(state => ({
-          persistentWineries: state.persistentWineries.map(w =>
+      addVisitToWinery: (wineryId, visit) => {
+        set(state => {
+          const exists = state.persistentWineries.some(w =>
+            w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))
+          );
+          if (exists) {
+            return {
+              persistentWineries: state.persistentWineries.map(w =>
+                w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))
+                  ? {
+                      ...w,
+                      userVisited: true,
+                      onWishlist: false,
+                      wishlistIsPrivate: false,
+                    }
+                  : w
+              ),
+            };
+          }
+
+          const searchCandidate = useMapStore.getState().searchResults.find(w =>
+            w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))
+          );
+          if (searchCandidate) {
+            const standardized = standardizeWineryData(
+              {
+                ...searchCandidate,
+                userVisited: true,
+                onWishlist: false,
+                wishlistIsPrivate: false,
+              },
+              undefined,
+              { preserveUserFlags: true }
+            );
+            if (standardized) {
+              return {
+                persistentWineries: [...state.persistentWineries, sanitizeWineryForCache(standardized)],
+              };
+            }
+          }
+
+          if (visit?.wineries) {
+            const fallback: Winery = {
+              id: (visit.wineries.google_place_id || wineryId) as GooglePlaceId,
+              dbId: visit.wineries.id,
+              name: visit.wineries.name || '',
+              address: visit.wineries.address || '',
+              latitude: visit.wineries.latitude,
+              longitude: visit.wineries.longitude,
+              userVisited: true,
+              onWishlist: false,
+              wishlistIsPrivate: false,
+              isFavorite: false,
+              visits: [],
+            };
+            return {
+              persistentWineries: [...state.persistentWineries, fallback],
+            };
+          }
+
+          return {};
+        });
+
+        useMapStore.setState(state => ({
+          searchResults: state.searchResults.map(w =>
             w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))
               ? {
                   ...w,
@@ -553,7 +731,23 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
         }));
       },
       optimisticallyUpdateVisit: () => {},
-      optimisticallyDeleteVisit: () => {},
+      optimisticallyDeleteVisit: (_visitId, wineryId) => {
+        if (!wineryId) return;
+        set(state => ({
+          persistentWineries: state.persistentWineries.map(w =>
+            w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))
+              ? { ...w, userVisited: false }
+              : w
+          ),
+        }));
+        useMapStore.setState(state => ({
+          searchResults: state.searchResults.map(w =>
+            w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))
+              ? { ...w, userVisited: false }
+              : w
+          ),
+        }));
+      },
       replaceVisit: () => {},
       confirmOptimisticUpdate: () => {},
       revertOptimisticUpdate: () => {},

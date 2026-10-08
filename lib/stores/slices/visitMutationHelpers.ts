@@ -19,7 +19,7 @@ export async function saveVisitHelper(
   const idempotencyKey = crypto.randomUUID();
   set({ isSavingVisit: true });
   const supabase = createClient();
-  const { addVisitToWinery, replaceVisit } = useWineryStore.getState();
+  const { addVisitToWinery, replaceVisit, upsertWinery } = useWineryStore.getState();
 
   const existingWinery = useWineryStore.getState().getWinery?.(winery.id);
   const preMutationWinery = {
@@ -27,6 +27,15 @@ export async function saveVisitHelper(
     onWishlist: existingWinery?.onWishlist ?? winery.onWishlist ?? false,
     wishlistIsPrivate: existingWinery?.wishlistIsPrivate ?? winery.wishlistIsPrivate ?? false,
   };
+
+  if (!existingWinery) {
+    upsertWinery({
+      ...winery,
+      userVisited: true,
+      onWishlist: false,
+      wishlistIsPrivate: false,
+    });
+  }
 
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) throw new Error("User not authenticated.");
@@ -124,7 +133,13 @@ export async function saveVisitHelper(
     get().setLastActionTimestamp(String(visitId), finishedNow);
     
     if (wineryDbId && wineryDbId !== winery.dbId) {
-      useWineryStore.getState().upsertWinery({ ...winery, dbId: wineryDbId as WineryDbId });
+      useWineryStore.getState().upsertWinery({
+        ...winery,
+        dbId: wineryDbId as WineryDbId,
+        userVisited: true,
+        onWishlist: false,
+        wishlistIsPrivate: false,
+      });
     }
 
     const finalVisit: VisitWithWinery = { 
