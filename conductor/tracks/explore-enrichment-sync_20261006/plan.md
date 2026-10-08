@@ -60,7 +60,7 @@
     - [x] Run component tests to verify green status
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Unified Sidebar List & Viewport Filtering' (Protocol in workflow.md) [commit: b7dee990]
 
-## Phase 5: Viewport Search UX & Map Event Sync
+## Phase 5: Viewport Search UX & Map Event Sync [checkpoint: 6f732d7b]
 - [x] Task: Write failing unit tests for Haversine distance and FloatingSearchAreaButton (TDD Red phase) [commit: 131dfaf6]
     - [x] Write failing unit tests for `calculateDistanceKm` in `lib/utils/__tests__/map-utils.test.ts`
     - [x] Write failing tests for viewport distance tracking: display floating button when `autoSearch` is false and center distance > 5 km from `lastSearchedBounds`
@@ -77,7 +77,7 @@
     - [x] Wire button click to trigger `handleManualSearchArea()` and dismiss button
     - [x] Add map `resize` listener so sidebar expand/collapse recalculates viewport `bounds`
     - [x] Run unit and E2E tests to verify green status
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Viewport Search UX & Map Event Sync' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Viewport Search UX & Map Event Sync' (Protocol in workflow.md) [commit: 6f732d7b]
 
 ## Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification
 - [ ] Task: Audit and cleanup temporary test scaffolding
