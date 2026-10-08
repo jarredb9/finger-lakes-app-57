@@ -35,8 +35,8 @@ export async function deleteVisitHelper(
 
   const remainingVisits = originalVisits.filter(v =>
     String(v.id) !== String(visitId) && (
-      (visitToDelete?.wineryId && v.wineryId === visitToDelete.wineryId) ||
-      (visitToDelete?.wineries?.google_place_id && v.wineries?.google_place_id === visitToDelete.wineries.google_place_id) ||
+      (visitToDelete?.wineryId && (v.wineryId === visitToDelete.wineryId || v.wineries?.google_place_id === visitToDelete.wineryId)) ||
+      (visitToDelete?.wineries?.google_place_id && (v.wineries?.google_place_id === visitToDelete.wineries.google_place_id || v.wineryId === visitToDelete.wineries.google_place_id)) ||
       (visitToDelete?.wineries?.id != null && v.wineries?.id === visitToDelete.wineries.id)
     )
   );

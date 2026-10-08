@@ -736,7 +736,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
         set(state => ({
           persistentWineries: state.persistentWineries.map(w =>
             w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))
-              ? { ...w, userVisited: false }
+              ? { ...w, userVisited: false, visits: [] }
               : w
           ),
         }));
