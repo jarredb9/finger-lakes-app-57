@@ -41,11 +41,11 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Authoritative Store Caching & Reactive User State Synchronization' (Protocol in workflow.md) [commit: 6022e933]
 
 ## Phase 4: Unified Sidebar List & Viewport Filtering
-- [ ] Task: Write failing unit tests for useWineryFilter viewport list unification and Vibe Tag filtering (TDD Red phase)
-    - [ ] Add unit tests in `hooks/__tests__/use-winery-filter.test.ts` verifying `listResultsInView` includes all cached wineries within viewport bounds even when searches have been performed
-    - [ ] Add unit tests verifying user badges (`isFavorite`, `userVisited`, `onWishlist`) are preserved in `listResultsInView`
-    - [ ] Add unit tests verifying Vibe Tag filters strictly match `=== true` (excluding `null` / un-enriched records)
-    - [ ] Confirm tests fail (Red phase)
+- [x] Task: Write failing unit tests for useWineryFilter viewport list unification and Vibe Tag filtering (TDD Red phase) [commit: c6ce230d]
+    - [x] Add unit tests in `hooks/__tests__/use-winery-filter.test.ts` verifying `listResultsInView` includes all cached wineries within viewport bounds even when searches have been performed
+    - [x] Add unit tests verifying user badges (`isFavorite`, `userVisited`, `onWishlist`) are preserved in `listResultsInView`
+    - [x] Add unit tests verifying Vibe Tag filters strictly match `=== true` (excluding `null` / un-enriched records)
+    - [x] Confirm tests fail (Red phase)
 - [ ] Task: Refactor useWineryFilter to eliminate diverging searchResults branching (TDD Green phase)
     - [ ] Refactor `listResultsInView` in `hooks/use-winery-filter.ts` to compute list from unified winery collection filtered by `bounds` and active criteria
     - [ ] Ensure Vibe Tag filters (`allowsDogs`, `goodForChildren`, etc.) strictly match `=== true` (excluding `null` / un-enriched records)
