@@ -50,10 +50,10 @@
     - [x] Refactor `listResultsInView` in `hooks/use-winery-filter.ts` to compute list from unified winery collection filtered by `bounds` and active criteria
     - [x] Ensure Vibe Tag filters (`allowsDogs`, `goodForChildren`, etc.) strictly match `=== true` (excluding `null` / un-enriched records)
     - [x] Run filter hook unit tests to verify green status
-- [ ] Task: Write failing component tests for WineryCardThumbnail badges and Vibe Tag filtering (TDD Red phase)
-    - [ ] Add failing component tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying card thumbnail renders ratings, review count, and status badges accurately
-    - [ ] Add component tests verifying filter Vibe Tag toggles filter both map pins and sidebar list
-    - [ ] Confirm tests fail (Red phase)
+- [x] Task: Write failing component tests for WineryCardThumbnail badges and Vibe Tag filtering (TDD Red phase) [commit: a45c6b1c]
+    - [x] Add failing component tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying card thumbnail renders ratings, review count, and status badges accurately
+    - [x] Add component tests verifying filter Vibe Tag toggles filter both map pins and sidebar list
+    - [x] Confirm tests fail (Red phase)
 - [ ] Task: Implement WineryCardThumbnail badges and synchronize Vibe Tag filtering (TDD Green phase)
     - [ ] Update `WineryCardThumbnail` to render ratings, review counts, and status badges
     - [ ] Ensure filter Vibe Tag toggles accurately filter both map pins and sidebar list on initial load
