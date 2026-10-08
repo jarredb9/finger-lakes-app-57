@@ -199,10 +199,14 @@ export function useWinerySearch() {
         }
 
         if (wineries.length > 0) {
-          await bulkUpsertWineries(wineries);
+          bulkUpsertWineries(wineries);
+          const store = useWineryStore.getState();
+          const mergedResults = wineries.map(w => store.getWinery(w.id) || w);
+          setSearchResults(mergedResults);
+        } else {
+          setSearchResults([]);
         }
         
-        setSearchResults(wineries);
         setHitApiLimit(wineries.length >= 20);
 
       } catch (error) {

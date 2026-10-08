@@ -415,6 +415,41 @@ describe('standardizeWineryData', () => {
       expect(result?.isFavorite).toBe(true);
       expect(result?.favoriteIsPrivate).toBe(true);
     });
+
+    it('preserves existing true flags when preserveUserFlags option is enabled even if source provides false', () => {
+      const existingWinery: Winery = {
+        ...createMockWinery(),
+        onWishlist: true,
+        wishlistIsPrivate: true,
+        isFavorite: true,
+        favoriteIsPrivate: true,
+        userVisited: true,
+        visits: [{ id: 'visit-1', user_review: 'Great wine!' }] as any,
+      };
+
+      const searchCandidateUpdate = {
+        id: existingWinery.id,
+        name: 'Updated Name',
+        latitude: existingWinery.latitude,
+        longitude: existingWinery.longitude,
+        on_wishlist: false,
+        wishlist_is_private: false,
+        is_favorite: false,
+        favorite_is_private: false,
+        user_visited: false,
+      };
+
+      const result = standardizeWineryData(searchCandidateUpdate, existingWinery, { preserveUserFlags: true });
+
+      expect(result).not.toBeNull();
+      expect(result?.name).toBe('Updated Name');
+      expect(result?.onWishlist).toBe(true);
+      expect(result?.wishlistIsPrivate).toBe(true);
+      expect(result?.isFavorite).toBe(true);
+      expect(result?.favoriteIsPrivate).toBe(true);
+      expect(result?.userVisited).toBe(true);
+      expect(result?.visits).toHaveLength(1);
+    });
   });
 
   describe('tri-state Vibe Tag parsing, rating mapping, and ghost visit clearing (Issue #44 / Phase 2 Task 2)', () => {
