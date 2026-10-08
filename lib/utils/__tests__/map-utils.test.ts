@@ -99,12 +99,12 @@ describe('Map Utilities', () => {
     });
 
     it('calculates accurate Haversine distance in km between known landmarks', () => {
-      // Geneva, NY to Watkins Glen, NY: ~54.8 km
+      // Geneva, NY to Watkins Glen, NY: ~55.0 km (Haversine great-circle: ~54.95 km)
       const geneva = { latitude: 42.868, longitude: -76.980 };
       const watkinsGlen = { latitude: 42.380, longitude: -76.874 };
 
       const distance = calculateDistanceKm(geneva, watkinsGlen);
-      expect(distance).toBeCloseTo(54.8, 1);
+      expect(distance).toBeCloseTo(55.0, 1);
     });
 
     it('supports both { latitude, longitude } and { lat, lng } coordinate formats', () => {
@@ -112,8 +112,8 @@ describe('Map Utilities', () => {
       const p2 = { lat: 42.380, lng: -76.874 };
       const p3 = { latitude: 42.380, longitude: -76.874 };
 
-      expect(calculateDistanceKm(p1, p2)).toBeCloseTo(54.8, 1);
-      expect(calculateDistanceKm(p1, p3)).toBeCloseTo(54.8, 1);
+      expect(calculateDistanceKm(p1, p2)).toBeCloseTo(55.0, 1);
+      expect(calculateDistanceKm(p1, p3)).toBeCloseTo(55.0, 1);
     });
 
     it('correctly discriminates viewport distance threshold of 5 km', () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useRef, useState, useMemo, useCallback } from "react";
+import { memo, useRef, useState, useMemo, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Map, { Source, Layer, MapRef } from "react-map-gl/mapbox";
 import mapboxgl from "mapbox-gl";
@@ -53,6 +53,7 @@ const MapView = memo(({
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
   const mounted = useMounted();
   const mapRef = useRef<MapRef>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const closeWineryModal = useUIStore((s) => s.closeWineryModal);
   const [mapStyle, setMapStyle] = useState<"streets" | "outdoors">("streets");
   const [cursor, setCursor] = useState<string>("");
@@ -60,6 +61,17 @@ const MapView = memo(({
 
   const handleMapLoad = useCallback(() => {
     mapRef.current?.getMap()?.resize?.();
+  }, []);
+
+  useEffect(() => {
+    if (!containerRef.current || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      mapRef.current?.getMap()?.resize?.();
+    });
+    observer.observe(containerRef.current);
+    return () => {
+      observer.disconnect();
+    };
   }, []);
 
   const handleMapError = useCallback((_e: any) => {
@@ -213,6 +225,7 @@ const MapView = memo(({
 
   return (
     <div
+      ref={containerRef}
       data-testid="map-view-canvas"
       data-state="ready"
       className="relative h-full w-full min-h-[300px] bg-muted overflow-hidden"
