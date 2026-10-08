@@ -1,7 +1,11 @@
-import { act } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { createMockWinery, createMockVisit, createMockMapMarkerRpc } from '@/lib/test-utils/fixtures';
-import { WineryDbId, GooglePlaceId, Winery } from '@/lib/types';
+import { WineryDbId, GooglePlaceId, Winery, VisitWithWinery } from '@/lib/types';
 import { useWineryStore } from '../wineryStore';
+import { useMapStore } from '../mapStore';
+import { useVisitStore } from '../visitStore';
+import { useTripStore } from '../tripStore';
+import { useWineryFilter } from '@/hooks/use-winery-filter';
 
 let mockRpc: any = jest.fn((name: string) => {
   if (name === 'get_map_markers') {
@@ -27,6 +31,22 @@ jest.mock('@/utils/supabase/client', () => ({
   createClient: jest.fn(() => ({
     rpc: (...args: any[]) => (globalThis as any)._WINERY_ENRICH_RPC(...args),
     from: (...args: any[]) => (globalThis as any)._WINERY_ENRICH_FROM(...args),
+    auth: {
+      getSession: jest.fn().mockResolvedValue({
+        data: { session: { user: { id: 'test-user-123' } } },
+        error: null,
+      }),
+      getUser: jest.fn().mockResolvedValue({
+        data: { user: { id: 'test-user-123' } },
+        error: null,
+      }),
+    },
+    storage: {
+      from: jest.fn(() => ({
+        upload: jest.fn().mockResolvedValue({ data: { path: 'test-path.jpg' }, error: null }),
+        remove: jest.fn().mockResolvedValue({ data: null, error: null }),
+      })),
+    },
   })),
 }));
 
@@ -46,6 +66,18 @@ describe('WineryDataStore', () => {
       if (name === 'get_map_markers') {
         return Promise.resolve({ data: [], error: null });
       }
+      if (name === 'toggle_favorite') {
+        return Promise.resolve({ data: { is_favorite: true, winery_id: 101 }, error: null });
+      }
+      if (name === 'toggle_wishlist') {
+        return Promise.resolve({ data: { on_wishlist: true, winery_id: 101 }, error: null });
+      }
+      if (name === 'log_visit') {
+        return Promise.resolve({ data: { visit_id: 555, winery_id: 101 }, error: null });
+      }
+      if (name === 'delete_visit') {
+        return Promise.resolve({ data: true, error: null });
+      }
       return Promise.resolve({ data: null, error: null });
     });
     mockInvoke = jest.fn().mockResolvedValue({ data: null, error: null });
@@ -62,6 +94,9 @@ describe('WineryDataStore', () => {
     (globalThis as any)._WINERY_ENRICH_FROM = mockFrom;
 
     useWineryStore.getState().reset();
+    useMapStore.getState().reset();
+    useVisitStore.getState().reset();
+    useTripStore.getState().reset();
   });
 
   afterEach(() => {
@@ -540,6 +575,318 @@ describe('WineryDataStore', () => {
       expect(cached?.isFavorite).toBe(true);
       expect(cached?.onWishlist).toBe(true);
       expect(cached?.userVisited).toBe(true);
+    });
+  });
+
+  describe('Reactive User State Synchronization (Favorites, Wishlist, Visits)', () => {
+    beforeEach(() => {
+      useWineryStore.getState().reset();
+      useMapStore.getState().reset();
+      useVisitStore.getState().reset();
+      useTripStore.getState().reset();
+    });
+
+    it('should immediately update persistentWineries and synchronize searchResults, map pins, and sidebar on toggleFavorite', async () => {
+      const searchWinery: Winery = createMockWinery({
+        id: 'ChIJ_search_fav_1' as GooglePlaceId,
+        dbId: 101 as WineryDbId,
+        name: 'Favorite Test Estate',
+        isFavorite: false,
+        onWishlist: false,
+        userVisited: false,
+      });
+
+      // Seed mapStore searchResults simulating an active search
+      act(() => {
+        useMapStore.setState({
+          searchResults: [searchWinery],
+          filter: ['all'],
+          bounds: { north: 43.0, south: 42.0, east: -76.0, west: -77.0 },
+        });
+      });
+
+      // Execute toggleFavorite passing the Winery object from search results
+      await act(async () => {
+        await useWineryStore.getState().toggleFavorite(searchWinery);
+      });
+
+      // 1. Authoritative cache assertion: persistentWineries has the winery marked as favorite
+      const cached = useWineryStore.getState().getWinery('ChIJ_search_fav_1');
+      expect(cached).toBeDefined();
+      expect(cached?.isFavorite).toBe(true);
+      expect(useWineryStore.getState().getFavorites().map(w => w.id)).toContain('ChIJ_search_fav_1');
+
+      // 2. Disconnected entity prevention: mapStore searchResults must also reflect isFavorite
+      const searchResultItem = useMapStore.getState().searchResults.find(w => w.id === 'ChIJ_search_fav_1');
+      expect(searchResultItem).toBeDefined();
+      expect(searchResultItem?.isFavorite).toBe(true);
+
+      // 3. Reactive UI propagation: hook reflects favorite status in pins and sidebar list
+      const { result } = renderHook(() => useWineryFilter());
+      expect(result.current.mapWineries.favorites.map(w => w.id)).toContain('ChIJ_search_fav_1');
+      const inView = result.current.listResultsInView.find(w => w.id === 'ChIJ_search_fav_1');
+      expect(inView).toBeDefined();
+      expect(inView?.isFavorite).toBe(true);
+    });
+
+    it('should immediately update persistentWineries and synchronize searchResults, map pins, and sidebar on toggleWishlist', async () => {
+      const searchWinery: Winery = createMockWinery({
+        id: 'ChIJ_search_wish_1' as GooglePlaceId,
+        dbId: 202 as WineryDbId,
+        name: 'Wishlist Test Estate',
+        isFavorite: false,
+        onWishlist: false,
+        userVisited: false,
+      });
+
+      act(() => {
+        useMapStore.setState({
+          searchResults: [searchWinery],
+          filter: ['all'],
+          bounds: { north: 43.0, south: 42.0, east: -76.0, west: -77.0 },
+        });
+      });
+
+      await act(async () => {
+        await useWineryStore.getState().toggleWishlist(searchWinery);
+      });
+
+      // 1. Authoritative cache assertion: persistentWineries has the winery on wishlist
+      const cached = useWineryStore.getState().getWinery('ChIJ_search_wish_1');
+      expect(cached).toBeDefined();
+      expect(cached?.onWishlist).toBe(true);
+      expect(useWineryStore.getState().getWishlist().map(w => w.id)).toContain('ChIJ_search_wish_1');
+
+      // 2. Disconnected entity prevention: mapStore searchResults must also reflect onWishlist
+      const searchResultItem = useMapStore.getState().searchResults.find(w => w.id === 'ChIJ_search_wish_1');
+      expect(searchResultItem).toBeDefined();
+      expect(searchResultItem?.onWishlist).toBe(true);
+
+      // 3. Reactive UI propagation: hook reflects wishlist status in pins and sidebar list
+      const { result } = renderHook(() => useWineryFilter());
+      expect(result.current.mapWineries.wishlist.map(w => w.id)).toContain('ChIJ_search_wish_1');
+      const inView = result.current.listResultsInView.find(w => w.id === 'ChIJ_search_wish_1');
+      expect(inView).toBeDefined();
+      expect(inView?.onWishlist).toBe(true);
+    });
+
+    it('should immediately update persistentWineries, clear wishlist status, and synchronize searchResults on visit save (ADR-0001)', async () => {
+      const winery: Winery = createMockWinery({
+        id: 'ChIJ_visit_save_1' as GooglePlaceId,
+        dbId: 303 as WineryDbId,
+        name: 'Visit Logging Estate',
+        isFavorite: false,
+        onWishlist: true,
+        wishlistIsPrivate: true,
+        userVisited: false,
+      });
+
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [winery] });
+        useMapStore.setState({
+          searchResults: [winery],
+          filter: ['all'],
+          bounds: { north: 43.0, south: 42.0, east: -76.0, west: -77.0 },
+        });
+      });
+
+      const visitData = {
+        visit_date: '2026-10-08',
+        user_review: 'Exceptional Dry Riesling tasting',
+        rating: 5,
+        photos: [],
+      };
+
+      await act(async () => {
+        await useVisitStore.getState().saveVisit(winery, visitData);
+      });
+
+      // 1. Authoritative cache assertion: persistentWineries reflects userVisited: true and onWishlist: false
+      const cached = useWineryStore.getState().getWinery('ChIJ_visit_save_1');
+      expect(cached).toBeDefined();
+      expect(cached?.userVisited).toBe(true);
+      expect(cached?.onWishlist).toBe(false);
+      expect(cached?.wishlistIsPrivate).toBe(false);
+      expect(useWineryStore.getState().getVisited().map(w => w.id)).toContain('ChIJ_visit_save_1');
+      expect(useWineryStore.getState().getWishlist().map(w => w.id)).not.toContain('ChIJ_visit_save_1');
+
+      // 2. Disconnected entity prevention: mapStore searchResults reflects userVisited and cleared wishlist
+      const searchResultItem = useMapStore.getState().searchResults.find(w => w.id === 'ChIJ_visit_save_1');
+      expect(searchResultItem).toBeDefined();
+      expect(searchResultItem?.userVisited).toBe(true);
+      expect(searchResultItem?.onWishlist).toBe(false);
+
+      // 3. Reactive UI propagation: map pins and sidebar reflect visited status and cleared wishlist
+      const { result } = renderHook(() => useWineryFilter());
+      expect(result.current.mapWineries.visited.map(w => w.id)).toContain('ChIJ_visit_save_1');
+      expect(result.current.mapWineries.wishlist.map(w => w.id)).not.toContain('ChIJ_visit_save_1');
+      const inView = result.current.listResultsInView.find(w => w.id === 'ChIJ_visit_save_1');
+      expect(inView).toBeDefined();
+      expect(inView?.userVisited).toBe(true);
+      expect(inView?.onWishlist).toBe(false);
+    });
+
+    it('should seamlessly ingest an unpersisted search candidate into persistentWineries when saving a visit', async () => {
+      const unpersistedWinery: Winery = createMockWinery({
+        id: 'ChIJ_unpersisted_candidate' as GooglePlaceId,
+        dbId: 404 as WineryDbId,
+        name: 'Unpersisted Candidate Estate',
+        isFavorite: false,
+        onWishlist: false,
+        userVisited: false,
+      });
+
+      // Not in persistentWineries, only in searchResults
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [] });
+        useMapStore.setState({
+          searchResults: [unpersistedWinery],
+          filter: ['all'],
+          bounds: { north: 43.0, south: 42.0, east: -76.0, west: -77.0 },
+        });
+      });
+
+      await act(async () => {
+        await useVisitStore.getState().saveVisit(unpersistedWinery, {
+          visit_date: '2026-10-08',
+          user_review: 'Spontaneous drop-in',
+          rating: 4,
+          photos: [],
+        });
+      });
+
+      const cached = useWineryStore.getState().getWinery('ChIJ_unpersisted_candidate');
+      expect(cached).toBeDefined();
+      expect(cached?.userVisited).toBe(true);
+      expect(useWineryStore.getState().getVisited().map(w => w.id)).toContain('ChIJ_unpersisted_candidate');
+
+      const searchItem = useMapStore.getState().searchResults.find(w => w.id === 'ChIJ_unpersisted_candidate');
+      expect(searchItem?.userVisited).toBe(true);
+    });
+
+    it('should revert userVisited to false when deleting the only visit for a winery (ghost visit prevention)', async () => {
+      const winery: Winery = createMockWinery({
+        id: 'ChIJ_del_visit_winery' as GooglePlaceId,
+        dbId: 505 as WineryDbId,
+        name: 'Single Visit Winery',
+        userVisited: true,
+        onWishlist: false,
+      });
+
+      const singleVisit: VisitWithWinery = {
+        id: 'visit-to-delete-101',
+        user_id: 'test-user-123',
+        visit_date: '2026-10-01',
+        rating: 4,
+        user_review: 'Nice visit',
+        is_private: false,
+        photos: [],
+        wineryName: winery.name,
+        wineryId: winery.id,
+        syncStatus: 'synced',
+        wineries: {
+          id: 505 as WineryDbId,
+          google_place_id: winery.id,
+          name: winery.name,
+          address: winery.address,
+          latitude: winery.latitude,
+          longitude: winery.longitude,
+        },
+      };
+
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [winery] });
+        useVisitStore.setState({ visits: [singleVisit] });
+        useMapStore.setState({
+          searchResults: [winery],
+          filter: ['all'],
+          bounds: { north: 43.0, south: 42.0, east: -76.0, west: -77.0 },
+        });
+      });
+
+      await act(async () => {
+        await useVisitStore.getState().deleteVisit('visit-to-delete-101');
+      });
+
+      // 1. Authoritative cache assertion: userVisited reverted to false
+      const cached = useWineryStore.getState().getWinery('ChIJ_del_visit_winery');
+      expect(cached).toBeDefined();
+      expect(cached?.userVisited).toBe(false);
+      expect(useWineryStore.getState().getVisited().map(w => w.id)).not.toContain('ChIJ_del_visit_winery');
+
+      // 2. Disconnected entity prevention: searchResults also updated
+      const searchItem = useMapStore.getState().searchResults.find(w => w.id === 'ChIJ_del_visit_winery');
+      expect(searchItem?.userVisited).toBe(false);
+
+      // 3. Reactive UI propagation: pin moves from visited to discovered
+      const { result } = renderHook(() => useWineryFilter());
+      expect(result.current.mapWineries.visited.map(w => w.id)).not.toContain('ChIJ_del_visit_winery');
+      expect(result.current.mapWineries.discovered.map(w => w.id)).toContain('ChIJ_del_visit_winery');
+    });
+
+    it('should maintain userVisited: true when deleting a visit if other visits remain for that winery', async () => {
+      const winery: Winery = createMockWinery({
+        id: 'ChIJ_multi_visit_winery' as GooglePlaceId,
+        dbId: 606 as WineryDbId,
+        name: 'Multi Visit Winery',
+        userVisited: true,
+      });
+
+      const visit1: VisitWithWinery = {
+        id: 'visit-multi-1',
+        user_id: 'test-user-123',
+        visit_date: '2026-09-01',
+        rating: 4,
+        user_review: 'First visit',
+        is_private: false,
+        photos: [],
+        wineryName: winery.name,
+        wineryId: winery.id,
+        syncStatus: 'synced',
+        wineries: {
+          id: 606 as WineryDbId,
+          google_place_id: winery.id,
+          name: winery.name,
+          address: winery.address,
+          latitude: winery.latitude,
+          longitude: winery.longitude,
+        },
+      };
+
+      const visit2: VisitWithWinery = {
+        id: 'visit-multi-2',
+        user_id: 'test-user-123',
+        visit_date: '2026-10-01',
+        rating: 5,
+        user_review: 'Second visit',
+        is_private: false,
+        photos: [],
+        wineryName: winery.name,
+        wineryId: winery.id,
+        syncStatus: 'synced',
+        wineries: {
+          id: 606 as WineryDbId,
+          google_place_id: winery.id,
+          name: winery.name,
+          address: winery.address,
+          latitude: winery.latitude,
+          longitude: winery.longitude,
+        },
+      };
+
+      act(() => {
+        useWineryStore.setState({ persistentWineries: [winery] });
+        useVisitStore.setState({ visits: [visit1, visit2] });
+      });
+
+      await act(async () => {
+        await useVisitStore.getState().deleteVisit('visit-multi-1');
+      });
+
+      const cached = useWineryStore.getState().getWinery('ChIJ_multi_visit_winery');
+      expect(cached).toBeDefined();
+      expect(cached?.userVisited).toBe(true);
+      expect(useWineryStore.getState().getVisited().map(w => w.id)).toContain('ChIJ_multi_visit_winery');
     });
   });
 });
