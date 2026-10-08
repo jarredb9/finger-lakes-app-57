@@ -1,0 +1,3 @@
+# Global Winery Scope & Unrestricted User Geolocation
+
+The platform originated as a regional guide for Finger Lakes wineries but has expanded to support global winery discovery and visit tracking. When a user requests map navigation to their current device location via geolocation, the camera flies unrestricted to those coordinates anywhere in the world without bounding box clamping, boundary restriction warnings, or out-of-region blocking. Viewport search queries and caching operate uniformly across any active coordinates, treating any region with wineries as valid exploration territory while maintaining the Finger Lakes as the default initial map view.

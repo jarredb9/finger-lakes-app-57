@@ -47,6 +47,7 @@
 - **Lazy Enrichment Policy:** Check the `last_enriched_at` timestamp (<30 days freshness) in Edge Functions before invoking external Google Places / Gemini APIs.
 - **Map Architecture:** Mapbox GL JS (`react-map-gl/mapbox`, `mapbox-gl`) is the primary map rendering, clustering, and interaction engine. Google Maps (`components/map/google-map-fallback.tsx`) is the dynamic fallback triggered by `MapErrorBoundary` for non-GPU, headless, or WebGL-disabled systems.
 - **Supabase RPC Signatures:** Custom PostgreSQL functions returning composite structures should use `RETURNS TABLE (...)` instead of `RETURNS jsonb` to support automated TypeScript type generation (`npm run db:gen-types`).
+- **Global Discovery Scope:** The platform supports global winery discovery and visit logging. The initial camera view seeds at the Finger Lakes, NY (`42.7`, `-76.9`), but all search, geolocation centering, and viewport operations are globally unconstrained (see `docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md`).
 - **UI Architecture:** Container/Presentational pattern. Use Tailwind CSS v4 utility classes.
 
 ## 5. Agent Workflow, Skills & Project Tracking

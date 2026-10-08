@@ -1,11 +1,11 @@
 # Winery Visit Planning & Tracking
 
-A platform for discovering Finger Lakes wineries, planning day trips, and logging historical tasting visits.
+A platform for discovering wineries globally, planning day trips, and logging historical tasting visits (with Finger Lakes, NY as the initial default region).
 
 ## Core Lifecycle
 
 **Winery**:
-A commercial establishment producing or offering wine tasting in the region.
+A commercial establishment producing or offering wine tasting in any wine region worldwide.
 _Avoid_: Venue, place, location, vineyard
 
 **Visit**:
