@@ -446,7 +446,7 @@ Execution Directives (Seam-Bounded & Empirically Verified):
 1. The plan is 100% authoritative. Stay strictly within the planned seam (DO NOT view unmentioned files or explore git history).
 2. Proceed immediately to apply planned additions or edits using write_to_file or replace_file_content.
 {verification_block}
-4. Once verified, commit changes with message: "{strategy['commit_msg']}", record git notes in line with conductor/workflow.md, append [commit: <hash>] to the completed task line in plan.md, and commit plan.md.
+4. Once verified, commit changes with message: "{strategy['commit_msg']}", record git notes, append [commit: <hash>] to the completed task line in plan.md, and commit plan.md.
 5. Halt immediately after commit."""
 
 
