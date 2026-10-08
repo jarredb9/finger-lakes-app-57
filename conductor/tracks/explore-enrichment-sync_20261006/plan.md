@@ -28,10 +28,10 @@
     - [x] Add unit tests in `lib/stores/__tests__/wineryStore.enrichment.test.ts` verifying incoming search results merge into `persistentWineries`
     - [x] Add unit tests verifying `ensureWineryDetails` updates `persistentWineries` seamlessly
     - [x] Confirm tests fail (Red phase)
-- [ ] Task: Implement persistentWineries search merging and cache hydration in wineryStore (TDD Green phase)
-    - [ ] Update search ingestion in `wineryStore` / `useWinerySearch` to merge search results into `persistentWineries` via `bulkUpsertWineries` and `standardizeWineryData`, preserving user flags (`isFavorite`, `onWishlist`, `userVisited`)
-    - [ ] Ensure `ensureWineryDetails` updates `persistentWineries` seamlessly
-    - [ ] Run store tests to verify green status
+- [x] Task: Implement persistentWineries search merging and cache hydration in wineryStore (TDD Green phase) [commit: 7b0f93b9]
+    - [x] Update search ingestion in `wineryStore` / `useWinerySearch` to merge search results into `persistentWineries` via `bulkUpsertWineries` and `standardizeWineryData`, preserving user flags (`isFavorite`, `onWishlist`, `userVisited`)
+    - [x] Ensure `ensureWineryDetails` updates `persistentWineries` seamlessly
+    - [x] Run store tests to verify green status
 - [ ] Task: Write failing unit tests for reactive propagation of favorite, wishlist, and visit actions (TDD Red phase)
     - [ ] Add unit tests verifying user state actions (`toggleFavorite`, `toggleWishlist`, visit logs) immediately update `persistentWineries` and propagate across map pins and sidebar
     - [ ] Confirm tests fail (Red phase)
