@@ -23,7 +23,7 @@
     - [x] Run unit tests (`./scripts/run-jest-container.sh lib/utils/__tests__/winery.test.ts`) and typecheck (`npm run type-check`) to verify green status
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Database Map Markers RPC Expansion, Type Synchronization & Fixture Hardening' (Protocol in workflow.md)
 
-## Phase 3: Authoritative Store Caching & Reactive User State Synchronization
+## Phase 3: Authoritative Store Caching & Reactive User State Synchronization [checkpoint: 6022e933]
 - [x] Task: Write failing unit tests for persistentWineries search merging and cache hydration (TDD Red phase) [commit: 60174b81c285b4f082d73183c7f86f47f635066d]
     - [x] Add unit tests in `lib/stores/__tests__/wineryStore.enrichment.test.ts` verifying incoming search results merge into `persistentWineries`
     - [x] Add unit tests verifying `ensureWineryDetails` updates `persistentWineries` seamlessly
@@ -38,7 +38,7 @@
 - [x] Task: Implement reactive propagation of user actions across persistentWineries (TDD Green phase) [commit: 062b0717]
     - [x] Update user state action reducers/mutations to propagate updates across `persistentWineries`
     - [x] Verify state updates adhere to domain invariants and run store tests to verify green status
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Authoritative Store Caching & Reactive User State Synchronization' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Authoritative Store Caching & Reactive User State Synchronization' (Protocol in workflow.md) [commit: 6022e933]
 
 ## Phase 4: Unified Sidebar List & Viewport Filtering
 - [ ] Task: Write failing unit tests for useWineryFilter viewport list unification and Vibe Tag filtering (TDD Red phase)
