@@ -408,6 +408,7 @@ Gate & Planning Protocol:
 - Write the implementation plan directly to: {plan_file}
 - CRITICAL: The plan must provide EXACT drop-in code blocks (imports, functions, replacement chunks) and precise line anchors for target files so the executor does not need to inspect surrounding files.
 - CRITICAL: If introducing or modifying test files (unit, integration, or E2E), the plan's Execution Verification Protocol MUST specify the exact command to run those tests (e.g. ./scripts/run-e2e-container.sh webkit <spec> or ./scripts/run-jest-container.sh <test>). Never leave new test code unverified in the execution phase.
+- CRITICAL: In the plan's Post-Execution section, format the `git notes add` command using the standard fields: Task, Summary, Files, and Rationale.
 - Halt for user approval via modal before modifying any files."""
 
 
@@ -445,7 +446,7 @@ Execution Directives (Seam-Bounded & Empirically Verified):
 1. The plan is 100% authoritative. Stay strictly within the planned seam (DO NOT view unmentioned files or explore git history).
 2. Proceed immediately to apply planned additions or edits using write_to_file or replace_file_content.
 {verification_block}
-4. Once verified, commit changes with message: "{strategy['commit_msg']}", record git notes, append [commit: <hash>] to the completed task line in plan.md, and commit plan.md.
+4. Once verified, commit changes with message: "{strategy['commit_msg']}", record git notes in line with conductor/workflow.md, append [commit: <hash>] to the completed task line in plan.md, and commit plan.md.
 5. Halt immediately after commit."""
 
 
