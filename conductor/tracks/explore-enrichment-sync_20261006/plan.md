@@ -84,11 +84,11 @@
     - [x] Audit all test files and fixtures created during this track
     - [x] Remove any throwaway intermediate scaffolds, redundant fixtures, or obsolete tests
     - [x] Confirm all permanent regression tests are clean, robust, and well-documented
-- [ ] Task: Full regression test execution across unit, integration, and E2E suites
-    - [ ] Run full unit and integration test suite via container runner (`./scripts/run-jest-container.sh`)
-    - [ ] Run Edge Function tests (`npm run test:functions`)
-    - [ ] Run targeted Playwright E2E verification (`./scripts/run-e2e-container.sh webkit e2e/map-viewport.spec.ts` or relevant specs)
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification' (Protocol in workflow.md)
+- [x] Task: Full regression test execution across unit, integration, and E2E suites
+    - [x] Run full unit and integration test suite via container runner (`./scripts/run-jest-container.sh`)
+    - [x] Run Edge Function tests (`npm run test:functions`)
+    - [x] Run targeted Playwright E2E verification (`./scripts/run-e2e-container.sh webkit e2e/map-viewport.spec.ts` or relevant specs)
+- [x] Task: Conductor - User Manual Verification 'Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions ba2f5f3
