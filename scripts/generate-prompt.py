@@ -11,36 +11,47 @@ Usage:
     python3 scripts/generate-prompt.py                 # Auto-detects active track and next pending task
     python3 scripts/generate-prompt.py 3 1 --plan      # Outputs only the plan prompt
     python3 scripts/generate-prompt.py 3 1 --exec      # Outputs only the exec prompt
+    python3 scripts/generate-prompt.py 3 1 --red       # Force Red phase prompt (failing tests only)
+    python3 scripts/generate-prompt.py 3 1 --green     # Force Green phase prompt (implement to pass tests)
+    python3 scripts/generate-prompt.py 3 1 --full      # [Deprecated] Full TDD cycle prompt (violates TDD invariant)
     python3 scripts/generate-prompt.py 3 1 --copy-plan # Copies plan prompt to clipboard
     python3 scripts/generate-prompt.py 3 1 --copy-exec # Copies exec prompt to clipboard
     python3 scripts/generate-prompt.py --recovery      # Outputs recovery prompt for uncommitted changes
 """
 
 import argparse
+import base64
 import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 TRACKS_REGISTRY = PROJECT_ROOT / "conductor" / "tracks.md"
 
 
-def get_active_track():
+def get_active_track() -> Optional[str]:
     """Detects in-progress or available track from conductor/tracks.md."""
     if not TRACKS_REGISTRY.exists():
         return None
 
     content = TRACKS_REGISTRY.read_text(encoding="utf-8")
     
-    # Priority 1: Track marked [~] In Progress
-    in_progress = re.findall(r"\|\s*\*\*([a-zA-Z0-9_\-]+)\*\*\s*\|.*?\|\s*\[~\]", content)
+    # Priority 1: Track marked [~] or [ ] In Progress or [~] In Progress
+    in_progress = re.findall(
+        r"\|\s*\*\*([a-zA-Z0-9_\-]+)\*\*\s*\|.*?\|\s*(?:\[~\]|\[[ ~]\]\s*In Progress)",
+        content,
+        re.IGNORECASE,
+    )
     if in_progress:
         return in_progress[0]
 
     # Priority 2: Next incomplete track [ ]
     pending = re.findall(r"\|\s*\*\*([a-zA-Z0-9_\-]+)\*\*\s*\|.*?\|\s*\[ \]", content)
+    # Exclude any that were already matched by in_progress
+    pending = [p for p in pending if p not in in_progress]
     if pending:
         return pending[0]
 
@@ -85,7 +96,7 @@ def derive_scope(track_name):
     return parts[0] if parts else "core"
 
 
-def parse_plan_tasks(track_name):
+def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
     """Parses phases, tasks, and subtasks from track plan.md."""
     track_dir = resolve_track_dir(track_name)
     plan_path = track_dir / "plan.md" if track_dir else None
@@ -93,16 +104,21 @@ def parse_plan_tasks(track_name):
         return {}
 
     content = plan_path.read_text(encoding="utf-8")
-    phases = {}
+    phases: Dict[int, Dict[str, Any]] = {}
     current_phase_num = None
 
     for line in content.splitlines():
-        # Phase header: e.g., ## Phase 2: On-Demand Enrichment... or ### Phase 1:...
-        phase_match = re.match(r"^#{2,3}\s+Phase\s+(\d+)[:\s]+(.*)", line, re.IGNORECASE)
+        # Phase header: e.g., ## Phase 2: On-Demand Enrichment... or ### Phase 1:... or ## Phase: Review Fixes
+        phase_match = re.match(r"^#{2,3}\s+Phase(?:\s+(\d+))?[:\s]+(.*)", line, re.IGNORECASE)
         if phase_match:
-            current_phase_num = int(phase_match.group(1))
+            raw_num = phase_match.group(1)
+            phase_title = phase_match.group(2).strip()
+            if raw_num:
+                current_phase_num = int(raw_num)
+            else:
+                current_phase_num = (max(phases.keys()) + 1) if phases else 1
             phases[current_phase_num] = {
-                "name": phase_match.group(2).strip(),
+                "name": phase_title,
                 "tasks": []
             }
             continue
@@ -119,7 +135,12 @@ def parse_plan_tasks(track_name):
             if task_match:
                 status_char = task_match.group(1).lower()
                 task_desc = task_match.group(2).strip()
-                clean_desc = re.sub(r"\s*(\([a-f0-9]{7,40}\)|\[[a-f0-9]{7,40}\]|\[checkpoint:[^\]]+\])$", "", task_desc).strip()
+                clean_desc = re.sub(
+                    r"\s*(\([a-f0-9]{7,40}\)|\[(?:commit:\s*)?[a-f0-9]{7,40}\]|\[checkpoint:[^\]]+\])$",
+                    "",
+                    task_desc,
+                    flags=re.IGNORECASE,
+                ).strip()
                 phases[current_phase_num]["tasks"].append({
                     "status": "complete" if status_char == "x" else ("in_progress" if status_char == "~" else "pending"),
                     "description": clean_desc,
@@ -138,8 +159,9 @@ def find_next_pending_task(phases):
     return None, None, None, []
 
 
-def copy_to_clipboard(text):
-    """Attempts to copy text to system clipboard via xclip, wl-copy, pbcopy, or xsel."""
+def copy_to_clipboard(text: str) -> bool:
+    """Attempts to copy text to system clipboard via GUI tools (xclip, wl-copy, pbcopy, xsel)
+    or terminal escape sequences (OSC 52 for SSH/tmux/headless environments)."""
     tools = [
         ["xclip", "-selection", "clipboard"],
         ["wl-copy"],
@@ -154,10 +176,35 @@ def copy_to_clipboard(text):
                 return True
         except (FileNotFoundError, OSError):
             continue
+
+    # Fallback: OSC 52 ANSI escape sequence for terminal / SSH / devcontainers
+    try:
+        b64_data = base64.b64encode(text.encode("utf-8")).decode("ascii")
+        osc52 = f"\033]52;c;{b64_data}\a"
+        try:
+            with open("/dev/tty", "w") as tty:
+                tty.write(osc52)
+                tty.flush()
+                return True
+        except OSError:
+            if sys.stderr.isatty():
+                sys.stderr.write(osc52)
+                sys.stderr.flush()
+                return True
+    except Exception:
+        pass
+
     return False
 
 
-def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", is_red_phase=False, subtasks=None):
+def infer_verification_strategy(
+    track_name: str,
+    phase_num: Optional[int],
+    task_num: Optional[int],
+    task_desc: str = "",
+    subtasks: Optional[List[str]] = None,
+    mode: Optional[str] = None,
+) -> Dict[str, Any]:
     """Infers the optimal targeted verification strategy and commit message
     by inspecting the task description, subtasks, target files, and plan document."""
     scope = derive_scope(track_name)
@@ -210,6 +257,34 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
 
     all_task_text = task_desc + "\n" + "\n".join(subtasks)
     desc_lower = all_task_text.lower()
+    task_desc_lower = task_desc.lower()
+
+    is_checkpoint = (
+        "manual verification" in desc_lower
+        or "checkpoint" in desc_lower
+        or "protocol in workflow.md" in desc_lower
+    )
+
+    # Determine execution mode: 'checkpoint', 'red', 'green', or 'full' (legacy)
+    if is_checkpoint:
+        resolved_mode = "checkpoint"
+    elif mode in ("red", "green", "full"):
+        resolved_mode = mode
+    else:
+        # Strict TDD separation: default to red or green, never auto-infer full composite
+        if (
+            task_desc_lower.startswith("write failing")
+            or "red phase" in task_desc_lower
+            or "(red)" in task_desc_lower
+            or "failing unit test" in task_desc_lower
+            or "failing test" in task_desc_lower
+            or "failing integration" in task_desc_lower
+        ):
+            resolved_mode = "red"
+        else:
+            resolved_mode = "green"
+
+    is_red = (resolved_mode == "red")
 
     # Only fall back to regex scanning task_desc/subtasks if the task plan did not define any targets
     if not plan_targets and not plan_verification_cmds:
@@ -242,16 +317,12 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
     is_full_suite = (
         "full automated" in desc_lower
         or "full test suite" in desc_lower
+        or "full regression" in desc_lower
+        or "regression test execution" in desc_lower
         or "regression verification" in desc_lower
         or "type verification" in desc_lower
         or "quality gates" in desc_lower
         or "repository-wide verification" in desc_lower
-    )
-    is_red = (
-        is_red_phase
-        or "failing unit" in desc_lower
-        or "red phase" in desc_lower
-        or "failing test" in desc_lower
     )
 
     # Look for explicit executable commands in subtasks (e.g. `npm run db:check-types:local`, `npm run lint`)
@@ -265,22 +336,39 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
 
     default_verb = (
         "test"
-        if is_red
+        if (is_red or is_full_suite or "regression" in task_desc_lower or "test execution" in task_desc_lower)
         else (
             "refactor"
-            if "refactor" in task_desc.lower()
-            else ("chore" if ("cleanup" in task_desc.lower() or "scaffolding" in task_desc.lower()) else "feat")
+            if "refactor" in task_desc_lower
+            else ("chore" if ("cleanup" in task_desc_lower or "scaffolding" in task_desc_lower) else "feat")
         )
     )
 
-    if is_full_suite:
+    if is_checkpoint:
+        if plan_verification_cmds:
+            commands = plan_verification_cmds
+        else:
+            target_spec = (" " + " ".join(spec_files)) if spec_files else ""
+            commands = [
+                "./scripts/run-jest-container.sh",
+                "npm run type-check",
+            ]
+            if has_edge:
+                commands.append("npm run test:functions")
+            if has_spec or spec_files:
+                commands.append(f"./scripts/run-e2e-container.sh webkit{target_spec}".strip())
+        instruction = "- Run full automated test suite with container runners, present manual verification steps to user, await confirmation, create checkpoint commit and auditable git notes."
+        commit_msg = f"conductor(checkpoint): Checkpoint end of Phase {phase_num}"
+    elif is_full_suite:
         # Full automated regression run
         target_spec = (" " + " ".join(spec_files)) if spec_files else ""
         commands = [
             "./scripts/run-jest-container.sh",
             "npm run type-check",
         ]
-        if has_spec or spec_files:
+        if has_edge or "edge function" in desc_lower or "deno" in desc_lower:
+            commands.append("npm run test:functions")
+        if has_spec or spec_files or "e2e" in desc_lower or "playwright" in desc_lower:
             commands.append(f"./scripts/run-e2e-container.sh webkit{target_spec}".strip())
         instruction = "- Verify full test suite and TypeScript types pass cleanly before committing."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Execute full automated test suite for Phase {phase_num} Task {task_num}'}"
@@ -304,7 +392,7 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
             f"./scripts/run-jest-container.sh{unit_arg}".strip(),
             f"./scripts/run-e2e-container.sh webkit{target_spec}".strip(),
         ]
-        if wants_type_check:
+        if wants_type_check or resolved_mode == "green":
             commands.append("npm run type-check")
         instruction = "- Verify unit tests and newly created/modified E2E specs pass cleanly before committing."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
@@ -312,13 +400,13 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
         # Pure E2E spec task
         target_arg = (" " + " ".join(spec_files)) if spec_files else ""
         commands = [f"./scripts/run-e2e-container.sh webkit{target_arg}".strip()]
-        if wants_type_check:
+        if wants_type_check or resolved_mode == "green":
             commands.append("npm run type-check")
         instruction = "- Verify targeted E2E suite passes cleanly in WebKit."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif has_edge and not has_unit and not has_spec:
         commands = ["npm run test:functions"]
-        if wants_type_check:
+        if wants_type_check or resolved_mode == "green":
             commands.append("npm run type-check")
         instruction = "- Verify edge function tests pass cleanly."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
@@ -334,80 +422,160 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
             instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
         else:
             commands = ["./scripts/run-jest-container.sh"]
-        if wants_type_check and not any("type-check" in c for c in commands):
+        if (wants_type_check or resolved_mode == "green") and not any("type-check" in c for c in commands):
             commands.append("npm run type-check")
         if not (not unit_files and explicit_subtask_cmds):
             instruction = "- Verify targeted unit/integration tests pass cleanly (Green phase)."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif plan_verification_cmds:
         commands = plan_verification_cmds
+        if resolved_mode == "green" and not any("type-check" in c for c in commands):
+            commands.append("npm run type-check")
         instruction = "- Execute the verification protocol from the plan and confirm all checks pass."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif explicit_subtask_cmds:
         commands = explicit_subtask_cmds
-        if wants_type_check and not any("type-check" in c or "check-types" in c for c in commands):
+        if (wants_type_check or resolved_mode == "green") and not any("type-check" in c or "check-types" in c for c in commands):
             commands.append("npm run type-check")
         instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     else:
         commands = ["./scripts/run-jest-container.sh"]
-        if wants_type_check:
+        if wants_type_check or resolved_mode == "green":
             commands.append("npm run type-check")
         instruction = "- Run containerized Jest to verify tests pass (Green phase)."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
+
+    # Merge any explicit commands in subtasks that are not already present
+    for cmd in explicit_subtask_cmds:
+        if cmd not in commands:
+            commands.append(cmd)
 
     return {
         "commands": commands,
         "instruction": instruction,
         "commit_msg": commit_msg,
+        "mode": resolved_mode,
         "is_red": is_red,
+        "is_checkpoint": is_checkpoint,
     }
 
 
-def build_plan_prompt(track_name, phase_num, task_num, task_desc=""):
+def get_preceding_context(track_name: str, phase_num: Optional[int], task_num: Optional[int]) -> str:
+    """Gathers link to immediately preceding task plan for token-efficient progressive disclosure."""
+    track_dir = resolve_track_dir(track_name)
+    if not track_dir or task_num is None or task_num <= 1:
+        return ""
+
+    immediate_prev = track_dir / f"phase-{phase_num}-task-{task_num - 1}-plan.md"
+    if immediate_prev.exists():
+        rel_p = immediate_prev.relative_to(PROJECT_ROOT)
+        note = f"Immediate Preceding Context: @[{rel_p}]"
+        if task_num > 2:
+            earlier = [f"Task {i}" for i in range(1, task_num - 1)]
+            note += f" (earlier completed in phase: {', '.join(earlier)})"
+        return note
+
+    return ""
+
+
+def build_plan_prompt(track_name: str, phase_num: Optional[int], task_num: Optional[int], task_desc: str = "") -> str:
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = track_dir.relative_to(PROJECT_ROOT) if track_dir else f"conductor/tracks/{track_name}"
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
     task_focus = f" for '{task_desc}'" if task_desc else ""
+    context_hint = get_preceding_context(track_name, phase_num, task_num)
+    context_line = f"\n\n{context_hint}" if context_hint else ""
 
-    return f"""/conductor:implement @[{rel_track_dir}] Plan Phase {phase_num} Task {task_num} only{task_focus}.
+    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc)
+    if strategy.get("is_checkpoint"):
+        return f"""/conductor:implement @[{rel_track_dir}] Plan Phase {phase_num} Task {task_num} only{task_focus}.{context_line}
+
+Gate & Planning Protocol (Phase Completion Verification & Checkpointing):
+- Reference the Phase Completion Verification and Checkpointing Protocol in conductor/workflow.md.
+- Perform static code inspection focused on the phase scope (no test runs or builds during planning).
+- Write the verification plan directly to: {plan_file}
+- Plan Blueprint Requirements:
+  1. Scope Inspection: Define the git diff range since previous phase checkpoint (`git diff --name-only <prev_sha> HEAD`) and list all changed code files.
+  2. Test Coverage Audit: Verify all modified code files have corresponding test files; specify any missing tests to generate.
+  3. Automated Verification Commands: Full test suite command (`./scripts/run-jest-container.sh`, `npm run type-check`, E2E specs).
+  4. Manual Verification Steps: Actionable step-by-step verification plan for the user (Frontend: dev server, localhost:3000, specific visual behaviors; Backend: curl, status codes).
+  5. Post-Execution Protocol: Define checkpoint commit `conductor(checkpoint): Checkpoint end of Phase {phase_num}`, git notes report format, and plan.md update with `[checkpoint: <sha>]`.
+- Halt for user approval via modal before proceeding."""
+
+    return f"""/conductor:implement @[{rel_track_dir}] Plan Phase {phase_num} Task {task_num} only{task_focus}.{context_line}
 
 Gate & Planning Protocol:
-- Perform static inspection only (NO test runners, build commands, or background docs). Seam-bounded inspection.
+- Perform static code inspection focused on the target seam (no test runs or builds during planning).
 - Write the implementation plan directly to: {plan_file}
-- CRITICAL: The plan must provide EXACT drop-in code blocks (imports, functions, replacement chunks) and precise line anchors for target files so the executor does not need to inspect surrounding files.
-- CRITICAL: If introducing or modifying test files (unit, integration, or E2E), the plan's Execution Verification Protocol MUST specify the exact command to run those tests (e.g. ./scripts/run-e2e-container.sh webkit <spec> or ./scripts/run-jest-container.sh <test>). Never leave new test code unverified in the execution phase.
+- Plan Blueprint Requirements:
+  1. Exact target file paths (format as `- **Path:** `filepath``) and semantic insertion anchors.
+  2. Full TypeScript interfaces, prop types, and exported function signatures.
+  3. Precise behavioral logic (formulas, state transitions, conditions, error handling, edge cases).
+  4. Execution Verification Protocol with exact test commands to run (e.g. ./scripts/run-jest-container.sh <test> or ./scripts/run-e2e-container.sh webkit <spec>).
+  Omit verbatim multi-page code implementations; the executor will synthesize code directly using the blueprint with compiler and test feedback.
+- In the plan's Post-Execution section, format the `git notes add` command using the standard fields: Task, Summary, Files, and Rationale.
 - Halt for user approval via modal before modifying any files."""
 
 
-def build_exec_prompt(track_name, phase_num, task_num, task_desc="", is_red_phase=False, subtasks=None):
+def build_exec_prompt(
+    track_name: str,
+    phase_num: Optional[int],
+    task_num: Optional[int],
+    task_desc: str = "",
+    subtasks: Optional[List[str]] = None,
+    mode: Optional[str] = None,
+) -> str:
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = track_dir.relative_to(PROJECT_ROOT) if track_dir else f"conductor/tracks/{track_name}"
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
-    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, is_red_phase, subtasks)
+    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode)
 
     cmd_lines = "\n".join(f"     {c}" for c in strategy["commands"])
 
-    if strategy["is_red"]:
-        verification_block = f"""3. Targeted Verification (Red Phase):
-   - Run containerized test runner to confirm new tests fail with expected assertions:
+    if strategy["mode"] == "checkpoint":
+        return f"""Execute Phase {phase_num} Task {task_num} following the Phase Checkpointing Protocol in conductor/workflow.md and @[{plan_file}].
+
+Protocol Execution Directives:
+1. Automated Verification: Run the phase verification suite and confirm all checks pass cleanly:
 {cmd_lines}
-   - DO NOT implement application code. Verify failures match expectations."""
+2. Manual Verification: Present the actionable manual verification plan from @[{plan_file}] to the user (URL, interactions, expected outcomes). Await explicit user confirmation before proceeding.
+3. Checkpoint Commit & Git Notes:
+   - Create checkpoint commit: git commit --allow-empty -m "conductor(checkpoint): Checkpoint end of Phase {phase_num}"
+   - Attach verification note: git notes add -m "Phase: Phase {phase_num}\\nStatus: Verified\\nDetails: Automated tests passing and manual verification approved by user." HEAD
+4. Track Plan Update:
+   - In {rel_track_dir}/plan.md:
+     a. Append [checkpoint: <short_sha>] to the Phase {phase_num} heading.
+     b. Mark this verification task as complete [x] with [commit: <short_sha>].
+   - Commit plan update: git commit -m "conductor(plan): Mark phase 'Phase {phase_num}' as complete" {rel_track_dir}/plan.md
+5. Output a brief completion summary and halt."""
+
+    if strategy["mode"] == "red":
+        verification_block = f"""2. Targeted Verification (Red Phase):
+   - Run test runner to confirm new tests fail with expected assertions:
+{cmd_lines}
+   - Verify failure matches expectations. Do not implement production code in this task."""
+    elif strategy["mode"] == "full":
+        verification_block = f"""2. Targeted Verification (Full TDD Cycle - Note: TDD features should be split into separate Red and Green tasks):
+   - Step 2.1 (Red Phase): Run test runner to confirm new tests fail with expected assertions:
+{cmd_lines}
+   - Step 2.2 (Green Phase): Implement application code in target files and re-run runner with type-check:
+{cmd_lines}
+   - Confirm all tests pass cleanly before committing."""
     else:
-        verification_block = f"""3. Targeted Verification:
-   - Run targeted test runner for created/modified files:
+        verification_block = f"""2. Targeted Verification (Green Phase):
+   - Run targeted test runner (with BypassSandbox: true for container runners) and type check for created/modified files:
 {cmd_lines}
-   {strategy['instruction']}
-   - If tests fail, diagnose within the target seam, adjust code/fixtures, and re-verify. Do NOT commit failing tests."""
+   - If tests fail, diagnose within the target seam, adjust implementation or fixtures, and re-verify until green."""
 
-    return f"""Execute Phase {phase_num} Task {task_num} strictly following @{plan_file}.
+    return f"""Execute Phase {phase_num} Task {task_num} following @[{plan_file}].
 
-Execution Directives (Seam-Bounded & Empirically Verified):
-1. The plan is 100% authoritative. Stay strictly within the planned seam (DO NOT view unmentioned files or explore git history).
-2. Proceed immediately to apply planned additions or edits using write_to_file or replace_file_content.
+Execution Directives:
+1. Scope & Blueprint: The plan blueprint in @[{plan_file}] is authoritative. Modify only the planned target files. You may read adjacent files or type definitions as needed to resolve imports, types, or test fixtures.
 {verification_block}
-4. Once verified, commit changes with message: "{strategy['commit_msg']}", record git notes, append [commit: <hash>] to the completed task line in plan.md, and commit plan.md.
-5. Halt immediately after commit."""
+3. Post-Execution:
+   - Follow Section 6 of @[{plan_file}] if present. Otherwise: commit changes with message "{strategy['commit_msg']}", record git notes (Task, Summary, Files, Rationale), mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.
+4. Output a brief completion summary and halt."""
 
 
 def build_recovery_prompt(track_name, phase_num, task_num):
@@ -445,11 +613,30 @@ def main():
     parser.add_argument("--copy-exec", action="store_true", help="Copy the Exec prompt to clipboard")
     parser.add_argument("--recovery", "-r", action="store_true", help="Generate recovery prompt for uncommitted work")
 
+    phase_group = parser.add_mutually_exclusive_group()
+    phase_group.add_argument("--red", action="store_true", help="Force Red phase prompt (failing tests only, halt after test commit)")
+    phase_group.add_argument("--green", action="store_true", help="Force Green phase prompt (implement application code to pass tests)")
+    phase_group.add_argument("--full", action="store_true", help="[Deprecated] Force Full TDD prompt (violates TDD Task Granularity Invariant)")
+
     parsed = parser.parse_args()
 
     track_name = parsed.track
     phase_num = parsed.phase
     task_num = parsed.task
+
+    # Determine explicit execution mode from CLI flags
+    mode = None
+    if parsed.red:
+        mode = "red"
+    elif parsed.green:
+        mode = "green"
+    elif parsed.full:
+        print(
+            "Warning: --full violates the TDD Task Granularity Invariant (AGENTS.md). "
+            "All TDD features must be split into sequential Red and Green tasks.",
+            file=sys.stderr,
+        )
+        mode = "full"
 
     # Parse positional arguments if provided
     pos_args = parsed.args
@@ -496,8 +683,6 @@ def main():
         task_desc = phases[phase_num]["tasks"][task_num - 1]["description"]
         subtasks = phases[phase_num]["tasks"][task_num - 1].get("subtasks", [])
 
-    is_red = "failing unit" in task_desc.lower() or "red phase" in task_desc.lower()
-
     if parsed.recovery:
         rec_prompt = build_recovery_prompt(track_name, phase_num, task_num)
         print(rec_prompt)
@@ -508,7 +693,7 @@ def main():
         return
 
     plan_prompt = build_plan_prompt(track_name, phase_num, task_num, task_desc)
-    exec_prompt = build_exec_prompt(track_name, phase_num, task_num, task_desc, is_red, subtasks)
+    exec_prompt = build_exec_prompt(track_name, phase_num, task_num, task_desc, subtasks, mode)
 
     if parsed.copy_plan or (parsed.copy and parsed.plan_only):
         copied = copy_to_clipboard(plan_prompt)

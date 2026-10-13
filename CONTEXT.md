@@ -1,15 +1,15 @@
 # Winery Visit Planning & Tracking
 
-A platform for discovering Finger Lakes wineries, planning day trips, and logging historical tasting visits.
+A platform for discovering wineries globally, planning day trips, and logging historical tasting visits (with Finger Lakes, NY as the initial default region).
 
 ## Core Lifecycle
 
 **Winery**:
-A commercial establishment producing or offering wine tasting in the region.
+A commercial establishment producing or offering wine tasting in any wine region worldwide.
 _Avoid_: Venue, place, location, vineyard
 
 **Visit**:
-A historical record of a user physically attending a winery on or before today, containing personal impressions such as a rating, notes, or photos.
+A historical record of a user physically attending a winery on or before today, containing personal impressions such as a rating, notes, or photos. Invariant: If a data source reports `user_visited: false`, any cached visit records for that winery are cleared (ghost visit prevention).
 _Avoid_: Check-in, trip stop, attendance, booking
 
 **Visit Note**:
@@ -27,6 +27,10 @@ _Avoid_: Tour, outing, route, journey
 **Trip Stop**:
 A single planned destination within a Trip, specifying a Winery, its sequence in the itinerary, and planning notes.
 _Avoid_: Visit, waypoint, destination, trip winery
+
+**Trip Navigation**:
+The action of launching an external turn-by-turn navigation application to guide a user along a Trip's sequence of planned Trip Stops.
+_Avoid_: Maps export, trip export, GPS export, route export
 
 **Visitor**:
 The user who authored and logged a Visit.
@@ -83,7 +87,7 @@ A specific grape or wine variety produced or poured by a Winery (e.g., Riesling,
 _Avoid_: Grape, blend, wine type
 
 **Vibe Tag**:
-A descriptive ambiance or lifestyle amenity associated with a Winery (e.g., dog-friendly, scenic views).
+A descriptive ambiance or lifestyle amenity associated with a Winery (e.g., dog-friendly, scenic views). Invariant: Tri-state boolean (`true` = confirmed amenity present, `false` = confirmed absent, `null` = un-enriched/unknown). Un-enriched wineries must retain `null` and never be coerced to `false`. Downstream filtering strictly matches `=== true`.
 _Avoid_: Feature, tag, label, amenity
 
 **Operational Hours**:

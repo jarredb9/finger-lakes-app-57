@@ -13,6 +13,12 @@ export const MOCK_MARKERS: MapMarkerRpc[] = [
     latitude: 42.5,
     longitude: -76.8,
     google_rating: 4.8,
+    user_rating_count: 120,
+    allows_dogs: true,
+    good_for_children: false,
+    outdoor_seating: true,
+    has_ev_charging: false,
+    enrichment_tier: 'enriched',
   }),
   createMockMapMarkerRpc({
     id: 2 as WineryDbId,
@@ -22,6 +28,12 @@ export const MOCK_MARKERS: MapMarkerRpc[] = [
     latitude: 42.6,
     longitude: -76.9,
     google_rating: 4.7,
+    user_rating_count: 85,
+    allows_dogs: null,
+    good_for_children: null,
+    outdoor_seating: null,
+    has_ev_charging: null,
+    enrichment_tier: 'basic',
   }),
   createMockMapMarkerRpc({
     id: 3 as WineryDbId,
@@ -31,6 +43,12 @@ export const MOCK_MARKERS: MapMarkerRpc[] = [
     latitude: 42.7,
     longitude: -77.0,
     google_rating: 4.9,
+    user_rating_count: 210,
+    allows_dogs: false,
+    good_for_children: true,
+    outdoor_seating: true,
+    has_ev_charging: true,
+    enrichment_tier: 'enriched',
   }),
 ];
 

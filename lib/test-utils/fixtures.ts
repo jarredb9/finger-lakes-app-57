@@ -129,5 +129,12 @@ export const createMockMapMarkerRpc = (overrides: Partial<MapMarkerRpc> = {}): M
   user_visited: false,
   is_favorite_private: false,
   on_wishlist_private: false,
+  google_rating: 4.8,
+  user_rating_count: 125,
+  allows_dogs: null,
+  good_for_children: null,
+  outdoor_seating: null,
+  has_ev_charging: null,
+  enrichment_tier: 'basic',
   ...overrides,
 });

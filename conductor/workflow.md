@@ -17,6 +17,11 @@ All tasks follow a strict lifecycle:
 
 **DATABASE MANDATE:** For any task involving database schema changes (DDL), you MUST develop the migration locally. You are FORBIDDEN from applying migrations to the remote/production project (`jfsxclrdxmvftxacjuqf`) during the implementation phase. Remote application is reserved for the final deployment process after PR approval.
 
+**TDD TASK GRANULARITY INVARIANT:** All TDD features in `plan.md` must be planned as two separate, sequential top-level tasks:
+1. `Task: Write failing unit/integration tests for <feature> (TDD Red phase)` -> Commits `test(<scope>): ...` with failing assertions.
+2. `Task: Implement <feature> to pass tests (TDD Green phase)` -> Commits `feat(<scope>): ...` with passing implementation.
+Never collapse Red and Green phases into a single composite task item in `plan.md`. Separate tasks ensure zero ambiguity between prompt generator sessions and prevent premature completion halts.
+
 1. **Select Task:** Choose the next available task from `plan.md` in sequential order.
 
 2. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`.

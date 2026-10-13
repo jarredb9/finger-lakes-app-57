@@ -10,6 +10,8 @@ export const ESSENTIALS_FIELD_MASK = [
   'places.types',
   'places.formattedAddress',
   'places.photos',
+  'places.rating',
+  'places.userRatingCount',
 ].join(',');
 
 export const ENRICHMENT_FIELD_MASK = [
@@ -22,11 +24,9 @@ export const ENRICHMENT_FIELD_MASK = [
   'places.goodForChildren',
   'places.outdoorSeating',
   'places.reviews',
-  'places.userRatingCount',
   'places.parkingOptions',
   'places.accessibilityOptions',
   'places.evChargeOptions',
-  'places.rating',
   'places.websiteUri',
   'places.regularOpeningHours',
   'places.internationalPhoneNumber'

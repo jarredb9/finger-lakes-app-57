@@ -1,0 +1,42 @@
+name: Bug Report
+description: Report an error, unexpected behavior, or broken feature
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please provide actionable reproduction details so this issue can be verified and briefed for agent resolution.
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behavior
+      description: What is currently happening? Include any error messages or unexpected states.
+      placeholder: "When clicking X, Y occurs instead of Z..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: "Clicking X should transition the state to..."
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      description: Minimal, step-by-step instructions to trigger the issue.
+      placeholder: |
+        1. Navigate to '...'
+        2. Click on '....'
+        3. Observe error
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment & Context
+      description: Browser, OS, route URL, or relevant user account state.
+    validations:
+      required: false

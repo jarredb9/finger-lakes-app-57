@@ -1,0 +1,3 @@
+# Client-Side Visit History Evaluation
+
+Personal winery visit logs are bounded in volume (<1,000 visits per user) but demand instant, multi-column sorting (by date, rating, winery name) and text search. The Full Visit History table loads the user's complete historical visit set on-demand and manages sorting, filtering, and pagination in-memory via TanStack Table rather than round-tripping dynamic sort parameters through PostgreSQL RPCs. This provides zero-latency client interactions, works seamlessly with offline IndexedDB caching, and prevents complex multi-parameter database migrations while keeping the sidebar's chronological feed cleanly isolated.

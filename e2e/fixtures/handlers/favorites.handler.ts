@@ -153,6 +153,13 @@ export class FavoritesHandler {
             is_favorite_private: !!(userFavPriv && keys.some(k => userFavPriv.has(k))),
             on_wishlist: !!(userWishlist && keys.some(k => userWishlist.has(k))),
             on_wishlist_private: !!(userWishPriv && keys.some(k => userWishPriv.has(k))),
+            google_rating: m.google_rating ?? 4.8,
+            user_rating_count: m.user_rating_count ?? 125,
+            allows_dogs: m.allows_dogs ?? null,
+            good_for_children: m.good_for_children ?? null,
+            outdoor_seating: m.outdoor_seating ?? null,
+            has_ev_charging: m.has_ev_charging ?? null,
+            enrichment_tier: m.enrichment_tier ?? 'basic',
           };
         });
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(dynamicMarkers) });
@@ -175,7 +182,8 @@ export class FavoritesHandler {
         const detail = {
           address: marker?.address || '123 Mock St',
           google_place_id: gId,
-          google_rating: 4.5,
+          google_rating: marker?.google_rating ?? 4.5,
+          user_rating_count: marker?.user_rating_count ?? 100,
           id: wineryId || marker?.id || 12345,
           is_favorite: !!(userFavs && keys.some(k => userFavs.has(k))),
           is_favorite_private: !!(userFavPriv && keys.some(k => userFavPriv.has(k))),
@@ -194,6 +202,11 @@ export class FavoritesHandler {
           user_visited: false,
           visits: [],
           website: 'https://example.com',
+          allows_dogs: marker?.allows_dogs ?? null,
+          good_for_children: marker?.good_for_children ?? null,
+          outdoor_seating: marker?.outdoor_seating ?? null,
+          has_ev_charging: marker?.has_ev_charging ?? null,
+          enrichment_tier: marker?.enrichment_tier ?? 'basic',
         };
         return route.fulfill({
           status: 200,

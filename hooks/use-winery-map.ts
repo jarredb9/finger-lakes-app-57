@@ -23,6 +23,7 @@ export function useWineryMap(userId: string) {
     autoSearch,
     setAutoSearch,
     setBounds,
+    setCenter,
     error: mapError,
   } = useMapStore();
 
@@ -86,6 +87,28 @@ export function useWineryMap(userId: string) {
         const currentBounds = typeof mapInstance.getBounds === "function" ? mapInstance.getBounds() : null;
         if (currentBounds) {
           setBounds(currentBounds);
+          if (!useMapStore.getState().lastSearchedBounds) {
+            useMapStore.getState().setLastSearchedBounds(currentBounds);
+          }
+        }
+
+        if (typeof mapInstance.getCenter === "function") {
+          const c = mapInstance.getCenter();
+          if (c) {
+            const lat = typeof c.lat === "function" ? c.lat() : c.lat;
+            const lng = typeof c.lng === "function" ? c.lng() : (c.lng ?? c.lon);
+            if (typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng)) {
+              setCenter({ lat, lng });
+            }
+          }
+        } else if (currentBounds) {
+          const coords = getCoordinatesFromBounds(currentBounds);
+          if (coords) {
+            setCenter({
+              lat: (coords.neLat + coords.swLat) / 2,
+              lng: (coords.neLng + coords.swLng) / 2,
+            });
+          }
         }
 
         // Auto-dismiss previous search errors when user begins panning/navigating
@@ -137,15 +160,17 @@ export function useWineryMap(userId: string) {
 
     if (typeof mapInstance.on === "function") {
       mapInstance.on("moveend", handleMapMovement);
+      mapInstance.on("resize", handleMapMovement);
       // Trigger initial search/bounds population immediately upon map mount/availability
       handleMapMovement();
       return () => {
         mapInstance.off("moveend", handleMapMovement);
+        mapInstance.off("resize", handleMapMovement);
         if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       };
     }
     return () => {};
-  }, [mapInstance, setBounds]);
+  }, [mapInstance, setBounds, setCenter]);
 
   const handleMapClick = useCallback(async (e: any) => {
     if (!places || !e.placeId) return;
@@ -266,7 +291,14 @@ export function useWineryMap(userId: string) {
   };
 
   const handleManualSearchArea = () => {
-    if (mapInstance) {
+    const currentBounds =
+      useMapStore.getState().bounds ||
+      (mapInstance && typeof mapInstance.getBounds === "function" ? mapInstance.getBounds() : null);
+
+    if (currentBounds) {
+      useMapStore.getState().setLastSearchedBounds(currentBounds);
+      executeSearch(undefined, currentBounds);
+    } else if (mapInstance) {
       useMapStore.getState().setLastSearchedBounds(null);
       executeSearch(undefined, mapInstance.getBounds());
     }
