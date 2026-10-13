@@ -28,6 +28,10 @@ _Avoid_: Tour, outing, route, journey
 A single planned destination within a Trip, specifying a Winery, its sequence in the itinerary, and planning notes.
 _Avoid_: Visit, waypoint, destination, trip winery
 
+**Trip Navigation**:
+The action of launching an external turn-by-turn navigation application to guide a user along a Trip's sequence of planned Trip Stops.
+_Avoid_: Maps export, trip export, GPS export, route export
+
 **Visitor**:
 The user who authored and logged a Visit.
 _Avoid_: Attendee, participant, customer
