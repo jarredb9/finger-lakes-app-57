@@ -79,16 +79,16 @@
     - [x] Run unit and E2E tests to verify green status
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Viewport Search UX & Map Event Sync' (Protocol in workflow.md) [commit: 6f732d7b]
 
-## Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification
+## Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification [checkpoint: a000468]
 - [x] Task: Audit and cleanup temporary test scaffolding [commit: 28bf043c]
     - [x] Audit all test files and fixtures created during this track
     - [x] Remove any throwaway intermediate scaffolds, redundant fixtures, or obsolete tests
     - [x] Confirm all permanent regression tests are clean, robust, and well-documented
-- [x] Task: Full regression test execution across unit, integration, and E2E suites
+- [x] Task: Full regression test execution across unit, integration, and E2E suites [commit: a000468]
     - [x] Run full unit and integration test suite via container runner (`./scripts/run-jest-container.sh`)
     - [x] Run Edge Function tests (`npm run test:functions`)
     - [x] Run targeted Playwright E2E verification (`./scripts/run-e2e-container.sh webkit e2e/map-viewport.spec.ts` or relevant specs)
-- [x] Task: Conductor - User Manual Verification 'Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification' (Protocol in workflow.md) [commit: a000468]
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions ba2f5f3
