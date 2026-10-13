@@ -31,9 +31,21 @@ jobs:
     timeout-minutes: 90
 
     steps:
+      - name: Check GitHub App Configuration
+        id: check-app
+        env:
+          APP_ID: ${{ secrets.APP_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+        run: |
+          if [ -n "$APP_ID" ] && [ -n "$APP_PRIVATE_KEY" ]; then
+            echo "has_app=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_app=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Generate GitHub App Token
         id: app-token
-        if: ${{ secrets.APP_ID != '' && secrets.APP_PRIVATE_KEY != '' }}
+        if: steps.check-app.outputs.has_app == 'true'
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.APP_ID }}
@@ -41,13 +53,16 @@ jobs:
 
       - name: Determine Authentication Token
         id: auth
+        env:
+          APP_TOKEN: ${{ steps.app-token.outputs.token }}
+          DEFAULT_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+          if [ -n "$APP_TOKEN" ]; then
             echo "Authenticated via GitHub App Token (native downstream CI triggers enabled)."
-            echo "token=${{ steps.app-token.outputs.token }}" >> $GITHUB_OUTPUT
+            echo "token=$APP_TOKEN" >> $GITHUB_OUTPUT
           else
             echo "GitHub App credentials not detected; falling back to GITHUB_TOKEN."
-            echo "token=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_OUTPUT
+            echo "token=$DEFAULT_TOKEN" >> $GITHUB_OUTPUT
           fi
 
       - name: Checkout repository
