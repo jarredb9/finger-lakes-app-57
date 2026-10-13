@@ -80,10 +80,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Viewport Search UX & Map Event Sync' (Protocol in workflow.md) [commit: 6f732d7b]
 
 ## Phase 6: Test Suite Hardening, Scaffolding Cleanup & End-to-End Verification
-- [ ] Task: Audit and cleanup temporary test scaffolding
-    - [ ] Audit all test files and fixtures created during this track
-    - [ ] Remove any throwaway intermediate scaffolds, redundant fixtures, or obsolete tests
-    - [ ] Confirm all permanent regression tests are clean, robust, and well-documented
+- [x] Task: Audit and cleanup temporary test scaffolding [commit: 28bf043c]
+    - [x] Audit all test files and fixtures created during this track
+    - [x] Remove any throwaway intermediate scaffolds, redundant fixtures, or obsolete tests
+    - [x] Confirm all permanent regression tests are clean, robust, and well-documented
 - [ ] Task: Full regression test execution across unit, integration, and E2E suites
     - [ ] Run full unit and integration test suite via container runner (`./scripts/run-jest-container.sh`)
     - [ ] Run Edge Function tests (`npm run test:functions`)
