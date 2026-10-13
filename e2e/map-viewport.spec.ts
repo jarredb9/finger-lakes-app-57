@@ -191,13 +191,19 @@ test.describe('Map Viewport Panning & FloatingSearchAreaButton Overlay (E2E)', (
     const floatingButton = page.getByTestId('floating-search-area-button');
     await expect(floatingButton).not.toBeVisible();
 
+    // If mobile bottom sheet is open, switch to Map view to clear viewport overlay
+    const mapNavBtn = page.getByTestId('mobile-nav-map');
+    if (await mapNavBtn.isVisible().catch(() => false)) {
+      await mapNavBtn.click();
+    }
+
     // 2. Perform large drag gesture on map canvas to pan viewport >5 km
     const mapCanvas = page.locator('[data-testid="map-view-canvas"]').first();
     await expect(mapCanvas).toBeVisible();
     const box = await mapCanvas.boundingBox();
     if (box) {
       const startX = box.x + box.width / 2;
-      const startY = box.y + box.height / 2;
+      const startY = box.y + Math.min(box.height / 3, 200);
       await page.mouse.move(startX, startY);
       await page.mouse.down();
       // Drag downward to pan viewport significantly north
