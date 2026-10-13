@@ -7,6 +7,15 @@ import { useVisitStore } from '../visitStore';
 import { useTripStore } from '../tripStore';
 import { useWineryFilter } from '@/hooks/use-winery-filter';
 
+interface WineryEnrichmentGlobals {
+  _WINERY_ENRICH_RPC?: unknown;
+  _WINERY_ENRICH_INVOKE?: unknown;
+  _WINERY_ENRICH_FROM?: unknown;
+  _E2E_ENABLE_REAL_SYNC?: boolean;
+}
+
+type GlobalWithEnrichment = typeof globalThis & WineryEnrichmentGlobals;
+
 let mockRpc: any = jest.fn((name: string) => {
   if (name === 'get_map_markers') {
     return Promise.resolve({ data: [], error: null });
@@ -100,7 +109,15 @@ describe('WineryDataStore', () => {
   });
 
   afterEach(() => {
-    delete (globalThis as any)._E2E_ENABLE_REAL_SYNC;
+    delete (globalThis as GlobalWithEnrichment)._E2E_ENABLE_REAL_SYNC;
+  });
+
+  afterAll(() => {
+    const globalContext = globalThis as GlobalWithEnrichment;
+    delete globalContext._WINERY_ENRICH_RPC;
+    delete globalContext._WINERY_ENRICH_INVOKE;
+    delete globalContext._WINERY_ENRICH_FROM;
+    delete globalContext._E2E_ENABLE_REAL_SYNC;
   });
 
   it('should preserve existing winery details (visits) when hydrating from map markers', async () => {

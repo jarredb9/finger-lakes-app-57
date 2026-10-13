@@ -12,6 +12,10 @@ jest.mock('next/image', () => ({
 }));
 
 describe('WineryCardThumbnail', () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   const mockWinery = createMockWinery({
     name: 'Test Winery',
     address: '123 Vine St',
