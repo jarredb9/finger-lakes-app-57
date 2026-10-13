@@ -1,8 +1,24 @@
 name: Autonomous Issue Resolver
 
 on:
-  issues:
-    types: [labeled]
+  schedule:
+    # 00:00 UTC = 20:00 EDT (overnight run)
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Specific GitHub issue number to resolve (optional)'
+        required: false
+        type: string
+      dry_run:
+        description: 'Run in dry-run mode without pushing branches or updating issues'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: agent-resolve-overnight
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -10,9 +26,7 @@ permissions:
   pull-requests: write
 
 jobs:
-  resolve-issue:
-    # Security Gate: Only trigger when repository owner applies trigger label
-    if: (github.event.label.name == 'agent:resolve' || github.event.label.name == 'ready-for-agent') && github.event.sender.login == 'jarredb9'
+  resolve-issues:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -36,225 +50,33 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: 'pip'
 
-      - name: Install Aider
+      - name: Install Agent dependencies
         run: |
           python3 -m pip install --upgrade pip
-          pip install aider-chat
+          pip install -r requirements-agent.txt
 
       - name: Configure Git user
         run: |
           git config --global user.name "Autonomous Agent (Gemini)"
           git config --global user.email "agent@jarredb9.github.com"
 
-      - name: Prepare Issue Context and Branch
-        id: prep
+      - name: Run Autonomous Issue Resolver Harness
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          BRANCH_NAME="agent/issue-${ISSUE_NUMBER}"
-          git checkout -b "$BRANCH_NAME"
-
-          # Extract issue payload safely
-          gh issue view "$ISSUE_NUMBER" --json title,body,number > /tmp/issue.json
-
-          echo "branch_name=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
-
-      # =========================================================================
-      # STAGE 1: PLANNER AGENT (Read-Only Architectural Blueprint)
-      # =========================================================================
-      - name: Stage 1 - Planner Agent (Generate Architectural Blueprint)
-        env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          AIDER_MODEL: ${{ vars.AGENT_MODEL || 'gemini/gemini-2.5-flash' }}
+          PLANNER_MODEL: ${{ vars.PLANNER_MODEL || 'gemini-3.8-flash-high' }}
+          EXECUTOR_MODEL: ${{ vars.EXECUTOR_MODEL || 'gemini-3.8-flash-medium' }}
+          MAX_TOKENS_PER_ISSUE: ${{ vars.MAX_TOKENS_PER_ISSUE || '500000' }}
+          BATCH_PACING_SECONDS: ${{ vars.BATCH_PACING_SECONDS || '5' }}
         run: |
-          python3 -c "
-          import json
-          with open('/tmp/issue.json') as f:
-              data = json.load(f)
-
-          title = data.get('title', '')
-          body = data.get('body', '')
-          num = data.get('number', '')
-
-          prompt = f'''You are the Planner Agent (Session 1) resolving Issue #{num}: {title}.
-
-          GATE & PLANNING PROTOCOL (Read-Only Inspection):
-          - You are strictly a static inspection and planning agent. DO NOT implement application code or run test runners/builds during this step.
-          - Inspect the codebase and target seams related to this issue (consult CONTEXT.md, existing components, and types).
-          - Write your authoritative implementation plan directly to the file: task-plan.md
-
-          PLAN BLUEPRINT REQUIREMENTS:
-          1. Target Files: Explicitly list target files (format as \`- **Path:** filepath\`).
-             - Identify target test files to create or modify.
-             - Identify target application code files to create or modify.
-          2. Full TypeScript interfaces, prop types, and exported function signatures.
-          3. Precise behavioral logic (formulas, conditions, edge cases, fallbacks).
-          4. Execution Verification Protocol:
-             - Red Phase verification command to confirm failure of new tests.
-             - Green Phase verification command: npm run type-check && npm test.
-          5. Post-Execution commit scope:
-             - Red phase commit: test(scope): Add failing tests for Issue #{num}
-             - Green phase commit: feat(scope): Implement changes to satisfy Issue #{num}
-
-          ISSUE CONTEXT:
-          Issue #{num}: {title}
-
-          {body}
-          '''
-
-          with open('/tmp/planner_prompt.txt', 'w') as f:
-              f.write(prompt)
-          "
-
-          # Run Planner agent to generate task-plan.md
-          touch task-plan.md
-          aider \
-            --model "$AIDER_MODEL" \
-            --message-file /tmp/planner_prompt.txt \
-            --yes-always \
-            --no-auto-commits \
-            --map-tokens 2048 \
-            task-plan.md
-
-          # Stage and commit the blueprint for auditability
-          git add task-plan.md
-          git commit -m "docs(plan): Architecture blueprint for Issue #${{ github.event.issue.number }}" || true
-
-      # =========================================================================
-      # STAGE 2: RED PHASE EXECUTOR AGENT (Failing Tests Only)
-      # =========================================================================
-      - name: Stage 2 - Red Phase Executor (Author Failing Tests)
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          AIDER_MODEL: ${{ vars.AGENT_MODEL || 'gemini/gemini-2.5-flash' }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          python3 -c "
-          import json
-          with open('/tmp/issue.json') as f:
-              data = json.load(f)
-
-          title = data.get('title', '')
-          num = data.get('number', '')
-
-          prompt = f'''You are the Red Phase Executor Agent (Session 2) resolving Issue #{num}: {title}.
-
-          DIRECTIVES (STRICT TDD RED PHASE):
-          1. Read the architectural plan in task-plan.md.
-          2. Target: Write FAILING unit tests or component tests in the planned test files only.
-          3. INVARIANT: DO NOT implement production/application code in this phase. Production code files must remain untouched.
-          4. Verify that new tests fail with expected assertions when executed.
-
-          When failing tests are implemented, commit ONLY the test files with:
-          git commit -m \"test(issue-{num}): Add failing tests for {title}\"
-          '''
-
-          with open('/tmp/red_prompt.txt', 'w') as f:
-              f.write(prompt)
-          "
-
-          # Run Red Phase agent with clean session context
-          aider \
-            --model "$AIDER_MODEL" \
-            --message-file /tmp/red_prompt.txt \
-            --yes-always \
-            --auto-commits \
-            --map-tokens 1024 \
-            --max-chat-history-tokens 25000 \
-            task-plan.md
-
-      # =========================================================================
-      # STAGE 3: GREEN PHASE EXECUTOR AGENT (Implement & Verify Clean Loop)
-      # =========================================================================
-      - name: Stage 3 - Green Phase Executor (Implement Code & Verify)
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          AIDER_MODEL: ${{ vars.AGENT_MODEL || 'gemini/gemini-2.5-flash' }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          python3 -c "
-          import json
-          with open('/tmp/issue.json') as f:
-              data = json.load(f)
-
-          title = data.get('title', '')
-          num = data.get('number', '')
-
-          prompt = f'''You are the Green Phase Executor Agent (Session 3) resolving Issue #{num}: {title}.
-
-          DIRECTIVES (STRICT TDD GREEN PHASE):
-          1. Read the architectural plan in task-plan.md and inspect the newly authored failing tests from the Red phase.
-          2. Implement the minimal application code in the target files specified in task-plan.md to pass the tests.
-          3. Adhere to TypeScript interfaces and domain standards in CONTEXT.md and AGENTS.md.
-          4. Run the test and type-check commands until all checks pass cleanly.
-
-          When implementation is complete and verified green, commit with:
-          git commit -m \"feat(issue-{num}): Implement feature to satisfy Issue #{num}\"
-          '''
-
-          with open('/tmp/green_prompt.txt', 'w') as f:
-              f.write(prompt)
-          "
-
-          # Run Green Phase agent with automated test verification loop
-          aider \
-            --model "$AIDER_MODEL" \
-            --message-file /tmp/green_prompt.txt \
-            --yes-always \
-            --auto-commits \
-            --map-tokens 2048 \
-            --max-chat-history-tokens 35000 \
-            --test-cmd "npm run type-check && npm test" \
-            --auto-test \
-            task-plan.md
-
-      # =========================================================================
-      # STAGE 4: PUSH BRANCH & OPEN PULL REQUEST
-      # =========================================================================
-      - name: Stage 4 - Push Branch and Submit Pull Request
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH_NAME: ${{ steps.prep.outputs.branch_name }}
-          ISSUE_NUMBER: ${{ github.event.issue.number }}
-        run: |
-          # Verify that commits exist on the agent branch
-          COMMITS_COUNT=$(git rev-list --count HEAD ^origin/main)
-          if [ "$COMMITS_COUNT" -eq 0 ]; then
-            echo "No commits were generated by the agent pipeline. Exiting without PR."
-            gh issue comment "$ISSUE_NUMBER" --body "⚠️ Autonomous agent run completed, but no code changes were committed."
-            exit 0
+          ARGS=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
           fi
-
-          git push origin "$BRANCH_NAME"
-
-          ISSUE_TITLE=$(jq -r .title /tmp/issue.json)
-
-          PR_BODY="## Summary
-          Autonomous multi-agent resolution for issue #${ISSUE_NUMBER}: ${ISSUE_TITLE}
-
-          Closes #${ISSUE_NUMBER}
-
-          ### Pipeline Stages Executed:
-          1. **Planner Agent:** Authored architectural blueprint (\`task-plan.md\`).
-          2. **Red Phase Executor:** Authored failing tests (\`test(...)\`).
-          3. **Green Phase Executor:** Implemented application code and verified clean test suite (\`feat(...)\`).
-
-          ## Evidence
-          - Unit test suite passing: \`npm test\`
-          - TypeScript check passing: \`npm run type-check\`
-          - Full CI regression pipeline verified on PR branch.
-
-          ## Merge Danger
-          - **Door:** Two-way
-          - **Blast Radius:** Targeted to issue scope."
-
-          gh pr create \
-            --title "fix(issue-${ISSUE_NUMBER}): ${ISSUE_TITLE}" \
-            --body "$PR_BODY" \
-            --head "$BRANCH_NAME" \
-            --base main
-
-          gh issue edit "$ISSUE_NUMBER" --remove-label "agent:resolve" --add-label "agent:in-review"
-          gh issue comment "$ISSUE_NUMBER" --body "✅ Autonomous multi-agent PR submitted for review on branch \`${BRANCH_NAME}\`."
+          if [ -n "${{ github.event.inputs.issue_number }}" ]; then
+            python3 scripts/agent-resolve.py --issue "${{ github.event.inputs.issue_number }}" $ARGS
+          else
+            python3 scripts/agent-resolve.py --max-issues 3 $ARGS
+          fi
