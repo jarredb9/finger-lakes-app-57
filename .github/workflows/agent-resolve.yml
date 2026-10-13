@@ -28,14 +28,34 @@ permissions:
 jobs:
   resolve-issues:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     steps:
+      - name: Generate GitHub App Token
+        id: app-token
+        if: ${{ secrets.APP_ID != '' && secrets.APP_PRIVATE_KEY != '' }}
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Determine Authentication Token
+        id: auth
+        run: |
+          if [ -n "${{ steps.app-token.outputs.token }}" ]; then
+            echo "Authenticated via GitHub App Token (native downstream CI triggers enabled)."
+            echo "token=${{ steps.app-token.outputs.token }}" >> $GITHUB_OUTPUT
+          else
+            echo "GitHub App credentials not detected; falling back to GITHUB_TOKEN."
+            echo "token=${{ secrets.GITHUB_TOKEN }}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+          token: ${{ steps.auth.outputs.token }}
 
       - name: Setup Node.js 24
         uses: actions/setup-node@v4
@@ -45,6 +65,9 @@ jobs:
 
       - name: Install Node dependencies
         run: npm ci
+
+      - name: Pull Docker Node Image for Sandboxed Verification
+        run: docker pull node:24-slim || true
 
       - name: Setup Python 3.12
         uses: actions/setup-python@v5
@@ -57,17 +80,20 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install -r requirements-agent.txt
 
-      - name: Configure Git user
+      - name: Configure Git & Credentials
+        env:
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
         run: |
           git config --global user.name "Autonomous Agent (Gemini)"
           git config --global user.email "agent@jarredb9.github.com"
+          gh auth setup-git
 
       - name: Run Autonomous Issue Resolver Harness
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.auth.outputs.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          PLANNER_MODEL: ${{ vars.PLANNER_MODEL || 'gemini-3.8-flash-high' }}
-          EXECUTOR_MODEL: ${{ vars.EXECUTOR_MODEL || 'gemini-3.8-flash-medium' }}
+          PLANNER_MODEL: ${{ vars.PLANNER_MODEL || 'gemini-3.8-flash' }}
+          EXECUTOR_MODEL: ${{ vars.EXECUTOR_MODEL || 'gemini-3.8-flash' }}
           MAX_TOKENS_PER_ISSUE: ${{ vars.MAX_TOKENS_PER_ISSUE || '500000' }}
           BATCH_PACING_SECONDS: ${{ vars.BATCH_PACING_SECONDS || '5' }}
         run: |
