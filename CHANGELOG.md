@@ -2,6 +2,45 @@
 
 ## [Unreleased] - v3.6.1
 
+### 🍇 ExploreTabContent Data Pipeline Desynchronization & Missing Winery Enrichment ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44) / [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md))
+* **Database Map Markers RPC Expansion & Safe Schema Migration**:
+    * Expanded PostgreSQL `public.get_map_markers` RPC via transaction migration (`supabase/migrations/20261007090000_enrich_map_markers_rpc.sql`) executing `DROP FUNCTION IF EXISTS public.get_map_markers(uuid)` and `CREATE OR REPLACE FUNCTION` with expanded `RETURNS TABLE` including `google_rating`, `user_rating_count`, `allows_dogs`, `good_for_children`, `outdoor_seating`, `has_ev_charging`, and `enrichment_tier`.
+    * Enforced strict security definer execution with `search_path = public, pg_temp` and caller authorization check (`p_user_id IS NULL OR p_user_id != auth.uid()`).
+    * Updated `MapMarkerRpc` interface in `lib/types.ts` and generated TypeScript database types (`lib/database.types.ts`).
+* **Places API v1 Essentials Field Mask & Rating Ingestion**:
+    * Expanded `ESSENTIALS_FIELD_MASK` in `supabase/functions/_shared/google-maps.ts` to include `places.rating` and `places.userRatingCount` under Google Places Basic SKU, preventing unexpected billing tier escalation.
+    * Updated `normalizeGooglePlaceV1` in `supabase/functions/_shared/normalization.ts` and `supabase/functions/search-wineries/index.ts` to ingest ratings and review counts while replacing `any` casts with strict TypeScript interfaces (`GooglePlaceInput`, `NormalizedWinery`, `NormalizedReview`).
+    * Standardized ratings and review counts in `standardizeWineryData` (`lib/utils/winery.ts`) across basic search payloads and RPC payloads.
+* **Authoritative Store Caching & Reactive User Action Synchronization**:
+    * Unified search results ingestion in `wineryStore` / `useWinerySearch` via `bulkUpsertWineries`, merging incoming search results into `persistentWineries` while preserving user state flags (`isFavorite`, `onWishlist`, `userVisited`, custom notes) via `{ preserveUserFlags: true }`.
+    * Ensured `ensureWineryDetails` updates `persistentWineries` seamlessly upon background lazy enrichment completion.
+    * Wired reactive instant UI state propagation across user actions (`toggleFavorite`, `toggleWishlist`, `toggleFavoritePrivacy`, `toggleWishlistPrivacy`, `addVisitToWinery`, `optimisticallyDeleteVisit`), updating both `persistentWineries` and `mapStore.searchResults` without requiring network re-fetches.
+* **Tri-State Vibe Tag Preservation & Ghost Visit Prevention**:
+    * Implemented `parseTriStateBoolean` in `lib/utils/winery.ts` to preserve strict tri-state `boolean | null` (`true` = confirmed amenity present, `false` = confirmed absent, `null` = un-enriched/unknown), eliminating false coercion of un-enriched amenities to `false`.
+    * Enforced ghost visit prevention invariant in `standardizeWineryData`: if a data source reports `user_visited: false` (or falsy without `preserveUserFlags`), cached `visits` arrays are cleared immediately.
+    * Updated mock fixtures and network handlers (`lib/test-utils/fixtures.ts`, `e2e/fixtures/utils/mock-wineries.ts`, `e2e/fixtures/handlers/favorites.handler.ts`) to align with the expanded marker contract.
+* **Unified Viewport-Authoritative Sidebar List & Vibe Tag Filtering**:
+    * Refactored `hooks/use-winery-filter.ts` to eliminate diverging `searchResults.length > 0` branching, computing `listResultsInView` from the unified winery collection (`mapWineries`) filtered strictly by active map `bounds` and active category filters.
+    * Enforced strict conjunction (`=== true`) for Vibe Tag filters (`allowsDogs`, `goodForChildren`, `outdoorSeating`, `hasEvCharging`), excluding un-enriched records (`null`) and confirmed negatives (`false`).
+    * Synchronized Vibe Tag filtering across both map pins (`MapView.tsx`, `google-map-fallback.tsx`) and sidebar list cards on initial load.
+    * Enhanced `WineryCardThumbnail` (`components/winery-card-thumbnail.tsx`) to display star ratings and review counts `(userRatingCount)`.
+* **Viewport Search UX, Haversine Distance & Map Event Synchronization**:
+    * Implemented Haversine great-circle distance utility `calculateDistanceKm` in `lib/utils/map-utils.ts` supporting both `{ latitude, longitude }` and `{ lat, lng }` coordinates.
+    * Created `FloatingSearchAreaButton` (`components/map/floating-search-area-button.tsx`) rendered at top-center of the map canvas in `components/WineryMap.tsx`.
+    * Configured visibility logic: button dynamically appears when `autoSearch` is `false` and viewport center distance from `lastSearchedBounds` exceeds 5 km, and dismisses upon clicking to trigger manual search area execution.
+    * Seeded `lastSearchedBounds` on initial map mount in `hooks/use-winery-map.ts`.
+    * Added map `resize` listener and `ResizeObserver` on `MapView` container to synchronize viewport bounds when sidebar collapses or expands.
+    * Documented global discovery scope and unrestricted user geolocation in [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md) and `CONTEXT.md`.
+* **Multi-Tier Regression Test Suites & End-to-End Browser Verification**:
+    * Added unit test suites for tri-state Vibe Tag parsing, rating mapping, and ghost visit clearing (`lib/utils/__tests__/winery.test.ts`).
+    * Added unit test suites for Haversine distance calculation and `FloatingSearchAreaButton` rendering/suppression (`lib/utils/__tests__/map-utils.test.ts`, `components/map/__tests__/floating-search-area-button.test.tsx`).
+    * Added unit test suites for persistent search merging, cache hydration, and reactive user state synchronization (`lib/stores/__tests__/wineryStore.enrichment.test.ts`).
+    * Added unit test suites for unified viewport filtering and strict Vibe Tag conjunction (`hooks/__tests__/use-winery-filter.test.ts`, `components/__tests__/winery-card-thumbnail.test.tsx`, `components/__tests__/vibe-tag-filtering.test.tsx`).
+    * Added database RPC integration tests in `lib/services/__tests__/db-optimization.integration.test.ts`.
+    * Added Edge Function tests in `supabase/functions/search-wineries/index.test.ts`.
+    * Authored real browser Playwright WebKit E2E test suite `e2e/map-viewport.spec.ts` verifying floating search button suppression, distance threshold triggering (>5 km), canvas drag panning, and area search execution.
+
+
 ### 📜 Client-Side Full Visit History Evaluation & Multi-Column Sorting ([ADR-0003](docs/adr/0003-client-side-visit-history-evaluation.md))
 * **Client-Side Full Dataset Evaluation & On-Demand Hydration**:
     * Implemented on-demand complete lifetime visit history fetching (`fetchAllVisits` in `useVisitStore` / `visitDataSlice.ts`) when opening the Full Visit History modal (`VisitHistoryModal`), querying `get_paginated_visits_with_winery_and_friends` with a single high-limit batch (`p_page_size: 1000`) to evaluate the full historical visit catalog in-memory without altering database DDL.
