@@ -128,3 +128,56 @@ export function getCoordinatesFromBounds(bounds: any): { swLat: number; swLng: n
   return null;
 }
 
+export interface CoordinatePoint {
+  latitude?: number;
+  longitude?: number;
+  lat?: number;
+  lng?: number;
+}
+
+/**
+ * Calculates the great-circle distance between two coordinates in kilometers using the Haversine formula.
+ * @param coord1 First coordinate point (supports { latitude, longitude } or { lat, lng })
+ * @param coord2 Second coordinate point (supports { latitude, longitude } or { lat, lng })
+ * @returns Great-circle distance in kilometers, or NaN if coordinates are invalid or missing.
+ */
+export function calculateDistanceKm(
+  coord1: CoordinatePoint,
+  coord2: CoordinatePoint
+): number {
+  if (!coord1 || !coord2) return NaN;
+
+  const lat1 = coord1.latitude ?? coord1.lat;
+  const lng1 = coord1.longitude ?? coord1.lng;
+  const lat2 = coord2.latitude ?? coord2.lat;
+  const lng2 = coord2.longitude ?? coord2.lng;
+
+  if (
+    lat1 === undefined ||
+    lng1 === undefined ||
+    lat2 === undefined ||
+    lng2 === undefined ||
+    Number.isNaN(lat1) ||
+    Number.isNaN(lng1) ||
+    Number.isNaN(lat2) ||
+    Number.isNaN(lng2)
+  ) {
+    return NaN;
+  }
+
+  // Mean radius of Earth in kilometers
+  const R = 6371;
+
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+

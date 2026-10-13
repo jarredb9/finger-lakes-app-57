@@ -1,0 +1,25 @@
+name: Feature Request
+description: Propose a new capability or improvement
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem & Motivation
+      description: What problem are you trying to solve? Why is the current system insufficient?
+    validations:
+      required: true
+  - type: textarea
+    id: desired-behavior
+    attributes:
+      label: Proposed Solution / Desired Behavior
+      description: Describe what the system should do from a user or API consumer perspective.
+    validations:
+      required: true
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of Scope (Optional)
+      description: Are there adjacent features or edge cases that should NOT be handled in this issue?
+    validations:
+      required: false

@@ -4,6 +4,7 @@ export {
   hydrateVisitsHelper,
   fetchVisitsForWineryHelper,
   fetchVisitsHelper,
+  fetchAllVisitsHelper,
 } from './visitFetchHelpers';
 
 export {
