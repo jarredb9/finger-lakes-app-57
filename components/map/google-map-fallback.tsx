@@ -6,6 +6,7 @@ import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 import { GoogleMapAdapter } from "@/lib/maps/google-map-adapter";
 import { PIN_COLORS } from "@/lib/maps/mapbox-layers";
 import { MapStyleSwitcher } from "./map-style-switcher";
+import { useMapStore } from "@/lib/stores/mapStore";
 
 export interface GoogleMapFallbackProps {
   discoveredWineries: Winery[];
@@ -43,6 +44,7 @@ export function GoogleMapFallback({
 
   useEffect(() => {
     let active = true;
+    let idleListener: any = null;
     const container = containerRef.current;
 
     async function initMap() {
@@ -67,12 +69,48 @@ export function GoogleMapFallback({
 
       // Apply initial style
       gmap.setMapTypeId("roadmap");
+
+      const syncMapToStore = () => {
+        try {
+          const gbounds = gmap.getBounds();
+          if (gbounds) {
+            const ne = gbounds.getNorthEast();
+            const sw = gbounds.getSouthWest();
+            const serializableBounds = {
+              north: typeof ne.lat === "function" ? ne.lat() : ne.lat,
+              south: typeof sw.lat === "function" ? sw.lat() : sw.lat,
+              east: typeof ne.lng === "function" ? ne.lng() : ne.lng,
+              west: typeof sw.lng === "function" ? sw.lng() : sw.lng,
+            };
+            useMapStore.getState().setBounds(serializableBounds);
+            if (!useMapStore.getState().lastSearchedBounds) {
+              useMapStore.getState().setLastSearchedBounds(serializableBounds);
+            }
+          }
+          const c = gmap.getCenter();
+          if (c) {
+            const lat = typeof c.lat === "function" ? c.lat() : c.lat;
+            const lng = typeof c.lng === "function" ? c.lng() : c.lng;
+            if (typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng)) {
+              useMapStore.getState().setCenter({ lat, lng });
+            }
+          }
+        } catch {
+          // Ignore synchronization errors during map teardown or re-initialization
+        }
+      };
+
+      idleListener = gmap.addListener("idle", syncMapToStore);
+      syncMapToStore();
     }
 
     initMap();
 
     return () => {
       active = false;
+      if (idleListener && typeof idleListener.remove === "function") {
+        idleListener.remove();
+      }
       mapRef.current = null;
       setMapAdapter(null);
       if (container) {
