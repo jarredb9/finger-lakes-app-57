@@ -143,6 +143,12 @@ describe("Vibe Tag Filtering Component Integration (Map Pins & Sidebar List)", (
     });
   });
 
+  afterAll(() => {
+    lastSourceProps = null;
+    useMapStore.getState().reset();
+    useWineryStore.getState().reset();
+  });
+
   it("filters both map pins and sidebar list when a Vibe Tag filter toggle is clicked", () => {
     render(<ExploreFilterIntegrationHarness />);
 

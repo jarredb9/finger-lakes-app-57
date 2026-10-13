@@ -111,11 +111,9 @@ describe("useWinerySearch", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
-    console.log("CALLING EXECUTE SEARCH");
     await act(async () => {
       await result.current.executeSearch("Some Area");
     });
-    console.log("DONE CALLING EXECUTE SEARCH");
 
     // Verify that error is set in the store
     const state = useMapStore.getState();

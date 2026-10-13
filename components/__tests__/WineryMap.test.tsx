@@ -33,6 +33,11 @@ describe("WineryMap", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    useMapStore.getState().reset();
+  });
+
+  afterEach(() => {
+    useMapStore.getState().reset();
   });
 
   it("renders MapView with ready state when there is no error", () => {

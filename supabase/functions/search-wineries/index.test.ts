@@ -38,10 +38,6 @@ Deno.test("search-wineries handler - successful search", async () => {
     const res = await handler(req);
     const data = await res.json();
 
-    if (res.status !== 200) {
-      console.log("Error response data:", data);
-    }
-
     assertEquals(res.status, 200);
     assertEquals(data.length, 1);
     assertEquals(data[0].name, "Test Winery");
