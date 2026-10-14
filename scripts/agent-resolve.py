@@ -644,6 +644,47 @@ def get_project_context() -> str:
 """
 
 
+def find_related_test_files(target_src_files: List[str]) -> List[str]:
+    """Discovers test files that import or reference target source files to prevent unadapted regression collisions."""
+    discovered: List[str] = []
+    for sf in target_src_files:
+        stem = Path(sf).stem
+        if not stem or len(stem) < 3:
+            continue
+        code, stdout, _ = run_cmd(["git", "grep", "-l", stem, "--", "**/__tests__/*"])
+        if code == 0 and stdout:
+            for line in stdout.splitlines():
+                tf = line.strip()
+                if tf and tf not in discovered and (PROJECT_ROOT / tf).exists():
+                    discovered.append(tf)
+    return discovered
+
+
+def extract_test_suite_names(content: str) -> List[str]:
+    """Extracts describe block titles from a test file to detect unintentional test suite deletion."""
+    return re.findall(r"describe\s*\(\s*['\"`]([^'\"`]+)['\"`]", content)
+
+
+def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> Tuple[bool, str]:
+    """
+    Evaluates whether an issue is suitable for headless overnight resolution or requires
+    interactive Antigravity CLI due to complex UI, external URL schemes, or mobile platform quirks.
+    """
+    text = f"{issue_title}\n{issue_body}".lower()
+    reasons = []
+    if any(k in text for k in ["dropdownmenu", "dialog", "popover", "accordion", "sheet", "radix"]):
+        reasons.append("composite Radix UI / dropdown component redesign")
+    if any(k in text for k in ["ios pwa", "standalone pwa", "webkit", "gesture", "safari popup"]):
+        reasons.append("mobile WebKit / PWA runtime gesture semantics")
+    if any(k in text for k in ["maps://", "waze://", "https://maps.apple.com", "deep link"]):
+        reasons.append("external vendor deep-linking scheme")
+
+    if reasons:
+        return False, "; ".join(reasons)
+    return True, ""
+
+
+
 # =========================================================================
 # READ-ONLY REPOSITORY EXPLORATION TOOLS
 # =========================================================================
@@ -1012,6 +1053,13 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
     for sf in blueprint.target_src_files:
         safe_resolve_repo_path(sf)
 
+    # Blast radius discovery: automatically detect dependent test files to prevent regression collisions
+    related_tests = find_related_test_files(blueprint.target_src_files)
+    for rt in related_tests:
+        if rt not in blueprint.target_test_files:
+            log(f"Discovered dependent test file for blast radius: {rt}")
+            blueprint.target_test_files.append(rt)
+
     plan_path = PROJECT_ROOT / "task-plan.md"
     plan_path.write_text(blueprint.plan_markdown, encoding="utf-8")
 
@@ -1132,6 +1180,7 @@ def stage_2_red(
     if new_src_files is None:
         new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 
+    project_context = get_project_context()
     plan_md = (PROJECT_ROOT / "task-plan.md").read_text(encoding="utf-8")
     last_compiler_error = initial_error_context
     max_red_retries = 2
@@ -1158,6 +1207,8 @@ Existing source files must remain untouched.
 
         prompt = f"""You are the Red Phase Executor Agent authoring failing tests for Issue #{issue_number}: {issue_title}.
 
+{project_context}
+
 ARCHITECTURAL BLUEPRINT (task-plan.md):
 {plan_md}
 
@@ -1178,6 +1229,7 @@ DIRECTIVES (STRICT TDD RED PHASE):
 6. Tests must be valid TypeScript: correct imports, mock setups (Jest/Testing Library), and type annotations.
 7. Output complete file contents for each target test file.
 8. JSDOM & BROWSER MOCKING INVARIANT: In Jest/JSDOM, `window.location` is locked and non-configurable. DO NOT attempt to redefine or overwrite it via `Object.defineProperty(window, 'location', ...)`. Instead, test navigation by mocking helper functions, using dependency injection, or utilizing jest.spyOn. Ensure test setup hooks (`beforeEach`/`afterEach`) execute cleanly without throwing unhandled exceptions.
+9. PRESERVATION OF EXISTING TESTS: For any target test file that already exists on disk, you MUST retain all pre-existing test suites and describe blocks (such as saveTripMembers). You may add new tests or update obsolete tests within the targeted feature suite, but you MUST NEVER silently drop or truncate unrelated test suites in the file.
 
 Respond strictly in valid JSON matching the TestFileManifest schema.
 """
@@ -1190,6 +1242,26 @@ Respond strictly in valid JSON matching the TestFileManifest schema.
             temperature=0.2,
             token_tracker=token_tracker,
         )
+
+        # Pre-flight check: ensure no pre-existing describe suites were unintentionally dropped
+        dropped_suites: List[str] = []
+        for entry in manifest.files:
+            p = safe_resolve_repo_path(entry.file_path)
+            if p.exists():
+                orig_text = p.read_text(encoding="utf-8")
+                orig_suites = extract_test_suite_names(orig_text)
+                new_suites = extract_test_suite_names(entry.content)
+                missing = [s for s in orig_suites if s not in new_suites]
+                if missing:
+                    dropped_suites.append(f"{entry.file_path}: dropped suites {missing}")
+
+        if dropped_suites and attempt < max_red_retries:
+            last_compiler_error = f"""PREVIOUS ATTEMPT DROPPED PRE-EXISTING TEST SUITES:
+{chr(10).join(dropped_suites)}
+You MUST retain all pre-existing test suites in existing test files! Do not truncate or drop unrelated describe blocks.
+"""
+            log(f"Red phase attempt {attempt} dropped pre-existing test suites:\n{last_compiler_error}")
+            continue
 
         staged_stubs: List[str] = []
         for stub in getattr(manifest, "source_stubs", []):
@@ -1288,6 +1360,7 @@ def stage_3_green(
         raise RuntimeError("No target source files specified in architectural blueprint.")
 
     plan_md = (PROJECT_ROOT / "task-plan.md").read_text(encoding="utf-8")
+    project_context = get_project_context()
 
     tests_content = ""
     for tf in target_tests:
@@ -1321,6 +1394,8 @@ def stage_3_green(
 
         prompt = f"""You are the Green Phase Executor Agent implementing code to satisfy Issue #{issue_number}: {issue_title}.
 
+{project_context}
+
 ARCHITECTURAL BLUEPRINT:
 {plan_md}
 
@@ -1339,6 +1414,7 @@ DIRECTIVES (STRICT TDD GREEN PHASE - TARGETED SEARCH/REPLACE PATCHING):
 4. For existing files, specify exact search_block character sequences to replace, including sufficient surrounding context lines to ensure unique matching.
 5. For new files, set search_block to an empty string and provide complete file content in replace_block.
 6. TYPE HYGIENE: Ensure custom types, interfaces, and function signatures do not clash with global browser DOM or Node.js built-ins. Use explicit type imports and clean naming.
+7. DOMAIN INVARIANTS & UI HYGIENE: Adhere strictly to CONTEXT.md naming conventions and AGENTS.md guidelines. When refactoring UI components or adding dropdown menus, NEVER attach click or navigation handlers to trigger elements (such as `DropdownMenuTrigger asChild`), and avoid hacking trigger labels to satisfy obsolete tests.
 
 Respond strictly in valid JSON matching the PatchManifest schema.
 """
@@ -1737,6 +1813,12 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
             gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:resolve", "--add-label", "ready-for-human"])
             gh_cli(["issue", "comment", str(issue_number), "--body", "⚠️ Autonomous agent resolution rejected: Issue author is not verified repository maintainer."])
         return False
+
+    # Complexity & Scope Triage Advisory
+    is_suitable, reason = is_issue_suitable_for_headless_agent(issue_title, issue_body)
+    if not is_suitable:
+        log(f"⚠️ Complexity Advisory for Issue #{issue_number}: Contains interactive or platform-specific elements: {reason}.")
+        log("Advisory: If resolution involves complex DOM gestures or deep-links, human-in-the-loop Antigravity CLI review is recommended.")
 
     branch_name = f"agent/issue-{issue_number}"
 
