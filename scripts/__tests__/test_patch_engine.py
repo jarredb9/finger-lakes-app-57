@@ -305,7 +305,95 @@ FAIL lib/utils/__tests__/map-navigation.test.ts
         self.assertTrue(valid, f"Expected valid red phase but got error: {msg}")
         self.assertEqual(msg, "")
 
+    def test_validate_jest_red_phase_unimplemented_function_typeerror_is_valid(self):
+        json_output = json.dumps({
+            "numFailedTests": 1,
+            "numPassedTests": 0,
+            "numRuntimeErrorTestSuites": 0,
+            "testResults": [
+                {
+                    "testFilePath": "lib/utils/__tests__/trip-navigation.test.ts",
+                    "assertionResults": [
+                        {
+                            "status": "failed",
+                            "title": "builds Google Maps turn-by-turn navigation URL",
+                            "failureMessages": [
+                                "TypeError: getTripNavigationUrl is not a function\n    at Object.getTripNavigationUrl (/app/lib/utils/__tests__/map-utils.test.ts:221:21)"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        })
+        valid, msg = agent_resolve.validate_jest_red_phase(1, json_output, "")
+        self.assertTrue(valid, f"Expected valid red phase for unimplemented function TypeError, but got error: {msg}")
+        self.assertEqual(msg, "")
+
+    def test_validate_jest_red_phase_hook_crash_is_invalid(self):
+        json_output = json.dumps({
+            "numFailedTests": 1,
+            "numPassedTests": 0,
+            "numRuntimeErrorTestSuites": 0,
+            "testResults": [
+                {
+                    "testFilePath": "components/__tests__/MapNavigation.test.tsx",
+                    "assertionResults": [
+                        {
+                            "status": "failed",
+                            "title": "renders trigger button",
+                            "failureMessages": [
+                                "TypeError: Cannot redefine property: location\n    at beforeEach (/app/components/__tests__/MapNavigation.test.tsx:58:12)\n    at callAsyncCircusFn (/app/node_modules/jest-circus/build/jestAdapterInit.js:1497:10)"
+                            ]
+                        }
+                    ]
+                }
+            ]
+        })
+        valid, msg = agent_resolve.validate_jest_red_phase(1, json_output, "")
+        self.assertFalse(valid, "Expected hook crash to be invalid red phase")
+        self.assertIn("fatal hook/harness error", msg)
+
+    def test_circuit_breaker_attempt_count_increment(self):
+        state_file = self.root / ".agent-state.json"
+        # First failure: creates state with attempt_count 1
+        blueprint = agent_resolve.BlueprintPlan(
+            scope="trip",
+            target_test_files=["lib/utils/__tests__/test.ts"],
+            target_src_files=["lib/utils/test.ts"],
+            plan_markdown="# Plan",
+        )
+        token_tracker = agent_resolve.TokenTracker()
+
+        agent_resolve.preserve_failed_work(
+            issue_number=999,
+            issue_title="Test Issue",
+            blueprint=blueprint,
+            branch_name="agent/issue-999",
+            error_summary="First night error",
+            token_tracker=token_tracker,
+            elapsed_sec=10,
+            dry_run=True,
+        )
+        self.assertTrue(state_file.exists())
+        data1 = json.loads(state_file.read_text(encoding="utf-8"))
+        self.assertEqual(data1.get("attempt_count"), 1)
+
+        # Second failure: increments to 2
+        agent_resolve.preserve_failed_work(
+            issue_number=999,
+            issue_title="Test Issue",
+            blueprint=blueprint,
+            branch_name="agent/issue-999",
+            error_summary="Second night error",
+            token_tracker=token_tracker,
+            elapsed_sec=20,
+            dry_run=True,
+        )
+        data2 = json.loads(state_file.read_text(encoding="utf-8"))
+        self.assertEqual(data2.get("attempt_count"), 2)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
