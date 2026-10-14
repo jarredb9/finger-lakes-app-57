@@ -406,11 +406,13 @@ FAIL lib/utils/__tests__/map-navigation.test.ts
         # SEC-02 sanitization filter
         sample = (
             "Error pushing to git with ghp_1234567890abcdef1234567890abcdef and "
+            "fine-grained github_pat_11AAAAAAA001234567890abcdef1234567890 and "
             "Google Maps key AIzaSyA12345678901234567890123456789012 and "
             "header Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xyz"
         )
         cleaned = agent_resolve.sanitize_secrets(sample)
         self.assertNotIn("ghp_1234567890", cleaned)
+        self.assertNotIn("github_pat_11AAA", cleaned)
         self.assertIn("[REDACTED_GH_TOKEN]", cleaned)
         self.assertNotIn("AIzaSyA123456", cleaned)
         self.assertIn("[REDACTED_AIZA_KEY]", cleaned)

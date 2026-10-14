@@ -169,8 +169,8 @@ def sanitize_secrets(text: str) -> str:
     """
     if not text:
         return ""
-    # GitHub personal access and installation tokens (ghp_, gho_, ghu_, ghs_, ghr_)
-    redacted = re.sub(r"gh[pousr]_[A-Za-z0-9_]{16,}", "[REDACTED_GH_TOKEN]", text)
+    # GitHub personal access and installation tokens (ghp_, gho_, ghu_, ghs_, ghr_, github_pat_)
+    redacted = re.sub(r"(?:gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{22,})", "[REDACTED_GH_TOKEN]", text)
     # Google API Keys (AIza...)
     redacted = re.sub(r"AIza[0-9A-Za-z\-_]{35}", "[REDACTED_AIZA_KEY]", redacted)
     # Bearer authorization headers/tokens
@@ -251,10 +251,14 @@ def run_isolated_test(cmd: List[str], cwd: Optional[Path] = None, timeout: int =
             "-v", f"{PROJECT_ROOT}:/app:ro",
             "--tmpfs", "/tmp:rw,exec,size=512m",
             "-w", "/app",
+            "-e", "CI=true",
             "-e", "NODE_ENV=test",
             "-e", "HOME=/tmp",
             "-e", "npm_config_cache=/tmp/.npm",
             "-e", "TMPDIR=/tmp",
+            "-e", "JEST_CACHE_DIR=/tmp/jest",
+            "-e", "NO_UPDATE_NOTIFIER=1",
+            "-e", "npm_config_audit=false",
             "-e", "PATH=/app/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "node:24-slim",
         ] + cmd
