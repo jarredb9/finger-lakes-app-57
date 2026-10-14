@@ -12,7 +12,6 @@ const mockOpenShareDialog = jest.fn();
 const mockOpenWineryNoteEditor = jest.fn();
 const mockHandleExportToMaps = jest.fn();
 
-// Note: We are still mocking UI components for simplicity in unit tests
 jest.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: any) => children,
   TooltipTrigger: ({ children }: any) => children,
@@ -68,6 +67,17 @@ jest.mock('@/components/ui/avatar', () => ({
   AvatarFallback: ({ children }: any) => <div>{children}</div>,
 }));
 
+jest.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: any) => <div data-testid="dropdown-menu">{children}</div>,
+  DropdownMenuTrigger: ({ children }: any) => <>{children}</>,
+  DropdownMenuContent: ({ children }: any) => <div data-testid="dropdown-content">{children}</div>,
+  DropdownMenuItem: ({ children, onClick, 'data-testid': testId, ...props }: any) => (
+    <div onClick={onClick} data-testid={testId} {...props}>
+      {children}
+    </div>
+  ),
+}));
+
 jest.mock('@hello-pangea/dnd', () => ({
   DragDropContext: ({ children, onDragEnd }: any) => (
     <div data-testid="dnd-context" onClick={() => onDragEnd({ destination: { index: 1 }, source: { index: 0 } })}>
@@ -105,18 +115,34 @@ describe('TripCard', () => {
     id: 1,
     name: 'Test Trip',
     wineries: [
-      { 
-        id: 'winery-1', 
-        dbId: 101, 
-        name: 'Winery One', 
+      {
+        id: 'winery-1',
+        dbId: 101,
+        name: 'Winery One',
         address: '123 Wine St',
         latitude: 42.44,
         longitude: -76.50,
         visits: [
-          { user_id: 'user-1', rating: 5, user_review: 'Great!', profiles: { name: 'You' } },
-          { user_id: 'friend-1', rating: 4, user_review: 'Nice!', profiles: { name: 'Friend One' } }
-        ]
-      } as any
+          {
+            user_id: 'user-1',
+            rating: 5,
+            user_review: 'Great!',
+            profiles: {
+              name: 'You',
+              email: 'you@example.com',
+            },
+          },
+          {
+            user_id: 'friend-1',
+            rating: 4,
+            user_review: 'Nice!',
+            profiles: {
+              name: 'Friend One',
+              email: 'friend@example.com',
+            },
+          },
+        ],
+      } as any,
     ],
   });
 
@@ -277,5 +303,45 @@ describe('TripCard', () => {
     fireEvent.click(screen.getByLabelText(/Edit Trip/i));
     fireEvent.click(screen.getByText(/Add a Winery/i));
     expect(screen.getByText('Search Result')).toBeInTheDocument();
+  });
+
+  describe('Trip Navigation Provider Selection', () => {
+    it('renders navigation dropdown trigger with aria-label="Trip Navigation"', () => {
+      render(<TripCard {...defaultProps} />);
+      const navTrigger = screen.getByRole('button', { name: /Trip Navigation/i });
+      expect(navTrigger).toBeInTheDocument();
+      expect(navTrigger).not.toBeDisabled();
+    });
+
+    it('disables navigation trigger when trip has no wineries', () => {
+      const tripEmpty = {
+        ...mockTrip,
+        wineries: [],
+      };
+      render(<TripCard {...defaultProps} trip={tripEmpty as any} />);
+      const navTrigger = screen.getByRole('button', { name: /Trip Navigation/i });
+      expect(navTrigger).toBeDisabled();
+    });
+
+    it('calls onExportToMaps with "google" when Google Maps option is clicked', () => {
+      render(<TripCard {...defaultProps} />);
+      const googleOption = screen.getByTestId('nav-provider-google');
+      fireEvent.click(googleOption);
+      expect(mockHandleExportToMaps).toHaveBeenCalledWith('google');
+    });
+
+    it('calls onExportToMaps with "apple" when Apple Maps option is clicked', () => {
+      render(<TripCard {...defaultProps} />);
+      const appleOption = screen.getByTestId('nav-provider-apple');
+      fireEvent.click(appleOption);
+      expect(mockHandleExportToMaps).toHaveBeenCalledWith('apple');
+    });
+
+    it('calls onExportToMaps with "waze" when Waze option is clicked', () => {
+      render(<TripCard {...defaultProps} />);
+      const wazeOption = screen.getByTestId('nav-provider-waze');
+      fireEvent.click(wazeOption);
+      expect(mockHandleExportToMaps).toHaveBeenCalledWith('waze');
+    });
   });
 });

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import TripCardSimple from '../TripCardSimplePresentational';
 import { createMockTrip, createMockWinery } from '@/lib/test-utils/fixtures';
@@ -12,23 +13,33 @@ jest.mock('next/navigation', () => ({
 }));
 
 jest.mock('@/components/ui/tooltip', () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  TooltipProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 jest.mock('@/components/ui/avatar', () => ({
-  Avatar: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Avatar: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   AvatarImage: ({ src, alt }: { src?: string; alt?: string }) => <img src={src} alt={alt} />,
-  AvatarFallback: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AvatarFallback: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+
+jest.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: { children: ReactNode }) => <div data-testid="dropdown-menu">{children}</div>,
+  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div data-testid="dropdown-content">{children}</div>,
+  DropdownMenuItem: ({ children, onClick, ...props }: any) => (
+    <button onClick={onClick} {...props}>
+      {children}
+    </button>
+  ),
 }));
 
 describe('TripCardSimplePresentational', () => {
   const mockOnDelete = jest.fn();
   const mockOnShare = jest.fn();
   const mockOnExportToMaps = jest.fn();
-  const mockDeleteTripAlert = undefined;
 
   const mockWinery1 = createMockWinery({
     id: 'place_1' as GooglePlaceId,
@@ -142,7 +153,7 @@ describe('TripCardSimplePresentational', () => {
       expect(screen.getByTestId('view-trip-details-btn')).toBeDisabled();
       expect(screen.getByTestId('share-trip-btn')).toBeDisabled();
       expect(screen.getByTestId('delete-trip-btn')).toBeDisabled();
-      expect(screen.getByRole('button', { name: /Export to Google Maps/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /Trip Navigation/i })).toBeDisabled();
     });
 
     it('disables export button when trip has no wineries or wineries_count is 0', () => {
@@ -153,7 +164,7 @@ describe('TripCardSimplePresentational', () => {
       });
       render(<TripCardSimple {...defaultProps} trip={trip} />);
 
-      const exportBtn = screen.getByRole('button', { name: /Export to Google Maps/i });
+      const exportBtn = screen.getByRole('button', { name: /Trip Navigation/i });
       expect(exportBtn).toBeDisabled();
     });
 
@@ -174,11 +185,10 @@ describe('TripCardSimplePresentational', () => {
       const deleteBtn = screen.getByTestId('delete-trip-btn');
       fireEvent.click(deleteBtn);
 
-      expect(mockDeleteTripAlert).not.toBeDefined?.();
       expect(mockOnDelete).toHaveBeenCalledWith(50);
     });
 
-    it('invokes onExportToMaps when export button is clicked on trip with wineries', () => {
+    it('renders navigation dropdown and triggers onExportToMaps with selected provider', () => {
       const trip: Trip = createMockTrip({
         id: 50,
         wineries_count: 1,
@@ -186,11 +196,20 @@ describe('TripCardSimplePresentational', () => {
       });
       render(<TripCardSimple {...defaultProps} trip={trip} />);
 
-      const exportBtn = screen.getByRole('button', { name: /Export to Google Maps/i });
+      const exportBtn = screen.getByRole('button', { name: /Trip Navigation/i });
       expect(exportBtn).not.toBeDisabled();
-      fireEvent.click(exportBtn);
 
-      expect(mockOnExportToMaps).toHaveBeenCalledTimes(1);
+      const googleOption = screen.getByTestId('nav-provider-google');
+      fireEvent.click(googleOption);
+      expect(mockOnExportToMaps).toHaveBeenCalledWith('google');
+
+      const appleOption = screen.getByTestId('nav-provider-apple');
+      fireEvent.click(appleOption);
+      expect(mockOnExportToMaps).toHaveBeenCalledWith('apple');
+
+      const wazeOption = screen.getByTestId('nav-provider-waze');
+      fireEvent.click(wazeOption);
+      expect(mockOnExportToMaps).toHaveBeenCalledWith('waze');
     });
   });
 });
