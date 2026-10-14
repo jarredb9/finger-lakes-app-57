@@ -20,6 +20,7 @@ Enforces state-of-the-art autonomous agent best practices:
 
 import argparse
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import json
 import os
 import random
@@ -29,6 +30,22 @@ import sys
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar
+
+try:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(line_buffering=True)
+except Exception:
+    pass
+
+
+def log(msg: str, file=None) -> None:
+    """Prints a timestamped message and flushes immediately to eliminate CI block buffering."""
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    target_file = file or sys.stdout
+    print(f"[{ts}] {msg}", file=target_file, flush=True)
+
 
 from pydantic import BaseModel, Field
 
@@ -244,22 +261,22 @@ def safe_resolve_repo_path(rel_path_str: str) -> Path:
     return target
 
 
-def reset_target_sources(target_src: List[str]) -> None:
-    """Resets target source files back to HEAD (reverting edits or removing newly created files)."""
-    tracked_files: List[str] = []
+def reset_target_sources(target_src: List[str], baseline_ref: str = "HEAD") -> None:
+    """Resets target source files back to baseline_ref (reverting edits or removing newly created files)."""
+    files_in_ref: List[str] = []
     for sf in target_src:
         try:
             p = safe_resolve_repo_path(sf)
         except Exception:
             continue
-        code, _, _ = run_cmd(["git", "ls-files", "--error-unmatch", sf])
+        code, _, _ = run_cmd(["git", "cat-file", "-e", f"{baseline_ref}:{sf}"])
         if code == 0:
-            tracked_files.append(sf)
+            files_in_ref.append(sf)
         else:
             if p.exists():
                 p.unlink()
-    if tracked_files:
-        run_cmd(["git", "checkout", "HEAD", "--"] + tracked_files)
+    if files_in_ref:
+        run_cmd(["git", "checkout", baseline_ref, "--"] + files_in_ref)
 
 
 def apply_patch_manifest(
@@ -267,8 +284,10 @@ def apply_patch_manifest(
     new_src_files: Optional[List[str]] = None,
 ) -> Tuple[bool, List[str]]:
     """
-    Applies search/replace patches to target source files.
-    Validates that each search_block exists uniquely in the target file.
+    Applies search/replace patches to target source files using a resilient two-tier engine:
+      Tier 1: Exact character sequence match.
+      Tier 2: Line-by-line whitespace-trimmed fallback matching (must match uniquely).
+    Validates that each search_block resolves to exactly one occurrence in the target file.
     If all patches pass validation, applies changes atomically.
     Returns (success, error_diagnostics).
     """
@@ -289,8 +308,14 @@ def apply_patch_manifest(
             else:
                 current_content = None
 
+        # Normalize line endings to LF
+        search_block = patch.search_block.replace("\r\n", "\n")
+        replace_block = patch.replace_block.replace("\r\n", "\n")
+        if current_content is not None:
+            current_content = current_content.replace("\r\n", "\n")
+
         # Case 1: Creating a brand new file (or replacing stub of a new file)
-        if not patch.search_block:
+        if not search_block:
             is_new = bool(new_src_files and patch.file_path in new_src_files)
             if current_content is not None and target_path.exists() and not is_new:
                 errors.append(
@@ -298,7 +323,7 @@ def apply_patch_manifest(
                     "Empty search_block is only allowed when creating brand new files."
                 )
                 continue
-            staged_edits[target_path] = patch.replace_block
+            staged_edits[target_path] = replace_block
             continue
 
         # Case 2: Modifying an existing file
@@ -308,23 +333,60 @@ def apply_patch_manifest(
             )
             continue
 
-        occurrences = current_content.count(patch.search_block)
-        if occurrences == 0:
-            lines = current_content.splitlines()
-            sample_lines = "\n".join(f"  L{i+1}: {l}" for i, l in enumerate(lines[:30]))
-            errors.append(
-                f"Patch #{idx} for '{patch.file_path}': search_block NOT FOUND in file.\n"
-                f"Search block attempted:\n```\n{patch.search_block}\n```\n"
-                f"Target file snippet for context reference:\n```\n{sample_lines}\n```"
-            )
+        # Tier 1: Exact substring match
+        occurrences = current_content.count(search_block)
+        if occurrences == 1:
+            new_content = current_content.replace(search_block, replace_block, 1)
+            staged_edits[target_path] = new_content
+            continue
         elif occurrences > 1:
             errors.append(
-                f"Patch #{idx} for '{patch.file_path}': search_block matched {occurrences} locations. "
+                f"Patch #{idx} for '{patch.file_path}': search_block matched {occurrences} exact locations. "
                 "Include additional surrounding context lines to disambiguate the search block."
             )
-        else:
-            new_content = current_content.replace(patch.search_block, patch.replace_block, 1)
+            continue
+
+        # Tier 2: Line-by-line whitespace-trimmed fallback matching
+        search_lines = search_block.splitlines()
+        file_lines = current_content.splitlines(keepends=True)
+        file_lines_raw = current_content.splitlines()
+
+        search_stripped = [l.strip() for l in search_lines]
+        file_lines_stripped = [l.strip() for l in file_lines_raw]
+
+        k = len(search_stripped)
+        matches = []
+        if k > 0 and k <= len(file_lines_stripped):
+            for i in range(len(file_lines_stripped) - k + 1):
+                if file_lines_stripped[i : i + k] == search_stripped:
+                    matches.append(i)
+
+        if len(matches) == 1:
+            start_line = matches[0]
+            end_line = start_line + k
+            before = "".join(file_lines[:start_line])
+            after = "".join(file_lines[end_line:])
+            orig_block = "".join(file_lines[start_line:end_line])
+            trailing_nl = "\n" if orig_block.endswith("\n") and not replace_block.endswith("\n") else ""
+            new_content = before + replace_block + trailing_nl + after
             staged_edits[target_path] = new_content
+            log(f"Patch #{idx} for '{patch.file_path}' applied via Tier 2 whitespace-trimmed match at lines {start_line+1}-{end_line}.")
+            continue
+        elif len(matches) > 1:
+            errors.append(
+                f"Patch #{idx} for '{patch.file_path}': search_block matched {len(matches)} locations using whitespace-insensitive matching. "
+                "Include additional surrounding context lines to uniquely identify the replacement site."
+            )
+            continue
+
+        # Not found in either Tier 1 or Tier 2
+        lines = current_content.splitlines()
+        sample_lines = "\n".join(lines[:30])
+        errors.append(
+            f"Patch #{idx} for '{patch.file_path}': search_block NOT FOUND in file (tested exact and whitespace-trimmed).\n"
+            f"Search block attempted:\n```\n{search_block}\n```\n"
+            f"Target file snippet for context reference:\n```\n{sample_lines}\n```"
+        )
 
     if errors:
         return False, errors
@@ -566,7 +628,7 @@ def stage_2_red(
     new_src_files: Optional[List[str]] = None,
 ) -> None:
     """Authors failing unit/component tests in target_test_files with a 2-attempt compiler self-correction loop."""
-    print(f"\n--- [Stage 2] Red Phase Executor for Issue #{issue_number} ---")
+    log(f"\n--- [Stage 2] Red Phase Executor for Issue #{issue_number} ---")
     scope = blueprint.scope
     target_tests = blueprint.target_test_files
 
@@ -581,7 +643,7 @@ def stage_2_red(
     max_red_retries = 2
 
     for attempt in range(1, max_red_retries + 1):
-        print(f"Authoring tests (attempt {attempt}/{max_red_retries})...")
+        log(f"Authoring tests (attempt {attempt}/{max_red_retries})...")
 
         existing_tests_context = ""
         for tf in target_tests:
@@ -617,8 +679,10 @@ DIRECTIVES (STRICT TDD RED PHASE):
 1. Author comprehensive unit or component tests in the TARGET TEST FILES that assert the behavior requested in task-plan.md.
 2. For existing source files, DO NOT modify any production or source code files. Existing code must remain untouched.
 3. For brand new source files listed above, provide minimal TypeScript function/type stubs (throwing new Error("Not implemented")) in `source_stubs` so that test imports compile cleanly (exit 0) and fail at runtime in Jest.
-4. Tests must be valid TypeScript: correct imports, mock setups (Jest/Testing Library), and type annotations.
-5. Output complete file contents for each target test file.
+4. COMPILER STRICTNESS INVARIANT (TS6133): In tsconfig.json, 'noUnusedParameters' and 'noUnusedLocals' are active. In your source_stubs, any unused function parameters MUST be prefixed with an underscore '_' (e.g. `_options: any`) to prevent TS6133 compiler failures.
+5. DOM TYPE CLARIFICATION: Distinguish between the global browser DOM 'Location' and custom coordinate types (e.g. `interface WineryLocation {{ latitude: number; longitude: number }}`). Do not let DOM Location clash with coordinate data types.
+6. Tests must be valid TypeScript: correct imports, mock setups (Jest/Testing Library), and type annotations.
+7. Output complete file contents for each target test file.
 
 Respond strictly in valid JSON matching the TestFileManifest schema.
 """
@@ -638,7 +702,7 @@ Respond strictly in valid JSON matching the TestFileManifest schema.
                 p = safe_resolve_repo_path(stub.file_path)
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text(stub.content, encoding="utf-8")
-                print(f"Wrote initial source stub: {stub.file_path}")
+                log(f"Wrote initial source stub: {stub.file_path}")
                 staged_stubs.append(stub.file_path)
 
         # Fallback scaffolding: ensure any un-stubbed new source file at least exists on disk
@@ -647,17 +711,17 @@ Respond strictly in valid JSON matching the TestFileManifest schema.
             if not p.exists():
                 p.parent.mkdir(parents=True, exist_ok=True)
                 p.write_text("export {};\n", encoding="utf-8")
-                print(f"Scaffolded empty fallback stub: {nsf}")
+                log(f"Scaffolded empty fallback stub: {nsf}")
                 staged_stubs.append(nsf)
 
         for entry in manifest.files:
             p = safe_resolve_repo_path(entry.file_path)
             p.parent.mkdir(parents=True, exist_ok=True)
             p.write_text(entry.content, encoding="utf-8")
-            print(f"Wrote test file: {entry.file_path}")
+            log(f"Wrote test file: {entry.file_path}")
 
         # Compiler Gate: npm run type-check must exit 0
-        print("Verifying TypeScript compilation (npm run type-check)...")
+        log("Verifying TypeScript compilation (npm run type-check)...")
         tc_code, tc_out, tc_err = run_isolated_test(["npm", "run", "type-check"])
         if tc_code != 0:
             last_compiler_error = f"""PREVIOUS COMPILATION FAILED:
@@ -666,27 +730,28 @@ TypeScript Errors:
 {tc_err or tc_out}
 Fix the imports, type annotations, and mock declarations in the target test files.
 Ensure all new source files listed above have appropriate function/type stubs in source_stubs.
+Prefix any unused stub parameters with '_' to avoid TS6133 errors.
 """
-            print(f"TypeScript compilation failed on attempt {attempt}: {tc_err or tc_out}")
+            log(f"TypeScript compilation failed on attempt {attempt}:\n{tc_err or tc_out}")
             if attempt < max_red_retries:
                 continue
             raise RuntimeError(f"Red phase test authoring failed TypeScript compilation after {max_red_retries} attempts:\n{tc_err or tc_out}")
 
         # Red Verification Gate: jest test must fail (non-zero)
-        print("Verifying test failure against current production code...")
+        log("Verifying test failure against current production code...")
         test_cmd = ["npx", "jest"] + target_tests
         t_code, t_out, t_err = run_isolated_test(test_cmd)
 
         if t_code == 0:
             raise RuntimeError("Red phase invariant violated: newly authored tests unexpectedly passed before implementation.")
 
-        print(f"Red phase verified successfully: tests failed with exit code {t_code}.")
+        log(f"Red phase verified successfully: tests failed with exit code {t_code}.")
 
         # Commit Red phase tests and initial source stubs
         run_cmd(["git", "add"] + target_tests + staged_stubs, check=True)
         commit_msg = f"test({scope}): Add failing tests for Issue #{issue_number}"
         run_cmd(["git", "commit", "-m", commit_msg], check=True)
-        print(f"Committed: {commit_msg}")
+        log(f"Committed: {commit_msg}")
         return
 
 
@@ -700,9 +765,11 @@ def stage_3_green(
     blueprint: BlueprintPlan,
     token_tracker: TokenTracker,
     new_src_files: Optional[List[str]] = None,
+    baseline_ref: str = "HEAD",
+    resumption_context: Optional[str] = None,
 ) -> None:
     """Implements production code with search/replace patching, targeted testing, and mandatory full regression gate."""
-    print(f"\n--- [Stage 3] Green Phase Executor for Issue #{issue_number} ---")
+    log(f"\n--- [Stage 3] Green Phase Executor for Issue #{issue_number} ---")
     scope = blueprint.scope
     target_tests = blueprint.target_test_files
     target_src = blueprint.target_src_files
@@ -721,11 +788,15 @@ def stage_3_green(
     last_error_context = ""
     max_retries = 3
 
+    resumption_section = ""
+    if resumption_context:
+        resumption_section = f"\n### RESUMPTION CONTEXT & MAINTAINER GUIDANCE:\n{resumption_context}\n"
+
     for attempt in range(1, max_retries + 1):
-        print(f"Implementation attempt {attempt}/{max_retries}...")
+        log(f"Implementation attempt {attempt}/{max_retries}...")
 
         # Reset target source files to clean baseline before each attempt to prevent compounding patch errors
-        reset_target_sources(target_src)
+        reset_target_sources(target_src, baseline_ref=baseline_ref)
 
         src_content = ""
         for sf in target_src:
@@ -748,14 +819,16 @@ TESTS TO PASS:
 
 CURRENT SOURCE FILES:
 {src_content}
-
+{resumption_section}
 {last_error_context}
 
 DIRECTIVES (STRICT TDD GREEN PHASE - TARGETED SEARCH/REPLACE PATCHING):
 1. Implement the minimal necessary production code in TARGET SOURCE FILES to satisfy the tests and TypeScript types.
 2. Adhere strictly to domain standards, coordinate rules, and TypeScript signatures from task-plan.md.
-3. For existing files, specify exact search_block character sequences to replace, including sufficient surrounding context lines to ensure unique matching.
-4. For new files, set search_block to an empty string and provide complete file content in replace_block.
+3. CONCISE SEARCH BLOCKS: Keep search_block concise (between 3 and 10 lines of unique anchor context). Do NOT include large 30+ line blocks of surrounding code, imports, or boilerplate.
+4. For existing files, specify exact search_block character sequences to replace, including sufficient surrounding context lines to ensure unique matching.
+5. For new files, set search_block to an empty string and provide complete file content in replace_block.
+6. DOM TYPE CLARIFICATION: Distinguish between the global browser DOM 'Location' and custom coordinate types (e.g. `interface WineryLocation {{ latitude: number; longitude: number }}`).
 
 Respond strictly in valid JSON matching the PatchManifest schema.
 """
@@ -772,26 +845,33 @@ Respond strictly in valid JSON matching the PatchManifest schema.
         patch_success, patch_errors = apply_patch_manifest(manifest, new_src_files=new_src_files)
         if not patch_success:
             last_error_context = "PREVIOUS ATTEMPT FAILED TO APPLY PATCHES:\n" + "\n".join(patch_errors) + "\nEnsure exact match of search_block against clean baseline source files."
-            print(f"Attempt {attempt} patch application failed:\n" + "\n".join(patch_errors))
+            log(f"Attempt {attempt} patch application failed:\n" + "\n".join(patch_errors))
             continue
 
         # Targeted Verification Loop
-        print("Running targeted verification checks...")
+        log("Running targeted verification checks...")
         tc_code, tc_out, tc_err = run_isolated_test(["npm", "run", "type-check"])
         test_cmd = ["npx", "jest"] + target_tests
         t_code, t_out, t_err = run_isolated_test(test_cmd)
 
         if tc_code == 0 and t_code == 0:
-            print("Targeted checks passed! Running MANDATORY FULL REGRESSION GATE (full test suite + type-check)...")
+            log("Targeted checks passed! Running MANDATORY FULL REGRESSION GATE (full test suite + type-check)...")
             reg_code, reg_out, reg_err = run_isolated_test(["npm", "test"])
             reg_tc_code, reg_tc_out, reg_tc_err = run_isolated_test(["npm", "run", "type-check"])
 
             if reg_code == 0 and reg_tc_code == 0:
-                print("Mandatory full regression suite passed cleanly!")
+                log("Mandatory full regression suite passed cleanly!")
+                if baseline_ref != "HEAD":
+                    log(f"Resumption mode: soft-resetting branch to {baseline_ref[:8]} to squash WIP commits...")
+                    run_cmd(["git", "reset", "--soft", baseline_ref], check=True)
+                    for f in [".agent-state.json", "AGENT_HANDOFF.md"]:
+                        p = PROJECT_ROOT / f
+                        if p.exists():
+                            p.unlink()
                 run_cmd(["git", "add"] + target_src, check=True)
                 commit_msg = f"feat({scope}): Implement changes to satisfy Issue #{issue_number}"
                 run_cmd(["git", "commit", "-m", commit_msg], check=True)
-                print(f"Committed: {commit_msg}")
+                log(f"Committed: {commit_msg}")
                 return
 
             last_error_context = f"""TARGETED TESTS PASSED BUT MANDATORY FULL REGRESSION GATE FAILED:
@@ -805,7 +885,11 @@ Full TypeScript Errors:
 
 The working tree has been reverted to clean baseline. Ensure your implementation satisfies new tests without breaking existing application features or types.
 """
-            print(f"Attempt {attempt} regression gate failed. Feeding regression diagnostics back to model...")
+            log(f"Attempt {attempt} regression gate failed:")
+            if reg_code != 0:
+                log(f"Regression Jest Suite Errors:\n{reg_err or reg_out}")
+            if reg_tc_code != 0:
+                log(f"Regression TypeScript Errors:\n{reg_tc_err or reg_tc_out}")
             continue
 
         last_error_context = f"""PREVIOUS ATTEMPT FAILED TARGETED VERIFICATION:
@@ -819,91 +903,54 @@ Jest Errors:
 
 The working tree has been reverted to clean baseline. Generate a corrected patch against baseline that resolves these errors.
 """
-        print(f"Attempt {attempt} verification failed. Feeding diagnostics back to model...")
+        log(f"Attempt {attempt} verification failed:")
+        if tc_code != 0:
+            log(f"TypeScript Errors:\n{tc_err or tc_out}")
+        if t_code != 0:
+            log(f"Jest Errors:\n{t_err or t_out}")
 
-    raise RuntimeError(f"Green phase implementation failed to pass tests after {max_retries} attempts.")
+    raise RuntimeError(f"Green phase implementation failed to pass tests after {max_retries} attempts.\n{last_error_context}")
 
 
-# =========================================================================
-# WORKFLOW ORCHESTRATION & ISSUE RESOLVER
-# =========================================================================
-def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False) -> bool:
-    """Processes a single issue through the 3-stage TDD pipeline with git isolation."""
-    issue_number = issue_data["number"]
-    issue_title = issue_data.get("title", "")
-    issue_body = issue_data.get("body", "")
-    author_login = issue_data.get("author", {}).get("login", "")
-
-    start_time = time.time()
-    token_tracker = TokenTracker()
-
-    print(f"\n=======================================================")
-    print(f"Processing Issue #{issue_number}: {issue_title}")
-    print(f"Author: {author_login}")
-    print(f"=======================================================")
-
-    # Security & Provenance Gate
-    if author_login != "jarredb9":
-        print(f"Security Gate Rejected: Issue #{issue_number} authored by '{author_login}', not 'jarredb9'.")
-        if not dry_run:
-            gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:resolve", "--add-label", "ready-for-human"])
-            gh_cli(["issue", "comment", str(issue_number), "--body", "⚠️ Autonomous agent resolution rejected: Issue author is not verified repository maintainer."])
-        return False
-
-    branch_name = f"agent/issue-{issue_number}"
-
-    # Idempotency guard: skip if open PR is already in review
-    pr_code, pr_list_out, _ = gh_cli(["pr", "list", "--head", branch_name, "--state", "open", "--json", "number,labels"])
-    if pr_code == 0 and pr_list_out.strip():
-        try:
-            existing_prs = json.loads(pr_list_out)
-            if existing_prs:
-                pr_labels = [l.get("name") for l in existing_prs[0].get("labels", [])]
-                issue_labels = [l.get("name") for l in issue_data.get("labels", [])]
-                if "agent:in-review" in pr_labels and "agent:resolve" not in issue_labels:
-                    print(f"Skipping Issue #{issue_number}: Open PR #{existing_prs[0]['number']} on {branch_name} is already in review.")
-                    return True
-        except Exception:
-            pass
-
-    reset_working_tree_to_main()
-
-    if not dry_run:
-        gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:resolve", "--add-label", "agent:in-progress"])
-
-    run_cmd(["git", "checkout", "-B", branch_name], check=True)
-
+def fetch_maintainer_hints(issue_number: int, last_failure_timestamp: str) -> str:
+    """Fetches comments authored strictly by jarredb9 created after last_failure_timestamp."""
+    code, out, _ = gh_cli([
+        "issue", "view", str(issue_number),
+        "--json", "comments",
+    ])
+    if code != 0 or not out:
+        return ""
     try:
-        # Stage 1: Blueprint Plan
-        blueprint = stage_1_plan(client, issue_number, issue_title, issue_body, token_tracker)
+        data = json.loads(out)
+        comments = data.get("comments", [])
+        hints = []
+        for c in comments:
+            author = c.get("author", {}).get("login", "")
+            body = c.get("body", "").strip()
+            created_at = c.get("createdAt", "")
+            if author == "jarredb9":
+                if not last_failure_timestamp or created_at > last_failure_timestamp:
+                    hints.append(f"Comment from @jarredb9 ({created_at}):\n{body}")
+        if hints:
+            log(f"Ingested {len(hints)} guidance comment(s) from maintainer @jarredb9.")
+        return "\n\n".join(hints)
+    except Exception as e:
+        log(f"Warning: Failed to parse maintainer comments: {e}")
+        return ""
 
-        # Track any brand new source files designated in the blueprint
-        new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 
-        # Stage 2: Red Phase Tests
-        stage_2_red(client, issue_number, issue_title, blueprint, token_tracker, new_src_files=new_src_files)
-
-        # Stage 3: Green Phase Implementation
-        stage_3_green(client, issue_number, issue_title, blueprint, token_tracker, new_src_files=new_src_files)
-
-        elapsed_sec = int(time.time() - start_time)
-
-        if dry_run:
-            print(f"[Dry Run] Issue #{issue_number} successfully resolved locally in {elapsed_sec}s.")
-            print(f"[Dry Run] Token usage: {token_tracker.summary()}")
-            reset_working_tree_to_main()
-            run_cmd(["git", "branch", "-D", branch_name])
-            return True
-
-        # Push branch & submit Draft Pull Request
-        print(f"Pushing branch {branch_name} to origin...")
-        gh_token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
-        push_env = os.environ.copy()
-        if gh_token:
-            push_env["GH_TOKEN"] = gh_token
-        run_cmd(["git", "push", "--force", "origin", branch_name], env=push_env, check=True)
-
-        pr_body = f"""## Summary
+def update_or_create_pr(
+    issue_number: int,
+    issue_title: str,
+    blueprint: BlueprintPlan,
+    branch_name: str,
+    token_tracker: TokenTracker,
+    elapsed_sec: int,
+    is_resumption: bool = False,
+) -> None:
+    """Creates a new Draft PR or mutates an existing Draft PR in-place."""
+    resumption_tag = " [Resumed from previous checkpoint]" if is_resumption else ""
+    pr_body = f"""## Summary
 Autonomous multi-agent resolution for Issue #{issue_number}: {issue_title}
 
 Closes #{issue_number}
@@ -911,7 +958,7 @@ Closes #{issue_number}
 ### Pipeline Execution Details
 1. **Architectural Blueprint:** Authored `task-plan.md` using `{DEFAULT_PLANNER_MODELS[0]}`.
 2. **Red Phase Executor:** Authored failing tests (`test({blueprint.scope}): ...`) with 2-attempt compiler self-correction loop using `{DEFAULT_EXECUTOR_MODELS[0]}`.
-3. **Green Phase Executor:** Implemented minimal code satisfying tests via search/replace patches (`feat({blueprint.scope}): ...`).
+3. **Green Phase Executor:** Implemented minimal code satisfying tests via search/replace patches (`feat({blueprint.scope}): ...`).{resumption_tag}
 
 ### Observability & Verification
 - **Verification:** Targeted suite and full regression gate (`npm test` and `npm run type-check`) passed cleanly inside network-isolated sandbox.
@@ -921,8 +968,29 @@ Closes #{issue_number}
   - Tests: {", ".join(f"`{f}`" for f in blueprint.target_test_files)}
   - Source: {", ".join(f"`{f}`" for f in blueprint.target_src_files)}
 """
+    pr_code, pr_list_out, _ = gh_cli(["pr", "list", "--head", branch_name, "--state", "open", "--json", "number"])
+    existing_pr_num = None
+    if pr_code == 0 and pr_list_out.strip():
+        try:
+            prs = json.loads(pr_list_out)
+            if prs:
+                existing_pr_num = prs[0]["number"]
+        except Exception:
+            pass
 
-        print(f"Creating Draft Pull Request...")
+    if existing_pr_num:
+        log(f"Updating existing Draft PR #{existing_pr_num} in-place...")
+        gh_cli([
+            "pr", "edit", str(existing_pr_num),
+            "--title", f"fix({blueprint.scope}): {issue_title}",
+            "--body", pr_body,
+            "--remove-label", "ready-for-human",
+            "--add-label", "agent:in-review",
+        ])
+        gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:in-progress", "--remove-label", "ready-for-human", "--remove-label", "agent:resolve", "--add-label", "agent:in-review"])
+        gh_cli(["issue", "comment", str(issue_number), "--body", f"✅ Autonomous multi-agent Draft PR #{existing_pr_num} updated with passing implementation.\n\n{token_tracker.summary()}."])
+    else:
+        log(f"Creating new Draft Pull Request...")
         pr_res, pr_out, pr_err = gh_cli([
             "pr", "create",
             "--draft",
@@ -933,31 +1001,361 @@ Closes #{issue_number}
             "--reviewer", "jarredb9",
             "--label", "agent:in-review",
         ])
-
         if pr_res != 0:
             raise RuntimeError(f"Failed to create Draft PR via gh CLI (exit code {pr_res}):\n{pr_err}\n{pr_out}")
-
-        gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:in-progress", "--remove-label", "ready-for-agent", "--add-label", "agent:in-review"])
+        gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:in-progress", "--remove-label", "ready-for-agent", "--remove-label", "agent:resolve", "--add-label", "agent:in-review"])
         gh_cli(["issue", "comment", str(issue_number), "--body", f"✅ Autonomous multi-agent Draft PR submitted for review: {pr_out.strip()}\n\n{token_tracker.summary()}."])
-        print(f"Issue #{issue_number} resolved and submitted for review.")
+
+
+def preserve_failed_work(
+    issue_number: int,
+    issue_title: str,
+    blueprint: Optional[BlueprintPlan],
+    branch_name: str,
+    error_summary: str,
+    token_tracker: TokenTracker,
+    elapsed_sec: int,
+    dry_run: bool = False,
+) -> None:
+    """Preserves failed agent state, commits WIP code and diagnostics, and pushes to origin."""
+    if blueprint is None:
+        log(f"No architectural blueprint produced for Issue #{issue_number}; cleaning up branch.")
+        cleanup_feature_branch(branch_name)
+        if not dry_run:
+            gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:in-progress", "--remove-label", "agent:resolve", "--add-label", "ready-for-human"])
+            gh_cli(["issue", "comment", str(issue_number), "--body", f"⚠️ Autonomous agent resolution halted during Stage 1 planning ({elapsed_sec}s):\n\n```\n{error_summary}\n```\n\nIssue downgraded to `ready-for-human` for morning maintainer review."])
+        return
+
+    scope = blueprint.scope
+    target_tests = blueprint.target_test_files
+    target_src = blueprint.target_src_files
+
+    # Check if a Red Phase commit exists
+    _, red_sha_out, _ = run_cmd(["git", "log", "--grep=^test(", "-n", "1", "--format=%H"])
+    red_phase_commit_sha = red_sha_out.strip()
+
+    # Commit any uncommitted source or test changes
+    _, status_out, _ = run_cmd(["git", "status", "--porcelain"])
+    if status_out.strip():
+        run_cmd(["git", "add", "."])
+        run_cmd(["git", "commit", "-m", f"wip({scope}): Incomplete implementation for Issue #{issue_number} [skip ci]"])
+
+    # Prepare checkpoint state
+    now_iso = datetime.now(timezone.utc).isoformat()
+    state_data = {
+        "version": "1.0",
+        "issue_number": issue_number,
+        "issue_title": issue_title,
+        "scope": scope,
+        "target_test_files": target_tests,
+        "target_src_files": target_src,
+        "red_phase_commit_sha": red_phase_commit_sha,
+        "failed_phase": "stage_3_green" if red_phase_commit_sha else "stage_2_red",
+        "attempt_count": 3,
+        "last_failure_timestamp": now_iso,
+        "error_summary": error_summary,
+    }
+
+    state_path = PROJECT_ROOT / ".agent-state.json"
+    state_path.write_text(json.dumps(state_data, indent=2), encoding="utf-8")
+
+    handoff_md = f"""# Autonomous Agent Handoff: Issue #{issue_number}
+
+- **Issue**: #{issue_number} - {issue_title}
+- **Scope**: {scope}
+- **Timestamp**: {datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}
+- **Failed Phase**: {state_data["failed_phase"]}
+- **Tokens Used**: {token_tracker.summary()}
+- **Duration**: {elapsed_sec}s
+
+## Diagnostics & Error Context
+```
+{error_summary}
+```
+
+## Target Files
+- **Tests**: {", ".join(f"`{f}`" for f in target_tests)}
+- **Source**: {", ".join(f"`{f}`" for f in target_src)}
+
+## How to Resume Locally
+```bash
+git checkout {branch_name}
+npm run type-check
+npx jest {" ".join(target_tests)}
+```
+
+## How to Queue for Next Overnight Run
+1. Inspect the diagnostics above and add guidance comments on Issue #{issue_number}.
+2. Re-apply label `agent:resolve` to Issue #{issue_number}.
+"""
+    handoff_path = PROJECT_ROOT / "AGENT_HANDOFF.md"
+    handoff_path.write_text(handoff_md, encoding="utf-8")
+
+    run_cmd(["git", "add", ".agent-state.json", "AGENT_HANDOFF.md"])
+    run_cmd(["git", "commit", "-m", f"docs(agent): Checkpoint state for Issue #{issue_number} [skip ci]"])
+
+    if dry_run:
+        log(f"[Dry Run] Checkpoint state written for Issue #{issue_number}.")
+        reset_working_tree_to_main()
+        run_cmd(["git", "branch", "-D", branch_name])
+        return
+
+    # Push WIP branch
+    log(f"Pushing WIP branch {branch_name} to origin...")
+    gh_token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    push_env = os.environ.copy()
+    if gh_token:
+        push_env["GH_TOKEN"] = gh_token
+    run_cmd(["git", "push", "--force", "origin", branch_name], env=push_env, check=True)
+
+    # Check for existing PR
+    pr_code, pr_list_out, _ = gh_cli(["pr", "list", "--head", branch_name, "--state", "open", "--json", "number"])
+    existing_pr_num = None
+    if pr_code == 0 and pr_list_out.strip():
+        try:
+            prs = json.loads(pr_list_out)
+            if prs:
+                existing_pr_num = prs[0]["number"]
+        except Exception:
+            pass
+
+    wip_title = f"WIP: fix({scope}): {issue_title} [FAILED CHECKS]"
+    wip_body = f"""## WIP Autonomous Agent Run
+
+Issue #{issue_number} failed implementation verification checks after {elapsed_sec}s.
+See `AGENT_HANDOFF.md` and `.agent-state.json` on branch `{branch_name}` for full diagnostics.
+
+Closes #{issue_number}
+
+### Metrics
+- **Tokens Used:** {token_tracker.summary()}
+- **Duration:** {elapsed_sec}s
+- **Status:** Handed off to human maintainer for review or guidance comment.
+"""
+
+    if existing_pr_num:
+        log(f"Updating Draft PR #{existing_pr_num} to WIP state...")
+        gh_cli([
+            "pr", "edit", str(existing_pr_num),
+            "--title", wip_title,
+            "--body", wip_body,
+            "--remove-label", "agent:in-review",
+            "--add-label", "ready-for-human",
+        ])
+    else:
+        log("Creating WIP Draft PR...")
+        gh_cli([
+            "pr", "create",
+            "--draft",
+            "--title", wip_title,
+            "--body", wip_body,
+            "--head", branch_name,
+            "--base", "main",
+            "--reviewer", "jarredb9",
+            "--label", "ready-for-human",
+        ])
+
+    gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:in-progress", "--remove-label", "agent:resolve", "--add-label", "ready-for-human"])
+    failure_comment = (
+        f"⚠️ Autonomous agent resolution halted during overnight execution ({elapsed_sec}s):\n\n"
+        f"```\n{error_summary}\n```\n\n"
+        f"**Metrics:** {token_tracker.summary()}\n\n"
+        f"WIP branch `{branch_name}` pushed to origin with `AGENT_HANDOFF.md`. "
+        f"Issue downgraded to `ready-for-human` for morning maintainer review. "
+        f"To re-queue for the next overnight run, reply with guidance and re-apply `agent:resolve`."
+    )
+    gh_cli(["issue", "comment", str(issue_number), "--body", failure_comment])
+
+    reset_working_tree_to_main()
+
+
+def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False) -> bool:
+    """Processes a single issue through the 3-stage TDD pipeline with git isolation and stateful resumption."""
+    issue_number = issue_data["number"]
+    issue_title = issue_data.get("title", "")
+    issue_body = issue_data.get("body", "")
+    author_login = issue_data.get("author", {}).get("login", "")
+
+    start_time = time.time()
+    token_tracker = TokenTracker()
+    blueprint: Optional[BlueprintPlan] = None
+
+    log(f"\n=======================================================")
+    log(f"Processing Issue #{issue_number}: {issue_title}")
+    log(f"Author: {author_login}")
+    log(f"=======================================================")
+
+    # Security & Provenance Gate
+    if author_login != "jarredb9":
+        log(f"Security Gate Rejected: Issue #{issue_number} authored by '{author_login}', not 'jarredb9'.")
+        if not dry_run:
+            gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:resolve", "--add-label", "ready-for-human"])
+            gh_cli(["issue", "comment", str(issue_number), "--body", "⚠️ Autonomous agent resolution rejected: Issue author is not verified repository maintainer."])
+        return False
+
+    branch_name = f"agent/issue-{issue_number}"
+
+    # Idempotency guard: skip if open PR is already in review and issue is not explicitly re-queued
+    pr_code, pr_list_out, _ = gh_cli(["pr", "list", "--head", branch_name, "--state", "open", "--json", "number,labels"])
+    if pr_code == 0 and pr_list_out.strip():
+        try:
+            existing_prs = json.loads(pr_list_out)
+            if existing_prs:
+                pr_labels = [l.get("name") for l in existing_prs[0].get("labels", [])]
+                issue_labels = [l.get("name") for l in issue_data.get("labels", [])]
+                if "agent:in-review" in pr_labels and "agent:resolve" not in issue_labels:
+                    log(f"Skipping Issue #{issue_number}: Open PR #{existing_prs[0]['number']} on {branch_name} is already in review.")
+                    return True
+        except Exception:
+            pass
+
+    reset_working_tree_to_main()
+
+    if not dry_run:
+        gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:resolve", "--add-label", "agent:in-progress"])
+
+    is_resumption = False
+
+    try:
+        # Check if remote branch exists for Stateful Iterative Resumption
+        code_ls, _, _ = run_cmd(["git", "ls-remote", "--exit-code", "--heads", "origin", branch_name])
+        if code_ls == 0:
+            log(f"Existing remote branch {branch_name} detected. Fetching for resumption...")
+            run_cmd(["git", "fetch", "origin", f"{branch_name}:{branch_name}"])
+            run_cmd(["git", "checkout", branch_name])
+            run_cmd(["git", "reset", "--hard", f"origin/{branch_name}"])
+
+            # Attempt rebase onto origin/main
+            reb_code, _, _ = run_cmd(["git", "rebase", "origin/main"])
+            if reb_code != 0:
+                log(f"Rebase conflict on {branch_name} against origin/main. Aborting rebase and starting fresh.")
+                run_cmd(["git", "rebase", "--abort"])
+                if not dry_run:
+                    gh_cli(["issue", "comment", str(issue_number), "--body", "⚡ Upstream `main` diverged with merge conflicts; resetting checkpoint and starting fresh resolution from `origin/main`."])
+                reset_working_tree_to_main()
+                run_cmd(["git", "checkout", "-B", branch_name, "origin/main"])
+            else:
+                log(f"Rebase onto origin/main applied cleanly.")
+                state_path = PROJECT_ROOT / ".agent-state.json"
+                plan_path = PROJECT_ROOT / "task-plan.md"
+                if state_path.exists() and plan_path.exists():
+                    try:
+                        state_data = json.loads(state_path.read_text(encoding="utf-8"))
+                        red_sha = state_data.get("red_phase_commit_sha")
+                        if not red_sha:
+                            _, out_sha, _ = run_cmd(["git", "log", "--grep=^test(", "-n", "1", "--format=%H"])
+                            red_sha = out_sha.strip()
+
+                        t_tests = state_data.get("target_test_files", [])
+                        t_src = state_data.get("target_src_files", [])
+                        t_scope = state_data.get("scope", "agent")
+                        last_fail_ts = state_data.get("last_failure_timestamp", "")
+
+                        if red_sha and t_tests and t_src:
+                            log(f"Running deterministic Red Gate verification for checkpoint {red_sha[:8]}...")
+                            reset_target_sources(t_src, baseline_ref=red_sha)
+                            tc_code, _, _ = run_isolated_test(["npm", "run", "type-check"])
+                            t_code, _, _ = run_isolated_test(["npx", "jest"] + t_tests)
+
+                            if tc_code == 0 and t_code != 0:
+                                log(f"⚡ Checkpoint verified! (type-check passed, tests failed as expected). Fast-forwarding directly to Stage 3 Green Phase!")
+                                is_resumption = True
+                                blueprint = BlueprintPlan(
+                                    scope=t_scope,
+                                    target_test_files=t_tests,
+                                    target_src_files=t_src,
+                                    plan_markdown=plan_path.read_text(encoding="utf-8"),
+                                )
+                                new_src_files = [sf for sf in t_src if not (PROJECT_ROOT / sf).exists()]
+
+                                maintainer_hints = fetch_maintainer_hints(issue_number, last_fail_ts)
+                                _, wip_diff, _ = run_cmd(["git", "diff", red_sha, "HEAD", "--"] + t_src)
+
+                                resumption_context = f"PREVIOUS ATTEMPT FAILED WITH:\n{state_data.get('error_summary', '')}\n"
+                                if wip_diff:
+                                    resumption_context += f"\nPREVIOUS WIP CODE DIFF (FAILED ATTEMPT):\n```diff\n{wip_diff[:4000]}\n```\n"
+                                if maintainer_hints:
+                                    resumption_context += f"\nMAINTAINER GUIDANCE FROM @jarredb9:\n{maintainer_hints}\n"
+
+                                stage_3_green(
+                                    client,
+                                    issue_number,
+                                    issue_title,
+                                    blueprint,
+                                    token_tracker,
+                                    new_src_files=new_src_files,
+                                    baseline_ref=red_sha,
+                                    resumption_context=resumption_context,
+                                )
+                            else:
+                                log(f"Checkpoint verification failed (type-check code: {tc_code}, test code: {t_code}). Resetting to fresh main.")
+                                reset_working_tree_to_main()
+                                run_cmd(["git", "checkout", "-B", branch_name, "origin/main"])
+                    except Exception as e_res:
+                        log(f"Warning: Failed to load checkpoint state: {e_res}. Starting fresh from origin/main.")
+                        reset_working_tree_to_main()
+                        run_cmd(["git", "checkout", "-B", branch_name, "origin/main"])
+        else:
+            run_cmd(["git", "checkout", "-B", branch_name, "origin/main"])
+
+        # If not resuming, run full 3-stage pipeline from scratch
+        if not is_resumption:
+            # Stage 1: Blueprint Plan
+            blueprint = stage_1_plan(client, issue_number, issue_title, issue_body, token_tracker)
+
+            # Track any brand new source files designated in the blueprint
+            new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
+
+            # Stage 2: Red Phase Tests
+            stage_2_red(client, issue_number, issue_title, blueprint, token_tracker, new_src_files=new_src_files)
+
+            # Stage 3: Green Phase Implementation
+            stage_3_green(client, issue_number, issue_title, blueprint, token_tracker, new_src_files=new_src_files)
+
+        elapsed_sec = int(time.time() - start_time)
+
+        if dry_run:
+            log(f"[Dry Run] Issue #{issue_number} successfully resolved locally in {elapsed_sec}s.")
+            log(f"[Dry Run] Token usage: {token_tracker.summary()}")
+            reset_working_tree_to_main()
+            run_cmd(["git", "branch", "-D", branch_name])
+            return True
+
+        # Push branch & submit or update Draft Pull Request
+        log(f"Pushing branch {branch_name} to origin...")
+        gh_token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+        push_env = os.environ.copy()
+        if gh_token:
+            push_env["GH_TOKEN"] = gh_token
+        run_cmd(["git", "push", "--force", "origin", branch_name], env=push_env, check=True)
+
+        update_or_create_pr(
+            issue_number,
+            issue_title,
+            blueprint,
+            branch_name,
+            token_tracker,
+            elapsed_sec,
+            is_resumption=is_resumption,
+        )
+        log(f"Issue #{issue_number} resolved and submitted for review.")
 
         reset_working_tree_to_main()
         return True
 
     except Exception as e:
         elapsed_sec = int(time.time() - start_time)
-        print(f"\n❌ Error resolving Issue #{issue_number} after {elapsed_sec}s: {e}", file=sys.stderr)
-        cleanup_feature_branch(branch_name)
-
-        if not dry_run:
-            gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:in-progress", "--remove-label", "agent:resolve", "--add-label", "ready-for-human"])
-            failure_comment = (
-                f"⚠️ Autonomous agent resolution halted during overnight execution ({elapsed_sec}s):\n\n"
-                f"```\n{e}\n```\n\n"
-                f"**Metrics:** {token_tracker.summary()}\n\n"
-                f"Issue downgraded to `ready-for-human` for morning maintainer review."
-            )
-            gh_cli(["issue", "comment", str(issue_number), "--body", failure_comment])
+        log(f"\n❌ Error resolving Issue #{issue_number} after {elapsed_sec}s: {e}", file=sys.stderr)
+        preserve_failed_work(
+            issue_number=issue_number,
+            issue_title=issue_title,
+            blueprint=blueprint,
+            branch_name=branch_name,
+            error_summary=str(e),
+            token_tracker=token_tracker,
+            elapsed_sec=elapsed_sec,
+            dry_run=dry_run,
+        )
         return False
 
 
@@ -973,13 +1371,13 @@ def main():
     if args.issue:
         code, out, err = gh_cli(["issue", "view", str(args.issue), "--json", "number,title,body,author,labels"])
         if code != 0:
-            print(f"Error viewing issue #{args.issue}: {err}", file=sys.stderr)
+            log(f"Error viewing issue #{args.issue}: {err}", file=sys.stderr)
             sys.exit(1)
         issue_data = json.loads(out)
         success = resolve_issue(client, issue_data, dry_run=args.dry_run)
         sys.exit(0 if success else 1)
 
-    print(f"Querying up to {args.max_issues} open issues labeled 'agent:resolve'...")
+    log(f"Querying up to {args.max_issues} open issues labeled 'agent:resolve'...")
     code, out, err = gh_cli([
         "issue", "list",
         "--state", "open",
@@ -988,29 +1386,29 @@ def main():
         "--json", "number,title,body,author,labels",
     ])
     if code != 0:
-        print(f"Error querying issues: {err}", file=sys.stderr)
+        log(f"Error querying issues: {err}", file=sys.stderr)
         sys.exit(1)
 
     issues = json.loads(out)
     if not issues:
-        print("No open issues labeled 'agent:resolve' found.")
+        log("No open issues labeled 'agent:resolve' found.")
         sys.exit(0)
 
-    print(f"Found {len(issues)} issue(s) to process.")
+    log(f"Found {len(issues)} issue(s) to process.")
     results: List[Tuple[int, bool]] = []
     for idx, issue in enumerate(issues):
         if idx > 0 and BATCH_PACING_SECONDS > 0:
-            print(f"Pacing delay: sleeping {BATCH_PACING_SECONDS}s before next issue...")
+            log(f"Pacing delay: sleeping {BATCH_PACING_SECONDS}s before next issue...")
             time.sleep(BATCH_PACING_SECONDS)
 
         success = resolve_issue(client, issue, dry_run=args.dry_run)
         results.append((issue["number"], success))
 
-    print("\n================ BATCH EXECUTION SUMMARY ================")
+    log("\n================ BATCH EXECUTION SUMMARY ================")
     for num, success in results:
         status_icon = "✅ SUCCESS" if success else "❌ FAILED"
-        print(f"Issue #{num}: {status_icon}")
-    print("=========================================================\n")
+        log(f"Issue #{num}: {status_icon}")
+    log("=========================================================\n")
 
 
 if __name__ == "__main__":

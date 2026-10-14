@@ -106,6 +106,7 @@ jobs:
 
       - name: Run Autonomous Issue Resolver Harness
         env:
+          PYTHONUNBUFFERED: "1"
           GH_TOKEN: ${{ steps.auth.outputs.token }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           PLANNER_MODEL: ${{ vars.PLANNER_MODEL || 'gemini-3.8-flash' }}
@@ -118,7 +119,19 @@ jobs:
             ARGS="$ARGS --dry-run"
           fi
           if [ -n "${{ github.event.inputs.issue_number }}" ]; then
-            python3 scripts/agent-resolve.py --issue "${{ github.event.inputs.issue_number }}" $ARGS
+            python3 -u scripts/agent-resolve.py --issue "${{ github.event.inputs.issue_number }}" $ARGS
           else
-            python3 scripts/agent-resolve.py --max-issues 3 $ARGS
+            python3 -u scripts/agent-resolve.py --max-issues 3 $ARGS
           fi
+
+      - name: Upload Agent Diagnostic Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-diagnostics
+          path: |
+            task-plan.md
+            AGENT_HANDOFF.md
+            .agent-state.json
+            *.log
+          if-no-files-found: ignore
