@@ -24,12 +24,41 @@ The nightly batch runner (`.github/workflows/agent-resolve.yml`) executes at 20:
 | `agent:in-review`    | Success state applied when unit tests and compiler checks pass and an automated Draft PR is opened for maintainer review. `ready-for-agent` and `agent:in-progress` are removed. |
 | `ready-for-human`    | Failure fallback state applied if the agent cannot resolve failing tests within 3 attempts or compilation fails. An explanatory log comment is posted and the issue is queued for morning human review. |
 
+### Execution Routing Matrix: `agent:resolve` vs `ready-for-agent`
+
+Not all agent-eligible issues are suited for headless overnight execution. During triage, classify issues along this boundary:
+
+| Dimension | Autonomous Overnight Batch (`agent:resolve`) | Interactive Antigravity CLI (`ready-for-agent` alone) |
+| :--- | :--- | :--- |
+| **Execution Mode** | Headless AFK overnight runner (`scripts/agent-resolve.py`). | Interactive pair programming via Antigravity CLI (`agy`). |
+| **Blast Radius** | Low: $\le 2$ tightly-coupled files (e.g. 1 util + 1 test). | Wide: $> 2$ files spanning components, containers, stores, or hooks. |
+| **Domain Scope** | Pure algorithmic logic, data formatters, coordinate math, store reducers, database RPCs. | Interactive UI components, modal flows, navigation trees, Radix primitives. |
+| **UI & Interactions** | Headless / data-only (no button, menu, gesture, or layout changes). | Component redesigns, event handlers, dropdowns, dialogs, gestures. |
+| **External Dependencies**| Standard Node.js / TypeScript libraries; zero third-party URL schemes. | Third-party URL schemes (`maps://`, `waze://`), OAuth, Places APIs, WebKit PWA quirks. |
+| **Verification Seam** | Deterministic unit tests with existing mock fixtures; pure function tests. | E2E Playwright tests, DOM event interactions, responsive layouts, user gestures. |
+
+---
+
 ### Maintainer Pre-Triage Checklist for `agent:resolve`
 
 Before tagging an issue with `agent:resolve`, maintainers should audit the issue body against the template fields defined in `.github/ISSUE_TEMPLATE/bug_report.yml`:
 
 1. **Maintainer Provenance:** Verify the issue was authored or briefed by the verified repository maintainer (`jarredb9`).
-2. **Target Files & Suspected Components:** Are explicit repository-relative file paths, hooks, and component entry points specified?
-3. **Suspected Root Cause & Reproduction Seam:** Is the technical mechanism causing the bug clearly documented so the Red Phase generator can write an empirical, failing test?
-4. **Architectural Constraints & Invariants:** Are refactoring boundaries (e.g. modify existing components vs create new ones) and domain model requirements (`CONTEXT.md`, `AGENTS.md`) defined?
-5. **Queue Authorization:** Once vetted, apply `ready-for-agent` and `agent:resolve`, and remove `needs-triage`.
+2. **Headless Suitability:** Does the issue pass the Execution Routing Matrix above? If it touches Radix UI primitives, mobile WebKit quirks, or deep-linking schemes, **keep it as `ready-for-agent` only** and do not add `agent:resolve`.
+3. **Target Files & Suspected Components:** Are explicit repository-relative file paths, hooks, and component entry points specified?
+4. **Suspected Root Cause & Reproduction Seam:** Is the technical mechanism causing the bug clearly documented so the Red Phase generator can write an empirical, failing test?
+5. **Architectural Constraints & Invariants:** Are refactoring boundaries (e.g. modify existing components vs create new ones) and domain model requirements (`CONTEXT.md`, `AGENTS.md`) defined?
+6. **Queue Authorization:** Once vetted, apply `ready-for-agent` and `agent:resolve`, and remove `needs-triage`.
+
+---
+
+### How to use `/triage` to Classify Issues
+
+When running the `/triage` skill on incoming tickets or refining user bug reports, provide these explicit directives in your prompt:
+
+- **For individual issue triage:**
+  > `/triage let's look at #<number>. Check the Execution Routing Matrix in docs/agents/triage-labels.md. If it involves pure data/logic refactoring and deterministic unit tests, brief it and add agent:resolve. If it touches UI components, Radix dropdowns, or mobile gestures, brief it for ready-for-agent only for Antigravity CLI.`
+
+- **For batch qualification:**
+  > `/triage qualify all open ready-for-agent issues against the overnight checklist in docs/agents/triage-labels.md. Promote pure-logic tickets to agent:resolve and flag why UI tickets remain ready-for-agent.`
+
