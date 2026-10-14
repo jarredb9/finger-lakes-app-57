@@ -64,6 +64,17 @@ gh issue edit <number> --body-file /path/to/briefed-issue-body.md
 gh issue edit <number> --add-label "ready-for-agent,agent:resolve" --remove-label "needs-triage"
 ```
 
+### Standard `/triage` Prompts for Autonomous Qualification
+
+When running the `/triage` skill to refine submissions and assign labels, use these prompt templates to automatically apply the [Execution Routing Matrix](triage-labels.md#execution-routing-matrix-agentresolve-vs-ready-for-agent):
+
+- **Targeted Single-Issue Triage & Qualification:**
+  > `/triage let's look at #<number>. Check the Execution Routing Matrix in docs/agents/triage-labels.md. If it involves pure data/logic refactoring and deterministic unit tests, brief it and add agent:resolve. If it touches UI components, Radix dropdowns, or mobile gestures, brief it for ready-for-agent only for Antigravity CLI.`
+
+- **Batch Overnight Queue Qualification:**
+  > `/triage qualify all open ready-for-agent issues against the overnight checklist in docs/agents/triage-labels.md. Promote pure-logic tickets to agent:resolve and flag why UI tickets remain ready-for-agent.`
+
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
