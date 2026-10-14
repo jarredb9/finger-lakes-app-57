@@ -9,6 +9,13 @@ import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { NavigationProvider } from '@/lib/utils/trip-navigation';
 
 interface TripCardSimpleProps {
     trip: Trip;
@@ -16,7 +23,7 @@ interface TripCardSimpleProps {
     currentMembers: TripMember[];
     onDelete: (tripId: number) => void;
     onShare: (id: string, name: string) => void;
-    onExportToMaps: () => void;
+    onExportToMaps: (provider?: NavigationProvider) => void;
 }
 
 export default function TripCardSimple({ 
@@ -56,24 +63,39 @@ export default function TripCardSimple({
                         )}
                     </div>
                      <div className="flex items-center gap-2">
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button 
-                                        size="icon" 
-                                        variant="outline" 
-                                        onClick={onExportToMaps} 
-                                        disabled={isPending || count === 0 || !trip.wineries || trip.wineries.length === 0}
-                                        aria-label="Export to Google Maps"
-                                    >
-                                        <Share2 size={16} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Export to Google Maps</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        <DropdownMenu>
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button 
+                                                size="icon" 
+                                                variant="outline" 
+                                                onClick={() => onExportToMaps('google')}
+                                                disabled={isPending || count === 0 || !trip.wineries || trip.wineries.length === 0}
+                                                aria-label="Trip Navigation - Export to Google Maps"
+                                            >
+                                                <Share2 size={16} />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Trip Navigation</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => onExportToMaps('apple')}>
+                                    Apple Maps
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExportToMaps('google')}>
+                                    Google Maps
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onExportToMaps('waze')}>
+                                    Waze
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                         
                         {isOwner && (
                             <>
