@@ -1,10 +1,64 @@
-import {
+import * as mapUtilsModule from '../map-utils';
+
+const {
   coordToMapbox,
   mapboxToCoord,
   isCoordinateInBounds,
   getCoordinatesFromBounds,
   calculateDistanceKm,
-} from '../map-utils';
+} = mapUtilsModule;
+
+export interface GeoLocationCoord {
+  latitude: number;
+  longitude: number;
+}
+
+export interface TestNavigationStop {
+  id?: string;
+  name?: string;
+  latitude?: number;
+  longitude?: number;
+  winery?: {
+    name: string;
+    latitude: number;
+    longitude: number;
+  };
+}
+
+export type NavigationProvider = 'google' | 'apple' | 'waze';
+
+type MapUtilsWithNav = typeof mapUtilsModule & {
+  getTripNavigationUrl?: (
+    provider: NavigationProvider,
+    stops: TestNavigationStop[],
+    userLocation?: GeoLocationCoord | null
+  ) => string;
+  getAppStoreUrl?: (
+    provider: NavigationProvider,
+    platform: 'ios' | 'android'
+  ) => string;
+  isIosStandalonePwa?: (
+    customNavigator?: unknown,
+    customWindow?: unknown
+  ) => boolean;
+  launchTripNavigation?: (
+    provider: NavigationProvider,
+    stops: TestNavigationStop[],
+    options?: {
+      userLocation?: GeoLocationCoord | null;
+      platform?: 'ios' | 'android';
+      isStandalone?: boolean;
+      navigate?: (url: string) => void;
+    }
+  ) => void;
+};
+
+const {
+  getTripNavigationUrl,
+  getAppStoreUrl,
+  isIosStandalonePwa,
+  launchTripNavigation,
+} = mapUtilsModule as MapUtilsWithNav;
 
 describe('Map Utilities', () => {
   describe('coordToMapbox', () => {
@@ -71,13 +125,13 @@ describe('Map Utilities', () => {
     it('extracts coords from getSouthWest/getNorthEast functions', () => {
       const bounds = {
         getSouthWest: () => ({ lat: 42.0, lng: -77.0 }),
-        getNorthEast: () => ({ lat: 43.0, lng: -76.0 })
+        getNorthEast: () => ({ lat: 43.0, lng: -76.0 }),
       };
       expect(getCoordinatesFromBounds(bounds)).toEqual({
         swLat: 42.0,
         swLng: -77.0,
         neLat: 43.0,
-        neLng: -76.0
+        neLng: -76.0,
       });
     });
 
@@ -87,7 +141,7 @@ describe('Map Utilities', () => {
         swLat: 42.0,
         swLng: -77.0,
         neLat: 43.0,
-        neLng: -76.0
+        neLng: -76.0,
       });
     });
   });
@@ -99,7 +153,6 @@ describe('Map Utilities', () => {
     });
 
     it('calculates accurate Haversine distance in km between known landmarks', () => {
-      // Geneva, NY to Watkins Glen, NY: ~55.0 km (Haversine great-circle: ~54.95 km)
       const geneva = { latitude: 42.868, longitude: -76.980 };
       const watkinsGlen = { latitude: 42.380, longitude: -76.874 };
 
@@ -118,9 +171,7 @@ describe('Map Utilities', () => {
 
     it('correctly discriminates viewport distance threshold of 5 km', () => {
       const center = { latitude: 42.7000, longitude: -76.9000 };
-      // Small shift (~3.0 km north)
       const nearPoint = { latitude: 42.7270, longitude: -76.9000 };
-      // Larger shift (~7.0 km north)
       const farPoint = { latitude: 42.7630, longitude: -76.9000 };
 
       const nearDistance = calculateDistanceKm(center, nearPoint);
@@ -134,13 +185,179 @@ describe('Map Utilities', () => {
       const equator = { lat: 0, lng: 0 };
       const northPole = { lat: 90, lng: 0 };
 
-      // Quarter circumference of Earth (~10,007.5 km)
       expect(calculateDistanceKm(equator, northPole)).toBeCloseTo(10007.5, 0);
     });
 
     it('handles missing or invalid coordinate fields gracefully', () => {
       expect(calculateDistanceKm({} as any, { lat: 42.7, lng: -76.9 })).toBeNaN();
       expect(calculateDistanceKm(undefined as any, { lat: 42.7, lng: -76.9 })).toBeNaN();
+    });
+  });
+
+  describe('Trip Navigation Utilities (Issue #63)', () => {
+    const singleStop: TestNavigationStop[] = [
+      { id: '1', name: 'Boundary Breaks', latitude: 42.6186, longitude: -76.8824 },
+    ];
+
+    const multiStops: TestNavigationStop[] = [
+      { id: '1', name: 'Boundary Breaks', latitude: 42.6186, longitude: -76.8824 },
+      { id: '2', name: 'Dr. Konstantin Frank', latitude: 42.5028, longitude: -77.1601 },
+      { id: '3', name: 'Weis Vineyards', latitude: 42.4411, longitude: -77.1264 },
+    ];
+
+    const nestedStops: TestNavigationStop[] = [
+      {
+        id: '1',
+        winery: { name: 'Boundary Breaks', latitude: 42.6186, longitude: -76.8824 },
+      },
+      {
+        id: '2',
+        winery: { name: 'Dr. Konstantin Frank', latitude: 42.5028, longitude: -77.1601 },
+      },
+    ];
+
+    describe('getTripNavigationUrl', () => {
+      it('builds Google Maps turn-by-turn navigation URL for single stop without origin', () => {
+        const url = getTripNavigationUrl!('google', singleStop);
+        expect(url).toMatch(/google\.com\/maps\/dir/);
+        expect(url).toContain('api=1');
+        expect(url).toMatch(/destination=42\.6186%2C-76\.8824|destination=42\.6186,-76\.8824/);
+        expect(url).not.toContain('origin=');
+      });
+
+      it('builds Google Maps navigation URL with waypoints for multiple stops', () => {
+        const url = getTripNavigationUrl!('google', multiStops);
+        expect(url).toMatch(/google\.com\/maps\/dir/);
+        expect(url).toMatch(/destination=42\.4411%2C-77\.1264|destination=42\.4411,-77\.1264/);
+        expect(url).toContain('waypoints=');
+        expect(url).toMatch(/42\.6186.*42\.5028/);
+        expect(url).not.toContain('origin=');
+      });
+
+      it('includes origin in Google Maps URL only when userLocation is explicitly provided', () => {
+        const explicitLocation: GeoLocationCoord = { latitude: 42.4433, longitude: -76.5019 };
+        const url = getTripNavigationUrl!('google', singleStop, explicitLocation);
+        expect(url).toMatch(/origin=42\.4433%2C-76\.5019|origin=42\.4433,-76\.5019/);
+      });
+
+      it('builds Apple Maps URL for single stop omitting origin so native app uses current GPS', () => {
+        const url = getTripNavigationUrl!('apple', singleStop);
+        expect(url).toMatch(/^maps:\/\/|https:\/\/maps\.apple\.com/);
+        expect(url).toMatch(/daddr=42\.6186.*-76\.8824/);
+        expect(url).not.toContain('saddr=');
+      });
+
+      it('includes saddr in Apple Maps URL when userLocation is explicitly provided', () => {
+        const explicitLocation: GeoLocationCoord = { latitude: 42.4433, longitude: -76.5019 };
+        const url = getTripNavigationUrl!('apple', singleStop, explicitLocation);
+        expect(url).toMatch(/saddr=42\.4433.*-76\.5019/);
+      });
+
+      it('builds Waze navigation URL targeting the next stop coordinate', () => {
+        const url = getTripNavigationUrl!('waze', singleStop);
+        expect(url).toMatch(/waze\.com\/ul|waze:\/\//);
+        expect(url).toMatch(/ll=42\.6186.*-76\.8824/);
+        expect(url).toContain('navigate=yes');
+      });
+
+      it('correctly handles stops with nested winery coordinates', () => {
+        const url = getTripNavigationUrl!('google', nestedStops);
+        expect(url).toMatch(/destination=42\.5028.*-77\.1601/);
+        expect(url).toMatch(/waypoints=.*42\.6186.*-76\.8824/);
+      });
+
+      it('returns empty string or handles safely when stops list is empty', () => {
+        const url = getTripNavigationUrl!('google', []);
+        expect(url).toBe('');
+      });
+    });
+
+    describe('getAppStoreUrl', () => {
+      it('returns Apple App Store URL for Google Maps on iOS', () => {
+        const url = getAppStoreUrl!('google', 'ios');
+        expect(url).toContain('apps.apple.com');
+        expect(url).toContain('google-maps');
+      });
+
+      it('returns Google Play Store URL for Google Maps on Android', () => {
+        const url = getAppStoreUrl!('google', 'android');
+        expect(url).toContain('play.google.com/store/apps');
+        expect(url).toContain('com.google.android.apps.maps');
+      });
+
+      it('returns Apple Maps link for iOS and web fallback for Android', () => {
+        const iosUrl = getAppStoreUrl!('apple', 'ios');
+        const androidUrl = getAppStoreUrl!('apple', 'android');
+        expect(iosUrl).toMatch(/apps\.apple\.com|maps\.apple\.com/);
+        expect(androidUrl).toContain('maps.apple.com');
+      });
+
+      it('returns correct App Store and Play Store URLs for Waze', () => {
+        const iosUrl = getAppStoreUrl!('waze', 'ios');
+        const androidUrl = getAppStoreUrl!('waze', 'android');
+        expect(iosUrl).toContain('apps.apple.com');
+        expect(iosUrl).toContain('waze');
+        expect(androidUrl).toContain('play.google.com/store/apps');
+        expect(androidUrl).toContain('com.waze');
+      });
+    });
+
+    describe('isIosStandalonePwa', () => {
+      it('returns true when navigator.standalone is true (iOS WebKit standalone PWA)', () => {
+        const mockNav = { standalone: true, userAgent: 'iPhone' };
+        expect(isIosStandalonePwa!(mockNav)).toBe(true);
+      });
+
+      it('returns true when display-mode: standalone matches on iOS device', () => {
+        const mockNav = { standalone: false, userAgent: 'iPad; CPU OS 16_5' };
+        const mockWin = {
+          matchMedia: jest.fn().mockImplementation((query: string) => ({
+            matches: query.includes('standalone'),
+          })),
+        };
+        expect(isIosStandalonePwa!(mockNav, mockWin)).toBe(true);
+      });
+
+      it('returns false for standard Safari browser on iOS', () => {
+        const mockNav = { standalone: false, userAgent: 'iPhone; CPU iPhone OS 16_5 like Mac OS X' };
+        const mockWin = {
+          matchMedia: jest.fn().mockReturnValue({ matches: false }),
+        };
+        expect(isIosStandalonePwa!(mockNav, mockWin)).toBe(false);
+      });
+
+      it('returns false for Android or desktop browsers', () => {
+        const mockAndroidNav = { standalone: false, userAgent: 'Mozilla/5.0 (Linux; Android 13)' };
+        const mockDesktopNav = { standalone: false, userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X)' };
+        expect(isIosStandalonePwa!(mockAndroidNav)).toBe(false);
+        expect(isIosStandalonePwa!(mockDesktopNav)).toBe(false);
+      });
+
+      it('handles undefined or SSR environment safely without crashing', () => {
+        expect(isIosStandalonePwa!(undefined, undefined)).toBe(false);
+      });
+    });
+
+    describe('launchTripNavigation', () => {
+      it('synchronously invokes navigate callback without waiting for async geolocation', () => {
+        const mockNavigate = jest.fn();
+        launchTripNavigation!('google', singleStop, {
+          navigate: mockNavigate,
+        });
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).toHaveBeenCalledWith(expect.stringContaining('google.com/maps'));
+      });
+
+      it('uses maps:// protocol or direct link when standalone iOS PWA is detected', () => {
+        const mockNavigate = jest.fn();
+        launchTripNavigation!('apple', singleStop, {
+          navigate: mockNavigate,
+          platform: 'ios',
+          isStandalone: true,
+        });
+        expect(mockNavigate).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).toHaveBeenCalledWith(expect.stringMatching(/^maps:\/\/|https:\/\/maps\.apple\.com/));
+      });
     });
   });
 });
