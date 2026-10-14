@@ -25,6 +25,7 @@ import json
 import os
 import random
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -226,9 +227,9 @@ def gh_cli(args: List[str]) -> Tuple[int, str, str]:
 
 
 def reset_working_tree_to_main() -> None:
-    """Discards uncommitted changes, untracked files, and checks out main cleanly."""
+    """Discards uncommitted changes, untracked files, and checks out main cleanly (preserving diagnostic-artifacts/)."""
     run_cmd(["git", "reset", "--hard", "HEAD"])
-    run_cmd(["git", "clean", "-fd"])
+    run_cmd(["git", "clean", "-fd", "-e", "diagnostic-artifacts"])
     run_cmd(["git", "checkout", "main"])
     code, _, _ = run_cmd(["git", "rev-parse", "--verify", "origin/main"])
     if code == 0:
@@ -238,7 +239,7 @@ def reset_working_tree_to_main() -> None:
 def cleanup_feature_branch(branch_name: str) -> None:
     """Cleans up local feature branch, scrubs untracked files, and reverts working tree to main."""
     run_cmd(["git", "reset", "--hard", "HEAD"])
-    run_cmd(["git", "clean", "-fd"])
+    run_cmd(["git", "clean", "-fd", "-e", "diagnostic-artifacts"])
     run_cmd(["git", "checkout", "main"])
     code, _, _ = run_cmd(["git", "rev-parse", "--verify", "origin/main"])
     if code == 0:
@@ -430,7 +431,7 @@ def get_genai_client():
 
 
 def is_transient_error(err: Exception) -> bool:
-    """Identifies transient rate limits and server errors eligible for backoff retry."""
+    """Identifies transient rate limits, server errors, and socket/transport disconnects eligible for backoff retry."""
     err_str = str(err).upper()
     transient_indicators = [
         "429",
@@ -439,10 +440,27 @@ def is_transient_error(err: Exception) -> bool:
         "RATE LIMIT",
         "QUOTA",
         "500",
+        "502",
         "503",
+        "504",
         "UNAVAILABLE",
         "OVERLOADED",
         "DEADLINE_EXCEEDED",
+        "SERVER DISCONNECTED",
+        "CONNECTION RESET",
+        "REMOTEDISCONNECTED",
+        "REMOTE DISCONNECTED",
+        "BROKEN PIPE",
+        "BROKENPIPEERROR",
+        "CONNECTION TIMED OUT",
+        "CONNECTTIMEOUT",
+        "READTIMEOUT",
+        "TIMEOUT",
+        "PROTOCOLERROR",
+        "FETCHERROR",
+        "NETWORK ERROR",
+        "SOCKET",
+        "EOF OCCURRED",
     ]
     return any(indicator in err_str for indicator in transient_indicators)
 
@@ -619,6 +637,83 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
 # =========================================================================
 # STAGE 2: RED PHASE EXECUTOR (Author Failing Tests with Self-Correction)
 # =========================================================================
+def validate_jest_red_phase(t_code: int, t_out: str, t_err: str) -> Tuple[bool, str]:
+    """
+    Validates that a Jest test run failed as expected for a strict TDD Red Phase.
+    A valid Red Phase failure MUST:
+      1. Exit with non-zero exit code (t_code != 0).
+      2. NOT pass (t_code == 0 is an immediate invariant violation).
+      3. NOT crash with fatal runtime/syntax/harness errors (TypeError, SyntaxError, ReferenceError,
+         Cannot redefine property, unhandled exception in hooks, numRuntimeErrorTestSuites > 0).
+      4. Contain verified assertion failures (expect(...).matcher(...) failed).
+    Returns (is_valid, error_diagnostics).
+    """
+    if t_code == 0:
+        return False, "Red phase invariant violated: newly authored tests unexpectedly passed before implementation."
+
+    full_output = f"{t_out}\n{t_err}".strip()
+
+    # 1. Check for fatal runtime crash indicators in stdout/stderr
+    fatal_patterns = [
+        r"TypeError:",
+        r"ReferenceError:",
+        r"SyntaxError:",
+        r"Cannot redefine property:",
+        r"Cannot find module",
+        r"UnhandledPromiseRejection",
+        r"Jest encountered an unexpected token",
+        r"Test suite failed to run",
+    ]
+    for pattern in fatal_patterns:
+        match = re.search(pattern, full_output, re.IGNORECASE)
+        if match:
+            lines = full_output.splitlines()
+            error_context = []
+            for idx, line in enumerate(lines):
+                if re.search(pattern, line, re.IGNORECASE):
+                    start = max(0, idx - 2)
+                    end = min(len(lines), idx + 8)
+                    error_context = lines[start:end]
+                    break
+            diag = "\n".join(error_context) if error_context else line
+            return False, f"Test suite crashed with fatal runtime/harness error:\n{diag}"
+
+    # 2. Inspect structured JSON output if present
+    json_match = re.search(r"(\{[\s\S]*\"testResults\"[\s\S]*\})", t_out)
+    if json_match:
+        try:
+            data = json.loads(json_match.group(1))
+            num_runtime_errs = data.get("numRuntimeErrorTestSuites", 0)
+            if num_runtime_errs > 0:
+                return False, f"Jest reported {num_runtime_errs} test suite(s) with fatal runtime errors."
+
+            test_results = data.get("testResults", [])
+            has_assertion_failure = False
+            for suite in test_results:
+                if suite.get("testExecError"):
+                    msg = suite["testExecError"].get("message", "Unknown test execution error")
+                    return False, f"Test suite execution failed with error: {msg}"
+                for assertion in suite.get("assertionResults", []):
+                    if assertion.get("status") == "failed":
+                        has_assertion_failure = True
+                        break
+                if has_assertion_failure:
+                    break
+
+            if not has_assertion_failure and data.get("numFailedTests", 0) == 0:
+                return False, "No assertion failures recorded in test results."
+
+            return True, ""
+        except Exception:
+            pass
+
+    # 3. CLI fallback: ensure 'FAIL' or '● ' or 'expect(' is present without unhandled crashes
+    if "FAIL " in full_output or "● " in full_output or "expect(" in full_output:
+        return True, ""
+
+    return False, f"Tests failed with exit code {t_code}, but failure did not match expected assertion failure pattern."
+
+
 def stage_2_red(
     client: Any,
     issue_number: int,
@@ -626,6 +721,7 @@ def stage_2_red(
     blueprint: BlueprintPlan,
     token_tracker: TokenTracker,
     new_src_files: Optional[List[str]] = None,
+    initial_error_context: str = "",
 ) -> None:
     """Authors failing unit/component tests in target_test_files with a 2-attempt compiler self-correction loop."""
     log(f"\n--- [Stage 2] Red Phase Executor for Issue #{issue_number} ---")
@@ -639,7 +735,7 @@ def stage_2_red(
         new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 
     plan_md = (PROJECT_ROOT / "task-plan.md").read_text(encoding="utf-8")
-    last_compiler_error = ""
+    last_compiler_error = initial_error_context
     max_red_retries = 2
 
     for attempt in range(1, max_red_retries + 1):
@@ -683,6 +779,7 @@ DIRECTIVES (STRICT TDD RED PHASE):
 5. DOM TYPE CLARIFICATION: Distinguish between the global browser DOM 'Location' and custom coordinate types (e.g. `interface WineryLocation {{ latitude: number; longitude: number }}`). Do not let DOM Location clash with coordinate data types.
 6. Tests must be valid TypeScript: correct imports, mock setups (Jest/Testing Library), and type annotations.
 7. Output complete file contents for each target test file.
+8. JSDOM & BROWSER MOCKING INVARIANT: In Jest/JSDOM, `window.location` is locked and non-configurable. DO NOT attempt to redefine or overwrite it via `Object.defineProperty(window, 'location', ...)`. Instead, test navigation by mocking helper functions, using dependency injection, or utilizing jest.spyOn. Ensure test setup hooks (`beforeEach`/`afterEach`) execute cleanly without throwing unhandled exceptions.
 
 Respond strictly in valid JSON matching the TestFileManifest schema.
 """
@@ -737,15 +834,28 @@ Prefix any unused stub parameters with '_' to avoid TS6133 errors.
                 continue
             raise RuntimeError(f"Red phase test authoring failed TypeScript compilation after {max_red_retries} attempts:\n{tc_err or tc_out}")
 
-        # Red Verification Gate: jest test must fail (non-zero)
+        # Red Verification Gate: jest test must fail with clean assertion failures, NOT runtime harness crashes
         log("Verifying test failure against current production code...")
-        test_cmd = ["npx", "jest"] + target_tests
+        test_cmd = ["npx", "jest", "--json"] + target_tests
         t_code, t_out, t_err = run_isolated_test(test_cmd)
 
-        if t_code == 0:
-            raise RuntimeError("Red phase invariant violated: newly authored tests unexpectedly passed before implementation.")
+        is_valid_red, red_diagnostics = validate_jest_red_phase(t_code, t_out, t_err)
+        if not is_valid_red:
+            last_compiler_error = f"""PREVIOUS TESTS FAILED RED PHASE VERIFICATION:
+{red_diagnostics}
 
-        log(f"Red phase verified successfully: tests failed with exit code {t_code}.")
+Your tests crashed at runtime instead of failing assertions on unimplemented features.
+Ensure test setup hooks (beforeEach/afterEach) and mocks are completely valid in JSDOM:
+- DO NOT use Object.defineProperty to overwrite window.location (it is locked and non-configurable in JSDOM).
+- Use Jest spies on utility functions or mock interfaces instead of mutating browser globals.
+- Ensure all imports, mocks, and fixtures exist and execute cleanly.
+"""
+            log(f"Red phase verification failed on attempt {attempt}: {red_diagnostics}")
+            if attempt < max_red_retries:
+                continue
+            raise RuntimeError(f"Red phase failed verification after {max_red_retries} attempts: {red_diagnostics}")
+
+        log(f"Red phase verified successfully: tests failed with valid assertions (exit code {t_code}).")
 
         # Commit Red phase tests and initial source stubs
         run_cmd(["git", "add"] + target_tests + staged_stubs, check=True)
@@ -1166,6 +1276,17 @@ Closes #{issue_number}
     )
     gh_cli(["issue", "comment", str(issue_number), "--body", failure_comment])
 
+    # Preserve diagnostic artifacts in a dedicated directory before wiping working tree
+    artifacts_dir = PROJECT_ROOT / "diagnostic-artifacts"
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    for f_name in [".agent-state.json", "AGENT_HANDOFF.md", "task-plan.md"]:
+        src_file = PROJECT_ROOT / f_name
+        if src_file.exists():
+            shutil.copy2(src_file, artifacts_dir / f_name)
+    for log_file in PROJECT_ROOT.glob("*.log"):
+        if log_file.is_file():
+            shutil.copy2(log_file, artifacts_dir / log_file.name)
+
     reset_working_tree_to_main()
 
 
@@ -1254,11 +1375,13 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                         if red_sha and t_tests and t_src:
                             log(f"Running deterministic Red Gate verification for checkpoint {red_sha[:8]}...")
                             reset_target_sources(t_src, baseline_ref=red_sha)
-                            tc_code, _, _ = run_isolated_test(["npm", "run", "type-check"])
-                            t_code, _, _ = run_isolated_test(["npx", "jest"] + t_tests)
+                            tc_code, tc_out, tc_err = run_isolated_test(["npm", "run", "type-check"])
+                            t_code, t_out, t_err = run_isolated_test(["npx", "jest", "--json"] + t_tests)
 
-                            if tc_code == 0 and t_code != 0:
-                                log(f"⚡ Checkpoint verified! (type-check passed, tests failed as expected). Fast-forwarding directly to Stage 3 Green Phase!")
+                            is_valid_red, red_diagnostics = validate_jest_red_phase(t_code, t_out, t_err)
+
+                            if tc_code == 0 and is_valid_red:
+                                log(f"⚡ Checkpoint verified! (type-check passed, clean assertion failures). Fast-forwarding directly to Stage 3 Green Phase!")
                                 is_resumption = True
                                 blueprint = BlueprintPlan(
                                     scope=t_scope,
@@ -1288,9 +1411,52 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                                     resumption_context=resumption_context,
                                 )
                             else:
-                                log(f"Checkpoint verification failed (type-check code: {tc_code}, test code: {t_code}). Resetting to fresh main.")
-                                reset_working_tree_to_main()
-                                run_cmd(["git", "checkout", "-B", branch_name, "origin/main"])
+                                if tc_code != 0:
+                                    fail_reason = f"TypeScript check exit code {tc_code} ({tc_err or tc_out})"
+                                else:
+                                    fail_reason = f"Invalid test failure in checkpoint ({red_diagnostics})"
+                                log(f"Checkpoint verification failed: {fail_reason}.")
+
+                                # Autonomous Checkpoint Invalidation:
+                                # When tests in the checkpoint suffer from runtime crashes or invalid test setups,
+                                # roll back to the blueprint plan commit (red_sha~1) and re-author clean Red Phase tests.
+                                log("⚡ Autonomous Checkpoint Invalidation: Rolling back to blueprint commit to re-author clean Red Phase tests...")
+                                blueprint = BlueprintPlan(
+                                    scope=t_scope,
+                                    target_test_files=t_tests,
+                                    target_src_files=t_src,
+                                    plan_markdown=plan_path.read_text(encoding="utf-8"),
+                                )
+                                new_src_files = [sf for sf in t_src if not (PROJECT_ROOT / sf).exists()]
+
+                                parent_check, _, _ = run_cmd(["git", "rev-parse", "--verify", f"{red_sha}~1"])
+                                if parent_check == 0:
+                                    run_cmd(["git", "reset", "--hard", f"{red_sha}~1"])
+                                else:
+                                    log(f"Warning: Could not verify parent of {red_sha[:8]}, starting fresh from origin/main.")
+                                    reset_working_tree_to_main()
+                                    run_cmd(["git", "checkout", "-B", branch_name, "origin/main"])
+
+                                initial_err = f"PREVIOUS CHECKPOINT TESTS CRASHED AT RUNTIME:\n{red_diagnostics}\nFix mocks and test hooks so tests fail purely on assertion expectations."
+                                stage_2_red(
+                                    client,
+                                    issue_number,
+                                    issue_title,
+                                    blueprint,
+                                    token_tracker,
+                                    new_src_files=new_src_files,
+                                    initial_error_context=initial_err,
+                                )
+                                stage_3_green(
+                                    client,
+                                    issue_number,
+                                    issue_title,
+                                    blueprint,
+                                    token_tracker,
+                                    new_src_files=new_src_files,
+                                    baseline_ref="HEAD",
+                                )
+                                is_resumption = True
                     except Exception as e_res:
                         log(f"Warning: Failed to load checkpoint state: {e_res}. Starting fresh from origin/main.")
                         reset_working_tree_to_main()
@@ -1405,10 +1571,17 @@ def main():
         results.append((issue["number"], success))
 
     log("\n================ BATCH EXECUTION SUMMARY ================")
+    all_success = True
     for num, success in results:
         status_icon = "✅ SUCCESS" if success else "❌ FAILED"
         log(f"Issue #{num}: {status_icon}")
+        if not success:
+            all_success = False
     log("=========================================================\n")
+
+    if not all_success:
+        log("Batch execution finished with one or more failed issues.", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

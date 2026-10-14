@@ -130,6 +130,7 @@ jobs:
         with:
           name: agent-diagnostics
           path: |
+            diagnostic-artifacts/
             task-plan.md
             AGENT_HANDOFF.md
             .agent-state.json
