@@ -12,6 +12,19 @@ jest.mock('@/components/trip-card', () => {
   };
 });
 
+// Mock TripNavigation to assert integration on trip detail page
+jest.mock('@/components/TripNavigation', () => {
+  return {
+    TripNavigation: function MockTripNavigation({ stops }: { stops: any[] }) {
+      return (
+        <div data-testid="trip-navigation" data-stops-count={stops?.length || 0}>
+          Trip Navigation Control
+        </div>
+      );
+    },
+  };
+});
+
 describe('TripDetailClientPage', () => {
   const mockFetchTripById = jest.fn();
   const mockSetSelectedTrip = jest.fn();
@@ -40,14 +53,13 @@ describe('TripDetailClientPage', () => {
       const state = {
         fetchTripById: mockFetchTripById,
         setSelectedTrip: mockSetSelectedTrip,
-        isLoading: true, // Simulating loading
+        isLoading: true,
         trips: [],
       };
       return selector(state);
     });
 
     const { container } = render(<TripDetailClientPage tripId="123" />);
-    // Check for skeleton class or structure
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
@@ -65,7 +77,45 @@ describe('TripDetailClientPage', () => {
     });
 
     render(<TripDetailClientPage tripId="123" />);
-    
     expect(screen.getByTestId('trip-card')).toHaveTextContent('My Awesome Trip');
+  });
+
+  it('should integrate TripNavigation for trips with stops and not trigger in-app geolocation', () => {
+    const geolocationSpy = jest.fn();
+    const originalGeolocation = global.navigator.geolocation;
+    Object.defineProperty(global.navigator, 'geolocation', {
+      value: { getCurrentPosition: geolocationSpy },
+      configurable: true,
+    });
+
+    const mockTrip = {
+      id: 123,
+      name: 'Napa Valley Tour',
+      wineries: [
+        { id: 'w1', name: 'Winery 1', latitude: 38.3, longitude: -122.3 },
+        { id: 'w2', name: 'Winery 2', latitude: 38.4, longitude: -122.4 },
+      ],
+    };
+
+    (useTripStore as unknown as jest.Mock).mockImplementation((selector) => {
+      const state = {
+        fetchTripById: mockFetchTripById,
+        setSelectedTrip: mockSetSelectedTrip,
+        isLoading: false,
+        trips: [mockTrip],
+      };
+      return selector(state);
+    });
+
+    render(<TripDetailClientPage tripId="123" />);
+
+    expect(screen.getByTestId('trip-navigation')).toBeInTheDocument();
+    expect(screen.getByTestId('trip-navigation')).toHaveAttribute('data-stops-count', '2');
+    expect(geolocationSpy).not.toHaveBeenCalled();
+
+    Object.defineProperty(global.navigator, 'geolocation', {
+      value: originalGeolocation,
+      configurable: true,
+    });
   });
 });
