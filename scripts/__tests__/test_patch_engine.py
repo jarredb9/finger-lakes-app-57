@@ -2,6 +2,7 @@
 Unit tests for Autonomous Issue Resolver patch engine and resumption helpers.
 """
 
+import json
 import sys
 import unittest
 from pathlib import Path
@@ -212,6 +213,99 @@ class TestPatchEngine(unittest.TestCase):
         self.assertEqual(loaded["scope"], "trip")
         self.assertEqual(loaded["failed_phase"], "stage_3_green")
 
+    def test_is_transient_error_detection(self):
+        # Socket / Network disconnects
+        self.assertTrue(agent_resolve.is_transient_error(Exception("Server disconnected without sending a response.")))
+        self.assertTrue(agent_resolve.is_transient_error(Exception("RemoteDisconnected('Remote end closed connection without response')")))
+        self.assertTrue(agent_resolve.is_transient_error(Exception("ConnectionResetError: [Errno 104] Connection reset by peer")))
+        self.assertTrue(agent_resolve.is_transient_error(Exception("ReadTimeout: The read operation timed out")))
+        self.assertTrue(agent_resolve.is_transient_error(Exception("urllib3.exceptions.ProtocolError: ('Connection aborted.', BrokenPipeError(32, 'Broken pipe'))")))
+        self.assertTrue(agent_resolve.is_transient_error(Exception("EOF occurred in violation of protocol")))
+
+        # Standard HTTP rate limits / server errors
+        self.assertTrue(agent_resolve.is_transient_error(Exception("429 Resource has been exhausted (e.g. check quota).")))
+        self.assertTrue(agent_resolve.is_transient_error(Exception("503 The service is currently unavailable.")))
+        self.assertTrue(agent_resolve.is_transient_error(Exception("500 Internal Server Error")))
+
+        # Non-transient errors must NOT be marked transient
+        self.assertFalse(agent_resolve.is_transient_error(Exception("ValueError: Invalid JSON response")))
+        self.assertFalse(agent_resolve.is_transient_error(Exception("TypeError: Object of type X is not JSON serializable")))
+        self.assertFalse(agent_resolve.is_transient_error(Exception("PermissionDenied: API key not authorized")))
+
+    def test_validate_jest_red_phase_passing_tests(self):
+        valid, msg = agent_resolve.validate_jest_red_phase(0, "All tests passed", "")
+        self.assertFalse(valid)
+        self.assertIn("unexpectedly passed", msg)
+
+    def test_validate_jest_red_phase_runtime_crash(self):
+        # JSDOM location redefinition crash
+        crash_output = """
+FAIL components/__tests__/MapNavigation.test.tsx
+  ● MapNavigation component › renders trigger button
+    TypeError: Cannot redefine property: location
+        at Object.defineProperty (<anonymous>)
+        at components/__tests__/MapNavigation.test.tsx:58:12
+"""
+        valid, msg = agent_resolve.validate_jest_red_phase(1, crash_output, "")
+        self.assertFalse(valid)
+        self.assertIn("Cannot redefine property", msg)
+
+    def test_validate_jest_red_phase_structured_json_assertion_failure(self):
+        json_output = json.dumps({
+            "numFailedTests": 1,
+            "numPassedTests": 0,
+            "numRuntimeErrorTestSuites": 0,
+            "testResults": [
+                {
+                    "testFilePath": "lib/utils/__tests__/map-navigation.test.ts",
+                    "assertionResults": [
+                        {
+                            "status": "failed",
+                            "title": "builds Apple Maps URL",
+                            "failureMessages": ["Error: expect(received).toEqual(expected)"]
+                        }
+                    ]
+                }
+            ]
+        })
+        valid, msg = agent_resolve.validate_jest_red_phase(1, json_output, "")
+        self.assertTrue(valid, f"Expected valid red phase but got error: {msg}")
+        self.assertEqual(msg, "")
+
+    def test_validate_jest_red_phase_json_runtime_error(self):
+        json_output = json.dumps({
+            "numFailedTests": 0,
+            "numPassedTests": 0,
+            "numRuntimeErrorTestSuites": 1,
+            "testResults": [
+                {
+                    "testFilePath": "lib/utils/__tests__/map-navigation.test.ts",
+                    "testExecError": {
+                        "message": "TypeError: Cannot redefine property: location"
+                    },
+                    "assertionResults": []
+                }
+            ]
+        })
+        valid, msg = agent_resolve.validate_jest_red_phase(1, json_output, "")
+        self.assertFalse(valid)
+        self.assertIn("fatal runtime", msg)
+
+    def test_validate_jest_red_phase_cli_assertion_failure(self):
+        cli_output = """
+FAIL lib/utils/__tests__/map-navigation.test.ts
+  ● map-navigation utilities › buildAppleMapsUrl › formats single stop correctly
+
+    expect(received).toEqual(expected)
+
+    Expected: "https://maps.apple.com/?daddr=42.5,-76.8"
+    Received: "Not implemented"
+"""
+        valid, msg = agent_resolve.validate_jest_red_phase(1, cli_output, "")
+        self.assertTrue(valid, f"Expected valid red phase but got error: {msg}")
+        self.assertEqual(msg, "")
+
 
 if __name__ == "__main__":
     unittest.main()
+
