@@ -23,3 +23,29 @@ body:
       description: Are there adjacent features or edge cases that should NOT be handled in this issue?
     validations:
       required: false
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ### Agent Pre-Triage & Autonomous Implementation (Optional)
+        *Maintainers: Complete the structured fields below when briefing this feature for autonomous implementation (`agent:resolve`). Regular reporters may leave these blank.*
+  - type: textarea
+    id: target-files
+    attributes:
+      label: Target Files & Proposed Components
+      description: File paths, schemas, or components expected to be created or modified.
+      placeholder: |
+        - `lib/services/winery.ts`
+        - `components/winery/WineryCard.tsx`
+    validations:
+      required: false
+  - type: textarea
+    id: architectural-constraints
+    attributes:
+      label: Architectural Constraints & Invariants
+      description: Design invariants, state management patterns, migration requirements, or domain terminology (CONTEXT.md).
+      placeholder: |
+        - Preserve canonical domain terminology from CONTEXT.md.
+        - Ensure coordinate handling passes through `standardizeWineryData`.
+    validations:
+      required: false

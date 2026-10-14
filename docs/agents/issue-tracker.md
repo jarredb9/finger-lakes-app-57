@@ -33,6 +33,37 @@ Create a GitHub issue.
 
 Run `gh issue view <number> --comments`.
 
+## Briefing Issues for Autonomous Resolution (`agent:resolve`)
+
+Autonomous issue resolution via `.github/workflows/agent-resolve.yml` (and the underlying `scripts/agent-resolve.py` harness) executes a 3-stage TDD pipeline (Architectural Planning -> Red Phase Tests -> Green Phase Implementation). To maximize first-pass success and eliminate hallucinations, maintainers should pre-triage and brief incoming issues using the structured fields in `.github/ISSUE_TEMPLATE/bug_report.yml`:
+
+### Structured Pre-Triage Fields
+
+1. **Target Files & Suspected Components**:
+   - Explicit repository-relative paths to files, hooks, or components to inspect or modify.
+   - Constrains the Stage 1 Planner's search space and prevents the creation of disconnected, duplicate components or parallel state stores.
+2. **Suspected Root Cause & Reproduction Seam**:
+   - The concrete runtime mechanism responsible for the bug (e.g., iOS WebKit transient user gesture expiration in async callbacks, race conditions, state desync).
+   - Directs the Stage 2 Red Phase executor to author accurate, empirical failing tests targeting the exact failure seam.
+3. **Architectural Constraints & Invariants**:
+   - Boundaries and non-negotiables for the agent:
+     - Component refactoring boundaries (e.g., refactor existing handlers in place rather than creating redundant parallel components).
+     - Domain terminology rules from `CONTEXT.md` (e.g., "Trip Navigation" and "Trip Stop", never deprecated aliases).
+     - Global architectural invariants from `AGENTS.md` (e.g., coordinate standardization via `lib/utils/winery.ts`, container/presentational separation, offline/PWA compatibility).
+
+### Maintainer Briefing Workflow with `gh`
+
+```bash
+# 1. Inspect the incoming issue
+gh issue view <number>
+
+# 2. Update the issue body with structured briefing sections
+gh issue edit <number> --body-file /path/to/briefed-issue-body.md
+
+# 3. Queue the issue for autonomous resolution in the next batch
+gh issue edit <number> --add-label "ready-for-agent,agent:resolve" --remove-label "needs-triage"
+```
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.

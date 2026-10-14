@@ -108,6 +108,18 @@ class TokenTracker:
 # =========================================================================
 # STRUCTURED DATA SCHEMAS (PYDANTIC)
 # =========================================================================
+class DiagnosticAction(BaseModel):
+    action: str = Field(description="Action to execute: 'grep_search', 'find_files', 'read_file_snippet', or 'conclude'")
+    query: str = Field(default="", description="Search query string for grep_search (function name, UI text, error string)")
+    path_prefix: str = Field(default="", description="Optional directory path prefix for grep_search (e.g. 'lib/', 'components/')")
+    pattern: str = Field(default="", description="File name glob or keyword for find_files (e.g. '*nav*', '*card*')")
+    file_path: str = Field(default="", description="Repository-relative file path for read_file_snippet")
+    start_line: int = Field(default=1, description="1-indexed starting line number for read_file_snippet")
+    end_line: int = Field(default=80, description="1-indexed ending line number for read_file_snippet")
+    discovered_target_files: List[str] = Field(default_factory=list, description="Target source files verified or strongly suspected")
+    reasoning: str = Field(description="Architectural rationale explaining why this tool is called or concluding findings")
+
+
 class BlueprintPlan(BaseModel):
     scope: str = Field(description="Conventional commit scope, e.g. winery, trip, geo, ui")
     target_test_files: List[str] = Field(description="Explicit list of unit or component test file paths to create or modify")
@@ -150,13 +162,45 @@ class PatchManifest(BaseModel):
 # =========================================================================
 # SUBPROCESS & GIT UTILITIES
 # =========================================================================
+def sanitize_secrets(text: str) -> str:
+    """
+    Redacts sensitive tokens, API keys, and authorization headers from strings
+    to prevent credential leaks in logs, issue comments, PR bodies, and handoff docs.
+    """
+    if not text:
+        return ""
+    # GitHub personal access and installation tokens (ghp_, gho_, ghu_, ghs_, ghr_)
+    redacted = re.sub(r"gh[pousr]_[A-Za-z0-9_]{16,}", "[REDACTED_GH_TOKEN]", text)
+    # Google API Keys (AIza...)
+    redacted = re.sub(r"AIza[0-9A-Za-z\-_]{35}", "[REDACTED_AIZA_KEY]", redacted)
+    # Bearer authorization headers/tokens
+    redacted = re.sub(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer [REDACTED_TOKEN]", redacted)
+    # Redact sensitive environment variables if present
+    sensitive_keys = [
+        "GEMINI_API_KEY",
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "APP_ID",
+        "APP_PRIVATE_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        "GOOGLE_MAPS_API_KEY",
+    ]
+    for key in sensitive_keys:
+        val = os.environ.get(key)
+        if val and len(val) >= 6:
+            redacted = redacted.replace(val, f"[REDACTED_{key}]")
+    return redacted
+
+
 def run_cmd(
     cmd: List[str],
     cwd: Optional[Path] = None,
     env: Optional[Dict[str, str]] = None,
     check: bool = False,
+    timeout: int = 180,
 ) -> Tuple[int, str, str]:
-    """Runs a subprocess command and returns (exit_code, stdout, stderr)."""
+    """Runs a subprocess command with timeout and returns (exit_code, stdout, stderr)."""
     p = subprocess.Popen(
         cmd,
         cwd=str(cwd or PROJECT_ROOT),
@@ -165,7 +209,15 @@ def run_cmd(
         stderr=subprocess.PIPE,
         text=True,
     )
-    stdout, stderr = p.communicate()
+    try:
+        stdout, stderr = p.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        p.kill()
+        stdout, stderr = p.communicate()
+        err_msg = f"Command {' '.join(cmd)} timed out after {timeout} seconds."
+        if check:
+            raise TimeoutError(err_msg)
+        return 124, (stdout or "").strip(), f"{(stderr or '').strip()}\n{err_msg}".strip()
     if check and p.returncode != 0:
         raise RuntimeError(f"Command {' '.join(cmd)} failed (code {p.returncode}):\n{stderr}\n{stdout}")
     return p.returncode, stdout.strip(), stderr.strip()
@@ -174,17 +226,18 @@ def run_cmd(
 def is_docker_available() -> bool:
     """Checks whether Docker daemon is active and responsive."""
     try:
-        res = subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        res = subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
         return res.returncode == 0
     except Exception:
         return False
 
 
-def run_isolated_test(cmd: List[str], cwd: Optional[Path] = None) -> Tuple[int, str, str]:
+def run_isolated_test(cmd: List[str], cwd: Optional[Path] = None, timeout: int = 180) -> Tuple[int, str, str]:
     """
     Runs verification commands within a hardened environment.
-    If Docker is available, wraps inside an ephemeral container with --network none
-    and matching UID/GID to completely cut off network sockets and avoid root-owned files.
+    If Docker is available, wraps inside an ephemeral container with --network none,
+    matching UID/GID, read-only host mount (-v {PROJECT_ROOT}:/app:ro), and tmpfs /tmp
+    so tests cannot mutate host scripts, source, or .git.
     Otherwise falls back to subprocess with all credentials scrubbed.
     """
     target_cwd = cwd or PROJECT_ROOT
@@ -195,15 +248,17 @@ def run_isolated_test(cmd: List[str], cwd: Optional[Path] = None) -> Tuple[int, 
             "docker", "run", "--rm",
             "--network", "none",
             "--user", f"{uid}:{gid}",
-            "-v", f"{PROJECT_ROOT}:/app",
+            "-v", f"{PROJECT_ROOT}:/app:ro",
+            "--tmpfs", "/tmp:rw,exec,size=512m",
             "-w", "/app",
             "-e", "NODE_ENV=test",
             "-e", "HOME=/tmp",
             "-e", "npm_config_cache=/tmp/.npm",
+            "-e", "TMPDIR=/tmp",
             "-e", "PATH=/app/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "node:24-slim",
         ] + cmd
-        return run_cmd(docker_cmd, cwd=target_cwd, env={}, check=False)
+        return run_cmd(docker_cmd, cwd=target_cwd, env={}, check=False, timeout=timeout)
 
     isolated_env = os.environ.copy()
     sensitive_keys = [
@@ -218,16 +273,20 @@ def run_isolated_test(cmd: List[str], cwd: Optional[Path] = None) -> Tuple[int, 
     ]
     for key in sensitive_keys:
         isolated_env.pop(key, None)
-    return run_cmd(cmd, cwd=target_cwd, env=isolated_env, check=False)
+    return run_cmd(cmd, cwd=target_cwd, env=isolated_env, check=False, timeout=timeout)
 
 
-def gh_cli(args: List[str]) -> Tuple[int, str, str]:
-    """Executes a GitHub CLI command."""
-    return run_cmd(["gh"] + args)
+def gh_cli(args: List[str], timeout: int = 180) -> Tuple[int, str, str]:
+    """Executes a GitHub CLI command with secret sanitization on all arguments."""
+    sanitized_args = [sanitize_secrets(arg) if isinstance(arg, str) else arg for arg in args]
+    return run_cmd(["gh"] + sanitized_args, timeout=timeout)
 
 
 def reset_working_tree_to_main() -> None:
     """Discards uncommitted changes, untracked files, and checks out main cleanly (preserving diagnostic-artifacts/)."""
+    tp = PROJECT_ROOT / "task-plan.md"
+    if tp.exists():
+        tp.unlink()
     run_cmd(["git", "reset", "--hard", "HEAD"])
     run_cmd(["git", "clean", "-fd", "-e", "diagnostic-artifacts"])
     run_cmd(["git", "checkout", "main"])
@@ -238,6 +297,9 @@ def reset_working_tree_to_main() -> None:
 
 def cleanup_feature_branch(branch_name: str) -> None:
     """Cleans up local feature branch, scrubs untracked files, and reverts working tree to main."""
+    tp = PROJECT_ROOT / "task-plan.md"
+    if tp.exists():
+        tp.unlink()
     run_cmd(["git", "reset", "--hard", "HEAD"])
     run_cmd(["git", "clean", "-fd", "-e", "diagnostic-artifacts"])
     run_cmd(["git", "checkout", "main"])
@@ -254,7 +316,12 @@ def safe_resolve_repo_path(rel_path_str: str) -> Path:
     if not str(target).startswith(str(PROJECT_ROOT)):
         raise ValueError(f"Path traversal attempt blocked: {rel_path_str}")
 
-    protected = [".git", ".github/workflows", "scripts/agent-resolve.py"]
+    protected = [
+        ".git",
+        ".github/workflows",
+        "scripts/agent-resolve.py",
+        "supabase/migrations",
+    ]
     for prot in protected:
         if normalized == prot or normalized.startswith(prot + "/"):
             raise ValueError(f"Modification of protected file blocked: {rel_path_str}")
@@ -573,6 +640,288 @@ def get_project_context() -> str:
 """
 
 
+# =========================================================================
+# READ-ONLY REPOSITORY EXPLORATION TOOLS
+# =========================================================================
+def grep_search(query: str, path_prefix: str = "") -> str:
+    """Searches text across repository files using git grep."""
+    q = query.strip()
+    if not q:
+        return "No search query provided."
+    cmd = ["git", "grep", "-n", "-I", "-F", "-e", q]
+    if path_prefix.strip():
+        norm_prefix = path_prefix.strip().lstrip("./")
+        cmd.extend(["--", norm_prefix])
+    code, stdout, _ = run_cmd(cmd)
+    if code != 0 or not stdout.strip():
+        # Case-insensitive fallback
+        cmd_i = ["git", "grep", "-n", "-I", "-i", "-F", "-e", q]
+        if path_prefix.strip():
+            cmd_i.extend(["--", norm_prefix])
+        code_i, stdout_i, _ = run_cmd(cmd_i)
+        if code_i == 0 and stdout_i.strip():
+            stdout = stdout_i
+        else:
+            return f"No matches found for query '{query}'."
+    lines = stdout.strip().splitlines()
+    if len(lines) > 60:
+        return "\n".join(lines[:60]) + f"\n... ({len(lines) - 60} more matches truncated)"
+    return "\n".join(lines)
+
+
+def find_files(pattern: str) -> str:
+    """Locates repository files matching a glob or pattern."""
+    pat = pattern.strip()
+    if not pat:
+        return "No pattern provided."
+    glob_pat = pat if any(c in pat for c in ["*", "?", "["]) else f"*{pat}*"
+    code, stdout, _ = run_cmd(["git", "ls-files", glob_pat])
+    if code != 0 or not stdout.strip():
+        code_all, out_all, _ = run_cmd(["git", "ls-files"])
+        if code_all == 0 and out_all.strip():
+            matches = [f for f in out_all.splitlines() if pat.lower() in f.lower()]
+            if matches:
+                if len(matches) > 60:
+                    return "\n".join(matches[:60]) + f"\n... ({len(matches) - 60} more matches truncated)"
+                return "\n".join(matches)
+        return f"No files found matching pattern '{pattern}'."
+    lines = stdout.strip().splitlines()
+    if len(lines) > 60:
+        return "\n".join(lines[:60]) + f"\n... ({len(lines) - 60} more matches truncated)"
+    return "\n".join(lines)
+
+
+def read_file_snippet(file_path: str, start_line: int = 1, end_line: int = 80) -> str:
+    """Reads a line range from a repository file."""
+    try:
+        target_path = safe_resolve_repo_path(file_path)
+    except Exception as e:
+        return f"Error resolving path '{file_path}': {e}"
+    if not target_path.exists() or not target_path.is_file():
+        return f"File '{file_path}' does not exist on disk."
+    try:
+        content = target_path.read_text(encoding="utf-8", errors="replace")
+        lines = content.splitlines()
+        total_lines = len(lines)
+        start = max(1, start_line)
+        end = min(total_lines, max(start, end_line))
+        if end - start > 150:
+            end = start + 150
+        snippet_lines = [f"{i}: {lines[i - 1]}" for i in range(start, end + 1)]
+        header = f"=== File: {file_path} (Lines {start}-{end} of {total_lines}) ==="
+        return header + "\n" + "\n".join(snippet_lines)
+    except Exception as e:
+        return f"Error reading file '{file_path}': {e}"
+
+
+# =========================================================================
+# STAGE 0: DIAGNOSTIC EXPLORATION
+# =========================================================================
+@dataclass
+class DiagnosticResult:
+    target_files: List[str]
+    root_cause: str
+    code_snippets: Dict[str, str]
+    investigation_summary: str
+
+
+def parse_issue_diagnostics(issue_body: str) -> Tuple[List[str], str]:
+    """
+    Extracts explicit target files/suspected components and root cause analysis
+    from the issue body (handling Model 1 template format and markdown headings).
+    Returns (suspected_files, root_cause).
+    """
+    suspected_files: List[str] = []
+    root_cause: str = ""
+
+    # Look for Target Files / Suspected Components section
+    target_files_match = re.search(
+        r"(?:###?|\*\*)\s*(?:Target Files|Suspected Components|Target Files & Suspected Components)[\s\S]*?(?=(?:###?|\*\*|$))",
+        issue_body,
+        re.IGNORECASE,
+    )
+    if target_files_match:
+        section_text = target_files_match.group(0)
+        file_candidates = re.findall(
+            r"[-*]\s*[`'\"]?([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)[`'\"]?",
+            section_text,
+        )
+        file_candidates += re.findall(
+            r"[`'\"]([a-zA-Z0-9_./-]+\.(?:ts|tsx|js|jsx|json|sql|ya?ml|css))[`'\"]",
+            section_text,
+        )
+        file_candidates += re.findall(
+            r"((?:lib|components|app|pages|supabase|types|src|scripts)/[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)",
+            section_text,
+        )
+        for f in file_candidates:
+            clean_f = f.strip().strip("`'\",")
+            if clean_f and clean_f not in suspected_files:
+                suspected_files.append(clean_f)
+
+    # Look for Root Cause section
+    root_cause_match = re.search(
+        r"(?:###?|\*\*)\s*Root Cause[\s\S]*?(?=(?:###?|\*\*|$))",
+        issue_body,
+        re.IGNORECASE,
+    )
+    if root_cause_match:
+        root_cause = root_cause_match.group(0).strip()
+
+    # Fallback: scan whole issue body for candidate source files if no explicit section matched
+    if not suspected_files:
+        all_paths = re.findall(
+            r"[`'\"]([a-zA-Z0-9_./-]+\.(?:ts|tsx|js|jsx|json|sql|ya?ml|css))[`'\"]",
+            issue_body,
+        )
+        all_paths += re.findall(
+            r"((?:lib|components|app|pages|supabase|types|src|scripts)/[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)",
+            issue_body,
+        )
+        for p in all_paths:
+            clean_p = p.strip().strip("`'\",")
+            if clean_p and clean_p not in suspected_files:
+                suspected_files.append(clean_p)
+
+    return suspected_files, root_cause
+
+
+def stage_0_diagnose(
+    client: Any,
+    issue_title: str,
+    issue_body: str,
+    token_tracker: TokenTracker,
+) -> DiagnosticResult:
+    """
+    Stage 0 Diagnostic Loop:
+    1. Extracts explicit 'Target Files & Suspected Components' and 'Root Cause' from issue body.
+    2. If explicit files are provided, inspects and verifies them using exploration tools.
+    3. If not provided or incomplete, runs an iterative diagnostic loop (up to 4-6 tool calls)
+       searching for keywords, UI strings, or handlers to discover actual source files and offending functions.
+    4. Returns DiagnosticResult with verified target files and code snippets.
+    """
+    log(f"\n--- [Stage 0] Diagnostic Exploration for: {issue_title} ---")
+    suspected_files, parsed_root_cause = parse_issue_diagnostics(issue_body)
+
+    verified_files: List[str] = []
+    code_snippets: Dict[str, str] = {}
+    investigation_log: List[str] = []
+
+    # Step 1: Inspect explicit files if provided in issue body
+    if suspected_files:
+        log(f"Parsed {len(suspected_files)} candidate target file(s) from issue body: {suspected_files}")
+        for sf in suspected_files:
+            try:
+                target_p = safe_resolve_repo_path(sf)
+                if target_p.exists() and target_p.is_file():
+                    verified_files.append(sf)
+                    snippet = read_file_snippet(sf, 1, 100)
+                    code_snippets[sf] = snippet
+                    investigation_log.append(f"Verified explicit file '{sf}' on disk ({len(snippet.splitlines())} lines read).")
+                else:
+                    search_res = find_files(Path(sf).name)
+                    investigation_log.append(f"Explicit file '{sf}' not found on disk. find_files result:\n{search_res}")
+                    for line in search_res.splitlines():
+                        line_f = line.strip()
+                        if line_f and (PROJECT_ROOT / line_f).is_file() and line_f not in verified_files:
+                            verified_files.append(line_f)
+                            code_snippets[line_f] = read_file_snippet(line_f, 1, 100)
+            except Exception as e:
+                investigation_log.append(f"Could not resolve explicit file '{sf}': {e}")
+
+    # Step 2: If no verified files were found or exploration is needed, run iterative diagnostic loop
+    if not verified_files:
+        log("No explicit target files verified on disk. Starting iterative tool-equipped diagnostic loop...")
+        max_tool_calls = 5
+        history: List[str] = []
+
+        for step in range(1, max_tool_calls + 1):
+            log(f"Diagnostic loop step {step}/{max_tool_calls}...")
+            history_text = "\n".join(history) if history else "No previous tool calls."
+            discovered_text = ", ".join(verified_files) if verified_files else "None"
+
+            prompt = f"""You are the Stage 0 Diagnostic Exploration Agent diagnosing an issue in this repository.
+Your mission is to find the exact source files and offending functions or components causing the problem.
+
+ISSUE TITLE: {issue_title}
+
+ISSUE BODY:
+{issue_body}
+
+PREVIOUS TOOL ACTIONS & OBSERVATIONS:
+{history_text}
+
+VERIFIED RELEVANT FILES SO FAR:
+{discovered_text}
+
+AVAILABLE TOOLS:
+1. `grep_search`: Query strings, function names, error text, or keywords across the codebase.
+2. `find_files`: Find files by glob or pattern (e.g. '*navigation*', '*winery*').
+3. `read_file_snippet`: Inspect 1-indexed line range of a file.
+4. `conclude`: Conclude investigation once the root cause and target files are identified.
+
+Choose your next action to locate the relevant files and offending logic.
+Respond strictly in valid JSON matching the DiagnosticAction schema.
+"""
+            action: DiagnosticAction = call_gemini_with_fallback(
+                client,
+                prompt,
+                DEFAULT_PLANNER_MODELS,
+                schema_cls=DiagnosticAction,
+                temperature=0.1,
+                token_tracker=token_tracker,
+            )
+
+            log(f"Diagnostic Action [{step}]: {action.action} (Reason: {action.reasoning})")
+
+            # Collect any files declared by the agent
+            for tf in action.discovered_target_files:
+                try:
+                    p = safe_resolve_repo_path(tf)
+                    if p.exists() and p.is_file() and tf not in verified_files:
+                        verified_files.append(tf)
+                        if tf not in code_snippets:
+                            code_snippets[tf] = read_file_snippet(tf, 1, 100)
+                except Exception:
+                    pass
+
+            if action.action == "conclude":
+                investigation_log.append(f"Concluded diagnosis at step {step}: {action.reasoning}")
+                if action.discovered_target_files:
+                    investigation_log.append(f"Identified target files: {action.discovered_target_files}")
+                break
+
+            tool_output = ""
+            if action.action == "grep_search":
+                tool_output = grep_search(action.query, action.path_prefix)
+            elif action.action == "find_files":
+                tool_output = find_files(action.pattern)
+            elif action.action == "read_file_snippet":
+                tool_output = read_file_snippet(action.file_path, action.start_line, action.end_line)
+                if "=== File:" in tool_output and action.file_path not in verified_files:
+                    try:
+                        p = safe_resolve_repo_path(action.file_path)
+                        if p.exists() and p.is_file():
+                            verified_files.append(action.file_path)
+                            code_snippets[action.file_path] = tool_output
+                    except Exception:
+                        pass
+            else:
+                tool_output = f"Unknown action: {action.action}"
+
+            history.append(f"Step {step}: Action={action.action}, Args={action.model_dump(exclude={'action', 'reasoning', 'discovered_target_files'})}\nResult:\n{tool_output[:1500]}")
+            investigation_log.append(f"Step {step} {action.action}: {action.reasoning}")
+
+    summary_str = "\n".join(investigation_log)
+    log(f"Stage 0 complete: {len(verified_files)} verified file(s) identified.")
+    return DiagnosticResult(
+        target_files=verified_files,
+        root_cause=parsed_root_cause or "Diagnosed via repository exploration.",
+        code_snippets=code_snippets,
+        investigation_summary=summary_str,
+    )
+
+
 class Stage2CompilationError(RuntimeError):
     """Raised when Stage 2 test authoring fails TypeScript compilation repeatedly."""
     pass
@@ -588,9 +937,10 @@ def stage_1_plan(
     issue_body: str,
     token_tracker: TokenTracker,
     negative_feedback: str = "",
+    diagnostic_result: Optional[DiagnosticResult] = None,
 ) -> BlueprintPlan:
     """Generates task-plan.md and structured file manifest using Planner model."""
-    print(f"\n--- [Stage 1] Architectural Planning for Issue #{issue_number} ---")
+    log(f"\n--- [Stage 1] Architectural Planning for Issue #{issue_number} ---")
     project_context = get_project_context()
 
     feedback_section = ""
@@ -598,6 +948,26 @@ def stage_1_plan(
         feedback_section = f"""### PREVIOUS ARCHITECTURAL ATTEMPT FAILED WITH COMPILER/RED-PHASE ERRORS:
 {negative_feedback}
 Revise your architectural blueprint to resolve these failures. Do not re-attempt an incompatible design.
+"""
+
+    diagnostic_section = ""
+    if diagnostic_result:
+        snippets_formatted = ""
+        for fp, snip in diagnostic_result.code_snippets.items():
+            snippets_formatted += f"\n```typescript\n// {fp}\n{snip}\n```\n"
+
+        diagnostic_section = f"""### STAGE 0 DIAGNOSTIC INVESTIGATION FINDINGS:
+Verified Target Files:
+{json.dumps(diagnostic_result.target_files, indent=2)}
+
+Root Cause / Suspected Behavior:
+{diagnostic_result.root_cause}
+
+Discovered Code Snippets:
+{snippets_formatted or 'No snippets captured.'}
+
+Investigation Summary:
+{diagnostic_result.investigation_summary}
 """
 
     prompt = f"""You are the Staff Principal Architect generating an authoritative implementation blueprint for Issue #{issue_number}: {issue_title}.
@@ -609,12 +979,13 @@ Issue #{issue_number}: {issue_title}
 
 {issue_body}
 {feedback_section}
+{diagnostic_section}
 INSTRUCTIONS & ARCHITECTURAL INVARIANTS:
-1. Inspect the requirements and determine the minimal, high-cohesion target files to create or modify.
-2. DOMAIN MODEL INVARIANT (CONTEXT.md): Strictly use canonical domain terms (e.g. 'Trip Navigation', 'Trip Stop', 'Winery'). Avoid deprecated terms ('maps export', 'trip export', 'route export').
-3. COMPONENT BOUNDARY ISOLATION: Do not overload or morph existing single-entity components for multi-entity features. Specifically, `components/MapNavigation.tsx` is dedicated to single-winery directions; do not mutate it for multi-winery trip features. Create dedicated components (e.g. `components/TripNavigation.tsx`) and dedicated utilities (e.g. `lib/utils/trip-navigation.ts`).
+1. Inspect the requirements and determine the minimal, high-cohesion target files to create or modify. Anchor your plan to verified code from Stage 0 diagnostics.
+2. DOMAIN MODEL INVARIANT (CONTEXT.md): Adhere strictly to the canonical domain model and architectural rules documented in CONTEXT.md and AGENTS.md.
+3. COMPONENT BOUNDARY ISOLATION: Maintain clean component boundaries with single responsibility. Do not overload existing single-purpose components for multi-entity or unrelated concerns; create dedicated components and utilities when introducing new responsibilities.
 4. REACT 19 & NEXT.JS 16 JSX TRANSFORM: React automatic JSX runtime is active. Do not plan or author tests/components with unnecessary `import React from 'react'` unless React namespace methods are directly referenced, to avoid TS6133 (`noUnusedLocals`).
-5. TEST HARNESS MOCKING INVARIANT: In Jest/JSDOM, `window.location` is locked and non-configurable. Never plan or author tests that call `Object.defineProperty(window, 'location', ...)`.
+5. TEST HARNESS MOCKING INVARIANT: In Jest/JSDOM, `window.location` is locked and non-configurable. Never plan or author tests that attempt to overwrite locked browser globals; mock helper functions or use dependency injection instead.
 6. Formulate full TypeScript interfaces, prop types, and behavioral logic (edge cases, fallbacks).
 7. Identify explicit target test files (e.g. `lib/utils/__tests__/foo.test.ts` or `components/__tests__/Bar.test.tsx`).
 8. Identify explicit target application source files (e.g. `lib/utils/foo.ts` or `components/Bar.tsx`).
@@ -640,13 +1011,10 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
     plan_path = PROJECT_ROOT / "task-plan.md"
     plan_path.write_text(blueprint.plan_markdown, encoding="utf-8")
 
-    run_cmd(["git", "add", "task-plan.md"], check=True)
-    run_cmd(["git", "commit", "-m", f"docs(plan): Architecture blueprint for Issue #{issue_number}"], check=True)
-
-    print(f"Authoritative blueprint committed to task-plan.md.")
-    print(f"Commit Scope: {blueprint.scope}")
-    print(f"Target test files: {blueprint.target_test_files}")
-    print(f"Target source files: {blueprint.target_src_files}")
+    log("Authoritative blueprint written to task-plan.md (uncommitted).")
+    log(f"Commit Scope: {blueprint.scope}")
+    log(f"Target test files: {blueprint.target_test_files}")
+    log(f"Target source files: {blueprint.target_src_files}")
     return blueprint
 
 
@@ -802,7 +1170,7 @@ DIRECTIVES (STRICT TDD RED PHASE):
 2. For existing source files, DO NOT modify any production or source code files. Existing code must remain untouched.
 3. For brand new source files listed above, provide minimal TypeScript function/type stubs (throwing new Error("Not implemented")) in `source_stubs` so that test imports compile cleanly (exit 0) and fail at runtime in Jest.
 4. COMPILER STRICTNESS INVARIANT (TS6133): In tsconfig.json, 'noUnusedParameters' and 'noUnusedLocals' are active. In your source_stubs, any unused function parameters MUST be prefixed with an underscore '_' (e.g. `_options: any`). In test files, DO NOT include unused imports (such as `import React from 'react'`) to prevent TS6133 compiler failures.
-5. DOM TYPE CLARIFICATION: Distinguish between the global browser DOM 'Location' and custom coordinate types (e.g. `interface WineryLocation {{ latitude: number; longitude: number }}`). Do not let DOM Location clash with coordinate data types.
+5. TYPE HYGIENE: Ensure custom types, interfaces, and function signatures do not clash with global browser DOM or Node.js built-ins. Use explicit type imports and clean naming.
 6. Tests must be valid TypeScript: correct imports, mock setups (Jest/Testing Library), and type annotations.
 7. Output complete file contents for each target test file.
 8. JSDOM & BROWSER MOCKING INVARIANT: In Jest/JSDOM, `window.location` is locked and non-configurable. DO NOT attempt to redefine or overwrite it via `Object.defineProperty(window, 'location', ...)`. Instead, test navigation by mocking helper functions, using dependency injection, or utilizing jest.spyOn. Ensure test setup hooks (`beforeEach`/`afterEach`) execute cleanly without throwing unhandled exceptions.
@@ -966,7 +1334,7 @@ DIRECTIVES (STRICT TDD GREEN PHASE - TARGETED SEARCH/REPLACE PATCHING):
 3. CONCISE SEARCH BLOCKS: Keep search_block concise (between 3 and 10 lines of unique anchor context). Do NOT include large 30+ line blocks of surrounding code, imports, or boilerplate.
 4. For existing files, specify exact search_block character sequences to replace, including sufficient surrounding context lines to ensure unique matching.
 5. For new files, set search_block to an empty string and provide complete file content in replace_block.
-6. DOM TYPE CLARIFICATION: Distinguish between the global browser DOM 'Location' and custom coordinate types (e.g. `interface WineryLocation {{ latitude: number; longitude: number }}`).
+6. TYPE HYGIENE: Ensure custom types, interfaces, and function signatures do not clash with global browser DOM or Node.js built-ins. Use explicit type imports and clean naming.
 
 Respond strictly in valid JSON matching the PatchManifest schema.
 """
@@ -1106,6 +1474,7 @@ Closes #{issue_number}
   - Tests: {", ".join(f"`{f}`" for f in blueprint.target_test_files)}
   - Source: {", ".join(f"`{f}`" for f in blueprint.target_src_files)}
 """
+    pr_body = sanitize_secrets(pr_body)
     pr_code, pr_list_out, _ = gh_cli(["pr", "list", "--head", branch_name, "--state", "open", "--json", "number"])
     existing_pr_num = None
     if pr_code == 0 and pr_list_out.strip():
@@ -1156,6 +1525,7 @@ def preserve_failed_work(
     dry_run: bool = False,
 ) -> None:
     """Preserves failed agent state, commits WIP code and diagnostics, and pushes to origin."""
+    error_summary = sanitize_secrets(error_summary)
     if blueprint is None:
         log(f"No architectural blueprint produced for Issue #{issue_number}; cleaning up branch.")
         cleanup_feature_branch(branch_name)
@@ -1172,11 +1542,13 @@ def preserve_failed_work(
     _, red_sha_out, _ = run_cmd(["git", "log", "--grep=^test(", "-n", "1", "--format=%H"])
     red_phase_commit_sha = red_sha_out.strip()
 
-    # Commit any uncommitted source or test changes
+    # Commit any uncommitted source or test changes (excluding task-plan.md)
     _, status_out, _ = run_cmd(["git", "status", "--porcelain"])
     if status_out.strip():
-        run_cmd(["git", "add", "."])
-        run_cmd(["git", "commit", "-m", f"wip({scope}): Incomplete implementation for Issue #{issue_number} [skip ci]"])
+        staged_targets = [f for f in target_tests + target_src if (PROJECT_ROOT / f).exists()]
+        if staged_targets:
+            run_cmd(["git", "add"] + staged_targets)
+            run_cmd(["git", "commit", "-m", f"wip({scope}): Incomplete implementation for Issue #{issue_number} [skip ci]"])
 
     # Prepare checkpoint state
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -1195,6 +1567,7 @@ def preserve_failed_work(
         "issue_number": issue_number,
         "issue_title": issue_title,
         "scope": scope,
+        "plan_markdown": blueprint.plan_markdown if blueprint else "",
         "target_test_files": target_tests,
         "target_src_files": target_src,
         "red_phase_commit_sha": red_phase_commit_sha,
@@ -1408,10 +1781,15 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                 plan_path = PROJECT_ROOT / "task-plan.md"
                 checkpoint_loaded = False
                 state_data = {}
-                if state_path.exists() and plan_path.exists():
+                if state_path.exists():
                     try:
                         state_data = json.loads(state_path.read_text(encoding="utf-8"))
-                        checkpoint_loaded = True
+                        plan_md = state_data.get("plan_markdown", "")
+                        if not plan_md and plan_path.exists():
+                            plan_md = plan_path.read_text(encoding="utf-8")
+                        if plan_md:
+                            plan_path.write_text(plan_md, encoding="utf-8")
+                            checkpoint_loaded = True
                     except Exception as e_load:
                         log(f"Warning: Failed to parse checkpoint state: {e_load}. Starting fresh from origin/main.")
                         reset_working_tree_to_main()
@@ -1452,7 +1830,7 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                                 scope=t_scope,
                                 target_test_files=t_tests,
                                 target_src_files=t_src,
-                                plan_markdown=plan_path.read_text(encoding="utf-8"),
+                                plan_markdown=state_data.get("plan_markdown") or (plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""),
                             )
                             new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 
@@ -1492,7 +1870,7 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                                     scope=t_scope,
                                     target_test_files=t_tests,
                                     target_src_files=t_src,
-                                    plan_markdown=plan_path.read_text(encoding="utf-8"),
+                                    plan_markdown=state_data.get("plan_markdown") or (plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""),
                                 )
                                 new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 
@@ -1557,10 +1935,20 @@ Do not attempt to modify incompatible existing components; design clean, isolate
         else:
             run_cmd(["git", "checkout", "-B", branch_name, "origin/main"])
 
-        # If not resuming, run full 3-stage pipeline from scratch
+        # If not resuming, run full pipeline starting with Stage 0 Diagnostic Exploration
         if not is_resumption:
+            # Stage 0: Diagnostic Exploration
+            diagnostic_result = stage_0_diagnose(client, issue_title, issue_body, token_tracker)
+
             # Stage 1: Blueprint Plan
-            blueprint = stage_1_plan(client, issue_number, issue_title, issue_body, token_tracker)
+            blueprint = stage_1_plan(
+                client,
+                issue_number,
+                issue_title,
+                issue_body,
+                token_tracker,
+                diagnostic_result=diagnostic_result,
+            )
 
             # Track any brand new source files designated in the blueprint
             new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
@@ -1589,7 +1977,8 @@ Target Source Files:
 Compiler Errors:
 {s2_err}
 
-Do not attempt to modify incompatible existing components; design clean, isolated modules and interfaces with correct prop signatures and exports."""
+Do not attempt to modify incompatible existing components; design clean, isolated modules and interfaces with correct prop signatures and exports.""",
+                    diagnostic_result=diagnostic_result,
                 )
                 new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
                 stage_2_red(client, issue_number, issue_title, blueprint, token_tracker, new_src_files=new_src_files)
@@ -1605,6 +1994,15 @@ Do not attempt to modify incompatible existing components; design clean, isolate
             reset_working_tree_to_main()
             run_cmd(["git", "branch", "-D", branch_name])
             return True
+
+        # Git hygiene: Ensure task-plan.md is NOT committed or included in PR diff
+        code_tp, _, _ = run_cmd(["git", "ls-files", "--error-unmatch", "task-plan.md"])
+        if code_tp == 0:
+            run_cmd(["git", "rm", "-f", "task-plan.md"])
+            run_cmd(["git", "commit", "-m", "chore: remove task-plan.md from branch"])
+        plan_p = PROJECT_ROOT / "task-plan.md"
+        if plan_p.exists():
+            plan_p.unlink()
 
         # Push branch & submit or update Draft Pull Request
         log(f"Pushing branch {branch_name} to origin...")
