@@ -527,8 +527,50 @@ Exploration tools needed for Stage 0.
         finally:
             agent_resolve.PROJECT_ROOT = self.root
 
+    def test_extract_test_suite_names(self):
+        sample_test = """
+        describe('TripNavigationComponent', () => {
+          it('renders options', () => {});
+        });
+        describe("saveTripMembers", () => {
+          it('saves members', () => {});
+        });
+        describe(`NestedSuite`, () => {});
+        """
+        suites = agent_resolve.extract_test_suite_names(sample_test)
+        self.assertEqual(suites, ["TripNavigationComponent", "saveTripMembers", "NestedSuite"])
+
+    def test_is_issue_suitable_for_headless_agent(self):
+        # UI/composite component issue should be flagged
+        suitable, reason = agent_resolve.is_issue_suitable_for_headless_agent(
+            "Add DropdownMenu for trip navigation",
+            "Replace buttons with dropdownmenu trigger on iOS PWA"
+        )
+        self.assertFalse(suitable)
+        self.assertIn("Radix UI", reason)
+        self.assertIn("WebKit", reason)
+
+        # Pure algorithmic/data issue should be deemed suitable
+        suitable, reason = agent_resolve.is_issue_suitable_for_headless_agent(
+            "Fix coordinate normalization in winery parser",
+            "Lat and long should be clamped within bounds in lib/utils/geo.ts"
+        )
+        self.assertTrue(suitable)
+        self.assertEqual(reason, "")
+
+    def test_find_related_test_files(self):
+        # Point to real project root for real git grep test
+        agent_resolve.PROJECT_ROOT = self.orig_root
+        try:
+            discovered = agent_resolve.find_related_test_files(["components/TripCardSimplePresentational.tsx"])
+            self.assertIn("components/__tests__/TripCardSimplePresentational.test.tsx", discovered)
+            self.assertIn("components/__tests__/trip-card-simple.test.tsx", discovered)
+        finally:
+            agent_resolve.PROJECT_ROOT = self.root
+
 
 if __name__ == "__main__":
     unittest.main()
+
 
 
