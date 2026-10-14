@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import TripCard from '@/components/trip-card';
+import { TripNavigation } from '@/components/TripNavigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useTripStore } from '@/lib/stores/tripStore';
 
@@ -61,5 +62,14 @@ export default function TripDetailClientPage({ tripId }: { tripId: string }) {
 
   if (!trip) return null;
 
-  return <TripCard trip={trip} />;
+  const tripStops = (((trip as unknown as { wineries?: unknown[] }).wineries || (trip as unknown as { stops?: unknown[] }).stops || []) as unknown[]) as any[];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <TripNavigation stops={tripStops} tripTitle={trip.name} />
+      </div>
+      <TripCard trip={trip} />
+    </div>
+  );
 }
