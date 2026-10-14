@@ -102,8 +102,17 @@ class TestFileEntry(BaseModel):
     content: str = Field(description="Complete test file content")
 
 
+class SourceStubEntry(BaseModel):
+    file_path: str = Field(description="Repository-relative new source file path to stub")
+    content: str = Field(description="Minimal TypeScript type declarations and function stubs throwing 'Not implemented'")
+
+
 class TestFileManifest(BaseModel):
     files: List[TestFileEntry] = Field(description="List of test files to create or overwrite")
+    source_stubs: List[SourceStubEntry] = Field(
+        default_factory=list,
+        description="Minimal stubs for brand new source files that do not yet exist on disk",
+    )
 
 
 class PatchChunk(BaseModel):
@@ -253,7 +262,10 @@ def reset_target_sources(target_src: List[str]) -> None:
         run_cmd(["git", "checkout", "HEAD", "--"] + tracked_files)
 
 
-def apply_patch_manifest(manifest: PatchManifest) -> Tuple[bool, List[str]]:
+def apply_patch_manifest(
+    manifest: PatchManifest,
+    new_src_files: Optional[List[str]] = None,
+) -> Tuple[bool, List[str]]:
     """
     Applies search/replace patches to target source files.
     Validates that each search_block exists uniquely in the target file.
@@ -277,9 +289,10 @@ def apply_patch_manifest(manifest: PatchManifest) -> Tuple[bool, List[str]]:
             else:
                 current_content = None
 
-        # Case 1: Creating a brand new file
+        # Case 1: Creating a brand new file (or replacing stub of a new file)
         if not patch.search_block:
-            if current_content is not None and target_path.exists():
+            is_new = bool(new_src_files and patch.file_path in new_src_files)
+            if current_content is not None and target_path.exists() and not is_new:
                 errors.append(
                     f"Patch #{idx} specifies empty search_block for '{patch.file_path}', but the file already exists. "
                     "Empty search_block is only allowed when creating brand new files."
@@ -550,6 +563,7 @@ def stage_2_red(
     issue_title: str,
     blueprint: BlueprintPlan,
     token_tracker: TokenTracker,
+    new_src_files: Optional[List[str]] = None,
 ) -> None:
     """Authors failing unit/component tests in target_test_files with a 2-attempt compiler self-correction loop."""
     print(f"\n--- [Stage 2] Red Phase Executor for Issue #{issue_number} ---")
@@ -558,6 +572,9 @@ def stage_2_red(
 
     if not target_tests:
         raise RuntimeError("No target test files specified in architectural blueprint.")
+
+    if new_src_files is None:
+        new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 
     plan_md = (PROJECT_ROOT / "task-plan.md").read_text(encoding="utf-8")
     last_compiler_error = ""
@@ -572,6 +589,17 @@ def stage_2_red(
             if p.exists():
                 existing_tests_context += f"\nFILE: {tf}\n```typescript\n{p.read_text(encoding='utf-8')}\n```\n"
 
+        new_src_prompt_section = ""
+        if new_src_files:
+            new_src_prompt_section = f"""
+BRAND NEW TARGET SOURCE FILES (NOT YET CREATED ON DISK):
+{json.dumps(new_src_files, indent=2)}
+
+NOTE ON BRAND NEW SOURCE FILES:
+The files above do not exist in the repository yet. To ensure TypeScript compilation passes (`npm run type-check`), you MUST provide minimal type definitions and function stubs (throwing `new Error("Not implemented")`) in `source_stubs` for each of these files. This allows test imports to compile cleanly (exit 0) and fail at runtime in Jest.
+Existing source files must remain untouched.
+"""
+
         prompt = f"""You are the Red Phase Executor Agent authoring failing tests for Issue #{issue_number}: {issue_title}.
 
 ARCHITECTURAL BLUEPRINT (task-plan.md):
@@ -582,14 +610,15 @@ EXISTING TEST CONTEXT:
 
 TARGET TEST FILES:
 {json.dumps(target_tests, indent=2)}
-
+{new_src_prompt_section}
 {last_compiler_error}
 
 DIRECTIVES (STRICT TDD RED PHASE):
 1. Author comprehensive unit or component tests in the TARGET TEST FILES that assert the behavior requested in task-plan.md.
-2. INVARIANT: DO NOT modify any production or source code files. Production code must remain untouched.
-3. Tests must be valid TypeScript: correct imports, mock setups (Jest/Testing Library), and type annotations.
-4. Output complete file contents for each target test file.
+2. For existing source files, DO NOT modify any production or source code files. Existing code must remain untouched.
+3. For brand new source files listed above, provide minimal TypeScript function/type stubs (throwing new Error("Not implemented")) in `source_stubs` so that test imports compile cleanly (exit 0) and fail at runtime in Jest.
+4. Tests must be valid TypeScript: correct imports, mock setups (Jest/Testing Library), and type annotations.
+5. Output complete file contents for each target test file.
 
 Respond strictly in valid JSON matching the TestFileManifest schema.
 """
@@ -602,6 +631,24 @@ Respond strictly in valid JSON matching the TestFileManifest schema.
             temperature=0.2,
             token_tracker=token_tracker,
         )
+
+        staged_stubs: List[str] = []
+        for stub in getattr(manifest, "source_stubs", []):
+            if stub.file_path in new_src_files:
+                p = safe_resolve_repo_path(stub.file_path)
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text(stub.content, encoding="utf-8")
+                print(f"Wrote initial source stub: {stub.file_path}")
+                staged_stubs.append(stub.file_path)
+
+        # Fallback scaffolding: ensure any un-stubbed new source file at least exists on disk
+        for nsf in new_src_files:
+            p = safe_resolve_repo_path(nsf)
+            if not p.exists():
+                p.parent.mkdir(parents=True, exist_ok=True)
+                p.write_text("export {};\n", encoding="utf-8")
+                print(f"Scaffolded empty fallback stub: {nsf}")
+                staged_stubs.append(nsf)
 
         for entry in manifest.files:
             p = safe_resolve_repo_path(entry.file_path)
@@ -618,6 +665,7 @@ Exit Code: {tc_code}
 TypeScript Errors:
 {tc_err or tc_out}
 Fix the imports, type annotations, and mock declarations in the target test files.
+Ensure all new source files listed above have appropriate function/type stubs in source_stubs.
 """
             print(f"TypeScript compilation failed on attempt {attempt}: {tc_err or tc_out}")
             if attempt < max_red_retries:
@@ -634,8 +682,8 @@ Fix the imports, type annotations, and mock declarations in the target test file
 
         print(f"Red phase verified successfully: tests failed with exit code {t_code}.")
 
-        # Commit Red phase tests
-        run_cmd(["git", "add"] + target_tests, check=True)
+        # Commit Red phase tests and initial source stubs
+        run_cmd(["git", "add"] + target_tests + staged_stubs, check=True)
         commit_msg = f"test({scope}): Add failing tests for Issue #{issue_number}"
         run_cmd(["git", "commit", "-m", commit_msg], check=True)
         print(f"Committed: {commit_msg}")
@@ -651,6 +699,7 @@ def stage_3_green(
     issue_title: str,
     blueprint: BlueprintPlan,
     token_tracker: TokenTracker,
+    new_src_files: Optional[List[str]] = None,
 ) -> None:
     """Implements production code with search/replace patching, targeted testing, and mandatory full regression gate."""
     print(f"\n--- [Stage 3] Green Phase Executor for Issue #{issue_number} ---")
@@ -681,10 +730,13 @@ def stage_3_green(
         src_content = ""
         for sf in target_src:
             p = safe_resolve_repo_path(sf)
-            if p.exists():
+            if new_src_files and sf in new_src_files:
+                stub_text = p.read_text(encoding="utf-8") if p.exists() else ""
+                src_content += f"\nSOURCE FILE ({sf}): (brand new file created for this issue - set search_block='' to replace complete content or patch stub)\n```typescript\n{stub_text}\n```\n"
+            elif p.exists():
                 src_content += f"\nSOURCE FILE ({sf}):\n```typescript\n{p.read_text(encoding='utf-8')}\n```\n"
             else:
-                src_content += f"\nSOURCE FILE ({sf}): (new file to create)\n"
+                src_content += f"\nSOURCE FILE ({sf}): (new file to create - set search_block='')\n"
 
         prompt = f"""You are the Green Phase Executor Agent implementing code to satisfy Issue #{issue_number}: {issue_title}.
 
@@ -717,7 +769,7 @@ Respond strictly in valid JSON matching the PatchManifest schema.
             token_tracker=token_tracker,
         )
 
-        patch_success, patch_errors = apply_patch_manifest(manifest)
+        patch_success, patch_errors = apply_patch_manifest(manifest, new_src_files=new_src_files)
         if not patch_success:
             last_error_context = "PREVIOUS ATTEMPT FAILED TO APPLY PATCHES:\n" + "\n".join(patch_errors) + "\nEnsure exact match of search_block against clean baseline source files."
             print(f"Attempt {attempt} patch application failed:\n" + "\n".join(patch_errors))
@@ -825,11 +877,14 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
         # Stage 1: Blueprint Plan
         blueprint = stage_1_plan(client, issue_number, issue_title, issue_body, token_tracker)
 
+        # Track any brand new source files designated in the blueprint
+        new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
+
         # Stage 2: Red Phase Tests
-        stage_2_red(client, issue_number, issue_title, blueprint, token_tracker)
+        stage_2_red(client, issue_number, issue_title, blueprint, token_tracker, new_src_files=new_src_files)
 
         # Stage 3: Green Phase Implementation
-        stage_3_green(client, issue_number, issue_title, blueprint, token_tracker)
+        stage_3_green(client, issue_number, issue_title, blueprint, token_tracker, new_src_files=new_src_files)
 
         elapsed_sec = int(time.time() - start_time)
 
