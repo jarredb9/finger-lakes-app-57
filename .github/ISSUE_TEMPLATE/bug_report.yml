@@ -40,3 +40,38 @@ body:
       description: Browser, OS, route URL, or relevant user account state.
     validations:
       required: false
+  - type: markdown
+    attributes:
+      value: |
+        ---
+        ### Agent Pre-Triage & Autonomous Resolution (Optional)
+        *Maintainers: Complete the structured fields below when briefing or vetting this issue for autonomous resolution (`agent:resolve`). Regular reporters may leave these blank.*
+  - type: textarea
+    id: target-files
+    attributes:
+      label: Target Files & Suspected Components
+      description: Explicit file paths, functions, hooks, or component entry points that should be inspected or modified.
+      placeholder: |
+        - `hooks/use-trip-actions.ts` (`handleExportToMaps`)
+        - `components/TripCardPresentational.tsx`
+    validations:
+      required: false
+  - type: textarea
+    id: suspected-root-cause
+    attributes:
+      label: Suspected Root Cause & Reproduction Seam
+      description: Architectural diagnosis explaining why the failure occurs (e.g. transient gesture expiration, race condition, state desync) and how the test harness can reproduce it.
+      placeholder: |
+        Explain the technical mechanism causing the defect, why existing handlers fail, and where the unit/component test harness should assert.
+    validations:
+      required: false
+  - type: textarea
+    id: architectural-constraints
+    attributes:
+      label: Architectural Constraints & Invariants
+      description: Hard boundaries for the resolution (e.g. refactor existing components vs create new ones, domain invariants from CONTEXT.md, API contracts).
+      placeholder: |
+        - Refactor existing `handleExportToMaps` rather than introducing duplicate parallel components.
+        - Preserve canonical domain terminology from CONTEXT.md (e.g., 'Trip Navigation', 'Trip Stop').
+    validations:
+      required: false

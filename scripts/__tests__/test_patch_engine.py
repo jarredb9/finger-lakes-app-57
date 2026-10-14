@@ -392,6 +392,139 @@ FAIL lib/utils/__tests__/map-navigation.test.ts
         data2 = json.loads(state_file.read_text(encoding="utf-8"))
         self.assertEqual(data2.get("attempt_count"), 2)
 
+    def test_safe_resolve_repo_path_blocks_supabase_migrations(self):
+        # SEC-04 guardrail: blocks mutations to supabase/migrations
+        with self.assertRaises(ValueError) as ctx:
+            agent_resolve.safe_resolve_repo_path("supabase/migrations/20261014_init.sql")
+        self.assertIn("Modification of protected file blocked", str(ctx.exception))
+
+        with self.assertRaises(ValueError) as ctx:
+            agent_resolve.safe_resolve_repo_path("supabase/migrations")
+        self.assertIn("Modification of protected file blocked", str(ctx.exception))
+
+    def test_sanitize_secrets_tokens_and_keys(self):
+        # SEC-02 sanitization filter
+        sample = (
+            "Error pushing to git with ghp_1234567890abcdef1234567890abcdef and "
+            "Google Maps key AIzaSyA12345678901234567890123456789012 and "
+            "header Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.xyz"
+        )
+        cleaned = agent_resolve.sanitize_secrets(sample)
+        self.assertNotIn("ghp_1234567890", cleaned)
+        self.assertIn("[REDACTED_GH_TOKEN]", cleaned)
+        self.assertNotIn("AIzaSyA123456", cleaned)
+        self.assertIn("[REDACTED_AIZA_KEY]", cleaned)
+        self.assertNotIn("eyJhbGci", cleaned)
+        self.assertIn("Bearer [REDACTED_TOKEN]", cleaned)
+
+    def test_run_cmd_timeout_handling(self):
+        # ARCH-01: command timing out returns code 124
+        code, stdout, stderr = agent_resolve.run_cmd(["sleep", "2"], timeout=1)
+        self.assertEqual(code, 124)
+        self.assertIn("timed out after 1 seconds", stderr)
+
+    def test_exploration_tools(self):
+        # Stage 0 exploration tools against real repo root
+        agent_resolve.PROJECT_ROOT = self.orig_root
+        try:
+            # 1. find_files
+            res_find = agent_resolve.find_files("package.json")
+            self.assertIn("package.json", res_find)
+
+            # 2. grep_search
+            res_grep = agent_resolve.grep_search("Autonomous Issue Resolver", "scripts/")
+            self.assertIn("scripts/agent-resolve.py", res_grep)
+
+            # 3. read_file_snippet
+            res_snippet = agent_resolve.read_file_snippet("package.json", 1, 10)
+            self.assertIn("=== File: package.json (Lines 1-10", res_snippet)
+            self.assertIn("1: {", res_snippet)
+        finally:
+            agent_resolve.PROJECT_ROOT = self.root
+
+    def test_parse_issue_diagnostics_model1_format(self):
+        issue_body = """
+### Current Behavior
+The map navigation fails when clicking on multi-stop routes.
+
+### Target Files & Suspected Components
+- `components/map/map-container.tsx`
+- lib/utils/geo.ts
+
+### Root Cause
+The route coordinates are not being normalized before being passed to DirectionsRenderer.
+"""
+        files, root_cause = agent_resolve.parse_issue_diagnostics(issue_body)
+        self.assertIn("components/map/map-container.tsx", files)
+        self.assertIn("lib/utils/geo.ts", files)
+        self.assertIn("Root Cause", root_cause)
+        self.assertIn("route coordinates are not being normalized", root_cause)
+
+    def test_stage_0_diagnose_explicit_files(self):
+        # Verify Stage 0 verifies explicit files on disk without LLM call
+        agent_resolve.PROJECT_ROOT = self.orig_root
+        try:
+            issue_body = """
+### Target Files & Suspected Components
+- `package.json`
+
+### Root Cause
+Exploration tools needed for Stage 0.
+"""
+            token_tracker = agent_resolve.TokenTracker()
+            result = agent_resolve.stage_0_diagnose(
+                client=None,
+                issue_title="Test Diagnostic",
+                issue_body=issue_body,
+                token_tracker=token_tracker,
+            )
+            self.assertIn("package.json", result.target_files)
+            self.assertIn("package.json", result.code_snippets)
+            self.assertIn("=== File: package.json", result.code_snippets["package.json"])
+        finally:
+            agent_resolve.PROJECT_ROOT = self.root
+
+    def test_stage_0_diagnose_iterative_loop(self):
+        # Verify iterative diagnostic loop runs when no explicit files provided
+        from unittest.mock import patch
+
+        step1 = agent_resolve.DiagnosticAction(
+            action="find_files",
+            pattern="package.json",
+            reasoning="Locate package definition",
+        )
+        step2 = agent_resolve.DiagnosticAction(
+            action="read_file_snippet",
+            file_path="package.json",
+            start_line=1,
+            end_line=10,
+            discovered_target_files=["package.json"],
+            reasoning="Read dependencies",
+        )
+        step3 = agent_resolve.DiagnosticAction(
+            action="conclude",
+            reasoning="Diagnosis complete",
+            discovered_target_files=["package.json"],
+        )
+
+        mock_responses = [step1, step2, step3]
+
+        agent_resolve.PROJECT_ROOT = self.orig_root
+        try:
+            with patch.object(agent_resolve, "call_gemini_with_fallback", side_effect=mock_responses):
+                token_tracker = agent_resolve.TokenTracker()
+                result = agent_resolve.stage_0_diagnose(
+                    client=object(),
+                    issue_title="Bug with package version",
+                    issue_body="No files specified in body.",
+                    token_tracker=token_tracker,
+                )
+                self.assertIn("package.json", result.target_files)
+                self.assertIn("package.json", result.code_snippets)
+                self.assertIn("Concluded diagnosis at step 3", result.investigation_summary)
+        finally:
+            agent_resolve.PROJECT_ROOT = self.root
+
 
 if __name__ == "__main__":
     unittest.main()

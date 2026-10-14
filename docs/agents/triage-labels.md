@@ -23,3 +23,13 @@ The nightly batch runner (`.github/workflows/agent-resolve.yml`) executes at 20:
 | `agent:in-progress`  | Ephemeral execution tag applied by GitHub Actions while the 3-stage TDD pipeline is running. `agent:resolve` is removed when entering this state. |
 | `agent:in-review`    | Success state applied when unit tests and compiler checks pass and an automated Draft PR is opened for maintainer review. `ready-for-agent` and `agent:in-progress` are removed. |
 | `ready-for-human`    | Failure fallback state applied if the agent cannot resolve failing tests within 3 attempts or compilation fails. An explanatory log comment is posted and the issue is queued for morning human review. |
+
+### Maintainer Pre-Triage Checklist for `agent:resolve`
+
+Before tagging an issue with `agent:resolve`, maintainers should audit the issue body against the template fields defined in `.github/ISSUE_TEMPLATE/bug_report.yml`:
+
+1. **Maintainer Provenance:** Verify the issue was authored or briefed by the verified repository maintainer (`jarredb9`).
+2. **Target Files & Suspected Components:** Are explicit repository-relative file paths, hooks, and component entry points specified?
+3. **Suspected Root Cause & Reproduction Seam:** Is the technical mechanism causing the bug clearly documented so the Red Phase generator can write an empirical, failing test?
+4. **Architectural Constraints & Invariants:** Are refactoring boundaries (e.g. modify existing components vs create new ones) and domain model requirements (`CONTEXT.md`, `AGENTS.md`) defined?
+5. **Queue Authorization:** Once vetted, apply `ready-for-agent` and `agent:resolve`, and remove `needs-triage`.
