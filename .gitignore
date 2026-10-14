@@ -65,3 +65,4 @@ sdlmcp.sqlite
 data/
 
 gha-creds-*.json
+task-plan.md

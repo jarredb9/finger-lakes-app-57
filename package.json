@@ -22,7 +22,7 @@
     "audit": "npm audit",
     "prepare": "husky",
     "start": "next start",
-    "type-check": "npx tsc -p tsconfig.json --noEmit",
+    "type-check": "npx tsc -p tsconfig.json --noEmit --incremental false",
     "dev:real": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_IS_E2E=false E2E_REAL_DATA=true npm run dev",
     "db:populate": "npx tsx scripts/populate-wineries.ts",
     "test:e2e": "npx playwright test",
