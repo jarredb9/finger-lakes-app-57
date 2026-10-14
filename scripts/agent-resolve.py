@@ -97,8 +97,13 @@ class BlueprintPlan(BaseModel):
     plan_markdown: str = Field(description="Full markdown content for task-plan.md")
 
 
+class TestFileEntry(BaseModel):
+    file_path: str = Field(description="Repository-relative test file path, e.g. lib/utils/__tests__/map-utils.test.ts")
+    content: str = Field(description="Complete test file content")
+
+
 class TestFileManifest(BaseModel):
-    files: Dict[str, str] = Field(description="Dictionary mapping repository-relative test file paths to complete file contents")
+    files: List[TestFileEntry] = Field(description="List of test files to create or overwrite")
 
 
 class PatchChunk(BaseModel):
@@ -598,11 +603,11 @@ Respond strictly in valid JSON matching the TestFileManifest schema.
             token_tracker=token_tracker,
         )
 
-        for file_path_str, content in manifest.files.items():
-            p = safe_resolve_repo_path(file_path_str)
+        for entry in manifest.files:
+            p = safe_resolve_repo_path(entry.file_path)
             p.parent.mkdir(parents=True, exist_ok=True)
-            p.write_text(content, encoding="utf-8")
-            print(f"Wrote test file: {file_path_str}")
+            p.write_text(entry.content, encoding="utf-8")
+            print(f"Wrote test file: {entry.file_path}")
 
         # Compiler Gate: npm run type-check must exit 0
         print("Verifying TypeScript compilation (npm run type-check)...")
