@@ -4,8 +4,19 @@ import { useFriendStore } from '@/lib/stores/friendStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useToast } from '@/hooks/use-toast';
 import { createMockTrip, createMockWinery } from '@/lib/test-utils/fixtures';
-import { GooglePlaceId, WineryDbId } from '@/lib/types';
+import { GooglePlaceId, WineryDbId, Trip, TripMember } from '@/lib/types';
 import { NavigationProvider } from '@/lib/utils/trip-navigation';
+
+export interface UseTripActionsReturn {
+  selectedFriends: string[];
+  currentMembers: TripMember[];
+  handleTripNavigation: (provider?: NavigationProvider) => void;
+  /** @deprecated Use handleTripNavigation instead. Retained for backwards compatibility. */
+  handleExportToMaps: (provider?: NavigationProvider) => void;
+  saveTripMembers: (membersToSave?: string[]) => Promise<void>;
+}
+
+export type UseTripActionsHook = (trip: Trip) => UseTripActionsReturn;
 
 jest.mock('@/hooks/use-toast', () => ({
   useToast: jest.fn(),
@@ -72,7 +83,140 @@ describe('useTripActions', () => {
     expect(mockFetchFriends).toHaveBeenCalledTimes(1);
   });
 
-  describe('handleExportToMaps', () => {
+  describe('handleTripNavigation (canonical)', () => {
+    it('exposes canonical handleTripNavigation as a function', () => {
+      const trip = createMockTrip({ id: 1 });
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current as unknown as UseTripActionsReturn;
+
+      expect(typeof actions.handleTripNavigation).toBe('function');
+    });
+
+    it('returns early and does not open a window if trip.wineries is undefined or empty', () => {
+      const tripEmpty = createMockTrip({ id: 1, wineries: [] });
+      const { result } = renderHook(() => useTripActions(tripEmpty));
+      const actions = result.current as unknown as UseTripActionsReturn;
+
+      act(() => {
+        actions.handleTripNavigation('google');
+      });
+
+      expect(window.open).not.toHaveBeenCalled();
+    });
+
+    it('synchronously launches Google Maps by default without calling navigator.geolocation', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1, mockWinery2],
+      });
+
+      const mockGetCurrentPosition = jest.fn();
+      Object.defineProperty(navigator, 'geolocation', {
+        value: { getCurrentPosition: mockGetCurrentPosition },
+        configurable: true,
+        writable: true,
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current as unknown as UseTripActionsReturn;
+
+      act(() => {
+        actions.handleTripNavigation();
+      });
+
+      expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+      expect(window.open).toHaveBeenCalledWith(
+        expect.stringContaining('google.com/maps/dir/'),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('synchronously launches Apple Maps when provider is "apple"', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1, mockWinery2],
+      });
+
+      const mockGetCurrentPosition = jest.fn();
+      Object.defineProperty(navigator, 'geolocation', {
+        value: { getCurrentPosition: mockGetCurrentPosition },
+        configurable: true,
+        writable: true,
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current as unknown as UseTripActionsReturn;
+
+      act(() => {
+        actions.handleTripNavigation('apple');
+      });
+
+      expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+      expect(window.open).toHaveBeenCalledWith(
+        expect.stringContaining('maps.apple.com'),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('synchronously launches Waze when provider is "waze"', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1, mockWinery2],
+      });
+
+      const mockGetCurrentPosition = jest.fn();
+      Object.defineProperty(navigator, 'geolocation', {
+        value: { getCurrentPosition: mockGetCurrentPosition },
+        configurable: true,
+        writable: true,
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current as unknown as UseTripActionsReturn;
+
+      act(() => {
+        actions.handleTripNavigation('waze');
+      });
+
+      expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+      expect(window.open).toHaveBeenCalledWith(
+        expect.stringContaining('waze.com/ul'),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('does not leave any loading or disabled locks after sequential launches', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1],
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current as unknown as UseTripActionsReturn;
+
+      act(() => {
+        actions.handleTripNavigation('google');
+      });
+
+      act(() => {
+        actions.handleTripNavigation('apple');
+      });
+
+      expect(window.open).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('handleExportToMaps (@deprecated alias)', () => {
+    it('maintains @deprecated handleExportToMaps alias delegating directly to handleTripNavigation', () => {
+      const trip = createMockTrip({ id: 1 });
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current as unknown as UseTripActionsReturn;
+
+      expect(actions.handleExportToMaps).toBe(actions.handleTripNavigation);
+    });
     it('returns early and does not open a window if trip.wineries is undefined or empty', () => {
       const tripEmpty = createMockTrip({ id: 1, wineries: [] });
       const { result } = renderHook(() => useTripActions(tripEmpty));
