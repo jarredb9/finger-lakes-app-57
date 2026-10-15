@@ -1,1 +1,1 @@
-google-chrome-stable --ignore-gpu-blocklist --enable-webgl --enable-unsafe-swiftshader --use-gl=swiftshader
+dev/chrome-webgl.sh
