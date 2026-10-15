@@ -4,19 +4,8 @@ import { useFriendStore } from '@/lib/stores/friendStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useToast } from '@/hooks/use-toast';
 import { createMockTrip, createMockWinery } from '@/lib/test-utils/fixtures';
-import { GooglePlaceId, WineryDbId, Trip, TripMember } from '@/lib/types';
+import { GooglePlaceId, WineryDbId } from '@/lib/types';
 import { NavigationProvider } from '@/lib/utils/trip-navigation';
-
-export interface UseTripActionsReturn {
-  selectedFriends: string[];
-  currentMembers: TripMember[];
-  handleTripNavigation: (provider?: NavigationProvider) => void;
-  /** @deprecated Use handleTripNavigation instead. Retained for backwards compatibility. */
-  handleExportToMaps: (provider?: NavigationProvider) => void;
-  saveTripMembers: (membersToSave?: string[]) => Promise<void>;
-}
-
-export type UseTripActionsHook = (trip: Trip) => UseTripActionsReturn;
 
 jest.mock('@/hooks/use-toast', () => ({
   useToast: jest.fn(),
@@ -87,7 +76,7 @@ describe('useTripActions', () => {
     it('exposes canonical handleTripNavigation as a function', () => {
       const trip = createMockTrip({ id: 1 });
       const { result } = renderHook(() => useTripActions(trip));
-      const actions = result.current as unknown as UseTripActionsReturn;
+      const actions = result.current;
 
       expect(typeof actions.handleTripNavigation).toBe('function');
     });
@@ -95,7 +84,7 @@ describe('useTripActions', () => {
     it('returns early and does not open a window if trip.wineries is undefined or empty', () => {
       const tripEmpty = createMockTrip({ id: 1, wineries: [] });
       const { result } = renderHook(() => useTripActions(tripEmpty));
-      const actions = result.current as unknown as UseTripActionsReturn;
+      const actions = result.current;
 
       act(() => {
         actions.handleTripNavigation('google');
@@ -118,7 +107,7 @@ describe('useTripActions', () => {
       });
 
       const { result } = renderHook(() => useTripActions(trip));
-      const actions = result.current as unknown as UseTripActionsReturn;
+      const actions = result.current;
 
       act(() => {
         actions.handleTripNavigation();
@@ -146,7 +135,7 @@ describe('useTripActions', () => {
       });
 
       const { result } = renderHook(() => useTripActions(trip));
-      const actions = result.current as unknown as UseTripActionsReturn;
+      const actions = result.current;
 
       act(() => {
         actions.handleTripNavigation('apple');
@@ -174,7 +163,7 @@ describe('useTripActions', () => {
       });
 
       const { result } = renderHook(() => useTripActions(trip));
-      const actions = result.current as unknown as UseTripActionsReturn;
+      const actions = result.current;
 
       act(() => {
         actions.handleTripNavigation('waze');
@@ -195,7 +184,7 @@ describe('useTripActions', () => {
       });
 
       const { result } = renderHook(() => useTripActions(trip));
-      const actions = result.current as unknown as UseTripActionsReturn;
+      const actions = result.current;
 
       act(() => {
         actions.handleTripNavigation('google');
@@ -213,7 +202,7 @@ describe('useTripActions', () => {
     it('maintains @deprecated handleExportToMaps alias delegating directly to handleTripNavigation', () => {
       const trip = createMockTrip({ id: 1 });
       const { result } = renderHook(() => useTripActions(trip));
-      const actions = result.current as unknown as UseTripActionsReturn;
+      const actions = result.current;
 
       expect(actions.handleExportToMaps).toBe(actions.handleTripNavigation);
     });
@@ -222,7 +211,7 @@ describe('useTripActions', () => {
       const { result } = renderHook(() => useTripActions(tripEmpty));
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)();
+        result.current.handleExportToMaps();
       });
 
       expect(window.open).not.toHaveBeenCalled();
@@ -271,7 +260,7 @@ describe('useTripActions', () => {
       const { result } = renderHook(() => useTripActions(trip));
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('apple');
+        result.current.handleExportToMaps('apple');
       });
 
       expect(mockGetCurrentPosition).not.toHaveBeenCalled();
@@ -298,7 +287,7 @@ describe('useTripActions', () => {
       const { result } = renderHook(() => useTripActions(trip));
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('waze');
+        result.current.handleExportToMaps('waze');
       });
 
       expect(mockGetCurrentPosition).not.toHaveBeenCalled();
@@ -318,11 +307,11 @@ describe('useTripActions', () => {
       const { result } = renderHook(() => useTripActions(trip));
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('google');
+        result.current.handleExportToMaps('google');
       });
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('apple');
+        result.current.handleExportToMaps('apple');
       });
 
       expect(window.open).toHaveBeenCalledTimes(2);

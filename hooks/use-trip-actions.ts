@@ -26,7 +26,9 @@ export function useTripActions(trip: Trip): UseTripActionsReturn {
   }, [fetchFriends]);
 
   const handleTripNavigation = (provider: NavigationProvider = 'google') => {
-    if (!trip.wineries || trip.wineries.length === 0) return;
+    if (!trip.wineries || trip.wineries.length === 0) {
+      return;
+    }
     launchTripNavigation(provider, trip.wineries);
   };
 

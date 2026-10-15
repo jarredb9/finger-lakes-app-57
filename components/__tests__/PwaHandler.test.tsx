@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import { PwaHandler } from '../pwa-handler';
 import { usePwa } from '@/hooks/use-pwa';
 import { useToast } from '@/hooks/use-toast';
@@ -129,7 +129,8 @@ describe('PwaHandler Component Install UI and Standalone Suppression', () => {
 
       render(<PwaHandler />);
 
-      const mobileDismissBtn = screen.getByRole('button', { name: /dismiss/i });
+      const mobileBar = screen.getByTestId('mobile-pwa-install-bar');
+      const mobileDismissBtn = within(mobileBar).getByRole('button', { name: /dismiss/i });
       fireEvent.click(mobileDismissBtn);
 
       expect(screen.queryByTestId('mobile-pwa-install-bar')).not.toBeInTheDocument();
@@ -148,9 +149,8 @@ describe('PwaHandler Component Install UI and Standalone Suppression', () => {
       render(<PwaHandler />);
 
       const desktopCard = screen.getByTestId('desktop-pwa-install-card');
-      const desktopCloseBtn = desktopCard.querySelector('button');
-      expect(desktopCloseBtn).not.toBeNull();
-      fireEvent.click(desktopCloseBtn!);
+      const desktopCloseBtn = within(desktopCard).getByRole('button', { name: /dismiss/i });
+      fireEvent.click(desktopCloseBtn);
 
       expect(screen.queryByTestId('mobile-pwa-install-bar')).not.toBeInTheDocument();
       expect(screen.queryByTestId('desktop-pwa-install-card')).not.toBeInTheDocument();

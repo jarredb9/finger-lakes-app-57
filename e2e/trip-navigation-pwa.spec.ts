@@ -10,27 +10,6 @@ import {
 } from './helpers';
 import { getTodayLocal } from '@/lib/utils';
 
-export interface NavigationRouteTestFixture {
-  activeTripName: string;
-  emptyTripName: string;
-  stop1: {
-    id: GooglePlaceId;
-    dbId: WineryDbId;
-    name: string;
-    address: string;
-    latitude: number;
-    longitude: number;
-  };
-  stop2: {
-    id: GooglePlaceId;
-    dbId: WineryDbId;
-    name: string;
-    address: string;
-    latitude: number;
-    longitude: number;
-  };
-}
-
 /**
  * Route handler for external navigation providers to prevent DNS timeouts
  * in rootless container environments.
@@ -38,7 +17,7 @@ export interface NavigationRouteTestFixture {
 export async function setupExternalNavigationRouteInterceptors(
   context: BrowserContext
 ): Promise<void> {
-  await context.route(/.*maps\.apple\.com.*/, async (route) => {
+  await context.route(/maps\.apple\.com/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'text/html',
@@ -46,7 +25,7 @@ export async function setupExternalNavigationRouteInterceptors(
     });
   });
 
-  await context.route(/.*google\.com\/maps\/dir.*/, async (route) => {
+  await context.route(/google\.com\/maps\/dir/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'text/html',
@@ -54,7 +33,7 @@ export async function setupExternalNavigationRouteInterceptors(
     });
   });
 
-  await context.route(/.*waze\.com\/ul.*/, async (route) => {
+  await context.route(/waze\.com\/ul/, async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'text/html',
@@ -136,14 +115,16 @@ test.describe('Mobile Safari PWA Standalone Trip Navigation', () => {
       standalonePage.getByRole('menuitem', { name: 'Apple Maps' }).click(),
     ]);
 
-    await expect(popup).toHaveURL(/maps\.apple\.com\/directions/);
-    const url = new URL(popup.url());
-    expect(url.pathname).toBe('/directions');
-    expect(url.searchParams.get('mode')).toBe('driving');
-    expect(url.searchParams.get('destination')).toContain('Destination Cellars');
-    expect(url.searchParams.get('waypoint')).toContain('First Stop Vineyard');
-
-    await popup.close();
+    try {
+      await expect(popup).toHaveURL(/maps\.apple\.com\/directions/);
+      const url = new URL(popup.url());
+      expect(url.pathname).toBe('/directions');
+      expect(url.searchParams.get('mode')).toBe('driving');
+      expect(url.searchParams.get('destination')).toContain('Destination Cellars');
+      expect(url.searchParams.get('waypoint')).toContain('First Stop Vineyard');
+    } finally {
+      await popup.close();
+    }
   });
 
   test('dispatches Google Maps navigation popup preserving transient gestures and query parameters', async ({ standalonePage }) => {
@@ -160,14 +141,16 @@ test.describe('Mobile Safari PWA Standalone Trip Navigation', () => {
       standalonePage.getByRole('menuitem', { name: 'Google Maps' }).click(),
     ]);
 
-    await expect(popup).toHaveURL(/google\.com\/maps\/dir/);
-    const url = new URL(popup.url());
-    expect(url.pathname).toContain('/maps/dir');
-    expect(url.searchParams.get('api')).toBe('1');
-    expect(url.searchParams.get('destination')).toContain('Destination Cellars');
-    expect(url.searchParams.get('waypoints')).toContain('First Stop Vineyard');
-
-    await popup.close();
+    try {
+      await expect(popup).toHaveURL(/google\.com\/maps\/dir/);
+      const url = new URL(popup.url());
+      expect(url.pathname).toContain('/maps/dir');
+      expect(url.searchParams.get('api')).toBe('1');
+      expect(url.searchParams.get('destination')).toContain('Destination Cellars');
+      expect(url.searchParams.get('waypoints')).toContain('First Stop Vineyard');
+    } finally {
+      await popup.close();
+    }
   });
 
   test('dispatches Waze navigation popup preserving transient gestures and query parameters', async ({ standalonePage }) => {
@@ -184,13 +167,15 @@ test.describe('Mobile Safari PWA Standalone Trip Navigation', () => {
       standalonePage.getByRole('menuitem', { name: 'Waze' }).click(),
     ]);
 
-    await expect(popup).toHaveURL(/waze\.com\/ul/);
-    const url = new URL(popup.url());
-    expect(url.pathname).toBe('/ul');
-    expect(url.searchParams.get('navigate')).toBe('yes');
-    expect(url.searchParams.get('ll')).toBe('42.868,-76.985');
-
-    await popup.close();
+    try {
+      await expect(popup).toHaveURL(/waze\.com\/ul/);
+      const url = new URL(popup.url());
+      expect(url.pathname).toBe('/ul');
+      expect(url.searchParams.get('navigate')).toBe('yes');
+      expect(url.searchParams.get('ll')).toBe('42.868,-76.985');
+    } finally {
+      await popup.close();
+    }
   });
 
   test('enforces standalone mode signals and disables navigation on zero-stop trips', async ({ standalonePage }) => {
