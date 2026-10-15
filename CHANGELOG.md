@@ -1,6 +1,33 @@
 # Changelog
 
-## [Unreleased] - v3.6.1
+## [Unreleased] - v3.7.0
+
+### 📱 Automated iOS PWA Standalone Testing Matrix & Domain Refactoring ([ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
+* **Containerized iOS Standalone Mode Emulation & Playwright Test Fixtures**:
+    * Implemented `enableStandaloneMode(page)` in `e2e/fixtures/shims/browser.shim.ts`, injecting WebKit `window.navigator.standalone = true` and standard W3C `matchMedia` proxy returning `matches: true` for `(display-mode: standalone)` and `matches: false` for `(display-mode: browser)`.
+    * Implemented `standalonePage` test fixture in `e2e/fixtures/index.ts` (re-exported via `e2e/utils.ts`) that applies standalone emulation via `page.addInitScript` prior to page navigation, allowing end-to-end PWA verification on rootless Linux containers without physical iOS hardware or macOS simulator licensing.
+    * Authored Playwright WebKit / Mobile Safari end-to-end test suite `e2e/trip-navigation-pwa.spec.ts` under containerized execution:
+        * Intercepted external navigation providers (`maps.apple.com`, `google.com/maps/dir`, `waze.com/ul`) via `setupExternalNavigationRouteInterceptors` to eliminate DNS timeouts in isolated container environments.
+        * Verified transient user gesture preservation on popup dispatch (`page.waitForEvent('popup')`) across Apple Maps, Google Maps, and Waze without WebKit security popup blocking.
+        * Validated navigation URL pathname and query parameter generation (`mode=driving`, `destination`, `waypoints`, `ll`) and confirmed 0-stop trips disable navigation triggers.
+    * Hardened `e2e/pwa-install-layout.spec.ts` with standalone assertions verifying complete suppression of mobile install bars and desktop install cards even when `beforeinstallprompt` is dispatched.
+* **Canonical Domain Method & Seam Refactoring (`useTripActions` & `TripCard`)**:
+    * Refactored `hooks/use-trip-actions.ts` to export canonical `handleTripNavigation(provider: NavigationProvider = 'google')` conforming to `CONTEXT.md` domain modeling.
+    * Maintained backwards compatibility by exporting `@deprecated handleExportToMaps` as a direct alias to `handleTripNavigation`.
+    * Updated container components `components/trip-card.tsx` and `components/trip-card-simple.tsx` to bind both `onNavigateTrip={handleTripNavigation || handleExportToMaps}` and `onExportToMaps={handleExportToMaps || handleTripNavigation}`.
+    * Updated presentational components `components/TripCardPresentational.tsx` and `components/TripCardSimplePresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps` (`const onNavigate = onNavigateTrip || onExportToMaps`).
+    * Preserved 100% synchronous call stack from touch interaction to `launchTripNavigation`, preventing WebKit popup blocker activation.
+* **PWA Standalone Detection Hardening & Install UI Invariant Enforcement**:
+    * Hardened `hooks/use-pwa.ts` to enforce boolean casting for `isStandalone` across iOS WebClip signal (`window.navigator.standalone`), W3C standard `matchMedia('(display-mode: standalone)')`, and Android referrer (`android-app://`).
+    * Enforced standalone installability invariant: `isInstallable: !isStandalone && !!installPrompt`, guaranteeing install prompts are never active when running in standalone mode.
+    * Added defense-in-depth guard in `components/pwa-handler.tsx` (`if (!isInstallable || isStandalone || isDismissed) return null;`) and verified `"Install App"` menu item suppression in `components/nav/user-nav.tsx`.
+    * Added WCAG 4.1.2 accessible name `aria-label="Dismiss"` to desktop install card close button in `components/pwa-handler.tsx`, and wrapped `installPrompt.prompt()` in `try...catch` to handle rejected promises safely.
+* **Comprehensive Multi-Tier Test Suites & Strict TDD Red/Green Execution**:
+    * Implemented unit test matrix in `hooks/__tests__/use-pwa.test.ts` covering standard browser mode, iOS WebClip signals, W3C matchMedia signals, Android referrer signals, prompt acceptance, dismissal, lifecycle unmount cleanup, and standalone `installApp` early termination.
+    * Added component tests in `components/__tests__/PwaHandler.test.tsx` and `components/nav/__tests__/user-nav.test.tsx` asserting complete banner and menu item suppression in standalone mode.
+    * Authored unit tests in `hooks/__tests__/use-trip-actions.test.ts` asserting canonical `handleTripNavigation` and `@deprecated handleExportToMaps` synchronous dispatches.
+    * Added container and presentational component test suites in `components/__tests__/trip-card-simple.test.tsx`, `components/__tests__/TripCardPresentational.test.tsx`, and `components/__tests__/TripCardSimplePresentational.test.tsx`.
+    * Executed all features strictly following the repository TDD Task Granularity Invariant with sequential Red (`test(...)`) and Green (`feat(...)`) commits.
 
 ### 🧭 Multi-Provider Trip Navigation & iOS PWA WebKit Gesture Preservation ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63) / [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70) / [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
 * **WebKit Transient User Gesture Preservation & Synchronous Launch Architecture**:
