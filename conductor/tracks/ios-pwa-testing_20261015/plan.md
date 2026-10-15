@@ -35,10 +35,10 @@
 - [x] Task: Write failing component tests for TripCard `onNavigateTrip` delegation (TDD Red phase) [commit: 5b6094ff]
     - [x] Update `components/__tests__/trip-card-simple.test.tsx` asserting delegation to `onNavigateTrip` while maintaining backwards compatibility for `onExportToMaps` (fails against current containers)
     - [x] Verify failing tests via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
-- [ ] Task: Implement `onNavigateTrip` in TripCard containers and presentational components (TDD Green phase)
-    - [ ] Update `components/trip-card.tsx` and `components/trip-card-simple.tsx` to bind `onNavigateTrip` and `onExportToMaps`
-    - [ ] Update `components/TripCardPresentational.tsx` and `components/TripCardSimplePresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps`
-    - [ ] Verify container and presentational suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
+- [x] Task: Implement `onNavigateTrip` in TripCard containers and presentational components (TDD Green phase) [commit: 2e66cfc7]
+    - [x] Update `components/trip-card.tsx` and `components/trip-card-simple.tsx` to bind `onNavigateTrip` and `onExportToMaps`
+    - [x] Update `components/TripCardPresentational.tsx` and `components/TripCardSimplePresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps`
+    - [x] Verify container and presentational suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Domain Refactoring & Compatibility Seam' (Protocol in workflow.md)
 
 ## Phase 3: Playwright Standalone Fixture & E2E Verification
