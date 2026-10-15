@@ -1,6 +1,6 @@
 # Implementation Plan: Automated iOS PWA Standalone Testing Matrix & Domain Refactoring
 
-## Phase 1: Unit & Component Test Matrix
+## Phase 1: Unit & Component Test Matrix [checkpoint: 98052054]
 
 - [x] Task: Write failing tests for `usePwa` hook and standalone installability suppression (TDD Red phase) [commit: 037ca019]
     - [x] Create `hooks/__tests__/use-pwa.test.ts`
@@ -21,7 +21,7 @@
 - [x] Task: Implement `PwaHandler` standalone guard (TDD Green phase) [commit: a068797a]
     - [x] Update `components/pwa-handler.tsx` to guard `if (!isInstallable || isStandalone || isDismissed) return null;`
     - [x] Verify both component test suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Unit & Component Test Matrix' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Unit & Component Test Matrix' (Protocol in workflow.md) [commit: 98052054]
 
 ## Phase 2: Domain Refactoring & Compatibility Seam
 
