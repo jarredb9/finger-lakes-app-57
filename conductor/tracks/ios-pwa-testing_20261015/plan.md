@@ -25,10 +25,10 @@
 
 ## Phase 2: Domain Refactoring & Compatibility Seam
 
-- [ ] Task: Write failing tests for canonical `handleTripNavigation` in `useTripActions` (TDD Red phase)
-    - [ ] Update `hooks/__tests__/use-trip-actions.test.ts` asserting synchronous dispatch of canonical `handleTripNavigation` for Apple Maps, Google Maps, and Waze (fails against current hook)
-    - [ ] Assert `@deprecated handleExportToMaps` alias delegates directly to `handleTripNavigation`
-    - [ ] Verify failing tests via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
+- [x] Task: Write failing tests for canonical `handleTripNavigation` in `useTripActions` (TDD Red phase) [commit: 1ed0abe4]
+    - [x] Update `hooks/__tests__/use-trip-actions.test.ts` asserting synchronous dispatch of canonical `handleTripNavigation` for Apple Maps, Google Maps, and Waze (fails against current hook)
+    - [x] Assert `@deprecated handleExportToMaps` alias delegates directly to `handleTripNavigation`
+    - [x] Verify failing tests via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
 - [ ] Task: Implement canonical `handleTripNavigation` in `useTripActions` (TDD Green phase)
     - [ ] Export `handleTripNavigation` and provide `handleExportToMaps` as `@deprecated` alias in `hooks/use-trip-actions.ts`
     - [ ] Verify test suite passes via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
