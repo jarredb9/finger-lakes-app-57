@@ -23,7 +23,9 @@ interface TripCardSimpleProps {
     currentMembers: TripMember[];
     onDelete: (tripId: number) => void;
     onShare: (id: string, name: string) => void;
-    onExportToMaps: (provider?: NavigationProvider) => void;
+    onNavigateTrip?: (provider?: NavigationProvider) => void;
+    /** @deprecated Use onNavigateTrip instead. Retained for backwards compatibility. */
+    onExportToMaps?: (provider?: NavigationProvider) => void;
 }
 
 export default function TripCardSimple({ 
@@ -32,9 +34,11 @@ export default function TripCardSimple({
     currentMembers, 
     onDelete,
     onShare,
+    onNavigateTrip,
     onExportToMaps
 }: TripCardSimpleProps) {
     const router = useRouter();
+    const onNavigate = onNavigateTrip || onExportToMaps;
     const isPending = trip.syncStatus === 'pending';
     const count = trip.wineries_count ?? trip.wineries?.length ?? 0;
 
@@ -84,13 +88,13 @@ export default function TripCardSimple({
                                 </Tooltip>
                             </TooltipProvider>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => onExportToMaps('apple')}>
+                                <DropdownMenuItem onClick={() => onNavigate?.('apple')}>
                                     Apple Maps
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onExportToMaps('google')}>
+                                <DropdownMenuItem onClick={() => onNavigate?.('google')}>
                                     Google Maps
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => onExportToMaps('waze')}>
+                                <DropdownMenuItem onClick={() => onNavigate?.('waze')}>
                                     Waze
                                 </DropdownMenuItem>
                             </DropdownMenuContent>

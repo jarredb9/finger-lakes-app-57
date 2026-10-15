@@ -17,6 +17,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
     
     const { 
         currentMembers, 
+        handleTripNavigation,
         handleExportToMaps 
     } = useTripActions(trip);
 
@@ -29,7 +30,8 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
             currentMembers={currentMembers}
             onDelete={onDelete}
             onShare={openShareDialog}
-            onExportToMaps={handleExportToMaps}
+            onNavigateTrip={handleTripNavigation || handleExportToMaps}
+            onExportToMaps={handleExportToMaps || handleTripNavigation}
         />
     );
 }

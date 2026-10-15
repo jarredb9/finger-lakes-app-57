@@ -54,6 +54,7 @@ export default function TripCard({ trip }: { trip: Trip }) {
   
   const { 
     currentMembers, 
+    handleTripNavigation,
     handleExportToMaps 
   } = useTripActions(trip);
 
@@ -165,7 +166,8 @@ export default function TripCard({ trip }: { trip: Trip }) {
         onSaveWineryNote={handleSaveWineryNote}
         onOpenShareDialog={openShareDialog}
         onOpenWineryNoteEditor={handleOpenWineryNoteEditor}
-        onExportToMaps={handleExportToMaps}
+        onNavigateTrip={handleTripNavigation || handleExportToMaps}
+        onExportToMaps={handleExportToMaps || handleTripNavigation}
         searchResults={searchResults}
         isSearching={isSearching}
         winerySearch={winerySearch}
