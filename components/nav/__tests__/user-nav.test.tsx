@@ -146,4 +146,39 @@ describe('UserNav Component', () => {
     fireEvent.click(updateItem);
     expect(mockUpdateApp).toHaveBeenCalledTimes(1);
   });
+
+  it('suppresses install actions when in standalone mode and not installable', () => {
+    mockedUsePwa.mockReturnValue({
+      isInstallable: false,
+      isStandalone: true,
+      installApp: mockInstallApp,
+      isUpdateAvailable: false,
+      updateApp: mockUpdateApp,
+    });
+
+    render(<UserNav user={mockUser} />);
+    const trigger = screen.getByRole('button', { name: /user menu|user profile/i });
+    openDropdown(trigger);
+
+    expect(screen.queryByRole('menuitem', { name: /install app/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /add to home screen/i })).not.toBeInTheDocument();
+  });
+
+  it('suppresses install actions when in standalone mode even if installable', () => {
+    mockedUsePwa.mockReturnValue({
+      isInstallable: true,
+      isStandalone: true,
+      installApp: mockInstallApp,
+      isUpdateAvailable: false,
+      updateApp: mockUpdateApp,
+    });
+
+    render(<UserNav user={mockUser} />);
+    const trigger = screen.getByRole('button', { name: /user menu|user profile/i });
+    openDropdown(trigger);
+
+    expect(screen.queryByRole('menuitem', { name: /install app/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /add to home screen/i })).not.toBeInTheDocument();
+  });
 });
+
