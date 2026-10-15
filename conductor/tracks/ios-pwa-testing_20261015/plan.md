@@ -32,9 +32,9 @@
 - [x] Task: Implement canonical `handleTripNavigation` in `useTripActions` (TDD Green phase) [commit: c18c2acd]
     - [x] Export `handleTripNavigation` and provide `handleExportToMaps` as `@deprecated` alias in `hooks/use-trip-actions.ts`
     - [x] Verify test suite passes via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
-- [ ] Task: Write failing component tests for TripCard `onNavigateTrip` delegation (TDD Red phase)
-    - [ ] Update `components/__tests__/trip-card-simple.test.tsx` asserting delegation to `onNavigateTrip` while maintaining backwards compatibility for `onExportToMaps` (fails against current containers)
-    - [ ] Verify failing tests via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
+- [x] Task: Write failing component tests for TripCard `onNavigateTrip` delegation (TDD Red phase) [commit: 5b6094ff]
+    - [x] Update `components/__tests__/trip-card-simple.test.tsx` asserting delegation to `onNavigateTrip` while maintaining backwards compatibility for `onExportToMaps` (fails against current containers)
+    - [x] Verify failing tests via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
 - [ ] Task: Implement `onNavigateTrip` in TripCard containers and presentational components (TDD Green phase)
     - [ ] Update `components/trip-card.tsx` and `components/trip-card-simple.tsx` to bind `onNavigateTrip` and `onExportToMaps`
     - [ ] Update `components/TripCardPresentational.tsx` and `components/TripCardSimplePresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps`
