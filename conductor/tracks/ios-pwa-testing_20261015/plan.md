@@ -43,9 +43,9 @@
 
 ## Phase 3: Playwright Standalone Fixture & E2E Verification
 
-- [ ] Task: Implement Playwright `standalonePage` fixture and `enableStandaloneMode` helper
-    - [ ] Add `enableStandaloneMode` helper in `e2e/fixtures/` injecting `window.navigator.standalone = true` and `(display-mode: standalone)` matchMedia override
-    - [ ] Add `standalonePage` fixture in `e2e/fixtures/index.ts` and re-export in `e2e/utils.ts`
+- [x] Task: Implement Playwright `standalonePage` fixture and `enableStandaloneMode` helper [commit: 6384060b]
+    - [x] Add `enableStandaloneMode` helper in `e2e/fixtures/` injecting `window.navigator.standalone = true` and `(display-mode: standalone)` matchMedia override
+    - [x] Add `standalonePage` fixture in `e2e/fixtures/index.ts` and re-export in `e2e/utils.ts`
 - [ ] Task: Author `e2e/trip-navigation-pwa.spec.ts` for Mobile Safari popup navigation
     - [ ] Add context route interception for `maps.apple.com`, `google.com/maps`, and `waze.com` to prevent container DNS timeouts
     - [ ] Pre-seed mock trip with winery stops in `mockMaps.state.trips` to ensure navigation button is enabled
