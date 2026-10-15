@@ -17,7 +17,7 @@ Gate & Planning Protocol:
 - Perform static inspection only (NO test runners, build commands, or background docs). Seam-bounded inspection.
 - Write the implementation plan directly to: conductor/tracks/<track-name>/phase-X-task-Y-plan.md
 - CRITICAL: The plan must provide EXACT drop-in code blocks (imports, functions, replacement chunks) and precise line anchors for target files so the executor does not need to inspect surrounding files.
-- CRITICAL: If introducing or modifying test files (unit, integration, or E2E), the plan's Execution Verification Protocol MUST specify the exact command to run those tests (e.g. ./scripts/run-e2e-container.sh webkit <spec> or ./scripts/run-jest-container.sh <test>). Never leave new test code unverified in the execution phase.
+- CRITICAL: If introducing or modifying test files (unit, integration, or E2E), the plan's Execution Verification Protocol MUST specify the exact command to run those tests (e.g. ./scripts/containers/run-e2e-container.sh webkit <spec> or ./scripts/containers/run-jest-container.sh <test>). Never leave new test code unverified in the execution phase.
 - Halt for user approval via modal before modifying any files.
 
 #### Optimized Prompt 2: Implementation (Session 2 — Fresh Session)
@@ -36,18 +36,18 @@ Execution Directives (Seam-Bounded & Empirically Verified):
 
 ### CLI Prompt Generator (Instant Copy-Paste)
 
-You can generate and copy these prompts instantly using `scripts/generate-prompt.py`:
+You can generate and copy these prompts instantly using `scripts/agent/generate-prompt.py`:
 
 ```bash
 # Auto-detect active track and next pending task:
-python3 scripts/generate-prompt.py
+python3 scripts/agent/generate-prompt.py
 
 # Specify Phase and Task for active track:
-python3 scripts/generate-prompt.py 3 1
+python3 scripts/agent/generate-prompt.py 3 1
 
 # Copy directly to clipboard:
-python3 scripts/generate-prompt.py 3 1 --copy-plan   # Copies Plan prompt
-python3 scripts/generate-prompt.py 3 1 --copy-exec   # Copies Exec prompt
+python3 scripts/agent/generate-prompt.py 3 1 --copy-plan   # Copies Plan prompt
+python3 scripts/agent/generate-prompt.py 3 1 --copy-exec   # Copies Exec prompt
 ```
 ---
 

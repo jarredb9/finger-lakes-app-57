@@ -1,1 +1,0 @@
-db/users/create-manual-test-user.js

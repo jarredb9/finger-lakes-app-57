@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# scripts/container-common.sh
+# scripts/containers/container-common.sh
 # Purpose: Shared container configuration, engine detection, rootless pre-flight checks,
 # and common options for container runner scripts (RHEL 8 / glibc < 2.29 compatibility).
 

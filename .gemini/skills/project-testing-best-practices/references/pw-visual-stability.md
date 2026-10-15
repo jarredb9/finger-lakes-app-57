@@ -14,7 +14,7 @@ Visual regression tests are restricted to **Chromium**. You MUST use "Ghost Tile
 
 **Correct (Ghost Tiles Mocking):**
 In `e2e/utils.ts`, ensure map tile requests are fulfilled with static PNGs.
-- **Rule:** Baseline snapshots MUST be generated inside the official Playwright Docker container using `./scripts/run-e2e-container.sh ... --update-snapshots`.
+- **Rule:** Baseline snapshots MUST be generated inside the official Playwright Docker container using `./scripts/containers/run-e2e-container.sh ... --update-snapshots`.
 - **Constraint:** NEVER update snapshots for intentional UI changes without verifying they pass in the container first.
 
 Reference: [Playwright Visual Comparisons](https://playwright.dev/docs/test-snapshots)

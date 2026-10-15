@@ -59,13 +59,10 @@ Provides isolated rootless container runners to bypass RHEL 8 host glibc limitat
 
 ---
 
-## Backward Compatibility Symlinks
+## Primary Invocations
 
-To avoid breaking active Conductor track plans, prompt generation commands, and developer muscle memory, the root of `scripts/` contains relative symlinks forwarding to their respective domain locations:
+All scripts should be invoked via their domain paths or their `package.json` script hooks:
+* Container runners: `npm run test:container`, `npm run dev:container`, `npm run build:container` or `./scripts/containers/run-*.sh`
+* Database operations: `npm run db:populate`, `npm run db:audit` or `npx tsx scripts/db/<script>.ts`
+* AI & Conductor tools: `npm run conductor:prompt`, `npm run session:inspect` or `python3 scripts/agent/<script>.py`
 
-* `scripts/run-*-container.sh` ➔ `containers/run-*-container.sh`
-* `scripts/agent-resolve.py` ➔ `agent-resolve/agent-resolve.py`
-* `scripts/generate-prompt.py` ➔ `agent/generate-prompt.py`
-* `scripts/populate-wineries.ts` ➔ `db/populate-wineries.ts`
-* `scripts/db-audit.sh` ➔ `db/db-audit.sh`
-* ...and all other historical script paths.

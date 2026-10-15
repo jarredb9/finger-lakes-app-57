@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# scripts/run-dev-container.sh
+# scripts/containers/run-dev-container.sh
 # Purpose: Run Next.js dev server with native Turbopack inside container (Ubuntu 24.04 / glibc 2.39) on RHEL 8.
 
 set -e

@@ -50,7 +50,7 @@ All feature implementations in Phase 1 and Phase 2 strictly adhere to the reposi
 
 ## 3. Non-Functional Requirements
 - **TDD Rigor:** All features in Phases 1 and 2 must execute via strict Red/Green task pairs committed as `test(...)` and `feat(...)` respectively.
-- **Container Isolation & Host Compatibility:** All unit tests must execute via `./scripts/run-jest-container.sh` and E2E tests via `./scripts/run-e2e-container.sh mobile-safari` on RHEL 8 without external network dependencies.
+- **Container Isolation & Host Compatibility:** All unit tests must execute via `./scripts/containers/run-jest-container.sh` and E2E tests via `./scripts/containers/run-e2e-container.sh mobile-safari` on RHEL 8 without external network dependencies.
 - **Zero Flakiness:** All popup and DOM assertions must utilize auto-retrying Playwright locators, route interception, and deterministic event listeners.
 - **Backwards Compatibility:** Full preservation of legacy `handleExportToMaps` and `onExportToMaps` symbols to prevent regression across consumer components and test mocks.
 
@@ -60,7 +60,7 @@ All feature implementations in Phase 1 and Phase 2 strictly adhere to the reposi
 - [ ] `hooks/use-trip-actions.ts` exports canonical `handleTripNavigation` with `@deprecated` alias `handleExportToMaps`.
 - [ ] `components/trip-card.tsx` and `components/trip-card-simple.tsx` bind `onNavigateTrip` and `onExportToMaps`.
 - [ ] `e2e/fixtures/` exports `standalonePage` fixture and `enableStandaloneMode` helper.
-- [ ] `e2e/trip-navigation-pwa.spec.ts` passes under containerized Mobile Safari (`./scripts/run-e2e-container.sh mobile-safari e2e/trip-navigation-pwa.spec.ts`).
+- [ ] `e2e/trip-navigation-pwa.spec.ts` passes under containerized Mobile Safari (`./scripts/containers/run-e2e-container.sh mobile-safari e2e/trip-navigation-pwa.spec.ts`).
 - [ ] `e2e/pwa-install-layout.spec.ts` passes under containerized Mobile Safari and WebKit.
 - [ ] `npm run type-check` and `npm run lint` report 0 errors.
 - [ ] All 141+ existing test suites continue to pass without regressions.
