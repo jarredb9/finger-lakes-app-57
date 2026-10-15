@@ -52,9 +52,9 @@
     - [x] Assert Apple Maps, Google Maps, and Waze dispatches under `Mobile Safari` trigger `page.waitForEvent('popup')`
     - [x] Assert popup URL query parameters and verify WebKit transient user gesture preservation without popup blocking
     - [x] Verify via `./scripts/containers/run-e2e-container.sh mobile-safari e2e/trip-navigation-pwa.spec.ts`
-- [ ] Task: Update `e2e/pwa-install-layout.spec.ts` for Standalone Mode suppression
-    - [ ] Add standalone assertions using `enableStandaloneMode(page)` verifying install bar/card are never rendered
-    - [ ] Verify via `./scripts/containers/run-e2e-container.sh mobile-safari e2e/pwa-install-layout.spec.ts`
+- [x] Task: Update `e2e/pwa-install-layout.spec.ts` for Standalone Mode suppression [commit: cef0bc78]
+    - [x] Add standalone assertions using `enableStandaloneMode(page)` verifying install bar/card are never rendered
+    - [x] Verify via `./scripts/containers/run-e2e-container.sh mobile-safari e2e/pwa-install-layout.spec.ts`
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Playwright Standalone Fixture & E2E Verification' (Protocol in workflow.md)
 
 ## Phase 4: Full Quality Gates & Regression Verification
