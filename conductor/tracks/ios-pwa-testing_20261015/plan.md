@@ -14,10 +14,10 @@
     - [x] Update `hooks/use-pwa.ts` to enforce boolean casting on `isStandalone`
     - [x] Enforce invariant `isInstallable: !isStandalone && !!installPrompt`
     - [x] Verify test suite passes via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
-- [ ] Task: Write failing component tests for `PwaHandler` and `UserNav` standalone suppression (TDD Red phase)
-    - [ ] Add test in `components/__tests__/PwaHandler.test.tsx` asserting install banner/card is suppressed (`null`) when `isStandalone: true` (fails against current component)
-    - [ ] Add test in `components/nav/__tests__/user-nav.test.tsx` asserting `"Install App"` / `"Add to Home Screen"` item is hidden when `isStandalone: true`
-    - [ ] Verify failing tests via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
+- [x] Task: Write failing component tests for `PwaHandler` and `UserNav` standalone suppression (TDD Red phase) [commit: 6e571d35]
+    - [x] Add test in `components/__tests__/PwaHandler.test.tsx` asserting install banner/card is suppressed (`null`) when `isStandalone: true` (fails against current component)
+    - [x] Add test in `components/nav/__tests__/user-nav.test.tsx` asserting `"Install App"` / `"Add to Home Screen"` item is hidden when `isStandalone: true`
+    - [x] Verify failing tests via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
 - [ ] Task: Implement `PwaHandler` standalone guard (TDD Green phase)
     - [ ] Update `components/pwa-handler.tsx` to guard `if (!isInstallable || isStandalone || isDismissed) return null;`
     - [ ] Verify both component test suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
