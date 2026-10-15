@@ -3,6 +3,7 @@ import { Trip } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { useEffect } from "react";
+import { NavigationProvider, launchTripNavigation } from "@/lib/utils/trip-navigation";
 
 export function useTripActions(trip: Trip) {
   const { toast } = useToast();
@@ -15,36 +16,9 @@ export function useTripActions(trip: Trip) {
     fetchFriends();
   }, [fetchFriends]);
 
-  const handleExportToMaps = () => {
+  const handleExportToMaps = (provider: NavigationProvider = 'google') => {
     if (!trip.wineries || trip.wineries.length === 0) return;
-
-    const waypoints = trip.wineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
-    let url = 'https://www.google.com/maps/dir/';
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLocation = `${position.coords.latitude},${position.coords.longitude}`;
-          if (waypoints.length > 0) {
-             const destination = waypoints.pop();
-             // If only 1 winery, waypoints is empty after pop, join returns empty string
-             const waypointStr = waypoints.length > 0 ? `/${waypoints.join('/')}` : '';
-             url += `${userLocation}${waypointStr}/${destination}`;
-          } else {
-             // Should not happen due to length check
-             return; 
-          }
-          window.open(url, '_blank');
-        },
-        () => {
-          url += waypoints.join('/');
-          window.open(url, '_blank');
-        }
-      );
-    } else {
-      url += waypoints.join('/');
-      window.open(url, '_blank');
-    }
+    launchTripNavigation(provider, trip.wineries);
   };
 
   const saveTripMembers = async (membersToSave?: string[]) => {

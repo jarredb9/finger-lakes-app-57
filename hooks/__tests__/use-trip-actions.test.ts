@@ -5,6 +5,7 @@ import { useTripStore } from '@/lib/stores/tripStore';
 import { useToast } from '@/hooks/use-toast';
 import { createMockTrip, createMockWinery } from '@/lib/test-utils/fixtures';
 import { GooglePlaceId, WineryDbId } from '@/lib/types';
+import { NavigationProvider } from '@/lib/utils/trip-navigation';
 
 jest.mock('@/hooks/use-toast', () => ({
   useToast: jest.fn(),
@@ -22,6 +23,8 @@ describe('useTripActions', () => {
     dbId: 101 as WineryDbId,
     name: 'Dr. Konstantin Frank',
     address: '9749 Middle Rd, Hammondsport, NY',
+    latitude: 42.44,
+    longitude: -76.5,
   });
 
   const mockWinery2 = createMockWinery({
@@ -29,6 +32,8 @@ describe('useTripActions', () => {
     dbId: 102 as WineryDbId,
     name: 'Ravines Wine Cellars',
     address: '400 Barracks Rd, Geneva, NY',
+    latitude: 42.85,
+    longitude: -76.98,
   });
 
   beforeEach(() => {
@@ -73,27 +78,19 @@ describe('useTripActions', () => {
       const { result } = renderHook(() => useTripActions(tripEmpty));
 
       act(() => {
-        result.current.handleExportToMaps();
+        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)();
       });
 
       expect(window.open).not.toHaveBeenCalled();
     });
 
-    it('exports directions with user coordinates when geolocation is available and successful', () => {
+    it('synchronously launches Google Maps by default without calling navigator.geolocation', () => {
       const trip = createMockTrip({
         id: 1,
         wineries: [mockWinery1, mockWinery2],
       });
 
-      const mockGetCurrentPosition = jest.fn((success) => {
-        success({
-          coords: {
-            latitude: 42.44,
-            longitude: -76.5,
-          },
-        });
-      });
-
+      const mockGetCurrentPosition = jest.fn();
       Object.defineProperty(navigator, 'geolocation', {
         value: { getCurrentPosition: mockGetCurrentPosition },
         configurable: true,
@@ -103,101 +100,88 @@ describe('useTripActions', () => {
       const { result } = renderHook(() => useTripActions(trip));
 
       act(() => {
-        result.current.handleExportToMaps();
+        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)();
       });
 
-      const expectedWinery1 = encodeURIComponent(`${mockWinery1.name}, ${mockWinery1.address}`);
-      const expectedWinery2 = encodeURIComponent(`${mockWinery2.name}, ${mockWinery2.address}`);
-      const expectedUrl = `https://www.google.com/maps/dir/42.44,-76.5/${expectedWinery1}/${expectedWinery2}`;
-
-      expect(window.open).toHaveBeenCalledWith(expectedUrl, '_blank');
+      expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+      expect(window.open).toHaveBeenCalledWith(
+        expect.stringContaining('google.com/maps/dir/'),
+        '_blank',
+        'noopener,noreferrer'
+      );
     });
 
-    it('exports directions with a single winery destination when geolocation succeeds', () => {
+    it('synchronously launches Apple Maps when provider is "apple"', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1, mockWinery2],
+      });
+
+      const mockGetCurrentPosition = jest.fn();
+      Object.defineProperty(navigator, 'geolocation', {
+        value: { getCurrentPosition: mockGetCurrentPosition },
+        configurable: true,
+        writable: true,
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+
+      act(() => {
+        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('apple');
+      });
+
+      expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+      expect(window.open).toHaveBeenCalledWith(
+        expect.stringContaining('maps.apple.com'),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('synchronously launches Waze when provider is "waze"', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1, mockWinery2],
+      });
+
+      const mockGetCurrentPosition = jest.fn();
+      Object.defineProperty(navigator, 'geolocation', {
+        value: { getCurrentPosition: mockGetCurrentPosition },
+        configurable: true,
+        writable: true,
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+
+      act(() => {
+        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('waze');
+      });
+
+      expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+      expect(window.open).toHaveBeenCalledWith(
+        expect.stringContaining('waze.com/ul'),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('does not leave any loading or disabled locks after launch', () => {
       const trip = createMockTrip({
         id: 1,
         wineries: [mockWinery1],
       });
 
-      const mockGetCurrentPosition = jest.fn((success) => {
-        success({
-          coords: {
-            latitude: 42.44,
-            longitude: -76.5,
-          },
-        });
-      });
-
-      Object.defineProperty(navigator, 'geolocation', {
-        value: { getCurrentPosition: mockGetCurrentPosition },
-        configurable: true,
-        writable: true,
-      });
-
       const { result } = renderHook(() => useTripActions(trip));
 
       act(() => {
-        result.current.handleExportToMaps();
+        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('google');
       });
-
-      const expectedWinery1 = encodeURIComponent(`${mockWinery1.name}, ${mockWinery1.address}`);
-      const expectedUrl = `https://www.google.com/maps/dir/42.44,-76.5/${expectedWinery1}`;
-
-      expect(window.open).toHaveBeenCalledWith(expectedUrl, '_blank');
-    });
-
-    it('falls back to winery waypoints without user location when geolocation errors', () => {
-      const trip = createMockTrip({
-        id: 1,
-        wineries: [mockWinery1, mockWinery2],
-      });
-
-      const mockGetCurrentPosition = jest.fn((_success, error) => {
-        error(new Error('Permission denied'));
-      });
-
-      Object.defineProperty(navigator, 'geolocation', {
-        value: { getCurrentPosition: mockGetCurrentPosition },
-        configurable: true,
-        writable: true,
-      });
-
-      const { result } = renderHook(() => useTripActions(trip));
 
       act(() => {
-        result.current.handleExportToMaps();
+        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('apple');
       });
 
-      const expectedWinery1 = encodeURIComponent(`${mockWinery1.name}, ${mockWinery1.address}`);
-      const expectedWinery2 = encodeURIComponent(`${mockWinery2.name}, ${mockWinery2.address}`);
-      const expectedUrl = `https://www.google.com/maps/dir/${expectedWinery1}/${expectedWinery2}`;
-
-      expect(window.open).toHaveBeenCalledWith(expectedUrl, '_blank');
-    });
-
-    it('falls back to winery waypoints when navigator.geolocation is unavailable', () => {
-      const trip = createMockTrip({
-        id: 1,
-        wineries: [mockWinery1, mockWinery2],
-      });
-
-      Object.defineProperty(navigator, 'geolocation', {
-        value: undefined,
-        configurable: true,
-        writable: true,
-      });
-
-      const { result } = renderHook(() => useTripActions(trip));
-
-      act(() => {
-        result.current.handleExportToMaps();
-      });
-
-      const expectedWinery1 = encodeURIComponent(`${mockWinery1.name}, ${mockWinery1.address}`);
-      const expectedWinery2 = encodeURIComponent(`${mockWinery2.name}, ${mockWinery2.address}`);
-      const expectedUrl = `https://www.google.com/maps/dir/${expectedWinery1}/${expectedWinery2}`;
-
-      expect(window.open).toHaveBeenCalledWith(expectedUrl, '_blank');
+      expect(window.open).toHaveBeenCalledTimes(2);
     });
   });
 

@@ -12,12 +12,33 @@ const mockOpenShareDialog = jest.fn();
 const mockOpenWineryNoteEditor = jest.fn();
 const mockHandleExportToMaps = jest.fn();
 
-// Note: We are still mocking UI components for simplicity in unit tests
 jest.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: any) => children,
   TooltipTrigger: ({ children }: any) => children,
   TooltipContent: ({ children }: any) => <div>{children}</div>,
   TooltipProvider: ({ children }: any) => children,
+}));
+
+jest.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: any) => <div data-testid="dropdown-menu">{children}</div>,
+  DropdownMenuTrigger: ({ children, ...props }: any) => (
+    <div data-testid="dropdown-menu-trigger" {...props}>{children}</div>
+  ),
+  DropdownMenuContent: ({ children, ...props }: any) => (
+    <div data-testid="dropdown-menu-content" role="menu" {...props}>{children}</div>
+  ),
+  DropdownMenuItem: ({ children, onClick, onSelect, ...props }: any) => (
+    <button
+      role="menuitem"
+      onClick={(e) => {
+        onClick?.(e);
+        onSelect?.(e);
+      }}
+      {...props}
+    >
+      {children}
+    </button>
+  ),
 }));
 
 jest.mock('@/components/ui/popover', () => ({
@@ -277,5 +298,34 @@ describe('TripCard', () => {
     fireEvent.click(screen.getByLabelText(/Edit Trip/i));
     fireEvent.click(screen.getByText(/Add a Winery/i));
     expect(screen.getByText('Search Result')).toBeInTheDocument();
+  });
+
+  describe('Trip Navigation dropdown', () => {
+    it('renders navigation dropdown trigger with accessible label', () => {
+      render(<TripCard {...defaultProps} />);
+      const trigger = screen.getByRole('button', { name: /trip navigation/i });
+      expect(trigger).toBeInTheDocument();
+    });
+
+    it('invokes onExportToMaps with "apple" when Apple Maps is selected', () => {
+      render(<TripCard {...defaultProps} />);
+      const appleOption = screen.getByRole('menuitem', { name: /apple maps/i });
+      fireEvent.click(appleOption);
+      expect(mockHandleExportToMaps).toHaveBeenCalledWith('apple');
+    });
+
+    it('invokes onExportToMaps with "google" when Google Maps is selected', () => {
+      render(<TripCard {...defaultProps} />);
+      const googleOption = screen.getByRole('menuitem', { name: /google maps/i });
+      fireEvent.click(googleOption);
+      expect(mockHandleExportToMaps).toHaveBeenCalledWith('google');
+    });
+
+    it('invokes onExportToMaps with "waze" when Waze is selected', () => {
+      render(<TripCard {...defaultProps} />);
+      const wazeOption = screen.getByRole('menuitem', { name: /waze/i });
+      fireEvent.click(wazeOption);
+      expect(mockHandleExportToMaps).toHaveBeenCalledWith('waze');
+    });
   });
 });

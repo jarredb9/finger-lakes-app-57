@@ -12,6 +12,27 @@ jest.mock('next/navigation', () => ({
     push: jest.fn(),
   }),
 }));
+jest.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: any) => <div data-testid="dropdown-menu">{children}</div>,
+  DropdownMenuTrigger: ({ children, ...props }: any) => (
+    <div data-testid="dropdown-menu-trigger" {...props}>{children}</div>
+  ),
+  DropdownMenuContent: ({ children, ...props }: any) => (
+    <div data-testid="dropdown-menu-content" role="menu" {...props}>{children}</div>
+  ),
+  DropdownMenuItem: ({ children, onClick, onSelect, ...props }: any) => (
+    <button
+      role="menuitem"
+      onClick={(e) => {
+        onClick?.(e);
+        onSelect?.(e);
+      }}
+      {...props}
+    >
+      {children}
+    </button>
+  ),
+}));
 
 describe('TripCardSimple (Container)', () => {
   const mockOnDelete = jest.fn();
@@ -55,11 +76,12 @@ describe('TripCardSimple (Container)', () => {
 
     expect(useTripActions).toHaveBeenCalledWith(trip);
 
-    const exportBtn = screen.getByRole('button', { name: /Export to Google Maps/i });
+    const exportBtn = screen.getByRole('button', { name: /Trip Navigation/i });
     expect(exportBtn).not.toBeDisabled();
 
-    fireEvent.click(exportBtn);
-    expect(mockHandleExportToMaps).toHaveBeenCalledTimes(1);
+    const googleItem = screen.getByRole('menuitem', { name: /Google Maps/i });
+    fireEvent.click(googleItem);
+    expect(mockHandleExportToMaps).toHaveBeenCalledWith('google');
   });
 
   it('correctly sets isOwner true when logged in user matches trip.user_id', () => {
