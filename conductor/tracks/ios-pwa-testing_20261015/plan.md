@@ -23,7 +23,7 @@
     - [x] Verify both component test suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Unit & Component Test Matrix' (Protocol in workflow.md) [commit: 98052054]
 
-## Phase 2: Domain Refactoring & Compatibility Seam
+## Phase 2: Domain Refactoring & Compatibility Seam [checkpoint: 596f3146]
 
 - [x] Task: Write failing tests for canonical `handleTripNavigation` in `useTripActions` (TDD Red phase) [commit: 1ed0abe4]
     - [x] Update `hooks/__tests__/use-trip-actions.test.ts` asserting synchronous dispatch of canonical `handleTripNavigation` for Apple Maps, Google Maps, and Waze (fails against current hook)
@@ -39,7 +39,7 @@
     - [x] Update `components/trip-card.tsx` and `components/trip-card-simple.tsx` to bind `onNavigateTrip` and `onExportToMaps`
     - [x] Update `components/TripCardPresentational.tsx` and `components/TripCardSimplePresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps`
     - [x] Verify container and presentational suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Domain Refactoring & Compatibility Seam' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Domain Refactoring & Compatibility Seam' (Protocol in workflow.md) [commit: 596f3146]
 
 ## Phase 3: Playwright Standalone Fixture & E2E Verification
 
