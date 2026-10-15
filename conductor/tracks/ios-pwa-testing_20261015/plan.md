@@ -2,14 +2,14 @@
 
 ## Phase 1: Unit & Component Test Matrix
 
-- [ ] Task: Write failing tests for `usePwa` hook and standalone installability suppression (TDD Red phase)
-    - [ ] Create `hooks/__tests__/use-pwa.test.ts`
-    - [ ] Test standard Browser Mode (`standalone: false`, `display-mode: browser` -> `isStandalone: false`, `isInstallable: true`)
-    - [ ] Test Standalone Mode via iOS WebClip signal (`(window.navigator as any).standalone = true`)
-    - [ ] Test Standalone Mode via W3C matchMedia signal (`window.matchMedia('(display-mode: standalone)').matches = true`)
-    - [ ] Test Standalone Mode via Android referrer signal (`document.referrer.includes('android-app://')`)
-    - [ ] Assert `isInstallable: false` when `isStandalone: true` even if `beforeinstallprompt` is fired (fails against unhardened `usePwa`)
-    - [ ] Verify failing tests via `./scripts/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
+- [x] Task: Write failing tests for `usePwa` hook and standalone installability suppression (TDD Red phase) [commit: 037ca019]
+    - [x] Create `hooks/__tests__/use-pwa.test.ts`
+    - [x] Test standard Browser Mode (`standalone: false`, `display-mode: browser` -> `isStandalone: false`, `isInstallable: true`)
+    - [x] Test Standalone Mode via iOS WebClip signal (`(window.navigator as any).standalone = true`)
+    - [x] Test Standalone Mode via W3C matchMedia signal (`window.matchMedia('(display-mode: standalone)').matches = true`)
+    - [x] Test Standalone Mode via Android referrer signal (`document.referrer.includes('android-app://')`)
+    - [x] Assert `isInstallable: false` when `isStandalone: true` even if `beforeinstallprompt` is fired (fails against unhardened `usePwa`)
+    - [x] Verify failing tests via `./scripts/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
 - [ ] Task: Implement `usePwa` hook hardening and standalone invariant (TDD Green phase)
     - [ ] Update `hooks/use-pwa.ts` to enforce boolean casting on `isStandalone`
     - [ ] Enforce invariant `isInstallable: !isStandalone && !!installPrompt`
