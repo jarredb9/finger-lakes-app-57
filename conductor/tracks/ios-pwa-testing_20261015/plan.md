@@ -10,10 +10,10 @@
     - [x] Test Standalone Mode via Android referrer signal (`document.referrer.includes('android-app://')`)
     - [x] Assert `isInstallable: false` when `isStandalone: true` even if `beforeinstallprompt` is fired (fails against unhardened `usePwa`)
     - [x] Verify failing tests via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
-- [ ] Task: Implement `usePwa` hook hardening and standalone invariant (TDD Green phase)
-    - [ ] Update `hooks/use-pwa.ts` to enforce boolean casting on `isStandalone`
-    - [ ] Enforce invariant `isInstallable: !isStandalone && !!installPrompt`
-    - [ ] Verify test suite passes via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
+- [x] Task: Implement `usePwa` hook hardening and standalone invariant (TDD Green phase) [commit: 9532c5f6]
+    - [x] Update `hooks/use-pwa.ts` to enforce boolean casting on `isStandalone`
+    - [x] Enforce invariant `isInstallable: !isStandalone && !!installPrompt`
+    - [x] Verify test suite passes via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
 - [ ] Task: Write failing component tests for `PwaHandler` and `UserNav` standalone suppression (TDD Red phase)
     - [ ] Add test in `components/__tests__/PwaHandler.test.tsx` asserting install banner/card is suppressed (`null`) when `isStandalone: true` (fails against current component)
     - [ ] Add test in `components/nav/__tests__/user-nav.test.tsx` asserting `"Install App"` / `"Add to Home Screen"` item is hidden when `isStandalone: true`
