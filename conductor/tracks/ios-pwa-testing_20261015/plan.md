@@ -41,7 +41,7 @@
     - [x] Verify container and presentational suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Domain Refactoring & Compatibility Seam' (Protocol in workflow.md) [commit: 596f3146]
 
-## Phase 3: Playwright Standalone Fixture & E2E Verification
+## Phase 3: Playwright Standalone Fixture & E2E Verification [checkpoint: 74f6d79f]
 
 - [x] Task: Implement Playwright `standalonePage` fixture and `enableStandaloneMode` helper [commit: 6384060b]
     - [x] Add `enableStandaloneMode` helper in `e2e/fixtures/` injecting `window.navigator.standalone = true` and `(display-mode: standalone)` matchMedia override
@@ -55,7 +55,7 @@
 - [x] Task: Update `e2e/pwa-install-layout.spec.ts` for Standalone Mode suppression [commit: cef0bc78]
     - [x] Add standalone assertions using `enableStandaloneMode(page)` verifying install bar/card are never rendered
     - [x] Verify via `./scripts/containers/run-e2e-container.sh mobile-safari e2e/pwa-install-layout.spec.ts`
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Playwright Standalone Fixture & E2E Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Playwright Standalone Fixture & E2E Verification' (Protocol in workflow.md) [commit: 74f6d79f]
 
 ## Phase 4: Full Quality Gates & Regression Verification
 
