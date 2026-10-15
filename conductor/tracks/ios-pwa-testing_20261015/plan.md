@@ -2,42 +2,58 @@
 
 ## Phase 1: Unit & Component Test Matrix
 
-- [ ] Task: Implement `usePwa` standalone permutation test suite
+- [ ] Task: Write failing tests for `usePwa` hook and standalone installability suppression (TDD Red phase)
     - [ ] Create `hooks/__tests__/use-pwa.test.ts`
-    - [ ] Test standard browser mode (`standalone: false`, `display-mode: browser`)
-    - [ ] Test iOS WebClip mode (`(window.navigator as any).standalone = true`)
-    - [ ] Test W3C Standalone mode (`window.matchMedia('(display-mode: standalone)').matches = true`)
-    - [ ] Test Android referrer mode (`document.referrer.includes('android-app://')`)
-    - [ ] Verify test execution via `./scripts/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
-- [ ] Task: Update `PwaHandler` defense-in-depth and implement component suppression tests
-    - [ ] Update `components/pwa-handler.tsx` to guard against `isStandalone`
-    - [ ] Add standalone suppression test in `components/__tests__/PwaHandler.test.tsx`
-    - [ ] Add `components/__tests__/user-nav.test.tsx` asserting `"Install App"` / `"Add to Home Screen"` is hidden when `isStandalone: true`
-    - [ ] Verify both component suites pass via `./scripts/run-jest-container.sh`
+    - [ ] Test standard Browser Mode (`standalone: false`, `display-mode: browser` -> `isStandalone: false`, `isInstallable: true`)
+    - [ ] Test Standalone Mode via iOS WebClip signal (`(window.navigator as any).standalone = true`)
+    - [ ] Test Standalone Mode via W3C matchMedia signal (`window.matchMedia('(display-mode: standalone)').matches = true`)
+    - [ ] Test Standalone Mode via Android referrer signal (`document.referrer.includes('android-app://')`)
+    - [ ] Assert `isInstallable: false` when `isStandalone: true` even if `beforeinstallprompt` is fired (fails against unhardened `usePwa`)
+    - [ ] Verify failing tests via `./scripts/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
+- [ ] Task: Implement `usePwa` hook hardening and standalone invariant (TDD Green phase)
+    - [ ] Update `hooks/use-pwa.ts` to enforce boolean casting on `isStandalone`
+    - [ ] Enforce invariant `isInstallable: !isStandalone && !!installPrompt`
+    - [ ] Verify test suite passes via `./scripts/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
+- [ ] Task: Write failing component tests for `PwaHandler` and `UserNav` standalone suppression (TDD Red phase)
+    - [ ] Add test in `components/__tests__/PwaHandler.test.tsx` asserting install banner/card is suppressed (`null`) when `isStandalone: true` (fails against current component)
+    - [ ] Add test in `components/nav/__tests__/user-nav.test.tsx` asserting `"Install App"` / `"Add to Home Screen"` item is hidden when `isStandalone: true`
+    - [ ] Verify failing tests via `./scripts/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
+- [ ] Task: Implement `PwaHandler` standalone guard (TDD Green phase)
+    - [ ] Update `components/pwa-handler.tsx` to guard `if (!isInstallable || isStandalone || isDismissed) return null;`
+    - [ ] Verify both component test suites pass via `./scripts/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Unit & Component Test Matrix' (Protocol in workflow.md)
 
 ## Phase 2: Domain Refactoring & Compatibility Seam
 
-- [ ] Task: Refactor `useTripActions` to export canonical `handleTripNavigation` with deprecated alias
+- [ ] Task: Write failing tests for canonical `handleTripNavigation` in `useTripActions` (TDD Red phase)
+    - [ ] Update `hooks/__tests__/use-trip-actions.test.ts` asserting synchronous dispatch of canonical `handleTripNavigation` for Apple Maps, Google Maps, and Waze (fails against current hook)
+    - [ ] Assert `@deprecated handleExportToMaps` alias delegates directly to `handleTripNavigation`
+    - [ ] Verify failing tests via `./scripts/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
+- [ ] Task: Implement canonical `handleTripNavigation` in `useTripActions` (TDD Green phase)
     - [ ] Export `handleTripNavigation` and provide `handleExportToMaps` as `@deprecated` alias in `hooks/use-trip-actions.ts`
-    - [ ] Update `hooks/__tests__/use-trip-actions.test.ts` to test both canonical and alias exports
-    - [ ] Verify via `./scripts/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
-- [ ] Task: Update presentational trip cards for `onNavigateTrip`
-    - [ ] Update `components/TripCardPresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps`
-    - [ ] Update `components/TripCardSimplePresentational.tsx` similarly
-    - [ ] Verify existing component tests pass via `./scripts/run-jest-container.sh`
+    - [ ] Verify test suite passes via `./scripts/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
+- [ ] Task: Write failing component tests for TripCard `onNavigateTrip` delegation (TDD Red phase)
+    - [ ] Update `components/__tests__/trip-card-simple.test.tsx` asserting delegation to `onNavigateTrip` while maintaining backwards compatibility for `onExportToMaps` (fails against current containers)
+    - [ ] Verify failing tests via `./scripts/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
+- [ ] Task: Implement `onNavigateTrip` in TripCard containers and presentational components (TDD Green phase)
+    - [ ] Update `components/trip-card.tsx` and `components/trip-card-simple.tsx` to bind `onNavigateTrip` and `onExportToMaps`
+    - [ ] Update `components/TripCardPresentational.tsx` and `components/TripCardSimplePresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps`
+    - [ ] Verify container and presentational suites pass via `./scripts/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Domain Refactoring & Compatibility Seam' (Protocol in workflow.md)
 
 ## Phase 3: Playwright Standalone Fixture & E2E Verification
 
-- [ ] Task: Implement Playwright `standalonePage` fixture / helper
-    - [ ] Add `standalonePage` fixture (or `withStandaloneMode` helper) in `e2e/fixtures/` injecting `window.navigator.standalone = true` and `(display-mode: standalone)` matchMedia override
+- [ ] Task: Implement Playwright `standalonePage` fixture and `enableStandaloneMode` helper
+    - [ ] Add `enableStandaloneMode` helper in `e2e/fixtures/` injecting `window.navigator.standalone = true` and `(display-mode: standalone)` matchMedia override
+    - [ ] Add `standalonePage` fixture in `e2e/fixtures/index.ts` and re-export in `e2e/utils.ts`
 - [ ] Task: Author `e2e/trip-navigation-pwa.spec.ts` for Mobile Safari popup navigation
-    - [ ] Test Apple Maps, Google Maps, and Waze dispatches under `Mobile Safari`
-    - [ ] Assert `page.waitForEvent('popup')` captures external navigation without WebKit gesture blocking
+    - [ ] Add context route interception for `maps.apple.com`, `google.com/maps`, and `waze.com` to prevent container DNS timeouts
+    - [ ] Pre-seed mock trip with winery stops in `mockMaps.state.trips` to ensure navigation button is enabled
+    - [ ] Assert Apple Maps, Google Maps, and Waze dispatches under `Mobile Safari` trigger `page.waitForEvent('popup')`
+    - [ ] Assert popup URL query parameters and verify WebKit transient user gesture preservation without popup blocking
     - [ ] Verify via `./scripts/run-e2e-container.sh mobile-safari e2e/trip-navigation-pwa.spec.ts`
-- [ ] Task: Update `e2e/pwa-install-layout.spec.ts` for standalone mode
-    - [ ] Add standalone assertions verifying install bar/card are never rendered when standalone
+- [ ] Task: Update `e2e/pwa-install-layout.spec.ts` for Standalone Mode suppression
+    - [ ] Add standalone assertions using `enableStandaloneMode(page)` verifying install bar/card are never rendered
     - [ ] Verify via `./scripts/run-e2e-container.sh mobile-safari e2e/pwa-install-layout.spec.ts`
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Playwright Standalone Fixture & E2E Verification' (Protocol in workflow.md)
 
