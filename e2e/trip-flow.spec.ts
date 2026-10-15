@@ -127,7 +127,7 @@ test.describe('Trip Planning Flow', () => {
     await tripCard.scrollIntoViewIfNeeded();
     await expect(tripCard.getByText('2 Wineries')).toBeVisible();
 
-    const exportBtn = tripCard.getByRole('button', { name: 'Export to Google Maps' });
+    const exportBtn = tripCard.getByRole('button', { name: /Trip Navigation|Export to Google Maps/i });
     await expect(exportBtn).toBeVisible();
     await expect(exportBtn).toBeEnabled();
 

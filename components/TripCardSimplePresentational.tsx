@@ -71,9 +71,8 @@ export default function TripCardSimple({
                                             <Button 
                                                 size="icon" 
                                                 variant="outline" 
-                                                onClick={() => onExportToMaps('google')}
                                                 disabled={isPending || count === 0 || !trip.wineries || trip.wineries.length === 0}
-                                                aria-label="Trip Navigation - Export to Google Maps"
+                                                aria-label="Trip Navigation"
                                             >
                                                 <Share2 size={16} />
                                             </Button>
