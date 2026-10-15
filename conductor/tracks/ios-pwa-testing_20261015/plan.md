@@ -29,9 +29,9 @@
     - [x] Update `hooks/__tests__/use-trip-actions.test.ts` asserting synchronous dispatch of canonical `handleTripNavigation` for Apple Maps, Google Maps, and Waze (fails against current hook)
     - [x] Assert `@deprecated handleExportToMaps` alias delegates directly to `handleTripNavigation`
     - [x] Verify failing tests via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
-- [ ] Task: Implement canonical `handleTripNavigation` in `useTripActions` (TDD Green phase)
-    - [ ] Export `handleTripNavigation` and provide `handleExportToMaps` as `@deprecated` alias in `hooks/use-trip-actions.ts`
-    - [ ] Verify test suite passes via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
+- [x] Task: Implement canonical `handleTripNavigation` in `useTripActions` (TDD Green phase) [commit: c18c2acd]
+    - [x] Export `handleTripNavigation` and provide `handleExportToMaps` as `@deprecated` alias in `hooks/use-trip-actions.ts`
+    - [x] Verify test suite passes via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
 - [ ] Task: Write failing component tests for TripCard `onNavigateTrip` delegation (TDD Red phase)
     - [ ] Update `components/__tests__/trip-card-simple.test.tsx` asserting delegation to `onNavigateTrip` while maintaining backwards compatibility for `onExportToMaps` (fails against current containers)
     - [ ] Verify failing tests via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
