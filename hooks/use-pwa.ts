@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePWAUpdate } from './use-pwa-update';
 
 export interface UsePwaReturn {
@@ -9,6 +9,10 @@ export interface UsePwaReturn {
   isUpdateAvailable: boolean;
   updateApp: () => void;
   isStandalone: boolean;
+}
+
+interface NavigatorWithStandalone extends Navigator {
+  standalone?: boolean;
 }
 
 interface BeforeInstallPromptEvent extends Event {
@@ -23,7 +27,7 @@ export function usePwa(): UsePwaReturn {
     if (typeof window === 'undefined') return false;
     return Boolean(
       window.matchMedia('(display-mode: standalone)').matches
-      || (window.navigator as any).standalone
+      || (window.navigator as NavigatorWithStandalone).standalone
       || (document.referrer && document.referrer.includes('android-app://'))
     );
   });
@@ -42,11 +46,15 @@ export function usePwa(): UsePwaReturn {
     };
   }, []);
 
-  const installApp = React.useCallback(async () => {
+  const installApp = useCallback(async () => {
     if (!installPrompt || isStandalone) return;
-    await installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
+    try {
+      await installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setInstallPrompt(null);
+      }
+    } catch {
       setInstallPrompt(null);
     }
   }, [installPrompt, isStandalone]);
@@ -56,6 +64,6 @@ export function usePwa(): UsePwaReturn {
     installApp,
     isUpdateAvailable,
     updateApp: applyUpdate,
-    isStandalone
+    isStandalone,
   };
 }

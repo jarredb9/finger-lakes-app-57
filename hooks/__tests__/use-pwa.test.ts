@@ -6,26 +6,11 @@ jest.mock('../use-pwa-update', () => ({
   usePWAUpdate: jest.fn(),
 }));
 
-// Return type signature of usePwa
-export interface UsePwaReturn {
-  isInstallable: boolean;
-  installApp: () => Promise<void>;
-  isUpdateAvailable: boolean;
-  updateApp: () => void;
-  isStandalone: boolean;
-}
-
 // Custom BeforeInstallPromptEvent shape for JSDOM dispatch
-export interface MockBeforeInstallPromptEvent extends Event {
+interface MockBeforeInstallPromptEvent extends Event {
   prompt: jest.Mock<Promise<void>, []>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
   preventDefault: jest.Mock<void, []>;
-}
-
-// Mock interface for usePWAUpdate dependency
-export interface MockUsePwaUpdateReturn {
-  isUpdateAvailable: boolean;
-  applyUpdate: jest.Mock<void, []>;
 }
 
 function createMockBeforeInstallPromptEvent(
@@ -161,6 +146,14 @@ describe('usePwa Hook', () => {
         })
       ).resolves.not.toThrow();
     });
+
+    it('removes beforeinstallprompt listener on unmount', () => {
+      const removeEventListenerSpy = jest.spyOn(window, 'removeEventListener');
+      const { unmount } = renderHook(() => usePwa());
+      unmount();
+      expect(removeEventListenerSpy).toHaveBeenCalledWith('beforeinstallprompt', expect.any(Function));
+      removeEventListenerSpy.mockRestore();
+    });
   });
 
   describe('Standalone Mode Signal Detection Matrix', () => {
@@ -293,6 +286,30 @@ describe('usePwa Hook', () => {
 
       expect(result.current.isStandalone).toBe(true);
       expect(result.current.isInstallable).toBe(false);
+    });
+
+    it('terminates installApp early without calling prompt when isStandalone is true', async () => {
+      Object.defineProperty(window.navigator, 'standalone', {
+        value: true,
+        configurable: true,
+        writable: true,
+      });
+
+      const { result } = renderHook(() => usePwa());
+      const event = createMockBeforeInstallPromptEvent();
+
+      act(() => {
+        window.dispatchEvent(event);
+      });
+
+      expect(result.current.isStandalone).toBe(true);
+      expect(result.current.isInstallable).toBe(false);
+
+      await act(async () => {
+        await result.current.installApp();
+      });
+
+      expect(event.prompt).not.toHaveBeenCalled();
     });
   });
 

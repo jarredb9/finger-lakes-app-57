@@ -111,6 +111,7 @@ export function PwaHandler() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Dismiss"
               className="h-6 w-6 rounded-full opacity-70 hover:opacity-100"
               onClick={() => setIsDismissed(true)}
             >

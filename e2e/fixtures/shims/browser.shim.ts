@@ -266,6 +266,18 @@ export async function enableStandaloneMode(page: Page): Promise<void> {
       }
     }
 
+    // Helper to generate a compliant fallback MediaQueryList
+    const createFallbackMql = (mediaQuery: string, matchesValue: boolean): MediaQueryList => ({
+      matches: matchesValue,
+      media: mediaQuery,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      dispatchEvent: () => true,
+    } as unknown as MediaQueryList);
+
     // 2. W3C standard (display-mode: standalone) matchMedia signal
     const originalMatchMedia = window.matchMedia ? window.matchMedia.bind(window) : undefined;
 
@@ -276,28 +288,10 @@ export async function enableStandaloneMode(page: Page): Promise<void> {
           try {
             baseMql = originalMatchMedia(query);
           } catch {
-            baseMql = {
-              matches: true,
-              media: query,
-              onchange: null,
-              addListener: () => {},
-              removeListener: () => {},
-              addEventListener: () => {},
-              removeEventListener: () => {},
-              dispatchEvent: () => true,
-            } as unknown as MediaQueryList;
+            baseMql = createFallbackMql(query, true);
           }
         } else {
-          baseMql = {
-            matches: true,
-            media: query,
-            onchange: null,
-            addListener: () => {},
-            removeListener: () => {},
-            addEventListener: () => {},
-            removeEventListener: () => {},
-            dispatchEvent: () => true,
-          } as unknown as MediaQueryList;
+          baseMql = createFallbackMql(query, true);
         }
 
         return new Proxy(baseMql, {
@@ -314,20 +308,37 @@ export async function enableStandaloneMode(page: Page): Promise<void> {
         });
       }
 
+      if (typeof query === 'string' && query.includes('display-mode: browser')) {
+        let baseMql: MediaQueryList;
+        if (originalMatchMedia) {
+          try {
+            baseMql = originalMatchMedia(query);
+          } catch {
+            baseMql = createFallbackMql(query, false);
+          }
+        } else {
+          baseMql = createFallbackMql(query, false);
+        }
+
+        return new Proxy(baseMql, {
+          get(target, prop, receiver) {
+            if (prop === 'matches') {
+              return false;
+            }
+            const val = Reflect.get(target, prop, receiver);
+            if (typeof val === 'function') {
+              return val.bind(target);
+            }
+            return val;
+          },
+        });
+      }
+
       if (originalMatchMedia) {
         return originalMatchMedia(query);
       }
 
-      return {
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: () => {},
-        removeListener: () => {},
-        addEventListener: () => {},
-        removeEventListener: () => {},
-        dispatchEvent: () => true,
-      } as unknown as MediaQueryList;
+      return createFallbackMql(query, false);
     };
   };
 
