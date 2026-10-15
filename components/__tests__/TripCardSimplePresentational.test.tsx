@@ -248,6 +248,51 @@ describe('TripCardSimplePresentational', () => {
       expect(mockOnExportToMaps).toHaveBeenCalledWith('waze');
     });
 
+    it('invokes onNavigateTrip with selected provider when provided', () => {
+      const mockOnNavigateTrip = jest.fn();
+      const trip = createMockTrip({
+        id: 50,
+        wineries_count: 1,
+        wineries: [mockWinery1],
+      });
+      render(<TripCardSimple {...defaultProps} trip={trip} onNavigateTrip={mockOnNavigateTrip} />);
+
+      const appleItem = screen.getByRole('menuitem', { name: /apple maps/i });
+      fireEvent.click(appleItem);
+      expect(mockOnNavigateTrip).toHaveBeenCalledWith('apple');
+
+      const googleItem = screen.getByRole('menuitem', { name: /google maps/i });
+      fireEvent.click(googleItem);
+      expect(mockOnNavigateTrip).toHaveBeenCalledWith('google');
+
+      const wazeItem = screen.getByRole('menuitem', { name: /waze/i });
+      fireEvent.click(wazeItem);
+      expect(mockOnNavigateTrip).toHaveBeenCalledWith('waze');
+    });
+
+    it('prefers onNavigateTrip over onExportToMaps when both are provided', () => {
+      const mockOnNavigateTrip = jest.fn();
+      const trip = createMockTrip({
+        id: 50,
+        wineries_count: 1,
+        wineries: [mockWinery1],
+      });
+      render(
+        <TripCardSimple
+          {...defaultProps}
+          trip={trip}
+          onNavigateTrip={mockOnNavigateTrip}
+          onExportToMaps={mockOnExportToMaps}
+        />
+      );
+
+      const appleItem = screen.getByRole('menuitem', { name: /apple maps/i });
+      fireEvent.click(appleItem);
+
+      expect(mockOnNavigateTrip).toHaveBeenCalledWith('apple');
+      expect(mockOnExportToMaps).not.toHaveBeenCalled();
+    });
+
     it('does not permanently disable trigger after click', () => {
       const trip = createMockTrip({
         id: 50,

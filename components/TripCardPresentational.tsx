@@ -42,7 +42,9 @@ interface TripCardProps {
   onSaveWineryNote: (wineryId: number, newNotes: string) => Promise<void>;
   onOpenShareDialog: (id: string, name: string) => void;
   onOpenWineryNoteEditor: (wineryDbId: number, notes: string, onSave: (id: number, notes: string) => Promise<void>) => void;
-  onExportToMaps: (provider?: NavigationProvider) => void;
+  onNavigateTrip?: (provider?: NavigationProvider) => void;
+  /** @deprecated Use onNavigateTrip instead. Retained for backwards compatibility. */
+  onExportToMaps?: (provider?: NavigationProvider) => void;
   // Search props
   searchResults: Winery[];
   isSearching: boolean;
@@ -106,12 +108,14 @@ const TripCard = memo(({
   onSaveWineryNote,
   onOpenShareDialog,
   onOpenWineryNoteEditor,
+  onNavigateTrip,
   onExportToMaps,
   searchResults,
   isSearching,
   winerySearch,
   onSearchChange
 }: TripCardProps) => {
+  const onNavigate = onNavigateTrip || onExportToMaps;
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     const raf = requestAnimationFrame(() => setMounted(true));
@@ -484,13 +488,13 @@ const TripCard = memo(({
               </Tooltip>
             </TooltipProvider>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onExportToMaps('apple')}>
+              <DropdownMenuItem onClick={() => onNavigate?.('apple')}>
                 Apple Maps
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onExportToMaps('google')}>
+              <DropdownMenuItem onClick={() => onNavigate?.('google')}>
                 Google Maps
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onExportToMaps('waze')}>
+              <DropdownMenuItem onClick={() => onNavigate?.('waze')}>
                 Waze
               </DropdownMenuItem>
             </DropdownMenuContent>

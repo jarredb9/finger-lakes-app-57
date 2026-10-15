@@ -327,5 +327,39 @@ describe('TripCard', () => {
       fireEvent.click(wazeOption);
       expect(mockHandleExportToMaps).toHaveBeenCalledWith('waze');
     });
+
+    it('invokes onNavigateTrip with selected provider when provided', () => {
+      const mockOnNavigateTrip = jest.fn();
+      render(<TripCard {...defaultProps} onNavigateTrip={mockOnNavigateTrip} />);
+
+      const appleOption = screen.getByRole('menuitem', { name: /apple maps/i });
+      fireEvent.click(appleOption);
+      expect(mockOnNavigateTrip).toHaveBeenCalledWith('apple');
+
+      const googleOption = screen.getByRole('menuitem', { name: /google maps/i });
+      fireEvent.click(googleOption);
+      expect(mockOnNavigateTrip).toHaveBeenCalledWith('google');
+
+      const wazeOption = screen.getByRole('menuitem', { name: /waze/i });
+      fireEvent.click(wazeOption);
+      expect(mockOnNavigateTrip).toHaveBeenCalledWith('waze');
+    });
+
+    it('prefers onNavigateTrip over onExportToMaps when both are provided', () => {
+      const mockOnNavigateTrip = jest.fn();
+      render(
+        <TripCard
+          {...defaultProps}
+          onNavigateTrip={mockOnNavigateTrip}
+          onExportToMaps={mockHandleExportToMaps}
+        />
+      );
+
+      const appleOption = screen.getByRole('menuitem', { name: /apple maps/i });
+      fireEvent.click(appleOption);
+
+      expect(mockOnNavigateTrip).toHaveBeenCalledWith('apple');
+      expect(mockHandleExportToMaps).not.toHaveBeenCalled();
+    });
   });
 });
