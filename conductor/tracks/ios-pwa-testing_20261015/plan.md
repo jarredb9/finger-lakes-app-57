@@ -57,7 +57,7 @@
     - [x] Verify via `./scripts/containers/run-e2e-container.sh mobile-safari e2e/pwa-install-layout.spec.ts`
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Playwright Standalone Fixture & E2E Verification' (Protocol in workflow.md) [commit: 74f6d79f]
 
-## Phase 4: Full Quality Gates & Regression Verification
+## Phase 4: Full Quality Gates & Regression Verification [checkpoint: b6b81a1]
 
 - [x] Task: Run full containerized test suites, type checking, and linting
     - [x] Run `npm run type-check`
