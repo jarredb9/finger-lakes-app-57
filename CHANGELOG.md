@@ -2,6 +2,32 @@
 
 ## [Unreleased] - v3.6.1
 
+### 🧭 Multi-Provider Trip Navigation & iOS PWA WebKit Gesture Preservation ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63) / [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70) / [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
+* **WebKit Transient User Gesture Preservation & Synchronous Launch Architecture**:
+    * Eliminated asynchronous `navigator.geolocation.getCurrentPosition` callback hops in `useTripActions` (`hooks/use-trip-actions.ts`), resolving WebKit popup blocker suppression that prevented navigation dispatch on standalone iOS PWAs and Mobile Safari.
+    * Extracted synchronous navigation URL construction and execution into a dedicated, SSR-safe utility `launchTripNavigation` (`lib/utils/trip-navigation.ts`), ensuring `window.open` executes strictly within the synchronous event turn of user gesture activation with `'noopener,noreferrer'`.
+    * Omitted explicit origin parameters across navigation providers, allowing native client applications to automatically default the route origin to the user's real-time device GPS coordinates without requiring explicit browser location permission prompts.
+* **Multi-Provider Navigation Routing Schemes (Apple Maps, Google Maps, Waze)**:
+    * Implemented `buildTripNavigationUrl` supporting `'google'`, `'apple'`, and `'waze'` providers via `NavigationProvider` interface.
+    * **Google Maps**: Formatted URL using `https://www.google.com/maps/dir/?api=1&destination=<destination>`, appending intermediate stops as pipe-delimited (`|`) `waypoints` without an explicit `origin` parameter.
+    * **Apple Maps**: Implemented official Apple MapKit directions protocol `https://maps.apple.com/directions?mode=driving&destination=<last_stop>`, chaining intermediate waypoints via repeating `waypoint=<stop_n>` parameters while omitting `saddr`.
+    * **Waze**: Implemented coordinate deep linking via `https://waze.com/ul?ll=<lat>,<lng>&navigate=yes`, supporting both flat coordinates and nested `location` objects (`stop.location.latitude`/`longitude`), with query fallback (`q=<formatted_query>`) when coordinates are absent.
+    * Added defensive stop query formatting (`formatStopQuery`) trimming whitespace and cleanly concatenating winery name and address.
+* **Radix Dropdown Menu Event Decoupling & Accessible Presentational UI**:
+    * Refactored navigation actions in `TripCardPresentational.tsx` and `TripCardSimplePresentational.tsx` from single-destination buttons into Radix UI `<DropdownMenu>` components providing user selection for Apple Maps, Google Maps, and Waze.
+    * Decoupled trigger click from direct export execution by removing inline `onClick={() => onExportToMaps('google')}` from trigger buttons, eliminating the double-firing defect where Google Maps launched simultaneously upon opening the dropdown menu.
+    * Standardized accessible button labeling and tooltip text to `"Trip Navigation"`.
+    * Hardened trigger button disabled states against empty stop lists (`!tripWineries || tripWineries.length === 0`) and pending sync states (`isPending || count === 0`).
+* **Multi-Tier Unit, Container, and End-to-End Test Verification**:
+    * Authored 15 unit tests in `lib/utils/__tests__/trip-navigation.test.ts` validating whitespace trimming, single-stop and multi-stop URL generation across Google Maps and Apple Maps MapKit schemes, Waze coordinate/query fallbacks, empty stop guards, and window opening.
+    * Added comprehensive unit test coverage in `hooks/__tests__/use-trip-actions.test.ts` verifying synchronous window launching, absence of `navigator.geolocation` calls, provider branching, and restored member persistence (`saveTripMembers`) with success and error toast handling.
+    * Added dropdown menu interaction test suites in `components/__tests__/TripCardPresentational.test.tsx` and `components/__tests__/TripCardSimplePresentational.test.tsx` testing provider selection for Apple Maps, Google Maps, and Waze.
+    * Adapted container test `components/__tests__/trip-card-simple.test.tsx` to simulate menu item clicks through the Radix dropdown menu.
+    * Aligned Playwright E2E assertion selector in `e2e/trip-flow.spec.ts` with the new `"Trip Navigation"` accessible button label.
+* **Domain Modeling & Containerized PWA Emulation Strategy ([ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))**:
+    * Formulated and recorded [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md) establishing containerized WebKit and JSDOM `navigator.standalone` emulation on Linux without requiring physical iOS hardware or macOS simulator licensing.
+    * Standardized canonical domain terms in `CONTEXT.md` for "Navigation Provider", "Standalone Mode", and "Browser Mode".
+
 ### 🍇 ExploreTabContent Data Pipeline Desynchronization & Missing Winery Enrichment ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44) / [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md))
 * **Database Map Markers RPC Expansion & Safe Schema Migration**:
     * Expanded PostgreSQL `public.get_map_markers` RPC via transaction migration (`supabase/migrations/20261007090000_enrich_map_markers_rpc.sql`) executing `DROP FUNCTION IF EXISTS public.get_map_markers(uuid)` and `CREATE OR REPLACE FUNCTION` with expanded `RETURNS TABLE` including `google_rating`, `user_rating_count`, `allows_dogs`, `good_for_children`, `outdoor_seating`, `has_ev_charging`, and `enrichment_tier`.
