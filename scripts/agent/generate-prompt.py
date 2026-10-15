@@ -522,6 +522,45 @@ Gate & Planning Protocol:
 - Halt for user approval via modal before modifying any files."""
 
 
+def extract_post_execution_info(plan_file: Optional[Path]) -> Tuple[Optional[str], Optional[str]]:
+    """Extracts the post-execution section reference and any explicit task commit message from the plan file.
+
+    Returns:
+        (section_ref, explicit_commit_msg)
+    """
+    if not plan_file or not plan_file.exists():
+        return None, None
+
+    content = plan_file.read_text(encoding="utf-8")
+    match = re.search(
+        r"^##\s+(?:(\d+)\.\s+)?(.*?Post-Execution.*|.*?Task Completion.*|.*?Commit Protocol.*)$",
+        content,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    if not match:
+        return None, None
+
+    section_num = match.group(1)
+    section_title = match.group(2).strip()
+    section_ref = f"Section {section_num} ({section_title})" if section_num else f"the '{section_title}' section"
+
+    # Extract git commit message from the post-execution section if specified
+    start_pos = match.start()
+    next_heading = re.search(r"^##\s+", content[match.end():], re.MULTILINE)
+    post_exec_block = content[start_pos : match.end() + next_heading.start()] if next_heading else content[start_pos:]
+    commit_matches = re.findall(
+        r"git commit(?:\s+[^\"\x27\n]*)?\s+-m\s+[\"\x27]([^\x27\"]+)[\"\x27]",
+        post_exec_block,
+    )
+    explicit_commit = None
+    for c in commit_matches:
+        if not c.startswith("conductor(") and not c.startswith("conductor/"):
+            explicit_commit = c
+            break
+
+    return section_ref, explicit_commit
+
+
 def build_exec_prompt(
     track_name: str,
     phase_num: Optional[int],
@@ -532,8 +571,12 @@ def build_exec_prompt(
 ) -> str:
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = track_dir.relative_to(PROJECT_ROOT) if track_dir else f"conductor/tracks/{track_name}"
+    plan_path = track_dir / f"phase-{phase_num}-task-{task_num}-plan.md" if track_dir else None
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
     strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode)
+
+    post_exec_ref, plan_commit_msg = extract_post_execution_info(plan_path)
+    commit_msg = plan_commit_msg or strategy["commit_msg"]
 
     cmd_lines = "\n".join(f"     {c}" for c in strategy["commands"])
 
@@ -572,13 +615,18 @@ Protocol Execution Directives:
 {cmd_lines}
    - If tests fail, diagnose within the target seam, adjust implementation or fixtures, and re-verify until green."""
 
+    if post_exec_ref:
+        post_exec_directive = f"Follow {post_exec_ref} of @[{plan_file}]."
+    else:
+        post_exec_directive = f"Follow the Post-Execution section of @[{plan_file}] if present."
+
     return f"""Execute Phase {phase_num} Task {task_num} following @[{plan_file}].
 
 Execution Directives:
 1. Scope & Blueprint: The plan blueprint in @[{plan_file}] is authoritative. Modify only the planned target files. You may read adjacent files or type definitions as needed to resolve imports, types, or test fixtures.
 {verification_block}
 3. Post-Execution:
-   - Follow Section 6 of @[{plan_file}] if present. Otherwise: commit changes with message "{strategy['commit_msg']}", record git notes (Task, Summary, Files, Rationale), mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.
+   - {post_exec_directive} Otherwise: commit changes with message "{commit_msg}", record git notes (Task, Summary, Files, Rationale), mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.
 4. Output a brief completion summary and halt."""
 
 
