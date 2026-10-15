@@ -25,6 +25,7 @@ export {
   VisitsHandler,
   SocialHandler,
   FavoritesHandler,
+  enableStandaloneMode,
 } from './fixtures';
 
 export type {

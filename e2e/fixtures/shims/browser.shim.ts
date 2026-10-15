@@ -230,6 +230,13 @@ export class BrowserShim {
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
     });
   }
+
+  /**
+   * Configures iOS WebClip and standard standalone mode emulation on the page.
+   */
+  async enableStandaloneMode(): Promise<void> {
+    await enableStandaloneMode(this.page);
+  }
 }
 
 export async function setupBrowserShims(page: Page, options?: BrowserShimOptions) {
@@ -237,3 +244,94 @@ export async function setupBrowserShims(page: Page, options?: BrowserShimOptions
   await shim.setupWebGLAndMapMocks(options);
   return shim;
 }
+
+/**
+ * Enables standalone PWA mode by emulating both iOS WebClip (window.navigator.standalone = true)
+ * and W3C standard (display-mode: standalone) matchMedia query results.
+ */
+export async function enableStandaloneMode(page: Page): Promise<void> {
+  const initScript = () => {
+    // 1. iOS WebClip standalone signal
+    try {
+      Object.defineProperty(window.navigator, 'standalone', {
+        get: () => true,
+        configurable: true,
+        enumerable: true,
+      });
+    } catch {
+      try {
+        (window.navigator as unknown as { standalone: boolean }).standalone = true;
+      } catch {
+        // Ignore if read-only property cannot be overridden
+      }
+    }
+
+    // 2. W3C standard (display-mode: standalone) matchMedia signal
+    const originalMatchMedia = window.matchMedia ? window.matchMedia.bind(window) : undefined;
+
+    window.matchMedia = (query: string): MediaQueryList => {
+      if (typeof query === 'string' && query.includes('display-mode: standalone')) {
+        let baseMql: MediaQueryList;
+        if (originalMatchMedia) {
+          try {
+            baseMql = originalMatchMedia(query);
+          } catch {
+            baseMql = {
+              matches: true,
+              media: query,
+              onchange: null,
+              addListener: () => {},
+              removeListener: () => {},
+              addEventListener: () => {},
+              removeEventListener: () => {},
+              dispatchEvent: () => true,
+            } as unknown as MediaQueryList;
+          }
+        } else {
+          baseMql = {
+            matches: true,
+            media: query,
+            onchange: null,
+            addListener: () => {},
+            removeListener: () => {},
+            addEventListener: () => {},
+            removeEventListener: () => {},
+            dispatchEvent: () => true,
+          } as unknown as MediaQueryList;
+        }
+
+        return new Proxy(baseMql, {
+          get(target, prop, receiver) {
+            if (prop === 'matches') {
+              return true;
+            }
+            const val = Reflect.get(target, prop, receiver);
+            if (typeof val === 'function') {
+              return val.bind(target);
+            }
+            return val;
+          },
+        });
+      }
+
+      if (originalMatchMedia) {
+        return originalMatchMedia(query);
+      }
+
+      return {
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => true,
+      } as unknown as MediaQueryList;
+    };
+  };
+
+  await page.addInitScript(initScript);
+  await page.evaluate(initScript).catch(() => {});
+}
+
