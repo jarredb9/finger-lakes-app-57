@@ -18,6 +18,28 @@ jest.mock('@/components/ui/tooltip', () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+jest.mock('@/components/ui/dropdown-menu', () => ({
+  DropdownMenu: ({ children }: any) => <div data-testid="dropdown-menu">{children}</div>,
+  DropdownMenuTrigger: ({ children, ...props }: any) => (
+    <div data-testid="dropdown-menu-trigger" {...props}>{children}</div>
+  ),
+  DropdownMenuContent: ({ children, ...props }: any) => (
+    <div data-testid="dropdown-menu-content" role="menu" {...props}>{children}</div>
+  ),
+  DropdownMenuItem: ({ children, onClick, onSelect, ...props }: any) => (
+    <button
+      role="menuitem"
+      onClick={(e) => {
+        onClick?.(e);
+        onSelect?.(e);
+      }}
+      {...props}
+    >
+      {children}
+    </button>
+  ),
+}));
+
 jest.mock('@/components/ui/avatar', () => ({
   Avatar: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AvatarImage: ({ src, alt }: { src?: string; alt?: string }) => <img src={src} alt={alt} />,
@@ -28,7 +50,6 @@ describe('TripCardSimplePresentational', () => {
   const mockOnDelete = jest.fn();
   const mockOnShare = jest.fn();
   const mockOnExportToMaps = jest.fn();
-  const mockDeleteTripAlert = undefined;
 
   const mockWinery1 = createMockWinery({
     id: 'place_1' as GooglePlaceId,
@@ -142,10 +163,10 @@ describe('TripCardSimplePresentational', () => {
       expect(screen.getByTestId('view-trip-details-btn')).toBeDisabled();
       expect(screen.getByTestId('share-trip-btn')).toBeDisabled();
       expect(screen.getByTestId('delete-trip-btn')).toBeDisabled();
-      expect(screen.getByRole('button', { name: /Export to Google Maps/i })).toBeDisabled();
+      expect(screen.getByRole('button', { name: /trip navigation/i })).toBeDisabled();
     });
 
-    it('disables export button when trip has no wineries or wineries_count is 0', () => {
+    it('disables export trigger when trip has no wineries or wineries_count is 0', () => {
       const trip: Trip = createMockTrip({
         id: 50,
         wineries_count: 0,
@@ -153,7 +174,7 @@ describe('TripCardSimplePresentational', () => {
       });
       render(<TripCardSimple {...defaultProps} trip={trip} />);
 
-      const exportBtn = screen.getByRole('button', { name: /Export to Google Maps/i });
+      const exportBtn = screen.getByRole('button', { name: /trip navigation/i });
       expect(exportBtn).toBeDisabled();
     });
 
@@ -174,23 +195,70 @@ describe('TripCardSimplePresentational', () => {
       const deleteBtn = screen.getByTestId('delete-trip-btn');
       fireEvent.click(deleteBtn);
 
-      expect(mockDeleteTripAlert).not.toBeDefined?.();
       expect(mockOnDelete).toHaveBeenCalledWith(50);
     });
+  });
 
-    it('invokes onExportToMaps when export button is clicked on trip with wineries', () => {
-      const trip: Trip = createMockTrip({
+  describe('Trip Navigation Provider Menu', () => {
+    it('renders navigation dropdown trigger with accessible label when trip has wineries', () => {
+      const trip = createMockTrip({
+        id: 50,
+        wineries_count: 2,
+        wineries: [mockWinery1, mockWinery2],
+      });
+      render(<TripCardSimple {...defaultProps} trip={trip} />);
+      const trigger = screen.getByRole('button', { name: /trip navigation/i });
+      expect(trigger).toBeInTheDocument();
+      expect(trigger).not.toBeDisabled();
+    });
+
+    it('invokes onExportToMaps with "apple" when Apple Maps is selected', () => {
+      const trip = createMockTrip({
         id: 50,
         wineries_count: 1,
         wineries: [mockWinery1],
       });
       render(<TripCardSimple {...defaultProps} trip={trip} />);
+      const appleItem = screen.getByRole('menuitem', { name: /apple maps/i });
+      fireEvent.click(appleItem);
+      expect(mockOnExportToMaps).toHaveBeenCalledWith('apple');
+    });
 
-      const exportBtn = screen.getByRole('button', { name: /Export to Google Maps/i });
-      expect(exportBtn).not.toBeDisabled();
-      fireEvent.click(exportBtn);
+    it('invokes onExportToMaps with "google" when Google Maps is selected', () => {
+      const trip = createMockTrip({
+        id: 50,
+        wineries_count: 1,
+        wineries: [mockWinery1],
+      });
+      render(<TripCardSimple {...defaultProps} trip={trip} />);
+      const googleItem = screen.getByRole('menuitem', { name: /google maps/i });
+      fireEvent.click(googleItem);
+      expect(mockOnExportToMaps).toHaveBeenCalledWith('google');
+    });
 
-      expect(mockOnExportToMaps).toHaveBeenCalledTimes(1);
+    it('invokes onExportToMaps with "waze" when Waze is selected', () => {
+      const trip = createMockTrip({
+        id: 50,
+        wineries_count: 1,
+        wineries: [mockWinery1],
+      });
+      render(<TripCardSimple {...defaultProps} trip={trip} />);
+      const wazeItem = screen.getByRole('menuitem', { name: /waze/i });
+      fireEvent.click(wazeItem);
+      expect(mockOnExportToMaps).toHaveBeenCalledWith('waze');
+    });
+
+    it('does not permanently disable trigger after click', () => {
+      const trip = createMockTrip({
+        id: 50,
+        wineries_count: 1,
+        wineries: [mockWinery1],
+      });
+      render(<TripCardSimple {...defaultProps} trip={trip} />);
+      const trigger = screen.getByRole('button', { name: /trip navigation/i });
+      const appleItem = screen.getByRole('menuitem', { name: /apple maps/i });
+      fireEvent.click(appleItem);
+      expect(trigger).not.toBeDisabled();
     });
   });
 });

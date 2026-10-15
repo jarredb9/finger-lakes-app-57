@@ -8,6 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { NavigationProvider } from "@/lib/utils/trip-navigation";
 import { Calendar, Users, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Share2, Star, Wine, Loader2, Clock } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
@@ -35,7 +42,7 @@ interface TripCardProps {
   onSaveWineryNote: (wineryId: number, newNotes: string) => Promise<void>;
   onOpenShareDialog: (id: string, name: string) => void;
   onOpenWineryNoteEditor: (wineryDbId: number, notes: string, onSave: (id: number, notes: string) => Promise<void>) => void;
-  onExportToMaps: () => void;
+  onExportToMaps: (provider?: NavigationProvider) => void;
   // Search props
   searchResults: Winery[];
   isSearching: boolean;
@@ -454,26 +461,40 @@ const TripCard = memo(({
             </TooltipProvider>
           )}
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-8 px-2 text-xs"
-                  onClick={() => onExportToMaps()} 
-                  disabled={!tripWineries || tripWineries.length === 0}
-                  aria-label="Export to Google Maps"
-                >
-                  <Share2 size={14} className="mr-1.5" />
-                  Maps Export
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                  <p>Open in Google Maps</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          <DropdownMenu>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 px-2 text-xs"
+                      disabled={!tripWineries || tripWineries.length === 0}
+                      aria-label="Trip Navigation"
+                    >
+                      <Share2 size={14} className="mr-1.5" />
+                      Trip Navigation
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Trip Navigation</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => onExportToMaps('apple')}>
+                Apple Maps
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExportToMaps('google')}>
+                Google Maps
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onExportToMaps('waze')}>
+                Waze
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider" data-testid="trip-id-display">
