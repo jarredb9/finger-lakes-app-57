@@ -184,4 +184,34 @@ describe('useTripActions', () => {
       expect(window.open).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('saveTripMembers', () => {
+    it('successfully updates members and triggers success toast', async () => {
+      mockAddMembersToTrip.mockResolvedValueOnce(undefined);
+      const trip = createMockTrip({ id: 10 });
+      const { result } = renderHook(() => useTripActions(trip));
+
+      await act(async () => {
+        await result.current.saveTripMembers(['friend-1', 'friend-2']);
+      });
+
+      expect(mockAddMembersToTrip).toHaveBeenCalledWith('10', ['friend-1', 'friend-2']);
+      expect(mockToast).toHaveBeenCalledWith({ description: 'Trip members updated.' });
+    });
+
+    it('triggers error toast when addMembersToTrip fails', async () => {
+      mockAddMembersToTrip.mockRejectedValueOnce(new Error('DB failure'));
+      const trip = createMockTrip({ id: 10 });
+      const { result } = renderHook(() => useTripActions(trip));
+
+      await act(async () => {
+        await result.current.saveTripMembers(['friend-1']);
+      });
+
+      expect(mockToast).toHaveBeenCalledWith({
+        variant: 'destructive',
+        description: 'Failed to update members.',
+      });
+    });
+  });
 });

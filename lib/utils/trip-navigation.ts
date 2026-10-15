@@ -41,9 +41,14 @@ export function buildTripNavigationUrl(
   }
 
   if (provider === 'apple') {
-    const url = new URL('https://maps.apple.com/');
-    stops.forEach((stop) => {
-      url.searchParams.append('daddr', formatStopQuery(stop));
+    const url = new URL('https://maps.apple.com/directions');
+    url.searchParams.set('mode', 'driving');
+    const destination = formatStopQuery(stops[stops.length - 1]);
+    url.searchParams.set('destination', destination);
+
+    const intermediateStops = stops.slice(0, -1);
+    intermediateStops.forEach((stop) => {
+      url.searchParams.append('waypoint', formatStopQuery(stop));
     });
     return url.toString();
   }

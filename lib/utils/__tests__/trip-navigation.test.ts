@@ -82,21 +82,25 @@ describe('trip-navigation utility', () => {
     });
 
     describe('Apple Maps', () => {
-      it('builds single-stop url with daddr and no saddr parameter', () => {
+      it('builds single-stop url with destination and mode driving without waypoint or saddr', () => {
         const urlStr = buildTripNavigationUrl('apple', [mockStop1]);
         const url = new URL(urlStr);
 
-        expect(url.origin + url.pathname).toBe('https://maps.apple.com/');
-        expect(url.searchParams.get('daddr')).toBe('Dr. Konstantin Frank, 9749 Middle Rd, Hammondsport, NY');
+        expect(url.origin + url.pathname).toBe('https://maps.apple.com/directions');
+        expect(url.searchParams.get('mode')).toBe('driving');
+        expect(url.searchParams.get('destination')).toBe('Dr. Konstantin Frank, 9749 Middle Rd, Hammondsport, NY');
+        expect(url.searchParams.has('waypoint')).toBe(false);
         expect(url.searchParams.has('saddr')).toBe(false);
       });
 
-      it('chains daddr parameters for multi-stop navigation without saddr', () => {
-        const urlStr = buildTripNavigationUrl('apple', [mockStop1, mockStop2]);
+      it('builds multi-stop url setting last stop as destination and intermediate stops as waypoints', () => {
+        const urlStr = buildTripNavigationUrl('apple', [mockStop1, mockStop2, mockStop3]);
         const url = new URL(urlStr);
 
-        expect(url.origin + url.pathname).toBe('https://maps.apple.com/');
-        expect(url.searchParams.getAll('daddr')).toEqual([
+        expect(url.origin + url.pathname).toBe('https://maps.apple.com/directions');
+        expect(url.searchParams.get('mode')).toBe('driving');
+        expect(url.searchParams.get('destination')).toBe('Weis Vineyards, 10014 Day Rd, Hammondsport, NY');
+        expect(url.searchParams.getAll('waypoint')).toEqual([
           'Dr. Konstantin Frank, 9749 Middle Rd, Hammondsport, NY',
           'Ravines Wine Cellars, 400 Barracks Rd, Geneva, NY',
         ]);
