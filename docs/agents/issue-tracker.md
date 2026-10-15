@@ -35,7 +35,7 @@ Run `gh issue view <number> --comments`.
 
 ## Briefing Issues for Autonomous Resolution (`agent:resolve`)
 
-Autonomous issue resolution via `.github/workflows/agent-resolve.yml` (and the underlying `scripts/agent-resolve.py` harness) executes a 3-stage TDD pipeline (Architectural Planning -> Red Phase Tests -> Green Phase Implementation). To maximize first-pass success and eliminate hallucinations, maintainers should pre-triage and brief incoming issues using the structured fields in `.github/ISSUE_TEMPLATE/bug_report.yml`:
+Autonomous issue resolution via `.github/workflows/agent-resolve.yml` (and the underlying `scripts/agent-resolve/agent-resolve.py` harness) executes a 3-stage TDD pipeline (Architectural Planning -> Red Phase Tests -> Green Phase Implementation). To maximize first-pass success and eliminate hallucinations, maintainers should pre-triage and brief incoming issues using the structured fields in `.github/ISSUE_TEMPLATE/bug_report.yml`:
 
 ### Structured Pre-Triage Fields
 

@@ -87,7 +87,7 @@ Priority Tiers: **P0** (Score ≥ 8.0 or Severity = 5) | **P1** (Score 5.0 - 7.9
 | **ST-04** | **P0** | **8.0** | [`lib/stores/tripStore.ts#L1152-L1174`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/tripStore.ts#L1152-L1174) | Relational ID Normalization Failure (`number` vs `string`) & Raw `===` Checks | 4 | 4 | 2 |
 | **QA-04** | **P0** | **8.0** | [`e2e/helpers.ts#L754-L800`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/helpers.ts#L754-L800) | Test Assertion Side-Effects Mutating Store State During Assertion Retries | 4 | 4 | 2 |
 | **QA-06** | **P0** | **8.0** | [`jest.setup.ts#L98-L163`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/jest.setup.ts#L98-L163), [`lib/stores/syncStore.ts#L23-L53`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/syncStore.ts#L23-L53) | Shared Mutable Global Mocks Leaking Across Test Suites | 4 | 4 | 2 |
-| **QA-07** | **P0** | **8.0** | [`scripts/run-e2e-container.sh#L109-L119`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/scripts/run-e2e-container.sh#L109-L119) | Container Runner Host Contamination, SELinux Conflict & Inflexible Argument Parsing | 4 | 4 | 2 |
+| **QA-07** | **P0** | **8.0** | [`scripts/containers/run-e2e-container.sh#L109-L119`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/scripts/containers/run-e2e-container.sh#L109-L119) | Container Runner Host Contamination, SELinux Conflict & Inflexible Argument Parsing | 4 | 4 | 2 |
 | **QA-01** | **P0** | **6.25** | [`e2e/utils.ts#L115-L1553`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/utils.ts#L115-L1553), [`e2e/helpers.ts#L1-L1063`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/helpers.ts#L1-L1063) | Monolithic E2E Helper Bloat (~123 KB) Emulating Backend in JS | 5 | 5 | 4 |
 | **BE-15** | **P1** | **6.0** | [`supabase/migrations/20260608172722_add_idempotency_keys.sql#L2-L3`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/supabase/migrations/20260608172722_add_idempotency_keys.sql#L2-L3) | Non-Idempotent DDL Syntax in Database Migrations (`ADD COLUMN` without `IF NOT EXISTS`) | 2 | 3 | 1 |
 | **FE-02** | **P1** | **6.0** | [`package.json#L46-L70`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/package.json#L46-L70) | 10 Unused Radix UI Primitive Packages Bundled in Dependencies | 2 | 3 | 1 |
@@ -605,13 +605,13 @@ Priority Tiers: **P0** (Score ≥ 8.0 or Severity = 5) | **P1** (Score 5.0 - 7.9
 ### Issue [QA-07]: Container Runner Host Contamination, SELinux Conflict & Inflexible Argument Parsing
 - **Priority**: P0 (Score: 8.0)
 - **Labels**: `tech-debt`, `priority:p0`, `testing`, `podman`, `devops`
-- **Location**: [`scripts/run-e2e-container.sh#L109-L119`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/scripts/run-e2e-container.sh#L109-L119), [`scripts/run-e2e-container.sh#L146-L177`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/scripts/run-e2e-container.sh#L146-L177)
+- **Location**: [`scripts/containers/run-e2e-container.sh#L109-L119`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/scripts/containers/run-e2e-container.sh#L109-L119), [`scripts/containers/run-e2e-container.sh#L146-L177`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/scripts/containers/run-e2e-container.sh#L146-L177)
 - **Description**: The script mounts the host repository into a Podman container and runs `npm install` inside the container, overwriting host `node_modules` with Linux binaries. It also combines `:Z` with `--security-opt label=disable` and fails when test file arguments are provided first.
 - **Architectural Impact**: Corrupts developer host `node_modules` (causing native module mismatches with `sharp`) and causes container launch errors on positional arguments.
 - **Proposed Remediation**: Use an anonymous container volume for `node_modules` (`-v /work/node_modules`) and enhance argument parsing to detect spec file paths.
 - **Acceptance Criteria**:
   - [ ] Running container script does not modify host `node_modules`.
-  - [ ] Passing spec file path directly (`./scripts/run-e2e-container.sh e2e/trip-flow.spec.ts`) works seamlessly.
+  - [ ] Passing spec file path directly (`./scripts/containers/run-e2e-container.sh e2e/trip-flow.spec.ts`) works seamlessly.
 
 ---
 

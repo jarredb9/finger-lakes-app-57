@@ -9,18 +9,18 @@
     - [x] Test Standalone Mode via W3C matchMedia signal (`window.matchMedia('(display-mode: standalone)').matches = true`)
     - [x] Test Standalone Mode via Android referrer signal (`document.referrer.includes('android-app://')`)
     - [x] Assert `isInstallable: false` when `isStandalone: true` even if `beforeinstallprompt` is fired (fails against unhardened `usePwa`)
-    - [x] Verify failing tests via `./scripts/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
+    - [x] Verify failing tests via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
 - [ ] Task: Implement `usePwa` hook hardening and standalone invariant (TDD Green phase)
     - [ ] Update `hooks/use-pwa.ts` to enforce boolean casting on `isStandalone`
     - [ ] Enforce invariant `isInstallable: !isStandalone && !!installPrompt`
-    - [ ] Verify test suite passes via `./scripts/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
+    - [ ] Verify test suite passes via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-pwa.test.ts`
 - [ ] Task: Write failing component tests for `PwaHandler` and `UserNav` standalone suppression (TDD Red phase)
     - [ ] Add test in `components/__tests__/PwaHandler.test.tsx` asserting install banner/card is suppressed (`null`) when `isStandalone: true` (fails against current component)
     - [ ] Add test in `components/nav/__tests__/user-nav.test.tsx` asserting `"Install App"` / `"Add to Home Screen"` item is hidden when `isStandalone: true`
-    - [ ] Verify failing tests via `./scripts/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
+    - [ ] Verify failing tests via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
 - [ ] Task: Implement `PwaHandler` standalone guard (TDD Green phase)
     - [ ] Update `components/pwa-handler.tsx` to guard `if (!isInstallable || isStandalone || isDismissed) return null;`
-    - [ ] Verify both component test suites pass via `./scripts/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
+    - [ ] Verify both component test suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Unit & Component Test Matrix' (Protocol in workflow.md)
 
 ## Phase 2: Domain Refactoring & Compatibility Seam
@@ -28,17 +28,17 @@
 - [ ] Task: Write failing tests for canonical `handleTripNavigation` in `useTripActions` (TDD Red phase)
     - [ ] Update `hooks/__tests__/use-trip-actions.test.ts` asserting synchronous dispatch of canonical `handleTripNavigation` for Apple Maps, Google Maps, and Waze (fails against current hook)
     - [ ] Assert `@deprecated handleExportToMaps` alias delegates directly to `handleTripNavigation`
-    - [ ] Verify failing tests via `./scripts/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
+    - [ ] Verify failing tests via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
 - [ ] Task: Implement canonical `handleTripNavigation` in `useTripActions` (TDD Green phase)
     - [ ] Export `handleTripNavigation` and provide `handleExportToMaps` as `@deprecated` alias in `hooks/use-trip-actions.ts`
-    - [ ] Verify test suite passes via `./scripts/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
+    - [ ] Verify test suite passes via `./scripts/containers/run-jest-container.sh hooks/__tests__/use-trip-actions.test.ts`
 - [ ] Task: Write failing component tests for TripCard `onNavigateTrip` delegation (TDD Red phase)
     - [ ] Update `components/__tests__/trip-card-simple.test.tsx` asserting delegation to `onNavigateTrip` while maintaining backwards compatibility for `onExportToMaps` (fails against current containers)
-    - [ ] Verify failing tests via `./scripts/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
+    - [ ] Verify failing tests via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
 - [ ] Task: Implement `onNavigateTrip` in TripCard containers and presentational components (TDD Green phase)
     - [ ] Update `components/trip-card.tsx` and `components/trip-card-simple.tsx` to bind `onNavigateTrip` and `onExportToMaps`
     - [ ] Update `components/TripCardPresentational.tsx` and `components/TripCardSimplePresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps`
-    - [ ] Verify container and presentational suites pass via `./scripts/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
+    - [ ] Verify container and presentational suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/trip-card-simple.test.tsx`
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Domain Refactoring & Compatibility Seam' (Protocol in workflow.md)
 
 ## Phase 3: Playwright Standalone Fixture & E2E Verification
@@ -51,10 +51,10 @@
     - [ ] Pre-seed mock trip with winery stops in `mockMaps.state.trips` to ensure navigation button is enabled
     - [ ] Assert Apple Maps, Google Maps, and Waze dispatches under `Mobile Safari` trigger `page.waitForEvent('popup')`
     - [ ] Assert popup URL query parameters and verify WebKit transient user gesture preservation without popup blocking
-    - [ ] Verify via `./scripts/run-e2e-container.sh mobile-safari e2e/trip-navigation-pwa.spec.ts`
+    - [ ] Verify via `./scripts/containers/run-e2e-container.sh mobile-safari e2e/trip-navigation-pwa.spec.ts`
 - [ ] Task: Update `e2e/pwa-install-layout.spec.ts` for Standalone Mode suppression
     - [ ] Add standalone assertions using `enableStandaloneMode(page)` verifying install bar/card are never rendered
-    - [ ] Verify via `./scripts/run-e2e-container.sh mobile-safari e2e/pwa-install-layout.spec.ts`
+    - [ ] Verify via `./scripts/containers/run-e2e-container.sh mobile-safari e2e/pwa-install-layout.spec.ts`
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Playwright Standalone Fixture & E2E Verification' (Protocol in workflow.md)
 
 ## Phase 4: Full Quality Gates & Regression Verification
@@ -62,6 +62,6 @@
 - [ ] Task: Run full containerized test suites, type checking, and linting
     - [ ] Run `npm run type-check`
     - [ ] Run `npm run lint`
-    - [ ] Run full unit test suite `./scripts/run-jest-container.sh`
-    - [ ] Run Mobile Safari E2E tests `./scripts/run-e2e-container.sh mobile-safari`
+    - [ ] Run full unit test suite `./scripts/containers/run-jest-container.sh`
+    - [ ] Run Mobile Safari E2E tests `./scripts/containers/run-e2e-container.sh mobile-safari`
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Full Quality Gates & Regression Verification' (Protocol in workflow.md)

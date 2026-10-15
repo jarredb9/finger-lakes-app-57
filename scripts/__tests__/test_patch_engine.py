@@ -12,7 +12,9 @@ import importlib.util
 
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
 # Load agent-resolve.py dynamically because of hyphen in filename
-script_path = SCRIPTS_DIR / "agent-resolve.py"
+script_path = SCRIPTS_DIR / "agent-resolve" / "agent-resolve.py"
+if not script_path.exists():
+    script_path = SCRIPTS_DIR / "agent-resolve.py"
 spec = importlib.util.spec_from_file_location("agent_resolve", script_path)
 agent_resolve = importlib.util.module_from_spec(spec)
 sys.modules["agent_resolve"] = agent_resolve
@@ -435,7 +437,7 @@ FAIL lib/utils/__tests__/map-navigation.test.ts
 
             # 2. grep_search
             res_grep = agent_resolve.grep_search("Autonomous Issue Resolver", "scripts/")
-            self.assertIn("scripts/agent-resolve.py", res_grep)
+            self.assertIn("scripts/agent-resolve/agent-resolve.py", res_grep)
 
             # 3. read_file_snippet
             res_snippet = agent_resolve.read_file_snippet("package.json", 1, 10)

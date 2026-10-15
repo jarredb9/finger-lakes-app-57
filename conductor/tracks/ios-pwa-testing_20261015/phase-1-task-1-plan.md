@@ -48,7 +48,7 @@ This test suite deliberately fails against the unhardened implementation of `hoo
    - All alterations to `window.navigator`, `window.matchMedia`, `document.referrer`, and `window` event listeners must be cleanly configured in `beforeEach` and restored in `afterEach` to prevent test bleed across other suites.
    - `usePWAUpdate` must be mocked to isolate `usePwa` from service worker lifecycle dependencies.
 5. **Containerized Execution Mandate (`AGENTS.md` Section 3):**
-   - Unit tests must be executed via `./scripts/run-jest-container.sh` with `BypassSandbox: true` due to host glibc incompatibility.
+   - Unit tests must be executed via `./scripts/containers/run-jest-container.sh` with `BypassSandbox: true` due to host glibc incompatibility.
 
 ---
 
@@ -166,7 +166,7 @@ export interface MockUsePwaUpdateReturn {
 Per `AGENTS.md` and repository standards, execute Jest tests via the Podman container runner with `BypassSandbox: true`:
 
 ```bash
-./scripts/run-jest-container.sh hooks/__tests__/use-pwa.test.ts
+./scripts/containers/run-jest-container.sh hooks/__tests__/use-pwa.test.ts
 ```
 
 ### Expected Red Phase Execution Result

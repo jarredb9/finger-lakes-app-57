@@ -1,1 +1,0 @@
-containers/run-jest-container.sh

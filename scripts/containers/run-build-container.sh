@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# scripts/run-build-container.sh
+# scripts/containers/run-build-container.sh
 # Purpose: Run Next.js production build inside container (Ubuntu 24.04 / glibc 2.39) on RHEL 8 to bypass glibc < 2.29 SWC limitations.
 
 set -e
