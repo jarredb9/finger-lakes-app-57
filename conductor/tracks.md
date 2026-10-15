@@ -33,13 +33,8 @@
 | **winery-hours-resilience_20260930** | Winery Operational Hours Resilience & PWA Hydration (Issue #56) | [x] Archived | [Plan](./archive/winery-hours-resilience_20260930/plan.md) |
 | **initial-trip-creation-wineries_20261002** | Initial Trip Creation Winery Persistence & Store Synchronization (Issue #57) | [x] Archived | [Plan](./archive/initial-trip-creation-wineries_20261002/plan.md) |
 | **explore-enrichment-sync_20261006** | ExploreTabContent Data Pipeline Desynchronization & Missing Winery Enrichment (Issue #44) | [x] Archived | [Plan](./archive/explore-enrichment-sync_20261006/plan.md) |
-| **ios-pwa-testing_20261015** | Automated iOS PWA Standalone Testing Matrix & Domain Refactoring (Issue #71) | [ ] In Progress | [Plan](./tracks/ios-pwa-testing_20261015/plan.md) |
+| **ios-pwa-testing_20261015** | Automated iOS PWA Standalone Testing Matrix & Domain Refactoring (Issue #71) | [x] Archived | [Plan](./archive/ios-pwa-testing_20261015/plan.md) |
 | **agent-resolve-decomposition_20261015** | Decompose monolithic agent-resolve.py into a modular Python package | [ ] New | [Plan](./tracks/agent-resolve-decomposition_20261015/plan.md) |
-
----
-
-- [ ] **Track: Automated iOS PWA Standalone Testing Matrix & Domain Refactoring**
-*Link: [./tracks/ios-pwa-testing_20261015/](./tracks/ios-pwa-testing_20261015/)*
 
 ---
 
