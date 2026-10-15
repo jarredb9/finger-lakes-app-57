@@ -32,6 +32,10 @@ _Avoid_: Visit, waypoint, destination, trip winery
 The action of launching an external turn-by-turn navigation application to guide a user along a Trip's sequence of planned Trip Stops.
 _Avoid_: Maps export, trip export, GPS export, route export
 
+**Navigation Provider**:
+An external turn-by-turn navigation mapping service (such as Apple Maps, Google Maps, or Waze) selected by the user to route a Trip.
+_Avoid_: Map provider, routing service, export target
+
 **Visitor**:
 The user who authored and logged a Visit.
 _Avoid_: Attendee, participant, customer
@@ -97,3 +101,14 @@ _Avoid_: Operating hours, business hours, schedule
 **Operational Status**:
 The real-time determination (Open, Closed, or Hours Unavailable) of whether a Winery is currently admitting visitors based on its Operational Hours.
 _Avoid_: Open/closed tag, business state, venue status
+
+## Client Environment
+
+**Standalone Mode**:
+The runtime display mode where the application runs as an installed client without browser navigation chrome, launched from an operating system surface or home screen shortcut.
+_Avoid_: PWA mode, app mode, webclip mode, offline shell
+
+**Browser Mode**:
+The runtime display mode where the application runs within a standard web browser window containing address bar and browser navigation controls.
+_Avoid_: Web mode, tab mode, normal mode
+
