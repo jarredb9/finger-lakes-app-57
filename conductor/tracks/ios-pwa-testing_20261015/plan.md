@@ -18,9 +18,9 @@
     - [x] Add test in `components/__tests__/PwaHandler.test.tsx` asserting install banner/card is suppressed (`null`) when `isStandalone: true` (fails against current component)
     - [x] Add test in `components/nav/__tests__/user-nav.test.tsx` asserting `"Install App"` / `"Add to Home Screen"` item is hidden when `isStandalone: true`
     - [x] Verify failing tests via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
-- [ ] Task: Implement `PwaHandler` standalone guard (TDD Green phase)
-    - [ ] Update `components/pwa-handler.tsx` to guard `if (!isInstallable || isStandalone || isDismissed) return null;`
-    - [ ] Verify both component test suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
+- [x] Task: Implement `PwaHandler` standalone guard (TDD Green phase) [commit: a068797a]
+    - [x] Update `components/pwa-handler.tsx` to guard `if (!isInstallable || isStandalone || isDismissed) return null;`
+    - [x] Verify both component test suites pass via `./scripts/containers/run-jest-container.sh components/__tests__/PwaHandler.test.tsx components/nav/__tests__/user-nav.test.tsx`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Unit & Component Test Matrix' (Protocol in workflow.md)
 
 ## Phase 2: Domain Refactoring & Compatibility Seam
