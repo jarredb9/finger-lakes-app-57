@@ -1,4 +1,4 @@
-import { test, expect } from './utils';
+import { test, expect, enableStandaloneMode } from './utils';
 import { clearServiceWorkers } from './helpers';
 
 test.describe('PWA Install & Cookie Consent Layout', () => {
@@ -46,6 +46,38 @@ test.describe('PWA Install & Cookie Consent Layout', () => {
     }, { message: 'Mobile PWA bar and Cookie Consent must occupy top and bottom without overlap', timeout: 5000 }).toBe(true);
   });
 
+  test('Mobile: Standalone Mode suppresses Install Bar even when beforeinstallprompt fires', async ({ page }) => {
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 1024;
+    test.skip(!isMobile, 'Mobile/Tablet (< 1024px) viewports only');
+
+    await enableStandaloneMode(page);
+
+    await page.goto('/login?pwa=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    const isStandaloneNavigator = await page.evaluate(
+      () => (window.navigator as unknown as { standalone?: boolean }).standalone
+    );
+    expect(isStandaloneNavigator).toBe(true);
+
+    const isStandaloneDisplayMode = await page.evaluate(
+      () => window.matchMedia('(display-mode: standalone)').matches
+    );
+    expect(isStandaloneDisplayMode).toBe(true);
+
+    const cookieConsent = page.locator('aside[aria-label="Cookie consent"]');
+    await expect(cookieConsent).toBeVisible({ timeout: 10000 });
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
+    });
+
+    const installBar = page.getByTestId('mobile-pwa-install-bar');
+    const installCard = page.getByTestId('desktop-pwa-install-card');
+    await expect(installBar).not.toBeVisible();
+    await expect(installCard).not.toBeVisible();
+  });
+
   test('Desktop/Tablet: Install Card at Bottom-Left and Cookie Notice at Bottom-Right with No Overlap', async ({ page }) => {
     const isMobile = (page.viewportSize()?.width ?? 1280) < 1024;
     test.skip(isMobile, 'Desktop (>= 1024px) viewports only');
@@ -86,6 +118,38 @@ test.describe('PWA Install & Cookie Consent Layout', () => {
 
       return cardInBottomLeft && cookieInBottomRight && noOverlap;
     }, { message: 'Desktop PWA card and Cookie Notice must occupy separate bottom quadrants without overlap', timeout: 5000 }).toBe(true);
+  });
+
+  test('Desktop/Tablet: Standalone Mode suppresses Install Card even when beforeinstallprompt fires', async ({ page }) => {
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 1024;
+    test.skip(isMobile, 'Desktop (>= 1024px) viewports only');
+
+    await enableStandaloneMode(page);
+
+    await page.goto('/login?pwa=true');
+    await page.waitForLoadState('domcontentloaded');
+
+    const isStandaloneNavigator = await page.evaluate(
+      () => (window.navigator as unknown as { standalone?: boolean }).standalone
+    );
+    expect(isStandaloneNavigator).toBe(true);
+
+    const isStandaloneDisplayMode = await page.evaluate(
+      () => window.matchMedia('(display-mode: standalone)').matches
+    );
+    expect(isStandaloneDisplayMode).toBe(true);
+
+    const cookieConsent = page.locator('aside[aria-label="Cookie consent"]');
+    await expect(cookieConsent).toBeVisible({ timeout: 10000 });
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
+    });
+
+    const installCard = page.getByTestId('desktop-pwa-install-card');
+    const installBar = page.getByTestId('mobile-pwa-install-bar');
+    await expect(installCard).not.toBeVisible();
+    await expect(installBar).not.toBeVisible();
   });
 
 });
