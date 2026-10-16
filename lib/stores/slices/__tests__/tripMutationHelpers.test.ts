@@ -1,6 +1,7 @@
 import { act } from '@testing-library/react';
 import { createMockTrip, createMockWinery } from '@/lib/test-utils/fixtures';
 import { Trip, GooglePlaceId, WineryDbId } from '@/lib/types';
+import { getTodayLocal } from '@/lib/utils';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { createTripHelper } from '../tripMutationHelpers';
 import { enqueueIfOffline, handleSyncError } from '@/lib/stores/sync-utils';
@@ -90,10 +91,11 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
 
   describe('createTripHelper optimistic rollback on permanent server error (FM-6.4)', () => {
     it('completely rolls back and removes temporary trip (tempId < 0) from all store collections when server returns permanent 400 error', async () => {
+      const today = getTodayLocal();
       const existingTrip = createMockTrip({
         id: 100,
         name: 'Existing Established Trip',
-        trip_date: '2026-10-01',
+        trip_date: today,
       });
 
       // Set initial store state
@@ -113,7 +115,7 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
 
       const newTripInput: Partial<Trip> = {
         name: 'Temporary Optimistic Trip',
-        trip_date: '2026-10-01',
+        trip_date: today,
         user_id: 'test-user-1',
         wineries: [],
       };
@@ -459,13 +461,14 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
 
   describe('createTripHelper error rollback & offline enqueue suppression', () => {
     it('bypasses handleSyncError and performs immediate optimistic rollback when error has preventOfflineEnqueue: true', async () => {
+      const today = getTodayLocal();
       const get = useTripStore.getState;
       const set = useTripStore.setState;
 
       const existingTrip = createMockTrip({
         id: 100,
         name: 'Existing Established Trip',
-        trip_date: '2026-10-01',
+        trip_date: today,
       });
 
       useTripStore.setState({
@@ -485,7 +488,7 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
 
       const newTripInput: Partial<Trip> = {
         name: 'Multi-Stop Rollback Trip',
-        trip_date: '2026-10-01',
+        trip_date: today,
         user_id: 'test-user-1',
         wineries: [
           createMockWinery({ id: 'place_1' as GooglePlaceId, dbId: 101 as WineryDbId }),
@@ -514,6 +517,7 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
     });
 
     it('delegates to handleSyncError when error does NOT have preventOfflineEnqueue', async () => {
+      const today = getTodayLocal();
       const get = useTripStore.getState;
       const set = useTripStore.setState;
 
@@ -523,7 +527,7 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
 
       const newTripInput: Partial<Trip> = {
         name: 'Offline Queued Trip',
-        trip_date: '2026-10-01',
+        trip_date: today,
         user_id: 'test-user-1',
         wineries: [],
       };
