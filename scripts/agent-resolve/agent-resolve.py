@@ -50,7 +50,11 @@ def log(msg: str, file=None) -> None:
 
 from pydantic import BaseModel, Field
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# Project root resolution (supports execution from scripts/ or scripts/agent-resolve/)
+if (Path(__file__).resolve().parents[1] / "package.json").exists():
+    PROJECT_ROOT = Path(__file__).resolve().parents[1]
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Canonical model configuration with strict hard-stop (no fallback downgrades)
 DEFAULT_PLANNER_MODELS = [
@@ -324,6 +328,7 @@ def safe_resolve_repo_path(rel_path_str: str) -> Path:
         ".git",
         ".github/workflows",
         "scripts/agent-resolve.py",
+        "scripts/agent-resolve",
         "supabase/migrations",
     ]
     for prot in protected:

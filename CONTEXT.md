@@ -105,7 +105,7 @@ _Avoid_: Open/closed tag, business state, venue status
 ## Client Environment
 
 **Standalone Mode**:
-The runtime display mode where the application runs as an installed client without browser navigation chrome, launched from an operating system surface or home screen shortcut.
+The runtime display mode where the application runs as an installed client without browser navigation chrome, launched from an operating system surface or home screen shortcut (detected across platforms via standalone runtime signals, display-mode media queries, or native app referrers).
 _Avoid_: PWA mode, app mode, webclip mode, offline shell
 
 **Browser Mode**:

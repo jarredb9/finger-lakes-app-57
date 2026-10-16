@@ -72,13 +72,146 @@ describe('useTripActions', () => {
     expect(mockFetchFriends).toHaveBeenCalledTimes(1);
   });
 
-  describe('handleExportToMaps', () => {
+  describe('handleTripNavigation (canonical)', () => {
+    it('exposes canonical handleTripNavigation as a function', () => {
+      const trip = createMockTrip({ id: 1 });
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current;
+
+      expect(typeof actions.handleTripNavigation).toBe('function');
+    });
+
+    it('returns early and does not open a window if trip.wineries is undefined or empty', () => {
+      const tripEmpty = createMockTrip({ id: 1, wineries: [] });
+      const { result } = renderHook(() => useTripActions(tripEmpty));
+      const actions = result.current;
+
+      act(() => {
+        actions.handleTripNavigation('google');
+      });
+
+      expect(window.open).not.toHaveBeenCalled();
+    });
+
+    it('synchronously launches Google Maps by default without calling navigator.geolocation', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1, mockWinery2],
+      });
+
+      const mockGetCurrentPosition = jest.fn();
+      Object.defineProperty(navigator, 'geolocation', {
+        value: { getCurrentPosition: mockGetCurrentPosition },
+        configurable: true,
+        writable: true,
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current;
+
+      act(() => {
+        actions.handleTripNavigation();
+      });
+
+      expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+      expect(window.open).toHaveBeenCalledWith(
+        expect.stringContaining('google.com/maps/dir/'),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('synchronously launches Apple Maps when provider is "apple"', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1, mockWinery2],
+      });
+
+      const mockGetCurrentPosition = jest.fn();
+      Object.defineProperty(navigator, 'geolocation', {
+        value: { getCurrentPosition: mockGetCurrentPosition },
+        configurable: true,
+        writable: true,
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current;
+
+      act(() => {
+        actions.handleTripNavigation('apple');
+      });
+
+      expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+      expect(window.open).toHaveBeenCalledWith(
+        expect.stringContaining('maps.apple.com'),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('synchronously launches Waze when provider is "waze"', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1, mockWinery2],
+      });
+
+      const mockGetCurrentPosition = jest.fn();
+      Object.defineProperty(navigator, 'geolocation', {
+        value: { getCurrentPosition: mockGetCurrentPosition },
+        configurable: true,
+        writable: true,
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current;
+
+      act(() => {
+        actions.handleTripNavigation('waze');
+      });
+
+      expect(mockGetCurrentPosition).not.toHaveBeenCalled();
+      expect(window.open).toHaveBeenCalledWith(
+        expect.stringContaining('waze.com/ul'),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    it('does not leave any loading or disabled locks after sequential launches', () => {
+      const trip = createMockTrip({
+        id: 1,
+        wineries: [mockWinery1],
+      });
+
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current;
+
+      act(() => {
+        actions.handleTripNavigation('google');
+      });
+
+      act(() => {
+        actions.handleTripNavigation('apple');
+      });
+
+      expect(window.open).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('handleExportToMaps (@deprecated alias)', () => {
+    it('maintains @deprecated handleExportToMaps alias delegating directly to handleTripNavigation', () => {
+      const trip = createMockTrip({ id: 1 });
+      const { result } = renderHook(() => useTripActions(trip));
+      const actions = result.current;
+
+      expect(actions.handleExportToMaps).toBe(actions.handleTripNavigation);
+    });
     it('returns early and does not open a window if trip.wineries is undefined or empty', () => {
       const tripEmpty = createMockTrip({ id: 1, wineries: [] });
       const { result } = renderHook(() => useTripActions(tripEmpty));
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)();
+        result.current.handleExportToMaps();
       });
 
       expect(window.open).not.toHaveBeenCalled();
@@ -127,7 +260,7 @@ describe('useTripActions', () => {
       const { result } = renderHook(() => useTripActions(trip));
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('apple');
+        result.current.handleExportToMaps('apple');
       });
 
       expect(mockGetCurrentPosition).not.toHaveBeenCalled();
@@ -154,7 +287,7 @@ describe('useTripActions', () => {
       const { result } = renderHook(() => useTripActions(trip));
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('waze');
+        result.current.handleExportToMaps('waze');
       });
 
       expect(mockGetCurrentPosition).not.toHaveBeenCalled();
@@ -174,11 +307,11 @@ describe('useTripActions', () => {
       const { result } = renderHook(() => useTripActions(trip));
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('google');
+        result.current.handleExportToMaps('google');
       });
 
       act(() => {
-        (result.current.handleExportToMaps as (provider?: NavigationProvider) => void)('apple');
+        result.current.handleExportToMaps('apple');
       });
 
       expect(window.open).toHaveBeenCalledTimes(2);

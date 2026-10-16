@@ -8,7 +8,7 @@ import { Download, RefreshCw, X, Smartphone } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
 export function PwaHandler() {
-  const { isInstallable, installApp, isUpdateAvailable, updateApp } = usePwa();
+  const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
   const { toast, dismiss: dismissToast } = useToast();
   const [isDismissed, setIsDismissed] = useState(false);
 
@@ -59,7 +59,7 @@ export function PwaHandler() {
     }
   }, [isUpdateAvailable, toast, updateApp, dismissToast]);
 
-  if (!isInstallable || isDismissed) return null;
+  if (!isInstallable || isStandalone || isDismissed) return null;
 
   return (
     <>
@@ -111,6 +111,7 @@ export function PwaHandler() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Dismiss"
               className="h-6 w-6 rounded-full opacity-70 hover:opacity-100"
               onClick={() => setIsDismissed(true)}
             >

@@ -73,7 +73,7 @@ For asynchronous database actions (Log Visit, Edit Trip, etc.), simply clicking 
 
 ### 11. Local Stack Verification (Tier 3)
 When moving from mocks (Tier 2) to Real Data verification (Tier 3), you MUST use the **Local Supabase Stack**.
-- **Standard:** Use `./scripts/run-e2e-container.sh --build all ...` to ensure the container build picks up local environment variables.
+- **Standard:** Use `./scripts/containers/run-e2e-container.sh --build all ...` to ensure the container build picks up local environment variables.
 - **Verification:** Monitor diagnostic logs for `[NETWORK-REQ]` to confirm the URL is `http://127.0.0.1:54321`.
 - **Targeting Rule:** 
     - **Local:** Targets local Supabase (`127.0.0.1:54321`).

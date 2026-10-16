@@ -1,6 +1,6 @@
 # Autonomous Nightly Agent Workflow
 
-Triaged GitHub issues can be resolved overnight using an autonomous multi-stage agent pipeline (`.github/workflows/agent-resolve.yml` and `scripts/agent-resolve.py`) triggered at 20:00 EST (00:00 UTC) or on-demand via `workflow_dispatch`.
+Triaged GitHub issues can be resolved overnight using an autonomous multi-stage agent pipeline (`.github/workflows/agent-resolve.yml` and `scripts/agent-resolve/agent-resolve.py`) triggered at 20:00 EST (00:00 UTC) or on-demand via `workflow_dispatch`.
 
 To ensure safety on a public repository, control token consumption against Gemini API quotas, and enforce the repository's strict TDD invariants, the workflow adheres to the following principles:
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# scripts/run-jest-container.sh
+# scripts/containers/run-jest-container.sh
 # Purpose: Run Jest tests in a container (Rootless) on RHEL 8 to bypass glibc < 2.29 SWC limitations.
 
 set -e

@@ -66,11 +66,11 @@ Return a structured markdown table with: ID, File:Line, Issue Description, Root 
 
 ---
 #### Subagent 4: Test Infrastructure & Reliability Specialist (Jest & Playwright)
-"READ-ONLY AUDIT: Do not modify any code. Audit `e2e/`, `lib/__tests__/`, `jest.config.mjs`, `jest.setup.ts`, and `scripts/run-e2e-container.sh`:
+"READ-ONLY AUDIT: Do not modify any code. Audit `e2e/`, `lib/__tests__/`, `jest.config.mjs`, `jest.setup.ts`, and `scripts/containers/run-e2e-container.sh`:
 1. Test Helper Bloat: Review `e2e/utils.ts` (~80 KB) and `e2e/helpers.ts` (~43 KB). Identify duplicated mocks, dead fixtures, and brittle abstraction layers.
 2. DOM Stability & Best Practices: Check that tests verify the DOM stability contract (`data-state="loading|error|ready"`) on `map-container` and `trip-list-container`. Eliminate arbitrary sleeps (`page.waitForTimeout`) in favor of web-first assertions.
 3. Jest 30 & Node 24: Audit mock hygiene in `jest.setup.ts` to ensure Supabase/Mapbox mocks do not leak across test suites or cause jsdom memory leaks.
-4. Container Runner: Evaluate `scripts/run-e2e-container.sh` Podman volume mounts, SELinux flags (`:Z`), and parity with CI runs.
+4. Container Runner: Evaluate `scripts/containers/run-e2e-container.sh` Podman volume mounts, SELinux flags (`:Z`), and parity with CI runs.
 5. Coverage Gaps: Identify critical untested user paths (offline sync recovery, itinerary reordering).
 Return a structured markdown table with: ID, File:Line, Issue Description, Root Cause, Severity (1-5), Blast Radius (1-5), Effort (1-5)."
 

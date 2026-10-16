@@ -7,6 +7,7 @@ import { AuthFixtureManager, createTestUser, deleteTestUser } from './auth.fixtu
 import { TripsFixtureManager } from './trips.fixture';
 import { MockMapsState, createDefaultMockState, TestUser } from './types';
 import { MapMarkerRpc } from '@/lib/types';
+import { enableStandaloneMode } from './shims/browser.shim';
 
 /**
  * Composite Mock Manager coordinating modular route fixtures.
@@ -182,6 +183,7 @@ export const test = base.extend<{
   mockMaps: CompositeMockMapsManager;
   user: TestUser;
   user2: TestUser;
+  standalonePage: Page;
 }>({
   baseURL: async ({}, use) => {
     await use('http://127.0.0.1:3001');
@@ -223,6 +225,11 @@ export const test = base.extend<{
     const testUser = await createTestUser();
     await use(testUser);
     await deleteTestUser(testUser.id);
+  },
+
+  standalonePage: async ({ page }, use) => {
+    await enableStandaloneMode(page);
+    await use(page);
   }
 });
 
@@ -241,6 +248,7 @@ export { SocialHandler } from './handlers/social.handler';
 export { FavoritesHandler } from './handlers/favorites.handler';
 export { PlacesHandler } from './handlers/places.handler';
 export { AssetsHandler } from './handlers/assets.handler';
+export { enableStandaloneMode } from './shims/browser.shim';
 export * from './types';
 
 /** @deprecated Use mockMaps fixture */

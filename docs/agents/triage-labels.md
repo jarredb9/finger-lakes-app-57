@@ -30,7 +30,7 @@ Not all agent-eligible issues are suited for headless overnight execution. Durin
 
 | Dimension | Autonomous Overnight Batch (`agent:resolve`) | Interactive Antigravity CLI (`ready-for-agent` alone) |
 | :--- | :--- | :--- |
-| **Execution Mode** | Headless AFK overnight runner (`scripts/agent-resolve.py`). | Interactive pair programming via Antigravity CLI (`agy`). |
+| **Execution Mode** | Headless AFK overnight runner (`scripts/agent-resolve/agent-resolve.py`). | Interactive pair programming via Antigravity CLI (`agy`). |
 | **Blast Radius** | Low: $\le 2$ tightly-coupled files (e.g. 1 util + 1 test). | Wide: $> 2$ files spanning components, containers, stores, or hooks. |
 | **Domain Scope** | Pure algorithmic logic, data formatters, coordinate math, store reducers, database RPCs. | Interactive UI components, modal flows, navigation trees, Radix primitives. |
 | **UI & Interactions** | Headless / data-only (no button, menu, gesture, or layout changes). | Component redesigns, event handlers, dropdowns, dialogs, gestures. |

@@ -6,17 +6,17 @@ Generates optimized Planner and Executor prompts for Conductor tracks,
 implementing zero-amnesia mode, strict TDD separation, and token-efficient gates.
 
 Usage:
-    python3 scripts/generate-prompt.py [track] [phase] [task]
-    python3 scripts/generate-prompt.py 3 1             # Auto-detects active track
-    python3 scripts/generate-prompt.py                 # Auto-detects active track and next pending task
-    python3 scripts/generate-prompt.py 3 1 --plan      # Outputs only the plan prompt
-    python3 scripts/generate-prompt.py 3 1 --exec      # Outputs only the exec prompt
-    python3 scripts/generate-prompt.py 3 1 --red       # Force Red phase prompt (failing tests only)
-    python3 scripts/generate-prompt.py 3 1 --green     # Force Green phase prompt (implement to pass tests)
-    python3 scripts/generate-prompt.py 3 1 --full      # [Deprecated] Full TDD cycle prompt (violates TDD invariant)
-    python3 scripts/generate-prompt.py 3 1 --copy-plan # Copies plan prompt to clipboard
-    python3 scripts/generate-prompt.py 3 1 --copy-exec # Copies exec prompt to clipboard
-    python3 scripts/generate-prompt.py --recovery      # Outputs recovery prompt for uncommitted changes
+    python3 scripts/agent/generate-prompt.py [track] [phase] [task]
+    python3 scripts/agent/generate-prompt.py 3 1             # Auto-detects active track
+    python3 scripts/agent/generate-prompt.py                 # Auto-detects active track and next pending task
+    python3 scripts/agent/generate-prompt.py 3 1 --plan      # Outputs only the plan prompt
+    python3 scripts/agent/generate-prompt.py 3 1 --exec      # Outputs only the exec prompt
+    python3 scripts/agent/generate-prompt.py 3 1 --red       # Force Red phase prompt (failing tests only)
+    python3 scripts/agent/generate-prompt.py 3 1 --green     # Force Green phase prompt (implement to pass tests)
+    python3 scripts/agent/generate-prompt.py 3 1 --full      # [Deprecated] Full TDD cycle prompt (violates TDD invariant)
+    python3 scripts/agent/generate-prompt.py 3 1 --copy-plan # Copies plan prompt to clipboard
+    python3 scripts/agent/generate-prompt.py 3 1 --copy-exec # Copies exec prompt to clipboard
+    python3 scripts/agent/generate-prompt.py --recovery      # Outputs recovery prompt for uncommitted changes
 """
 
 import argparse
@@ -28,7 +28,11 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# Project root resolution (supports execution from scripts/ or scripts/agent/)
+if (Path(__file__).resolve().parents[1] / "package.json").exists():
+    PROJECT_ROOT = Path(__file__).resolve().parents[1]
+else:
+    PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TRACKS_REGISTRY = PROJECT_ROOT / "conductor" / "tracks.md"
 
 
@@ -350,26 +354,26 @@ def infer_verification_strategy(
         else:
             target_spec = (" " + " ".join(spec_files)) if spec_files else ""
             commands = [
-                "./scripts/run-jest-container.sh",
+                "./scripts/containers/run-jest-container.sh",
                 "npm run type-check",
             ]
             if has_edge:
                 commands.append("npm run test:functions")
             if has_spec or spec_files:
-                commands.append(f"./scripts/run-e2e-container.sh webkit{target_spec}".strip())
+                commands.append(f"./scripts/containers/run-e2e-container.sh webkit{target_spec}".strip())
         instruction = "- Run full automated test suite with container runners, present manual verification steps to user, await confirmation, create checkpoint commit and auditable git notes."
         commit_msg = f"conductor(checkpoint): Checkpoint end of Phase {phase_num}"
     elif is_full_suite:
         # Full automated regression run
         target_spec = (" " + " ".join(spec_files)) if spec_files else ""
         commands = [
-            "./scripts/run-jest-container.sh",
+            "./scripts/containers/run-jest-container.sh",
             "npm run type-check",
         ]
         if has_edge or "edge function" in desc_lower or "deno" in desc_lower:
             commands.append("npm run test:functions")
         if has_spec or spec_files or "e2e" in desc_lower or "playwright" in desc_lower:
-            commands.append(f"./scripts/run-e2e-container.sh webkit{target_spec}".strip())
+            commands.append(f"./scripts/containers/run-e2e-container.sh webkit{target_spec}".strip())
         instruction = "- Verify full test suite and TypeScript types pass cleanly before committing."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Execute full automated test suite for Phase {phase_num} Task {task_num}'}"
     elif is_red:
@@ -378,10 +382,10 @@ def infer_verification_strategy(
             commands = plan_verification_cmds
         elif has_spec and not has_unit:
             target_arg = (" " + " ".join(spec_files)) if spec_files else ""
-            commands = [f"./scripts/run-e2e-container.sh webkit{target_arg}".strip()]
+            commands = [f"./scripts/containers/run-e2e-container.sh webkit{target_arg}".strip()]
         else:
             target_arg = (" " + " ".join(unit_files)) if unit_files else ""
-            commands = [f"./scripts/run-jest-container.sh{target_arg}".strip()]
+            commands = [f"./scripts/containers/run-jest-container.sh{target_arg}".strip()]
         instruction = "- Confirm new tests fail with expected assertions (Red phase). DO NOT implement application code."
         commit_msg = f"test({scope}): {task_desc or f'Add failing tests for Phase {phase_num} Task {task_num}'}"
     elif has_spec and has_unit:
@@ -389,8 +393,8 @@ def infer_verification_strategy(
         target_spec = (" " + " ".join(spec_files)) if spec_files else ""
         unit_arg = (" " + " ".join(unit_files)) if unit_files else ""
         commands = [
-            f"./scripts/run-jest-container.sh{unit_arg}".strip(),
-            f"./scripts/run-e2e-container.sh webkit{target_spec}".strip(),
+            f"./scripts/containers/run-jest-container.sh{unit_arg}".strip(),
+            f"./scripts/containers/run-e2e-container.sh webkit{target_spec}".strip(),
         ]
         if wants_type_check or resolved_mode == "green":
             commands.append("npm run type-check")
@@ -399,7 +403,7 @@ def infer_verification_strategy(
     elif has_spec and not has_unit:
         # Pure E2E spec task
         target_arg = (" " + " ".join(spec_files)) if spec_files else ""
-        commands = [f"./scripts/run-e2e-container.sh webkit{target_arg}".strip()]
+        commands = [f"./scripts/containers/run-e2e-container.sh webkit{target_arg}".strip()]
         if wants_type_check or resolved_mode == "green":
             commands.append("npm run type-check")
         instruction = "- Verify targeted E2E suite passes cleanly in WebKit."
@@ -416,12 +420,12 @@ def infer_verification_strategy(
             commands = plan_verification_cmds
         elif unit_files:
             target_arg = " " + " ".join(unit_files)
-            commands = [f"./scripts/run-jest-container.sh{target_arg}".strip()]
+            commands = [f"./scripts/containers/run-jest-container.sh{target_arg}".strip()]
         elif explicit_subtask_cmds:
             commands = explicit_subtask_cmds
             instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
         else:
-            commands = ["./scripts/run-jest-container.sh"]
+            commands = ["./scripts/containers/run-jest-container.sh"]
         if (wants_type_check or resolved_mode == "green") and not any("type-check" in c for c in commands):
             commands.append("npm run type-check")
         if not (not unit_files and explicit_subtask_cmds):
@@ -440,7 +444,7 @@ def infer_verification_strategy(
         instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     else:
-        commands = ["./scripts/run-jest-container.sh"]
+        commands = ["./scripts/containers/run-jest-container.sh"]
         if wants_type_check or resolved_mode == "green":
             commands.append("npm run type-check")
         instruction = "- Run containerized Jest to verify tests pass (Green phase)."
@@ -498,7 +502,7 @@ Gate & Planning Protocol (Phase Completion Verification & Checkpointing):
 - Plan Blueprint Requirements:
   1. Scope Inspection: Define the git diff range since previous phase checkpoint (`git diff --name-only <prev_sha> HEAD`) and list all changed code files.
   2. Test Coverage Audit: Verify all modified code files have corresponding test files; specify any missing tests to generate.
-  3. Automated Verification Commands: Full test suite command (`./scripts/run-jest-container.sh`, `npm run type-check`, E2E specs).
+  3. Automated Verification Commands: Full test suite command (`./scripts/containers/run-jest-container.sh`, `npm run type-check`, E2E specs).
   4. Manual Verification Steps: Actionable step-by-step verification plan for the user (Frontend: dev server, localhost:3000, specific visual behaviors; Backend: curl, status codes).
   5. Post-Execution Protocol: Define checkpoint commit `conductor(checkpoint): Checkpoint end of Phase {phase_num}`, git notes report format, and plan.md update with `[checkpoint: <sha>]`.
 - Halt for user approval via modal before proceeding."""
@@ -512,10 +516,49 @@ Gate & Planning Protocol:
   1. Exact target file paths (format as `- **Path:** `filepath``) and semantic insertion anchors.
   2. Full TypeScript interfaces, prop types, and exported function signatures.
   3. Precise behavioral logic (formulas, state transitions, conditions, error handling, edge cases).
-  4. Execution Verification Protocol with exact test commands to run (e.g. ./scripts/run-jest-container.sh <test> or ./scripts/run-e2e-container.sh webkit <spec>).
+  4. Execution Verification Protocol with exact test commands to run (e.g. ./scripts/containers/run-jest-container.sh <test> or ./scripts/containers/run-e2e-container.sh webkit <spec>).
   Omit verbatim multi-page code implementations; the executor will synthesize code directly using the blueprint with compiler and test feedback.
 - In the plan's Post-Execution section, format the `git notes add` command using the standard fields: Task, Summary, Files, and Rationale.
 - Halt for user approval via modal before modifying any files."""
+
+
+def extract_post_execution_info(plan_file: Optional[Path]) -> Tuple[Optional[str], Optional[str]]:
+    """Extracts the post-execution section reference and any explicit task commit message from the plan file.
+
+    Returns:
+        (section_ref, explicit_commit_msg)
+    """
+    if not plan_file or not plan_file.exists():
+        return None, None
+
+    content = plan_file.read_text(encoding="utf-8")
+    match = re.search(
+        r"^##\s+(?:(\d+)\.\s+)?(.*?Post-Execution.*|.*?Task Completion.*|.*?Commit Protocol.*)$",
+        content,
+        re.MULTILINE | re.IGNORECASE,
+    )
+    if not match:
+        return None, None
+
+    section_num = match.group(1)
+    section_title = match.group(2).strip()
+    section_ref = f"Section {section_num} ({section_title})" if section_num else f"the '{section_title}' section"
+
+    # Extract git commit message from the post-execution section if specified
+    start_pos = match.start()
+    next_heading = re.search(r"^##\s+", content[match.end():], re.MULTILINE)
+    post_exec_block = content[start_pos : match.end() + next_heading.start()] if next_heading else content[start_pos:]
+    commit_matches = re.findall(
+        r"git commit(?:\s+[^\"\x27\n]*)?\s+-m\s+[\"\x27]([^\x27\"]+)[\"\x27]",
+        post_exec_block,
+    )
+    explicit_commit = None
+    for c in commit_matches:
+        if not c.startswith("conductor(") and not c.startswith("conductor/"):
+            explicit_commit = c
+            break
+
+    return section_ref, explicit_commit
 
 
 def build_exec_prompt(
@@ -528,8 +571,12 @@ def build_exec_prompt(
 ) -> str:
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = track_dir.relative_to(PROJECT_ROOT) if track_dir else f"conductor/tracks/{track_name}"
+    plan_path = track_dir / f"phase-{phase_num}-task-{task_num}-plan.md" if track_dir else None
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
     strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode)
+
+    post_exec_ref, plan_commit_msg = extract_post_execution_info(plan_path)
+    commit_msg = plan_commit_msg or strategy["commit_msg"]
 
     cmd_lines = "\n".join(f"     {c}" for c in strategy["commands"])
 
@@ -568,13 +615,18 @@ Protocol Execution Directives:
 {cmd_lines}
    - If tests fail, diagnose within the target seam, adjust implementation or fixtures, and re-verify until green."""
 
+    if post_exec_ref:
+        post_exec_directive = f"Follow {post_exec_ref} of @[{plan_file}]."
+    else:
+        post_exec_directive = f"Follow the Post-Execution section of @[{plan_file}] if present."
+
     return f"""Execute Phase {phase_num} Task {task_num} following @[{plan_file}].
 
 Execution Directives:
 1. Scope & Blueprint: The plan blueprint in @[{plan_file}] is authoritative. Modify only the planned target files. You may read adjacent files or type definitions as needed to resolve imports, types, or test fixtures.
 {verification_block}
 3. Post-Execution:
-   - Follow Section 6 of @[{plan_file}] if present. Otherwise: commit changes with message "{strategy['commit_msg']}", record git notes (Task, Summary, Files, Rationale), mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.
+   - {post_exec_directive} Otherwise: commit changes with message "{commit_msg}", record git notes (Task, Summary, Files, Rationale), mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.
 4. Output a brief completion summary and halt."""
 
 
@@ -592,13 +644,13 @@ def main():
         description="Generate token-efficient Conductor prompts for Antigravity-CLI.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""Examples:
-  python3 scripts/generate-prompt.py                 # Auto-detects track & next pending task
-  python3 scripts/generate-prompt.py 3 1             # Phase 3 Task 1 for active track
-  python3 scripts/generate-prompt.py 3 1 --plan      # Output only Phase 3 Task 1 Plan prompt
-  python3 scripts/generate-prompt.py 3 1 --exec      # Output only Phase 3 Task 1 Exec prompt
-  python3 scripts/generate-prompt.py 3 1 --copy-plan # Copy Plan prompt directly to clipboard
-  python3 scripts/generate-prompt.py 3 1 --copy-exec # Copy Exec prompt directly to clipboard
-  python3 scripts/generate-prompt.py --recovery      # Output recovery prompt for uncommitted changes
+  python3 scripts/agent/generate-prompt.py                 # Auto-detects track & next pending task
+  python3 scripts/agent/generate-prompt.py 3 1             # Phase 3 Task 1 for active track
+  python3 scripts/agent/generate-prompt.py 3 1 --plan      # Output only Phase 3 Task 1 Plan prompt
+  python3 scripts/agent/generate-prompt.py 3 1 --exec      # Output only Phase 3 Task 1 Exec prompt
+  python3 scripts/agent/generate-prompt.py 3 1 --copy-plan # Copy Plan prompt directly to clipboard
+  python3 scripts/agent/generate-prompt.py 3 1 --copy-exec # Copy Exec prompt directly to clipboard
+  python3 scripts/agent/generate-prompt.py --recovery      # Output recovery prompt for uncommitted changes
 """
     )
 

@@ -176,12 +176,12 @@ run_script_not_pattern_test() {
     fi
 }
 
-E2E_SCRIPT="$PROJECT_ROOT/scripts/run-e2e-container.sh"
-JEST_SCRIPT="$PROJECT_ROOT/scripts/run-jest-container.sh"
-DEV_SCRIPT="$PROJECT_ROOT/scripts/run-dev-container.sh"
-BUILD_SCRIPT="$PROJECT_ROOT/scripts/run-build-container.sh"
+E2E_SCRIPT="$PROJECT_ROOT/scripts/containers/run-e2e-container.sh"
+JEST_SCRIPT="$PROJECT_ROOT/scripts/containers/run-jest-container.sh"
+DEV_SCRIPT="$PROJECT_ROOT/scripts/containers/run-dev-container.sh"
+BUILD_SCRIPT="$PROJECT_ROOT/scripts/containers/run-build-container.sh"
 
-echo "=== Running scripts/run-e2e-container.sh Unit Tests (Phase 4 Task 1) ==="
+echo "=== Running scripts/containers/run-e2e-container.sh Unit Tests (Phase 4 Task 1) ==="
 
 # 1. Zero-argument safety: should default project to webkit without crashing on shift
 run_script_test "$E2E_SCRIPT" "E2E: Zero arguments defaults to webkit and does not crash" \
@@ -260,13 +260,13 @@ run_script_not_pattern_test "$E2E_SCRIPT" "Docker CI: Preserves host node_module
     "VOL: /work/node_modules" "docker" "true"
 
 echo ""
-echo "=== Running scripts/container-common.sh Library Unit Tests ==="
+echo "=== Running scripts/containers/container-common.sh Library Unit Tests ==="
 
 test_common_vars() {
     echo -n "Running test: Common: Exports PLAYWRIGHT_VERSION and valid image... "
     set +e
     local output
-    output=$(bash -c "source '$PROJECT_ROOT/scripts/container-common.sh' && echo \"\$PLAYWRIGHT_VERSION \$IMAGE\"")
+    output=$(bash -c "source '$PROJECT_ROOT/scripts/containers/container-common.sh' && echo \"\$PLAYWRIGHT_VERSION \$IMAGE\"")
     set -e
     if [[ "$output" == "v1.63.0-noble mcr.microsoft.com/playwright:v1.63.0-noble" ]]; then
         echo "✓ PASSED"
@@ -282,7 +282,7 @@ test_common_engine_override() {
     echo -n "Running test: Common: Honors CONTAINER_ENGINE override... "
     set +e
     local output
-    output=$(bash -c "export CONTAINER_ENGINE=custom-engine && source '$PROJECT_ROOT/scripts/container-common.sh' && detect_container_engine && echo \"\$ENGINE\"")
+    output=$(bash -c "export CONTAINER_ENGINE=custom-engine && source '$PROJECT_ROOT/scripts/containers/container-common.sh' && detect_container_engine && echo \"\$ENGINE\"")
     set -e
     if [[ "$output" == "custom-engine" ]]; then
         echo "✓ PASSED"
@@ -298,7 +298,7 @@ test_common_ci_docker() {
     echo -n "Running test: Common: Selects docker when CI=true... "
     set +e
     local output
-    output=$(PATH="$MOCK_BIN:$PATH" bash -c "export CI=true && source '$PROJECT_ROOT/scripts/container-common.sh' && detect_container_engine && echo \"\$ENGINE\"")
+    output=$(PATH="$MOCK_BIN:$PATH" bash -c "export CI=true && source '$PROJECT_ROOT/scripts/containers/container-common.sh' && detect_container_engine && echo \"\$ENGINE\"")
     set -e
     if [[ "$output" == "docker" ]]; then
         echo "✓ PASSED"

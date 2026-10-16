@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# scripts/container-common.sh
+# scripts/containers/container-common.sh
 # Purpose: Shared container configuration, engine detection, rootless pre-flight checks,
 # and common options for container runner scripts (RHEL 8 / glibc < 2.29 compatibility).
 
@@ -8,8 +8,12 @@
 PLAYWRIGHT_VERSION="v1.63.0-noble"
 IMAGE="mcr.microsoft.com/playwright:$PLAYWRIGHT_VERSION"
 
-# Project root resolution
-CONTAINER_PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Project root resolution (supports execution from scripts/ or scripts/containers/)
+if [ -f "$(dirname "${BASH_SOURCE[0]}")/../../package.json" ]; then
+    CONTAINER_PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+else
+    CONTAINER_PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fi
 
 # Detect container engine (honor CONTAINER_ENGINE env var, prefer docker in CI, fallback to podman locally)
 detect_container_engine() {
