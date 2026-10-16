@@ -41,13 +41,6 @@ except Exception:
     pass
 
 
-def log(msg: str, file=None) -> None:
-    """Prints a timestamped message and flushes immediately to eliminate CI block buffering."""
-    ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-    target_file = file or sys.stdout
-    print(f"[{ts}] {msg}", file=target_file, flush=True)
-
-
 import types
 from pydantic import BaseModel, Field
 
@@ -61,6 +54,7 @@ if __name__ == "agent_resolve" and _current_mod is not None and getattr(_current
     _current_mod.__package__ = "agent_resolve"
 
 from agent_resolve import config as _ar_config
+from agent_resolve import environment as _ar_environment
 from agent_resolve import exceptions as _ar_exceptions
 from agent_resolve import models as _ar_models
 from agent_resolve import tracker as _ar_tracker
@@ -73,6 +67,14 @@ from agent_resolve.config import (
     get_project_root,
     resolve_project_root,
     set_project_root,
+)
+from agent_resolve.environment import (
+    SENSITIVE_ENV_KEYS,
+    is_docker_available,
+    log,
+    run_cmd,
+    run_isolated_test,
+    sanitize_secrets,
 )
 from agent_resolve.exceptions import Stage2CompilationError
 from agent_resolve.models import (
@@ -115,122 +117,6 @@ if __name__ == "agent_resolve" and _current_mod is not None and type(_current_mo
 # =========================================================================
 # SUBPROCESS & GIT UTILITIES
 # =========================================================================
-def sanitize_secrets(text: str) -> str:
-    """
-    Redacts sensitive tokens, API keys, and authorization headers from strings
-    to prevent credential leaks in logs, issue comments, PR bodies, and handoff docs.
-    """
-    if not text:
-        return ""
-    # GitHub personal access and installation tokens (ghp_, gho_, ghu_, ghs_, ghr_, github_pat_)
-    redacted = re.sub(r"(?:gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{22,})", "[REDACTED_GH_TOKEN]", text)
-    # Google API Keys (AIza...)
-    redacted = re.sub(r"AIza[0-9A-Za-z\-_]{35}", "[REDACTED_AIZA_KEY]", redacted)
-    # Bearer authorization headers/tokens
-    redacted = re.sub(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer [REDACTED_TOKEN]", redacted)
-    # Redact sensitive environment variables if present
-    sensitive_keys = [
-        "GEMINI_API_KEY",
-        "GH_TOKEN",
-        "GITHUB_TOKEN",
-        "APP_ID",
-        "APP_PRIVATE_KEY",
-        "SUPABASE_SERVICE_ROLE_KEY",
-        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-        "GOOGLE_MAPS_API_KEY",
-    ]
-    for key in sensitive_keys:
-        val = os.environ.get(key)
-        if val and len(val) >= 6:
-            redacted = redacted.replace(val, f"[REDACTED_{key}]")
-    return redacted
-
-
-def run_cmd(
-    cmd: List[str],
-    cwd: Optional[Path] = None,
-    env: Optional[Dict[str, str]] = None,
-    check: bool = False,
-    timeout: int = 180,
-) -> Tuple[int, str, str]:
-    """Runs a subprocess command with timeout and returns (exit_code, stdout, stderr)."""
-    p = subprocess.Popen(
-        cmd,
-        cwd=str(cwd or PROJECT_ROOT),
-        env=env if env is not None else os.environ.copy(),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    try:
-        stdout, stderr = p.communicate(timeout=timeout)
-    except subprocess.TimeoutExpired:
-        p.kill()
-        stdout, stderr = p.communicate()
-        err_msg = f"Command {' '.join(cmd)} timed out after {timeout} seconds."
-        if check:
-            raise TimeoutError(err_msg)
-        return 124, (stdout or "").strip(), f"{(stderr or '').strip()}\n{err_msg}".strip()
-    if check and p.returncode != 0:
-        raise RuntimeError(f"Command {' '.join(cmd)} failed (code {p.returncode}):\n{stderr}\n{stdout}")
-    return p.returncode, stdout.strip(), stderr.strip()
-
-
-def is_docker_available() -> bool:
-    """Checks whether Docker daemon is active and responsive."""
-    try:
-        res = subprocess.run(["docker", "info"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
-        return res.returncode == 0
-    except Exception:
-        return False
-
-
-def run_isolated_test(cmd: List[str], cwd: Optional[Path] = None, timeout: int = 180) -> Tuple[int, str, str]:
-    """
-    Runs verification commands within a hardened environment.
-    If Docker is available, wraps inside an ephemeral container with --network none,
-    matching UID/GID, read-only host mount (-v {PROJECT_ROOT}:/app:ro), and tmpfs /tmp
-    so tests cannot mutate host scripts, source, or .git.
-    Otherwise falls back to subprocess with all credentials scrubbed.
-    """
-    target_cwd = cwd or PROJECT_ROOT
-    if is_docker_available():
-        uid = os.getuid()
-        gid = os.getgid()
-        docker_cmd = [
-            "docker", "run", "--rm",
-            "--network", "none",
-            "--user", f"{uid}:{gid}",
-            "-v", f"{PROJECT_ROOT}:/app:ro",
-            "--tmpfs", "/tmp:rw,exec,size=512m",
-            "-w", "/app",
-            "-e", "CI=true",
-            "-e", "NODE_ENV=test",
-            "-e", "HOME=/tmp",
-            "-e", "npm_config_cache=/tmp/.npm",
-            "-e", "TMPDIR=/tmp",
-            "-e", "JEST_CACHE_DIR=/tmp/jest",
-            "-e", "NO_UPDATE_NOTIFIER=1",
-            "-e", "npm_config_audit=false",
-            "-e", "PATH=/app/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-            "node:24-slim",
-        ] + cmd
-        return run_cmd(docker_cmd, cwd=target_cwd, env={}, check=False, timeout=timeout)
-
-    isolated_env = os.environ.copy()
-    sensitive_keys = [
-        "GEMINI_API_KEY",
-        "GH_TOKEN",
-        "GITHUB_TOKEN",
-        "APP_ID",
-        "APP_PRIVATE_KEY",
-        "SUPABASE_SERVICE_ROLE_KEY",
-        "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-        "GOOGLE_MAPS_API_KEY",
-    ]
-    for key in sensitive_keys:
-        isolated_env.pop(key, None)
-    return run_cmd(cmd, cwd=target_cwd, env=isolated_env, check=False, timeout=timeout)
 
 
 def gh_cli(args: List[str], timeout: int = 180) -> Tuple[int, str, str]:

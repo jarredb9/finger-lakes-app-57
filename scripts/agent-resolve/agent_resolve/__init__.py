@@ -10,7 +10,7 @@ import sys
 import types
 from typing import Any
 
-from agent_resolve import config, exceptions, models, tracker
+from agent_resolve import config, environment, exceptions, models, tracker
 from agent_resolve.config import (
     BATCH_PACING_SECONDS,
     DEFAULT_EXECUTOR_MODELS,
@@ -20,6 +20,14 @@ from agent_resolve.config import (
     get_project_root,
     resolve_project_root,
     set_project_root,
+)
+from agent_resolve.environment import (
+    SENSITIVE_ENV_KEYS,
+    is_docker_available,
+    log,
+    run_cmd,
+    run_isolated_test,
+    sanitize_secrets,
 )
 from agent_resolve.exceptions import Stage2CompilationError
 from agent_resolve.models import (
@@ -91,6 +99,7 @@ sys.modules[__name__].__class__ = _AgentResolveModule
 __all__: list[str] = [
     "__version__",
     "config",
+    "environment",
     "models",
     "tracker",
     "exceptions",
@@ -102,6 +111,12 @@ __all__: list[str] = [
     "resolve_project_root",
     "get_project_root",
     "set_project_root",
+    "SENSITIVE_ENV_KEYS",
+    "log",
+    "sanitize_secrets",
+    "run_cmd",
+    "is_docker_available",
+    "run_isolated_test",
     "T",
     "DiagnosticAction",
     "BlueprintPlan",
