@@ -15,6 +15,7 @@ class TokenTracker:
     total_tokens: int = 0
     cached_tokens: int = 0
     call_count: int = 0
+    max_tokens: int | None = None
 
     def record_usage(self, usage_metadata: Any) -> None:
         if not usage_metadata:
@@ -30,9 +31,10 @@ class TokenTracker:
         self.cached_tokens += cached
         self.call_count += 1
 
-        if self.total_tokens > config.MAX_TOKENS_PER_ISSUE:
+        limit = self.max_tokens if self.max_tokens is not None else config.MAX_TOKENS_PER_ISSUE
+        if self.total_tokens > limit:
             raise RuntimeError(
-                f"Token budget exceeded: {self.total_tokens:,} tokens used (limit: {config.MAX_TOKENS_PER_ISSUE:,})"
+                f"Token budget exceeded: {self.total_tokens:,} tokens used (limit: {limit:,})"
             )
 
     def summary(self) -> str:

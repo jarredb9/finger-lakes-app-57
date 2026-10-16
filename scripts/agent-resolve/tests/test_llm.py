@@ -43,6 +43,7 @@ class TestGetGenaiClient(unittest.TestCase):
     def test_returns_client_with_http_retry_options(self) -> None:
         mock_genai = MagicMock()
         mock_types = MagicMock()
+        mock_genai.types = mock_types
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}), \
              patch.dict(
                  sys.modules,
@@ -72,6 +73,7 @@ class TestGetGenaiClient(unittest.TestCase):
     def test_falls_back_to_client_without_http_options_if_types_fail(self) -> None:
         mock_genai = MagicMock()
         mock_types = MagicMock()
+        mock_genai.types = mock_types
         mock_types.HttpOptions.side_effect = Exception("SDK incompatibility")
         with patch.dict(os.environ, {"GEMINI_API_KEY": "test-key"}), \
              patch.dict(
@@ -174,7 +176,7 @@ class TestCallGeminiWithFallback(unittest.TestCase):
         self.assertEqual(kwargs.get("config").temperature, 0.2)
 
     def test_successful_structured_generation_with_parsed_field(self) -> None:
-        expected_obj = DiagnosticAction(action="find_files", reason="locate dependencies")
+        expected_obj = DiagnosticAction(action="find_files", reasoning="locate dependencies")
         response = MagicMock(parsed=expected_obj, text="", usage_metadata=None)
         self.client.models.generate_content.return_value = response
 
@@ -192,10 +194,10 @@ class TestCallGeminiWithFallback(unittest.TestCase):
         self.assertEqual(config_obj.response_schema, DiagnosticAction)
 
     def test_successful_structured_generation_json_parsing_fallback(self) -> None:
-        expected_obj = DiagnosticAction(action="find_files", reason="locate dependencies")
+        expected_obj = DiagnosticAction(action="find_files", reasoning="locate dependencies")
         raw_json_in_markdown = (
             "```json\n"
-            '{"action": "find_files", "reason": "locate dependencies"}\n'
+            '{"action": "find_files", "reasoning": "locate dependencies"}\n'
             "```"
         )
         response = MagicMock(parsed=None, text=raw_json_in_markdown, usage_metadata=None)

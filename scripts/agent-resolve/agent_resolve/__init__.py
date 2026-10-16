@@ -10,7 +10,17 @@ import sys
 import types
 from typing import Any
 
-from agent_resolve import config, environment, exceptions, models, patch_engine, tracker, vcs, verification
+from agent_resolve import (
+    config,
+    environment,
+    exceptions,
+    llm,
+    models,
+    patch_engine,
+    tracker,
+    vcs,
+    verification,
+)
 from agent_resolve.vcs import (
     cleanup_feature_branch,
     fetch_maintainer_hints,
@@ -57,6 +67,11 @@ from agent_resolve.models import (
     TestFileManifest,
 )
 from agent_resolve.tracker import TokenTracker
+from agent_resolve.llm import (
+    call_gemini_with_fallback,
+    get_genai_client,
+    is_transient_error,
+)
 
 __version__: str = "0.1.0"
 
@@ -157,5 +172,9 @@ __all__: list[str] = [
     "preserve_failed_work",
     "reset_working_tree_to_main",
     "update_or_create_pr",
+    "llm",
+    "call_gemini_with_fallback",
+    "get_genai_client",
+    "is_transient_error",
 ]
 
