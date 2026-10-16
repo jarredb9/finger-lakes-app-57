@@ -6,12 +6,12 @@
     - [x] Create minimal `scripts/agent-resolve/agent_resolve/__init__.py` (version metadata only; defer public re-exports and `_AgentResolveModule` delegation to the TDD Green phase)
     - [x] Create `scripts/agent-resolve/tests/__init__.py` with `sys.path` fallback bootstrap for `scripts/agent-resolve`
     - [x] Add `"test:agent": "python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve"` and `"test:agent:all": "python3.12 -m unittest discover -s scripts/__tests__ && python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve"` to `package.json`
-- [ ] Task: Write failing unit tests for config, models, TokenTracker, and exceptions (TDD Red phase)
-    - [ ] Create `scripts/agent-resolve/tests/test_config.py` (depth-3 ancestor-walk `PROJECT_ROOT` resolution, `get_project_root`/`set_project_root`, `_AgentResolveModule` `types.ModuleType` `__setattr__` delegation for `PROJECT_ROOT` and monkeypatched functions, model defaults)
-    - [ ] Create `scripts/agent-resolve/tests/test_models.py` (Pydantic schemas: `DiagnosticAction`, `BlueprintPlan`, `TestFileEntry`, `SourceStubEntry`, `TestFileManifest`, `PatchChunk`, `PatchManifest`, and `@dataclass` `DiagnosticResult`)
-    - [ ] Create `scripts/agent-resolve/tests/test_tracker.py` (`TokenTracker` token recording, budget enforcement exception, summary formatting)
-    - [ ] Create `scripts/agent-resolve/tests/test_exceptions.py` (`Stage2CompilationError` exception hierarchy)
-    - [ ] Assert tests fail against not-yet-implemented modules with `python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve`
+- [x] Task: Write failing unit tests for config, models, TokenTracker, and exceptions (TDD Red phase) b65fb9e
+    - [x] Create `scripts/agent-resolve/tests/test_config.py` (depth-3 ancestor-walk `PROJECT_ROOT` resolution, `get_project_root`/`set_project_root`, `_AgentResolveModule` `types.ModuleType` `__setattr__` delegation for `PROJECT_ROOT` and monkeypatched functions, model defaults)
+    - [x] Create `scripts/agent-resolve/tests/test_models.py` (Pydantic schemas: `DiagnosticAction`, `BlueprintPlan`, `TestFileEntry`, `SourceStubEntry`, `TestFileManifest`, `PatchChunk`, `PatchManifest`, and `@dataclass` `DiagnosticResult`)
+    - [x] Create `scripts/agent-resolve/tests/test_tracker.py` (`TokenTracker` token recording, budget enforcement exception, summary formatting)
+    - [x] Create `scripts/agent-resolve/tests/test_exceptions.py` (`Stage2CompilationError` exception hierarchy)
+    - [x] Assert tests fail against not-yet-implemented modules with `python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve`
 - [ ] Task: Implement config, models, TokenTracker, and exceptions in agent_resolve (TDD Green phase)
     - [ ] Implement `scripts/agent-resolve/agent_resolve/config.py` with ancestor-walk `PROJECT_ROOT` resolver (`package.json`/`.git` detection with `parents[3]` fallback) and configuration defaults
     - [ ] Implement `scripts/agent-resolve/agent_resolve/models.py` with all Pydantic schema definitions and the `DiagnosticResult` `@dataclass`
