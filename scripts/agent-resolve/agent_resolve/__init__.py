@@ -10,7 +10,7 @@ import sys
 import types
 from typing import Any
 
-from agent_resolve import config, environment, exceptions, models, tracker
+from agent_resolve import config, environment, exceptions, models, tracker, verification
 from agent_resolve.config import (
     BATCH_PACING_SECONDS,
     DEFAULT_EXECUTOR_MODELS,
@@ -29,6 +29,7 @@ from agent_resolve.environment import (
     run_isolated_test,
     sanitize_secrets,
 )
+from agent_resolve.verification import validate_jest_red_phase
 from agent_resolve.exceptions import Stage2CompilationError
 from agent_resolve.models import (
     BlueprintPlan,
@@ -103,6 +104,7 @@ __all__: list[str] = [
     "models",
     "tracker",
     "exceptions",
+    "verification",
     "PROJECT_ROOT",
     "DEFAULT_PLANNER_MODELS",
     "DEFAULT_EXECUTOR_MODELS",
@@ -128,5 +130,6 @@ __all__: list[str] = [
     "DiagnosticResult",
     "TokenTracker",
     "Stage2CompilationError",
+    "validate_jest_red_phase",
 ]
 
