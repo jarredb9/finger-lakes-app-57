@@ -1,11 +1,11 @@
 # Implementation Plan: Decompose Autonomous Issue Resolver Script (`agent-resolve.py`)
 
 ## Phase 1: Package Foundation, Scaffolding, Models, Tracker & Config
-- [ ] Task: Scaffold Python package structure, pyproject.toml, and npm test scripts
-    - [ ] Create `scripts/agent-resolve/pyproject.toml` with `setuptools.build_meta`, PEP 621 metadata, dependencies (`google-genai`, `pydantic`, `tenacity`), Python `>=3.12`, and console script `agent-resolve = agent_resolve.cli:main`
-    - [ ] Create minimal `scripts/agent-resolve/agent_resolve/__init__.py` (version metadata only; defer public re-exports and `_AgentResolveModule` delegation to the TDD Green phase)
-    - [ ] Create `scripts/agent-resolve/tests/__init__.py` with `sys.path` fallback bootstrap for `scripts/agent-resolve`
-    - [ ] Add `"test:agent": "python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve"` and `"test:agent:all": "python3.12 -m unittest discover -s scripts/__tests__ && python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve"` to `package.json`
+- [x] Task: Scaffold Python package structure, pyproject.toml, and npm test scripts b1bf66e
+    - [x] Create `scripts/agent-resolve/pyproject.toml` with `setuptools.build_meta`, PEP 621 metadata, dependencies (`google-genai`, `pydantic`, `tenacity`), Python `>=3.12`, and console script `agent-resolve = agent_resolve.cli:main`
+    - [x] Create minimal `scripts/agent-resolve/agent_resolve/__init__.py` (version metadata only; defer public re-exports and `_AgentResolveModule` delegation to the TDD Green phase)
+    - [x] Create `scripts/agent-resolve/tests/__init__.py` with `sys.path` fallback bootstrap for `scripts/agent-resolve`
+    - [x] Add `"test:agent": "python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve"` and `"test:agent:all": "python3.12 -m unittest discover -s scripts/__tests__ && python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve"` to `package.json`
 - [ ] Task: Write failing unit tests for config, models, TokenTracker, and exceptions (TDD Red phase)
     - [ ] Create `scripts/agent-resolve/tests/test_config.py` (depth-3 ancestor-walk `PROJECT_ROOT` resolution, `get_project_root`/`set_project_root`, `_AgentResolveModule` `types.ModuleType` `__setattr__` delegation for `PROJECT_ROOT` and monkeypatched functions, model defaults)
     - [ ] Create `scripts/agent-resolve/tests/test_models.py` (Pydantic schemas: `DiagnosticAction`, `BlueprintPlan`, `TestFileEntry`, `SourceStubEntry`, `TestFileManifest`, `PatchChunk`, `PatchManifest`, and `@dataclass` `DiagnosticResult`)
