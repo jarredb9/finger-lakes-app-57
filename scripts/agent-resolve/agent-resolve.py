@@ -48,119 +48,68 @@ def log(msg: str, file=None) -> None:
     print(f"[{ts}] {msg}", file=target_file, flush=True)
 
 
+import types
 from pydantic import BaseModel, Field
 
-# Project root resolution (supports execution from scripts/ or scripts/agent-resolve/)
-if (Path(__file__).resolve().parents[1] / "package.json").exists():
-    PROJECT_ROOT = Path(__file__).resolve().parents[1]
-else:
-    PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
 
-# Canonical model configuration with strict hard-stop (no fallback downgrades)
-DEFAULT_PLANNER_MODELS = [
-    os.environ.get("PLANNER_MODEL", "gemini-3.8-flash"),
-]
-DEFAULT_EXECUTOR_MODELS = [
-    os.environ.get("EXECUTOR_MODEL", "gemini-3.8-flash"),
-]
+_current_mod = sys.modules.get("agent_resolve")
+if __name__ == "agent_resolve" and _current_mod is not None and getattr(_current_mod, "__path__", None) is None:
+    _current_mod.__path__ = [str(_SCRIPT_DIR / "agent_resolve")]  # type: ignore[attr-defined]
+    _current_mod.__package__ = "agent_resolve"
 
-# Token limits & safeguards
-MAX_TOKENS_PER_ISSUE = int(os.environ.get("MAX_TOKENS_PER_ISSUE", "500000"))
-BATCH_PACING_SECONDS = int(os.environ.get("BATCH_PACING_SECONDS", "5"))
-
-T = TypeVar("T", bound=BaseModel)
-
-
-# =========================================================================
-# OBSERVABILITY & METRICS
-# =========================================================================
-@dataclass
-class TokenTracker:
-    prompt_tokens: int = 0
-    candidate_tokens: int = 0
-    total_tokens: int = 0
-    cached_tokens: int = 0
-    call_count: int = 0
-
-    def record_usage(self, usage_metadata: Any) -> None:
-        if not usage_metadata:
-            return
-        p_tokens = getattr(usage_metadata, "prompt_token_count", 0) or 0
-        c_tokens = getattr(usage_metadata, "candidates_token_count", 0) or 0
-        t_tokens = getattr(usage_metadata, "total_token_count", 0) or 0
-        cached = getattr(usage_metadata, "cached_content_token_count", 0) or 0
-
-        self.prompt_tokens += p_tokens
-        self.candidate_tokens += c_tokens
-        self.total_tokens += t_tokens
-        self.cached_tokens += cached
-        self.call_count += 1
-
-        if self.total_tokens > MAX_TOKENS_PER_ISSUE:
-            raise RuntimeError(
-                f"Token budget exceeded: {self.total_tokens:,} tokens used (limit: {MAX_TOKENS_PER_ISSUE:,})"
-            )
-
-    def summary(self) -> str:
-        return (
-            f"{self.total_tokens:,} total tokens "
-            f"({self.prompt_tokens:,} prompt, {self.candidate_tokens:,} candidates, "
-            f"{self.cached_tokens:,} cached) across {self.call_count} API call(s)"
-        )
+from agent_resolve import config as _ar_config
+from agent_resolve import exceptions as _ar_exceptions
+from agent_resolve import models as _ar_models
+from agent_resolve import tracker as _ar_tracker
+from agent_resolve.config import (
+    BATCH_PACING_SECONDS,
+    DEFAULT_EXECUTOR_MODELS,
+    DEFAULT_PLANNER_MODELS,
+    MAX_TOKENS_PER_ISSUE,
+    PROJECT_ROOT,
+    get_project_root,
+    resolve_project_root,
+    set_project_root,
+)
+from agent_resolve.exceptions import Stage2CompilationError
+from agent_resolve.models import (
+    BlueprintPlan,
+    DiagnosticAction,
+    DiagnosticResult,
+    PatchChunk,
+    PatchManifest,
+    SourceStubEntry,
+    T,
+    TestFileEntry,
+    TestFileManifest,
+)
+from agent_resolve.tracker import TokenTracker
 
 
-# =========================================================================
-# STRUCTURED DATA SCHEMAS (PYDANTIC)
-# =========================================================================
-class DiagnosticAction(BaseModel):
-    action: str = Field(description="Action to execute: 'grep_search', 'find_files', 'read_file_snippet', or 'conclude'")
-    query: str = Field(default="", description="Search query string for grep_search (function name, UI text, error string)")
-    path_prefix: str = Field(default="", description="Optional directory path prefix for grep_search (e.g. 'lib/', 'components/')")
-    pattern: str = Field(default="", description="File name glob or keyword for find_files (e.g. '*nav*', '*card*')")
-    file_path: str = Field(default="", description="Repository-relative file path for read_file_snippet")
-    start_line: int = Field(default=1, description="1-indexed starting line number for read_file_snippet")
-    end_line: int = Field(default=80, description="1-indexed ending line number for read_file_snippet")
-    discovered_target_files: List[str] = Field(default_factory=list, description="Target source files verified or strongly suspected")
-    reasoning: str = Field(description="Architectural rationale explaining why this tool is called or concluding findings")
+if __name__ == "agent_resolve" and _current_mod is not None and type(_current_mod).__name__ != "_AgentResolveModule":
+    class _AgentResolveModule(types.ModuleType):
+        def __getattr__(self, name: str) -> Any:
+            if name == "PROJECT_ROOT":
+                return _ar_config.get_project_root()
+            raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
+        def __setattr__(self, name: str, value: Any) -> None:
+            if name == "PROJECT_ROOT":
+                _ar_config.set_project_root(value)
+                return
+            super().__setattr__(name, value)
+            for mod_name, submod in list(sys.modules.items()):
+                if (
+                    mod_name.startswith("agent_resolve.")
+                    and isinstance(submod, types.ModuleType)
+                    and name in submod.__dict__
+                ):
+                    submod.__dict__[name] = value
 
-class BlueprintPlan(BaseModel):
-    scope: str = Field(description="Conventional commit scope, e.g. winery, trip, geo, ui")
-    target_test_files: List[str] = Field(description="Explicit list of unit or component test file paths to create or modify")
-    target_src_files: List[str] = Field(description="Explicit list of application source file paths to create or modify")
-    plan_markdown: str = Field(description="Full markdown content for task-plan.md")
-
-
-class TestFileEntry(BaseModel):
-    file_path: str = Field(description="Repository-relative test file path, e.g. lib/utils/__tests__/map-utils.test.ts")
-    content: str = Field(description="Complete test file content")
-
-
-class SourceStubEntry(BaseModel):
-    file_path: str = Field(description="Repository-relative new source file path to stub")
-    content: str = Field(description="Minimal TypeScript type declarations and function stubs throwing 'Not implemented'")
-
-
-class TestFileManifest(BaseModel):
-    files: List[TestFileEntry] = Field(description="List of test files to create or overwrite")
-    source_stubs: List[SourceStubEntry] = Field(
-        default_factory=list,
-        description="Minimal stubs for brand new source files that do not yet exist on disk",
-    )
-
-
-class PatchChunk(BaseModel):
-    file_path: str = Field(description="Repository-relative path of the target source file")
-    search_block: str = Field(
-        description="Exact character sequence in the existing file to find and replace. Leave empty ONLY if creating a brand new source file."
-    )
-    replace_block: str = Field(
-        description="Exact replacement code to insert in place of search_block."
-    )
-
-
-class PatchManifest(BaseModel):
-    patches: List[PatchChunk] = Field(description="Ordered list of search/replace patch chunks to apply")
+    _current_mod.__class__ = _AgentResolveModule
 
 
 # =========================================================================
@@ -767,14 +716,6 @@ def read_file_snippet(file_path: str, start_line: int = 1, end_line: int = 80) -
 # =========================================================================
 # STAGE 0: DIAGNOSTIC EXPLORATION
 # =========================================================================
-@dataclass
-class DiagnosticResult:
-    target_files: List[str]
-    root_cause: str
-    code_snippets: Dict[str, str]
-    investigation_summary: str
-
-
 def parse_issue_diagnostics(issue_body: str) -> Tuple[List[str], str]:
     """
     Extracts explicit target files/suspected components and root cause analysis
@@ -970,11 +911,6 @@ Respond strictly in valid JSON matching the DiagnosticAction schema.
         code_snippets=code_snippets,
         investigation_summary=summary_str,
     )
-
-
-class Stage2CompilationError(RuntimeError):
-    """Raised when Stage 2 test authoring fails TypeScript compilation repeatedly."""
-    pass
 
 
 # =========================================================================
