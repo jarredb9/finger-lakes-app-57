@@ -27,10 +27,10 @@
 - [x] Task: Write failing unit tests for environment and secret sanitization utilities (TDD Red phase) [commit: eac9ffc]
     - [x] Create `scripts/agent-resolve/tests/test_environment.py` with unit tests for `log`, `sanitize_secrets` (redacting GitHub tokens, PATs, AIza keys, Bearer tokens), `run_cmd` (timeout handling), `is_docker_available`, and mocked `run_isolated_test`
     - [x] Assert tests fail against `agent_resolve.environment`
-- [ ] Task: Implement environment and secret sanitization in agent_resolve.environment (TDD Green phase)
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/environment.py` with process execution, secret scrubbing, and Docker isolation helpers (reading `config.PROJECT_ROOT` dynamically)
-    - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export environment utilities
-    - [ ] Verify environment and legacy unit tests pass
+- [x] Task: Implement environment and secret sanitization in agent_resolve.environment (TDD Green phase) [commit: 019055f]
+    - [x] Implement `scripts/agent-resolve/agent_resolve/environment.py` with process execution, secret scrubbing, and Docker isolation helpers (reading `config.PROJECT_ROOT` dynamically)
+    - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export environment utilities
+    - [x] Verify environment and legacy unit tests pass
 - [ ] Task: Write failing unit tests for verification engine (validate_jest_red_phase) (TDD Red phase)
     - [ ] Create `scripts/agent-resolve/tests/test_verification.py` (passing test rejection, runtime crash detection, structured JSON assertion failure, CLI assertion failure, unimplemented function TypeError acceptance, hook crash rejection)
     - [ ] Assert tests fail against `agent_resolve.verification`
