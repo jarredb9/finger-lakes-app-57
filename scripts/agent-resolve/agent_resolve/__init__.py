@@ -10,7 +10,13 @@ import sys
 import types
 from typing import Any
 
-from agent_resolve import config, environment, exceptions, models, tracker, verification
+from agent_resolve import config, environment, exceptions, models, patch_engine, tracker, verification
+from agent_resolve.patch_engine import (
+    PROTECTED_PATHS,
+    apply_patch_manifest,
+    reset_target_sources,
+    safe_resolve_repo_path,
+)
 from agent_resolve.config import (
     BATCH_PACING_SECONDS,
     DEFAULT_EXECUTOR_MODELS,
@@ -131,5 +137,10 @@ __all__: list[str] = [
     "TokenTracker",
     "Stage2CompilationError",
     "validate_jest_red_phase",
+    "patch_engine",
+    "PROTECTED_PATHS",
+    "apply_patch_manifest",
+    "reset_target_sources",
+    "safe_resolve_repo_path",
 ]
 

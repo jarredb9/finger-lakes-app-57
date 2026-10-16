@@ -166,7 +166,7 @@ class TestResetTargetSources(unittest.TestCase):
 
         def side_effect(cmd: list[str], **kwargs) -> tuple[int, str, str]:
             if cmd[:3] == ["git", "cat-file", "-e"]:
-                if "tracked.ts" in cmd[3]:
+                if cmd[3].endswith("lib/tracked.ts"):
                     return (0, "", "")
                 return (1, "", "fatal: not in ref")
             if cmd[:3] == ["git", "checkout", "origin/main"]:
@@ -328,13 +328,13 @@ class TestApplyPatchManifest(unittest.TestCase):
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text("  const x = 1;\n    const x = 1;\n", encoding="utf-8")
 
-        # 3 spaces indentation (exact count == 0, stripped count == 2)
+        # 5 spaces indentation (exact count == 0, stripped count == 2)
         manifest = PatchManifest(
             patches=[
                 PatchChunk(
                     file_path="lib/repeat_space.ts",
-                    search_block="   const x = 1;",
-                    replace_block="   const x = 2;",
+                    search_block="     const x = 1;",
+                    replace_block="     const x = 2;",
                 )
             ]
         )
