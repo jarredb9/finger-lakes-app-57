@@ -51,10 +51,10 @@
 - [x] Task: Write failing unit tests for VCS and GitHub CLI helpers (TDD Red phase) [commit: 6434765]
     - [x] Create `scripts/agent-resolve/tests/test_vcs.py` (`gh_cli`, `reset_working_tree_to_main`, `cleanup_feature_branch`, `update_or_create_pr`, `preserve_failed_work` circuit breaker state file and attempt incrementing, `fetch_maintainer_hints` provenance and timestamp filtering)
     - [x] Assert tests fail against `agent_resolve.vcs`
-- [ ] Task: Implement VCS and GitHub helpers in agent_resolve.vcs (TDD Green phase)
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/vcs.py` (reading `config.PROJECT_ROOT` dynamically and supporting `patch.object(agent_resolve, "gh_cli", ...)` propagation)
-    - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export VCS helpers
-    - [ ] Verify VCS and legacy unit tests pass
+- [x] Task: Implement VCS and GitHub helpers in agent_resolve.vcs (TDD Green phase) [commit: b5b240d]
+    - [x] Implement `scripts/agent-resolve/agent_resolve/vcs.py` (reading `config.PROJECT_ROOT` dynamically and supporting `patch.object(agent_resolve, "gh_cli", ...)` propagation)
+    - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export VCS helpers
+    - [x] Verify VCS and legacy unit tests pass
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Multi-Tier Patch Engine & VCS Operations' (Protocol in workflow.md)
 
 ## Phase 4: LLM Client, Context Discovery & Exploration Tools
