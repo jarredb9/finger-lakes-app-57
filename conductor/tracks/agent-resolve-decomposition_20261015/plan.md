@@ -24,9 +24,9 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Package Foundation, Scaffolding, Models, Tracker & Config' (Protocol in workflow.md) [commit: 7d4de6e]
 
 ## Phase 2: Execution Environment & Verification Engine
-- [ ] Task: Write failing unit tests for environment and secret sanitization utilities (TDD Red phase)
-    - [ ] Create `scripts/agent-resolve/tests/test_environment.py` with unit tests for `log`, `sanitize_secrets` (redacting GitHub tokens, PATs, AIza keys, Bearer tokens), `run_cmd` (timeout handling), `is_docker_available`, and mocked `run_isolated_test`
-    - [ ] Assert tests fail against `agent_resolve.environment`
+- [x] Task: Write failing unit tests for environment and secret sanitization utilities (TDD Red phase) [commit: eac9ffc]
+    - [x] Create `scripts/agent-resolve/tests/test_environment.py` with unit tests for `log`, `sanitize_secrets` (redacting GitHub tokens, PATs, AIza keys, Bearer tokens), `run_cmd` (timeout handling), `is_docker_available`, and mocked `run_isolated_test`
+    - [x] Assert tests fail against `agent_resolve.environment`
 - [ ] Task: Implement environment and secret sanitization in agent_resolve.environment (TDD Green phase)
     - [ ] Implement `scripts/agent-resolve/agent_resolve/environment.py` with process execution, secret scrubbing, and Docker isolation helpers (reading `config.PROJECT_ROOT` dynamically)
     - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export environment utilities
