@@ -1,5 +1,6 @@
 import { act } from '@testing-library/react';
 import { createMockTrip } from '@/lib/test-utils/fixtures';
+import { getTodayLocal } from '@/lib/utils';
 import { useTripStore } from '../tripStore';
 
 let mockTripService = {
@@ -131,7 +132,8 @@ describe('tripStore', () => {
 
   describe('createTrip', () => {
     it('should create a trip successfully and add it to state', async () => {
-      const newTripData = { name: 'New Trip', trip_date: '2026-10-15', wineries: [] };
+      const today = getTodayLocal();
+      const newTripData = { name: 'New Trip', trip_date: today, wineries: [] };
       mockTripService.createTrip.mockResolvedValue(mockTrip);
 
       let createdTrip;
@@ -146,6 +148,7 @@ describe('tripStore', () => {
     });
 
     it('strips unpermitted fields (id, user_id, created_at, notes, arbitrary keys) and prevents state and service pollution', async () => {
+      const today = getTodayLocal();
       let resolveService: (value: any) => void;
       const servicePromise = new Promise((resolve) => {
         resolveService = resolve;
@@ -153,12 +156,12 @@ describe('tripStore', () => {
       mockTripService.createTrip.mockReturnValue(servicePromise);
 
       useTripStore.setState({
-        tripsForDate: [{ ...mockTrip, trip_date: '2026-10-15' }],
+        tripsForDate: [{ ...mockTrip, trip_date: today }],
       });
 
       const adversarialInput = {
         name: 'Sanitized New Trip',
-        trip_date: '2026-10-15',
+        trip_date: today,
         id: 99999,
         user_id: 'attacker-user-id',
         created_at: '2020-01-01T00:00:00Z',
@@ -204,7 +207,7 @@ describe('tripStore', () => {
       expect(mockTripService.createTrip).toHaveBeenCalledWith(
         {
           name: 'Sanitized New Trip',
-          trip_date: '2026-10-15',
+          trip_date: today,
           wineries: [],
         },
         expect.any(String)
@@ -301,29 +304,30 @@ describe('tripStore', () => {
 
   describe('updateTrip', () => {
     it('should update a trip successfully and update state with valid fields', async () => {
+      const today = getTodayLocal();
       useTripStore.setState({
         trips: [mockTrip],
         upcomingTrips: [mockTrip],
         tripsForDate: [mockTrip],
       });
-      const updatedTrip = { ...mockTrip, name: 'Updated Title', trip_date: '2026-10-15' };
+      const updatedTrip = { ...mockTrip, name: 'Updated Title', trip_date: today };
       mockTripService.updateTrip.mockResolvedValue(updatedTrip);
 
       await act(async () => {
         await useTripStore.getState().updateTrip(String(mockTrip.id), {
           name: 'Updated Title',
-          trip_date: '2026-10-15',
+          trip_date: today,
         } as any);
       });
 
       const state = useTripStore.getState();
       expect(state.trips[0].name).toBe('Updated Title');
-      expect(state.trips[0].trip_date).toBe('2026-10-15');
+      expect(state.trips[0].trip_date).toBe(today);
       expect(state.upcomingTrips[0].name).toBe('Updated Title');
       expect(state.tripsForDate[0].name).toBe('Updated Title');
       expect(mockTripService.updateTrip).toHaveBeenCalledWith(String(mockTrip.id), {
         name: 'Updated Title',
-        trip_date: '2026-10-15',
+        trip_date: today,
       });
     });
 
