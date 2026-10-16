@@ -44,10 +44,10 @@
 - [x] Task: Write failing unit tests for multi-tier patch engine and path resolution (TDD Red phase) [commit: 3405df9]
     - [x] Create `scripts/agent-resolve/tests/test_patch_engine.py` (`safe_resolve_repo_path` with SEC-04 migration protection blocks, `reset_target_sources`, `apply_patch_manifest` Tier 1 exact, Tier 2 whitespace trimmed, CRLF normalization, clean error formatting, ambiguous rejection, new file creation)
     - [x] Assert tests fail against `agent_resolve.patch_engine`
-- [ ] Task: Implement patch engine in agent_resolve.patch_engine (TDD Green phase)
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/patch_engine.py` (reading `config.PROJECT_ROOT` dynamically)
-    - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export patch engine utilities
-    - [ ] Verify patch engine and legacy unit tests pass
+- [x] Task: Implement patch engine in agent_resolve.patch_engine (TDD Green phase) [commit: 0c9514a]
+    - [x] Implement `scripts/agent-resolve/agent_resolve/patch_engine.py` (reading `config.PROJECT_ROOT` dynamically)
+    - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export patch engine utilities
+    - [x] Verify patch engine and legacy unit tests pass
 - [ ] Task: Write failing unit tests for VCS and GitHub CLI helpers (TDD Red phase)
     - [ ] Create `scripts/agent-resolve/tests/test_vcs.py` (`gh_cli`, `reset_working_tree_to_main`, `cleanup_feature_branch`, `update_or_create_pr`, `preserve_failed_work` circuit breaker state file and attempt incrementing, `fetch_maintainer_hints` provenance and timestamp filtering)
     - [ ] Assert tests fail against `agent_resolve.vcs`
