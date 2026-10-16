@@ -40,7 +40,7 @@
     - [x] Verify verification and legacy unit tests pass
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Execution Environment & Verification Engine' (Protocol in workflow.md) [commit: 26b5467]
 
-## Phase 3: Multi-Tier Patch Engine & VCS Operations
+## Phase 3: Multi-Tier Patch Engine & VCS Operations [checkpoint: 27be883]
 - [x] Task: Write failing unit tests for multi-tier patch engine and path resolution (TDD Red phase) [commit: 3405df9]
     - [x] Create `scripts/agent-resolve/tests/test_patch_engine.py` (`safe_resolve_repo_path` with SEC-04 migration protection blocks, `reset_target_sources`, `apply_patch_manifest` Tier 1 exact, Tier 2 whitespace trimmed, CRLF normalization, clean error formatting, ambiguous rejection, new file creation)
     - [x] Assert tests fail against `agent_resolve.patch_engine`
@@ -55,7 +55,7 @@
     - [x] Implement `scripts/agent-resolve/agent_resolve/vcs.py` (reading `config.PROJECT_ROOT` dynamically and supporting `patch.object(agent_resolve, "gh_cli", ...)` propagation)
     - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export VCS helpers
     - [x] Verify VCS and legacy unit tests pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Multi-Tier Patch Engine & VCS Operations' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Multi-Tier Patch Engine & VCS Operations' (Protocol in workflow.md) [commit: 27be883]
 
 ## Phase 4: LLM Client, Context Discovery & Exploration Tools
 - [ ] Task: Write failing unit tests for LLM client and transient retry handling (TDD Red phase)
