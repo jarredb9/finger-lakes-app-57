@@ -1103,7 +1103,7 @@ class TestPreserveFailedWork(unittest.TestCase):
     ) -> None:
         mock_run_cmd.return_value = (0, "", "")
 
-        raw_secret_error = "Encountered ghp_1234567890abcdef1234567890abcdef and AIzaSyABC12345678901234567890123456789 in log"
+        raw_secret_error = "Encountered ghp_1234567890abcdef1234567890abcdef and AIzaSyA12345678901234567890123456789012 in log"
         preserve_failed_work(
             issue_number=42,
             issue_title="Fix Winery Card",
@@ -1117,15 +1117,15 @@ class TestPreserveFailedWork(unittest.TestCase):
 
         state_data = json.loads((self.root / ".agent-state.json").read_text(encoding="utf-8"))
         self.assertNotIn("ghp_1234567890abcdef1234567890abcdef", state_data["error_summary"])
-        self.assertNotIn("AIzaSyABC12345678901234567890123456789", state_data["error_summary"])
+        self.assertNotIn("AIzaSyA12345678901234567890123456789012", state_data["error_summary"])
         self.assertIn("[REDACTED_GH_TOKEN]", state_data["error_summary"])
-        self.assertIn("[REDACTED_API_KEY]", state_data["error_summary"])
+        self.assertIn("[REDACTED_AIZA_KEY]", state_data["error_summary"])
 
         handoff_content = (self.root / "AGENT_HANDOFF.md").read_text(encoding="utf-8")
         self.assertNotIn("ghp_1234567890abcdef1234567890abcdef", handoff_content)
-        self.assertNotIn("AIzaSyABC12345678901234567890123456789", handoff_content)
+        self.assertNotIn("AIzaSyA12345678901234567890123456789012", handoff_content)
         self.assertIn("[REDACTED_GH_TOKEN]", handoff_content)
-        self.assertIn("[REDACTED_API_KEY]", handoff_content)
+        self.assertIn("[REDACTED_AIZA_KEY]", handoff_content)
 
 
 if __name__ == "__main__":

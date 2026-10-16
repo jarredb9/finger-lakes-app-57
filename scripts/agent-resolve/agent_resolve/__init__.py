@@ -10,7 +10,15 @@ import sys
 import types
 from typing import Any
 
-from agent_resolve import config, environment, exceptions, models, patch_engine, tracker, verification
+from agent_resolve import config, environment, exceptions, models, patch_engine, tracker, vcs, verification
+from agent_resolve.vcs import (
+    cleanup_feature_branch,
+    fetch_maintainer_hints,
+    gh_cli,
+    preserve_failed_work,
+    reset_working_tree_to_main,
+    update_or_create_pr,
+)
 from agent_resolve.patch_engine import (
     PROTECTED_PATHS,
     apply_patch_manifest,
@@ -142,5 +150,12 @@ __all__: list[str] = [
     "apply_patch_manifest",
     "reset_target_sources",
     "safe_resolve_repo_path",
+    "vcs",
+    "cleanup_feature_branch",
+    "fetch_maintainer_hints",
+    "gh_cli",
+    "preserve_failed_work",
+    "reset_working_tree_to_main",
+    "update_or_create_pr",
 ]
 
