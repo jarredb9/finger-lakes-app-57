@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# scripts/run-e2e-container.sh
+# scripts/containers/run-e2e-container.sh
 # Purpose: Run Playwright tests in a container (Rootless) on RHEL 8.
 
 set -e

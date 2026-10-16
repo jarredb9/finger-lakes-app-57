@@ -3,7 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 const dotenv = require('dotenv');
 const path = require('path');
 
-dotenv.config({ path: path.resolve(__dirname, '../.env.local') });
+dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 // Helper to parse CLI flags (--flag=val or --flag val)
 function getCliArg(...flagNames) {

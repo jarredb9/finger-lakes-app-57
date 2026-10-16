@@ -16,14 +16,14 @@
 - **Runtime:** Node.js 24 (LTS).
 - **BypassSandbox Mandates:** Standard sandbox enforces read-only `.git/` and blocks host sockets. Immediately use `BypassSandbox: true` without attempting sandboxed first:
   - **Git mutations:** `git add`, `commit`, `stash`, `checkout -b`, `rebase` (read-only git stays sandboxed).
-  - **Container runners:** `./scripts/run-*-container.sh`, `npm run dev:container`, `build:container`.
+  - **Container runners:** `./scripts/containers/run-*-container.sh`, `npm run dev:container`, `build:container`.
   - **Local DB stack:** `npm run db:start|stop|reset|status` (uses host `/run` Podman socket).
 - **Dev Server:**
   - Host: `npm run dev` (http://localhost:3000) or `npm run dev:real` (local Supabase stack at http://127.0.0.1:54321).
   - Container (RHEL 8 / Native Turbopack): `npm run dev:container` or `npm run dev:container:real` (requires `BypassSandbox: true`).
 - **Production Build:**
   - Host (WASM fallback on RHEL 8): `npm run build`
-  - Container (RHEL 8 / Native SWC): `npm run build:container` or `./scripts/run-build-container.sh` (requires `BypassSandbox: true`).
+  - Container (RHEL 8 / Native SWC): `npm run build:container` or `./scripts/containers/run-build-container.sh` (requires `BypassSandbox: true`).
 - **Local DB Stack:**
   - Start: `npm run db:start` (automatically applies SELinux fix)
   - Populate Data: `npm run db:populate`
@@ -31,11 +31,11 @@
   - Edge Function Tests: `npm run test:functions`
 - **Jest Tests (RHEL 8 / Containerized):**
   - RHEL 8 glibc (2.28) is incompatible with Next.js 16.3+ native SWC (requires glibc 2.29+). Run Jest via the Podman container runner (requires `BypassSandbox: true`):
-  - Unit Tests: `./scripts/run-jest-container.sh [jest_args]` or `npm run test:container [-- jest_args]`
+  - Unit Tests: `./scripts/containers/run-jest-container.sh [jest_args]` or `npm run test:container [-- jest_args]`
   - Integration Tests: `npm run test:integration:container [-- jest_args]`
 - **Playwright E2E:** Run via Podman container script (requires `BypassSandbox: true`):
-  - Syntax: `./scripts/run-e2e-container.sh [--build] [project] [test_file]`
-  - Example: `./scripts/run-e2e-container.sh --build webkit e2e/trip-flow.spec.ts`
+  - Syntax: `./scripts/containers/run-e2e-container.sh [--build] [project] [test_file]`
+  - Example: `./scripts/containers/run-e2e-container.sh --build webkit e2e/trip-flow.spec.ts`
   - Valid Projects: `chromium`, `webkit`, `mobile-safari`, `mobile-chrome`, `all`.
 
 ## 4. Domain & Architectural Standards

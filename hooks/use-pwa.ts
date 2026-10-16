@@ -1,23 +1,42 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePWAUpdate } from './use-pwa-update';
 
-export function usePwa() {
-  const [installPrompt, setInstallPrompt] = useState<any>(null);
+export interface UsePwaReturn {
+  isInstallable: boolean;
+  installApp: () => Promise<void>;
+  isUpdateAvailable: boolean;
+  updateApp: () => void;
+  isStandalone: boolean;
+}
+
+interface NavigatorWithStandalone extends Navigator {
+  standalone?: boolean;
+}
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+}
+
+export function usePwa(): UsePwaReturn {
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const { isUpdateAvailable, applyUpdate } = usePWAUpdate();
-  const [isStandalone] = useState(() => {
+  const [isStandalone] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
-    return window.matchMedia('(display-mode: standalone)').matches
-      || (window.navigator as any).standalone
-      || document.referrer.includes('android-app://');
+    return Boolean(
+      window.matchMedia('(display-mode: standalone)').matches
+      || (window.navigator as NavigatorWithStandalone).standalone
+      || (document.referrer && document.referrer.includes('android-app://'))
+    );
   });
 
   useEffect(() => {
     // Handle Install Prompt
-    const handleBeforeInstallPrompt = (e: any) => {
+    const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
-      setInstallPrompt(e);
+      setInstallPrompt(e as BeforeInstallPromptEvent);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -27,21 +46,24 @@ export function usePwa() {
     };
   }, []);
 
-  const installApp = React.useCallback(async () => {
-    if (!installPrompt) return;
-    installPrompt.prompt();
-    const { outcome } = await installPrompt.userChoice;
-    if (outcome === 'accepted') {
+  const installApp = useCallback(async () => {
+    if (!installPrompt || isStandalone) return;
+    try {
+      await installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setInstallPrompt(null);
+      }
+    } catch {
       setInstallPrompt(null);
     }
-  }, [installPrompt]);
+  }, [installPrompt, isStandalone]);
 
   return {
-    isInstallable: !!installPrompt,
+    isInstallable: !isStandalone && !!installPrompt,
     installApp,
     isUpdateAvailable,
     updateApp: applyUpdate,
-    isStandalone
+    isStandalone,
   };
 }
-

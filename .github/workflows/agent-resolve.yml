@@ -119,9 +119,9 @@ jobs:
             ARGS="$ARGS --dry-run"
           fi
           if [ -n "${{ github.event.inputs.issue_number }}" ]; then
-            python3 -u scripts/agent-resolve.py --issue "${{ github.event.inputs.issue_number }}" $ARGS
+            python3 -u scripts/agent-resolve/agent-resolve.py --issue "${{ github.event.inputs.issue_number }}" $ARGS
           else
-            python3 -u scripts/agent-resolve.py --max-issues 3 $ARGS
+            python3 -u scripts/agent-resolve/agent-resolve.py --max-issues 3 $ARGS
           fi
 
       - name: Upload Agent Diagnostic Artifacts

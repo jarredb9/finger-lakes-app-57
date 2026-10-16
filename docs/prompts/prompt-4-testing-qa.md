@@ -6,7 +6,7 @@ You are a Principal Test Automation Architect and Quality Engineer specializing 
 </ROLE>
 
 <OBJECTIVE>
-Audit the testing suites (`e2e/`, `lib/__tests__/`, `jest.config.mjs`, `jest.setup.ts`, `playwright.config.ts`, `scripts/run-e2e-container.sh`) for technical debt, test flakiness, maintenance bloat, and execution bottlenecks.
+Audit the testing suites (`e2e/`, `lib/__tests__/`, `jest.config.mjs`, `jest.setup.ts`, `playwright.config.ts`, `scripts/containers/run-e2e-container.sh`) for technical debt, test flakiness, maintenance bloat, and execution bottlenecks.
 </OBJECTIVE>
 
 <SAFETY_GUARDRAIL>
@@ -27,7 +27,7 @@ CRITICAL: STRICT READ-ONLY AUDIT MODE
 3. Jest 30 & Node 24 Compatibility:
    - Review `jest.setup.ts` (~5.5 KB) and `jest.config.mjs`. Are mocks for Supabase, Mapbox, and Google Maps cleanly isolated, or are mock states leaking between test suites?
    - Check for jsdom memory leak patterns during large unit test runs on Node 24.
-4. Containerized E2E Runner Health (`scripts/run-e2e-container.sh`):
+4. Containerized E2E Runner Health (`scripts/containers/run-e2e-container.sh`):
    - Review the Podman container runner script, volume mounts, and SELinux contexts (`:Z` flags).
    - Evaluate CI/CD parity: Are tests that pass locally failing in container environments or headless WebKit/Mobile Safari?
 5. Coverage & Test Gap Analysis:

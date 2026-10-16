@@ -1,11 +1,20 @@
 import { useToast } from "@/hooks/use-toast";
-import { Trip } from "@/lib/types";
+import { Trip, TripMember } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { useEffect } from "react";
 import { NavigationProvider, launchTripNavigation } from "@/lib/utils/trip-navigation";
 
-export function useTripActions(trip: Trip) {
+export interface UseTripActionsReturn {
+  selectedFriends: string[];
+  currentMembers: TripMember[];
+  handleTripNavigation: (provider?: NavigationProvider) => void;
+  /** @deprecated Use handleTripNavigation instead. Retained for backwards compatibility. */
+  handleExportToMaps: (provider?: NavigationProvider) => void;
+  saveTripMembers: (membersToSave?: string[]) => Promise<void>;
+}
+
+export function useTripActions(trip: Trip): UseTripActionsReturn {
   const { toast } = useToast();
   const { addMembersToTrip } = useTripStore();
   const { fetchFriends } = useFriendStore();
@@ -16,10 +25,14 @@ export function useTripActions(trip: Trip) {
     fetchFriends();
   }, [fetchFriends]);
 
-  const handleExportToMaps = (provider: NavigationProvider = 'google') => {
-    if (!trip.wineries || trip.wineries.length === 0) return;
+  const handleTripNavigation = (provider: NavigationProvider = 'google') => {
+    if (!trip.wineries || trip.wineries.length === 0) {
+      return;
+    }
     launchTripNavigation(provider, trip.wineries);
   };
+
+  const handleExportToMaps = handleTripNavigation;
 
   const saveTripMembers = async (membersToSave?: string[]) => {
     const finalMembers = membersToSave || currentMembers.map(m => m.id);
@@ -34,7 +47,9 @@ export function useTripActions(trip: Trip) {
   return {
     selectedFriends: currentMembers.map(m => m.id),
     currentMembers,
+    handleTripNavigation,
     handleExportToMaps,
     saveTripMembers,
   };
 }
+
