@@ -31,9 +31,9 @@
     - [x] Implement `scripts/agent-resolve/agent_resolve/environment.py` with process execution, secret scrubbing, and Docker isolation helpers (reading `config.PROJECT_ROOT` dynamically)
     - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export environment utilities
     - [x] Verify environment and legacy unit tests pass
-- [ ] Task: Write failing unit tests for verification engine (validate_jest_red_phase) (TDD Red phase)
-    - [ ] Create `scripts/agent-resolve/tests/test_verification.py` (passing test rejection, runtime crash detection, structured JSON assertion failure, CLI assertion failure, unimplemented function TypeError acceptance, hook crash rejection)
-    - [ ] Assert tests fail against `agent_resolve.verification`
+- [x] Task: Write failing unit tests for verification engine (validate_jest_red_phase) (TDD Red phase) [commit: d480153]
+    - [x] Create `scripts/agent-resolve/tests/test_verification.py` (passing test rejection, runtime crash detection, structured JSON assertion failure, CLI assertion failure, unimplemented function TypeError acceptance, hook crash rejection)
+    - [x] Assert tests fail against `agent_resolve.verification`
 - [ ] Task: Implement verification engine in agent_resolve.verification (TDD Green phase)
     - [ ] Implement `scripts/agent-resolve/agent_resolve/verification.py` with `validate_jest_red_phase`
     - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export `validate_jest_red_phase`
