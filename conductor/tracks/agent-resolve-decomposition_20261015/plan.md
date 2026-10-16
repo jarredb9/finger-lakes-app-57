@@ -23,7 +23,7 @@
     - [ ] Verify unit tests pass with `python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve` and `python3.12 -m unittest discover -s scripts/__tests__`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Package Foundation, Scaffolding, Models, Tracker & Config' (Protocol in workflow.md)
 
-## Phase 2: Environment, Verification Engine, Patch Engine & VCS
+## Phase 2: Execution Environment & Verification Engine
 - [ ] Task: Write failing unit tests for environment and secret sanitization utilities (TDD Red phase)
     - [ ] Create `scripts/agent-resolve/tests/test_environment.py` with unit tests for `log`, `sanitize_secrets` (redacting GitHub tokens, PATs, AIza keys, Bearer tokens), `run_cmd` (timeout handling), `is_docker_available`, and mocked `run_isolated_test`
     - [ ] Assert tests fail against `agent_resolve.environment`
@@ -38,6 +38,9 @@
     - [ ] Implement `scripts/agent-resolve/agent_resolve/verification.py` with `validate_jest_red_phase`
     - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export `validate_jest_red_phase`
     - [ ] Verify verification and legacy unit tests pass
+- [ ] Task: Conductor - User Manual Verification 'Phase 2: Execution Environment & Verification Engine' (Protocol in workflow.md)
+
+## Phase 3: Multi-Tier Patch Engine & VCS Operations
 - [ ] Task: Write failing unit tests for multi-tier patch engine and path resolution (TDD Red phase)
     - [ ] Create `scripts/agent-resolve/tests/test_patch_engine.py` (`safe_resolve_repo_path` with SEC-04 migration protection blocks, `reset_target_sources`, `apply_patch_manifest` Tier 1 exact, Tier 2 whitespace trimmed, CRLF normalization, clean error formatting, ambiguous rejection, new file creation)
     - [ ] Assert tests fail against `agent_resolve.patch_engine`
@@ -52,9 +55,9 @@
     - [ ] Implement `scripts/agent-resolve/agent_resolve/vcs.py` (reading `config.PROJECT_ROOT` dynamically and supporting `patch.object(agent_resolve, "gh_cli", ...)` propagation)
     - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export VCS helpers
     - [ ] Verify VCS and legacy unit tests pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Environment, Verification Engine, Patch Engine & VCS' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 3: Multi-Tier Patch Engine & VCS Operations' (Protocol in workflow.md)
 
-## Phase 3: LLM Client, Context Discovery & Exploration Tools
+## Phase 4: LLM Client, Context Discovery & Exploration Tools
 - [ ] Task: Write failing unit tests for LLM client and transient retry handling (TDD Red phase)
     - [ ] Create `scripts/agent-resolve/tests/test_llm.py` (`get_genai_client`, `is_transient_error` detecting connection resets, socket drops, 429, 503, 500, and `call_gemini_with_fallback` with mocked client and strict `gemini-3.8-flash` hard-stop policy)
     - [ ] Assert tests fail against `agent_resolve.llm`
@@ -71,9 +74,9 @@
     - [ ] Implement `scripts/agent-resolve/agent_resolve/diagnostics.py` (reading `config.PROJECT_ROOT` dynamically)
     - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export context and diagnostic tools
     - [ ] Verify context, diagnostic, and legacy unit tests pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: LLM Client, Context Discovery & Exploration Tools' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 4: LLM Client, Context Discovery & Exploration Tools' (Protocol in workflow.md)
 
-## Phase 4: Pipeline Stages & CLI Orchestrator
+## Phase 5: Pipeline Stages & CLI Orchestrator
 - [ ] Task: Write failing unit tests for pipeline stages and resolution orchestrator (TDD Red phase)
     - [ ] Create `scripts/agent-resolve/tests/test_stages.py` (`stage_0_diagnose` explicit files & iterative loop, `stage_1_plan` blueprint authoring, `stage_2_red` compiler self-correction loop, `stage_3_green` patch application)
     - [ ] Create `scripts/agent-resolve/tests/test_pipeline.py` (`resolve_issue` orchestration loop, branch management, dry-run mode, and resumption checkpoint fast-forward)
@@ -94,9 +97,9 @@
     - [ ] Implement `scripts/agent-resolve/agent_resolve/cli.py` with argument parsing and batch execution flow
     - [ ] Re-export `main` in `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py`
     - [ ] Verify `test_cli.py` and full test suites pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Pipeline Stages & CLI Orchestrator' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 5: Pipeline Stages & CLI Orchestrator' (Protocol in workflow.md)
 
-## Phase 5: Thin Shim Cutover, Entrypoint Parity Verification & Documentation
+## Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation
 - [ ] Task: Write failing comprehensive entrypoint integration, shim cutover, and parity tests (TDD Red phase)
     - [ ] Create `scripts/agent-resolve/tests/test_cli_and_entrypoint.py` asserting:
         1. PEP 621 `pyproject.toml` console script metadata (`[project.scripts]."agent-resolve" == "agent_resolve.cli:main"`) parsed via `tomllib` and callable invocation (`--help`) without requiring prior `pip install -e`
@@ -107,4 +110,4 @@
     - [ ] Transform `scripts/agent-resolve/agent-resolve.py` into a compact backward-compatible shim that bootstraps `sys.path`, self-heals `sys.modules["agent_resolve"].__path__`, delegates attribute mutations to `agent_resolve`, re-exports `__all__`, and invokes `agent_resolve.cli.main()`
     - [ ] Verify all 27 legacy test cases and all 14 modular test suites pass cleanly with `npm run test:agent` and `npm run test:agent:all`
     - [ ] Update `scripts/README.md`, `docs/adr/0005-autonomous-nightly-agent-workflow.md`, and `docs/agents/issue-tracker.md` to document both the modular `agent_resolve` package architecture and the complete 4-stage (`Stage 0`–`Stage 3`) pipeline with Tier 3 Blueprint Invalidation (keeping `CONTEXT.md` strictly bounded to the winery domain)
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Thin Shim Cutover, Entrypoint Parity Verification & Documentation' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation' (Protocol in workflow.md)

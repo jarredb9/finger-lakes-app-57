@@ -17,9 +17,9 @@ scripts/agent-resolve/
 │   ├── tracker.py                         # TokenTracker observability & metrics
 │   ├── exceptions.py                      # Custom exceptions (Stage2CompilationError, etc.)
 │   ├── environment.py                     # Process execution (run_cmd, sanitize_secrets, run_isolated_test, log)
-│   ├── vcs.py                             # Git & GitHub CLI operations (gh_cli, branches, PRs, maintainer hints)
-│   ├── patch_engine.py                    # Multi-tier fuzzy patch engine (apply_patch_manifest, safe_resolve_repo_path)
 │   ├── verification.py                    # Test failure validation (validate_jest_red_phase) & test log parsing
+│   ├── patch_engine.py                    # Multi-tier fuzzy patch engine (apply_patch_manifest, safe_resolve_repo_path)
+│   ├── vcs.py                             # Git & GitHub CLI operations (gh_cli, branches, PRs, maintainer hints)
 │   ├── llm.py                             # Gemini API client setup, retries & fallback invocation
 │   ├── context.py                         # Repository tree parsing, context building & suitability checks
 │   ├── diagnostics.py                     # Stage 0 exploration tools (grep, find_files, snippet extraction)
@@ -57,7 +57,7 @@ scripts/agent-resolve/
    - Add `"test:agent": "python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve"` and `"test:agent:all": "python3.12 -m unittest discover -s scripts/__tests__ && python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve"` to `package.json`, with a `sys.path` fallback in `scripts/agent-resolve/tests/__init__.py` so tests run cleanly without requiring `pip install -e`.
 2. **Backward-Compatible Executable Shim & Incremental Seam Extraction:**
    - [`scripts/agent-resolve/agent-resolve.py`](../../scripts/agent-resolve/agent-resolve.py) remains an executable script (`chmod +x`). It bootstraps `scripts/agent-resolve` onto `sys.path`, self-heals `sys.modules["agent_resolve"].__path__` if loaded as a single-file module via `importlib.util.spec_from_file_location("agent_resolve", ...)`, re-exports all public symbols, and invokes `agent_resolve.cli.main()`, ensuring existing invocations (`python3 -u scripts/agent-resolve/agent-resolve.py --issue ...`) execute identically.
-   - Refactoring proceeds via incremental seam extraction: in Phase 1, `scripts/__tests__/test_patch_engine.py` is updated to import `agent_resolve` cleanly from `scripts/agent-resolve`, and as each phase extracts symbols into `agent_resolve.*`, both `agent_resolve/__init__.py` and `agent-resolve.py` immediately import and re-export them, keeping the script fully functional and all 27 legacy regression tests green on every intermediate commit.
+   - Refactoring proceeds across 6 incremental phases (each capped at 3–5 tasks): in Phase 1, `scripts/__tests__/test_patch_engine.py` is updated to import `agent_resolve` cleanly from `scripts/agent-resolve`, and as each phase extracts symbols into `agent_resolve.*`, both `agent_resolve/__init__.py` and `agent-resolve.py` immediately import and re-export them, keeping the script fully functional and all 27 legacy regression tests green on every intermediate commit.
 3. **Centralized Configuration & Dynamic Monkeypatching Compatibility (PEP 562 + `types.ModuleType`):**
    - Introduce `agent_resolve.config` containing `PROJECT_ROOT`, `DEFAULT_PLANNER_MODELS`, `DEFAULT_EXECUTOR_MODELS`, `MAX_TOKENS_PER_ISSUE`, and `BATCH_PACING_SECONDS`.
    - Resolve `PROJECT_ROOT` in `agent_resolve/config.py` (which lives at depth 3 under the repo root) by walking upward from `Path(__file__).resolve().parent` to locate `package.json` / `.git`, with `Path(__file__).resolve().parents[3]` as fallback.
@@ -77,7 +77,7 @@ scripts/agent-resolve/
 6. **Test Suite Modernization & Legacy Regression Gate:**
    - Modernize unit tests into dedicated suites under `scripts/agent-resolve/tests/` organized by module.
    - Update `scripts/__tests__/test_patch_engine.py` in Phase 1 to import `agent_resolve` directly as a package (with `scripts/agent-resolve` on `sys.path`), eliminating single-file `sys.modules` shadowing collisions while maintaining 100% pass coverage for all 27 legacy test cases across every phase.
-   - Author `test_cli.py` in Phase 4 for CLI argument parsing and batch orchestration, and `test_cli_and_entrypoint.py` in Phase 5 to assert `pyproject.toml` PEP 621 console-script metadata (`tomllib` + callable resolution without requiring `pip install -e`), shim execution (`scripts/agent-resolve/agent-resolve.py --help`), `importlib` single-file loader compatibility, and namespace symbol parity.
+   - Author `test_cli.py` in Phase 5 for CLI argument parsing and batch orchestration, and `test_cli_and_entrypoint.py` in Phase 6 to assert `pyproject.toml` PEP 621 console-script metadata (`tomllib` + callable resolution without requiring `pip install -e`), shim execution (`scripts/agent-resolve/agent-resolve.py --help`), `importlib` single-file loader compatibility, and namespace symbol parity.
 
 ## 4. Acceptance Criteria
 - [ ] All existing 27 legacy test cases pass with `python3.12 -m unittest discover -s scripts/__tests__`.
