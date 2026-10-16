@@ -12,15 +12,15 @@
     - [x] Create `scripts/agent-resolve/tests/test_tracker.py` (`TokenTracker` token recording, budget enforcement exception, summary formatting)
     - [x] Create `scripts/agent-resolve/tests/test_exceptions.py` (`Stage2CompilationError` exception hierarchy)
     - [x] Assert tests fail against not-yet-implemented modules with `python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve`
-- [ ] Task: Implement config, models, TokenTracker, and exceptions in agent_resolve (TDD Green phase)
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/config.py` with ancestor-walk `PROJECT_ROOT` resolver (`package.json`/`.git` detection with `parents[3]` fallback) and configuration defaults
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/models.py` with all Pydantic schema definitions and the `DiagnosticResult` `@dataclass`
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/tracker.py` with `TokenTracker`
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/exceptions.py` with `Stage2CompilationError`
-    - [ ] Implement `_AgentResolveModule` (`types.ModuleType` subclass) in `scripts/agent-resolve/agent_resolve/__init__.py` to intercept `__getattr__`/`__setattr__` and propagate `PROJECT_ROOT` and monkeypatched attributes across loaded `agent_resolve.*` submodules
-    - [ ] Update `scripts/agent-resolve/agent-resolve.py` to self-heal `sys.modules["agent_resolve"].__path__` when loaded via `importlib`, and import/re-export `config`, `models`, `tracker`, and `exceptions` (incremental seam extraction)
-    - [ ] Update `scripts/__tests__/test_patch_engine.py` to import `agent_resolve` cleanly with `scripts/agent-resolve` on `sys.path` (eliminating single-file `sys.modules` shadowing collision)
-    - [ ] Verify unit tests pass with `python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve` and `python3.12 -m unittest discover -s scripts/__tests__`
+- [x] Task: Implement config, models, TokenTracker, and exceptions in agent_resolve (TDD Green phase) [commit: ca76ff3]
+    - [x] Implement `scripts/agent-resolve/agent_resolve/config.py` with ancestor-walk `PROJECT_ROOT` resolver (`package.json`/`.git` detection with `parents[3]` fallback) and configuration defaults
+    - [x] Implement `scripts/agent-resolve/agent_resolve/models.py` with all Pydantic schema definitions and the `DiagnosticResult` `@dataclass`
+    - [x] Implement `scripts/agent-resolve/agent_resolve/tracker.py` with `TokenTracker`
+    - [x] Implement `scripts/agent-resolve/agent_resolve/exceptions.py` with `Stage2CompilationError`
+    - [x] Implement `_AgentResolveModule` (`types.ModuleType` subclass) in `scripts/agent-resolve/agent_resolve/__init__.py` to intercept `__getattr__`/`__setattr__` and propagate `PROJECT_ROOT` and monkeypatched attributes across loaded `agent_resolve.*` submodules
+    - [x] Update `scripts/agent-resolve/agent-resolve.py` to self-heal `sys.modules["agent_resolve"].__path__` when loaded via `importlib`, and import/re-export `config`, `models`, `tracker`, and `exceptions` (incremental seam extraction)
+    - [x] Update `scripts/__tests__/test_patch_engine.py` to import `agent_resolve` cleanly with `scripts/agent-resolve` on `sys.path` (eliminating single-file `sys.modules` shadowing collision)
+    - [x] Verify unit tests pass with `python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve` and `python3.12 -m unittest discover -s scripts/__tests__`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Package Foundation, Scaffolding, Models, Tracker & Config' (Protocol in workflow.md)
 
 ## Phase 2: Execution Environment & Verification Engine
