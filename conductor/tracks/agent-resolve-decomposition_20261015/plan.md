@@ -34,10 +34,10 @@
 - [x] Task: Write failing unit tests for verification engine (validate_jest_red_phase) (TDD Red phase) [commit: d480153]
     - [x] Create `scripts/agent-resolve/tests/test_verification.py` (passing test rejection, runtime crash detection, structured JSON assertion failure, CLI assertion failure, unimplemented function TypeError acceptance, hook crash rejection)
     - [x] Assert tests fail against `agent_resolve.verification`
-- [ ] Task: Implement verification engine in agent_resolve.verification (TDD Green phase)
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/verification.py` with `validate_jest_red_phase`
-    - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export `validate_jest_red_phase`
-    - [ ] Verify verification and legacy unit tests pass
+- [x] Task: Implement verification engine in agent_resolve.verification (TDD Green phase) [commit: ec94cd6]
+    - [x] Implement `scripts/agent-resolve/agent_resolve/verification.py` with `validate_jest_red_phase`
+    - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export `validate_jest_red_phase`
+    - [x] Verify verification and legacy unit tests pass
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Execution Environment & Verification Engine' (Protocol in workflow.md)
 
 ## Phase 3: Multi-Tier Patch Engine & VCS Operations
