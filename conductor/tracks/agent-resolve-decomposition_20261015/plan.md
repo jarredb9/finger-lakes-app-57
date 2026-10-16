@@ -61,10 +61,10 @@
 - [x] Task: Write failing unit tests for LLM client and transient retry handling (TDD Red phase) [commit: 3fd3cf8]
     - [x] Create `scripts/agent-resolve/tests/test_llm.py` (`get_genai_client`, `is_transient_error` detecting connection resets, socket drops, 429, 503, 500, and `call_gemini_with_fallback` with mocked client and strict `gemini-3.8-flash` hard-stop policy)
     - [x] Assert tests fail against `agent_resolve.llm`
-- [ ] Task: Implement LLM client and retry logic in agent_resolve.llm (TDD Green phase)
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/llm.py`
-    - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export LLM client utilities
-    - [ ] Verify LLM client and legacy unit tests pass
+- [x] Task: Implement LLM client and retry logic in agent_resolve.llm (TDD Green phase) [commit: 559459cf]
+    - [x] Implement `scripts/agent-resolve/agent_resolve/llm.py`
+    - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export LLM client utilities
+    - [x] Verify LLM client and legacy unit tests pass
 - [ ] Task: Write failing unit tests for repository context and diagnostic exploration (TDD Red phase)
     - [ ] Create `scripts/agent-resolve/tests/test_context.py` (`get_repository_tree`, `get_project_context`, `find_related_test_files`, `extract_test_suite_names`, `is_issue_suitable_for_headless_agent`)
     - [ ] Create `scripts/agent-resolve/tests/test_diagnostics.py` (`grep_search`, `find_files`, `read_file_snippet`, `parse_issue_diagnostics`)
