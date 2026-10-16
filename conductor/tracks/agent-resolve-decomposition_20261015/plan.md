@@ -23,7 +23,7 @@
     - [x] Verify unit tests pass with `python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve` and `python3.12 -m unittest discover -s scripts/__tests__`
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Package Foundation, Scaffolding, Models, Tracker & Config' (Protocol in workflow.md) [commit: 7d4de6e]
 
-## Phase 2: Execution Environment & Verification Engine
+## Phase 2: Execution Environment & Verification Engine [checkpoint: 26b5467]
 - [x] Task: Write failing unit tests for environment and secret sanitization utilities (TDD Red phase) [commit: eac9ffc]
     - [x] Create `scripts/agent-resolve/tests/test_environment.py` with unit tests for `log`, `sanitize_secrets` (redacting GitHub tokens, PATs, AIza keys, Bearer tokens), `run_cmd` (timeout handling), `is_docker_available`, and mocked `run_isolated_test`
     - [x] Assert tests fail against `agent_resolve.environment`
@@ -38,7 +38,7 @@
     - [x] Implement `scripts/agent-resolve/agent_resolve/verification.py` with `validate_jest_red_phase`
     - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export `validate_jest_red_phase`
     - [x] Verify verification and legacy unit tests pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Execution Environment & Verification Engine' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Execution Environment & Verification Engine' (Protocol in workflow.md) [commit: 26b5467]
 
 ## Phase 3: Multi-Tier Patch Engine & VCS Operations
 - [ ] Task: Write failing unit tests for multi-tier patch engine and path resolution (TDD Red phase)
