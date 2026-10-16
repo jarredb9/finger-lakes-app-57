@@ -41,9 +41,9 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Execution Environment & Verification Engine' (Protocol in workflow.md) [commit: 26b5467]
 
 ## Phase 3: Multi-Tier Patch Engine & VCS Operations
-- [ ] Task: Write failing unit tests for multi-tier patch engine and path resolution (TDD Red phase)
-    - [ ] Create `scripts/agent-resolve/tests/test_patch_engine.py` (`safe_resolve_repo_path` with SEC-04 migration protection blocks, `reset_target_sources`, `apply_patch_manifest` Tier 1 exact, Tier 2 whitespace trimmed, CRLF normalization, clean error formatting, ambiguous rejection, new file creation)
-    - [ ] Assert tests fail against `agent_resolve.patch_engine`
+- [x] Task: Write failing unit tests for multi-tier patch engine and path resolution (TDD Red phase) [commit: 3405df9]
+    - [x] Create `scripts/agent-resolve/tests/test_patch_engine.py` (`safe_resolve_repo_path` with SEC-04 migration protection blocks, `reset_target_sources`, `apply_patch_manifest` Tier 1 exact, Tier 2 whitespace trimmed, CRLF normalization, clean error formatting, ambiguous rejection, new file creation)
+    - [x] Assert tests fail against `agent_resolve.patch_engine`
 - [ ] Task: Implement patch engine in agent_resolve.patch_engine (TDD Green phase)
     - [ ] Implement `scripts/agent-resolve/agent_resolve/patch_engine.py` (reading `config.PROJECT_ROOT` dynamically)
     - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export patch engine utilities
