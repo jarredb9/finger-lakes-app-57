@@ -48,9 +48,9 @@
     - [x] Implement `scripts/agent-resolve/agent_resolve/patch_engine.py` (reading `config.PROJECT_ROOT` dynamically)
     - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export patch engine utilities
     - [x] Verify patch engine and legacy unit tests pass
-- [ ] Task: Write failing unit tests for VCS and GitHub CLI helpers (TDD Red phase)
-    - [ ] Create `scripts/agent-resolve/tests/test_vcs.py` (`gh_cli`, `reset_working_tree_to_main`, `cleanup_feature_branch`, `update_or_create_pr`, `preserve_failed_work` circuit breaker state file and attempt incrementing, `fetch_maintainer_hints` provenance and timestamp filtering)
-    - [ ] Assert tests fail against `agent_resolve.vcs`
+- [x] Task: Write failing unit tests for VCS and GitHub CLI helpers (TDD Red phase) [commit: 6434765]
+    - [x] Create `scripts/agent-resolve/tests/test_vcs.py` (`gh_cli`, `reset_working_tree_to_main`, `cleanup_feature_branch`, `update_or_create_pr`, `preserve_failed_work` circuit breaker state file and attempt incrementing, `fetch_maintainer_hints` provenance and timestamp filtering)
+    - [x] Assert tests fail against `agent_resolve.vcs`
 - [ ] Task: Implement VCS and GitHub helpers in agent_resolve.vcs (TDD Green phase)
     - [ ] Implement `scripts/agent-resolve/agent_resolve/vcs.py` (reading `config.PROJECT_ROOT` dynamically and supporting `patch.object(agent_resolve, "gh_cli", ...)` propagation)
     - [ ] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export VCS helpers
