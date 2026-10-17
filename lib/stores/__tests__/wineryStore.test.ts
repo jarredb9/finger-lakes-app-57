@@ -84,15 +84,12 @@ describe('WineryUIStore: ensureWineryDetails', () => {
     
     useWineryStore.setState({ persistentWineries: [staleWinery] });
 
-    // ensureWineryDetails should return the stale data immediately for snappy UI
     const result = await useWineryStore.getState().ensureWineryDetails(staleWinery.id);
     expect(result).toEqual(staleWinery);
 
-    // And fire background revalidation to get-winery-details
     expect(mockInvoke).toHaveBeenCalledWith('get-winery-details', { body: { placeId: staleWinery.id } });
     expect(mockInvoke).toHaveBeenCalledTimes(1);
 
-    // Calling it again while in-flight should NOT trigger duplicate background calls
     await useWineryStore.getState().ensureWineryDetails(staleWinery.id);
     expect(mockInvoke).toHaveBeenCalledTimes(1);
   });
@@ -123,7 +120,6 @@ describe('WineryUIStore: ensureWineryDetails', () => {
 
     await useWineryStore.getState().ensureWineryDetails(zeroRatingWinery.id);
 
-    // Should fetch from DB because rating: 0 is treated as corrupted/invalid
     expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { p_winery_id: 456 });
   });
 
@@ -155,7 +151,6 @@ describe('WineryUIStore: ensureWineryDetails', () => {
     
     useWineryStore.setState({ persistentWineries: [ghostWinery] });
 
-    // Mock RPC Success
     mockRpc.mockResolvedValueOnce({ 
       data: [{ 
         ...ghostWinery, 
@@ -535,7 +530,6 @@ describe('WineryUIStore: fetchWineryData', () => {
 
       const promise = useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
 
-      // Give microtasks a turn to run RPC and set loadingWineryId
       await Promise.resolve();
       await Promise.resolve();
 
@@ -577,15 +571,12 @@ describe('WineryUIStore: fetchWineryData', () => {
 
       useWineryStore.setState({ persistentWineries: [staleWinery] });
 
-      // When called with numeric ID '2988', ensureWineryDetails should return cached data immediately
       const result = await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
       expect(result).toEqual(staleWinery);
 
-      // And triggers background revalidation with canonical Place ID 'ChIJ_mock_2988'
       expect(mockInvoke).toHaveBeenCalledWith('get-winery-details', { body: { placeId: 'ChIJ_mock_2988' } });
       expect(mockInvoke).toHaveBeenCalledTimes(1);
 
-      // Consecutive calls while in-flight deduplicate calls
       await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
       expect(mockInvoke).toHaveBeenCalledTimes(1);
     });
@@ -613,15 +604,12 @@ describe('WineryUIStore: fetchWineryData', () => {
 
       mockInvoke.mockRejectedValueOnce(new Error('Background fetch failed'));
 
-      // First call triggers background revalidation which rejects
       await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
       expect(mockInvoke).toHaveBeenCalledTimes(1);
 
-      // Allow microtasks for .catch and .finally to execute
       await Promise.resolve();
       await Promise.resolve();
 
-      // Subsequent call should be able to trigger revalidation again because inFlightRevalidations was cleaned up
       mockInvoke.mockResolvedValueOnce({
         data: {
           id: 'ChIJ_mock_2988',
@@ -638,6 +626,113 @@ describe('WineryUIStore: fetchWineryData', () => {
       expect(mockInvoke).toHaveBeenCalledTimes(2);
 
       consoleErrorSpy.mockRestore();
+    });
+  });
+
+  describe('WineryUIStore: Version 3 Migration & Amenity Healing (Issue #73)', () => {
+    it('configures Zustand persist with version 3', () => {
+      const persistOptions = (useWineryStore as any).persist.getOptions();
+      expect(persistOptions.version).toBe(3);
+    });
+
+    it('heals poisoned false amenities to null when migrating from version 2 to version 3', () => {
+      const persistOptions = (useWineryStore as any).persist.getOptions();
+      const oldState = {
+        persistentWineries: [
+          {
+            ...createMockWinery({ id: 'toast-15504' as any, dbId: 15504 as any, name: 'Toast Winery' }),
+            allows_dogs: false,
+            has_ev_charging: false,
+            serves_wine: false,
+            good_for_children: false,
+            outdoor_seating: false,
+            isFavorite: true,
+            favoriteIsPrivate: false,
+            onWishlist: true,
+            wishlistIsPrivate: true,
+            userVisited: false,
+            rating: 4.6,
+            latitude: 42.7,
+            longitude: -76.9,
+          },
+          {
+            ...createMockWinery({ id: 'confirmed-winery' as any, dbId: 10001 as any }),
+            allows_dogs: true,
+            has_ev_charging: true,
+            serves_wine: true,
+            good_for_children: true,
+            outdoor_seating: true,
+            isFavorite: false,
+          },
+          {
+            ...createMockWinery({ id: 'null-winery' as any, dbId: 10002 as any }),
+            allows_dogs: null,
+            has_ev_charging: null,
+            serves_wine: null,
+            good_for_children: null,
+            outdoor_seating: null,
+          },
+        ],
+      };
+
+      const migrated = persistOptions.migrate(oldState, 2);
+
+      expect(migrated.persistentWineries).toHaveLength(3);
+
+      const healed = migrated.persistentWineries.find((w: any) => w.id === 'toast-15504');
+      expect(healed.allows_dogs).toBeNull();
+      expect(healed.has_ev_charging).toBeNull();
+      expect(healed.serves_wine).toBeNull();
+      expect(healed.good_for_children).toBeNull();
+      expect(healed.outdoor_seating).toBeNull();
+
+      expect(healed.isFavorite).toBe(true);
+      expect(healed.favoriteIsPrivate).toBe(false);
+      expect(healed.onWishlist).toBe(true);
+      expect(healed.wishlistIsPrivate).toBe(true);
+      expect(healed.userVisited).toBe(false);
+      expect(healed.rating).toBe(4.6);
+      expect(healed.latitude).toBe(42.7);
+      expect(healed.longitude).toBe(-76.9);
+
+      const confirmed = migrated.persistentWineries.find((w: any) => w.id === 'confirmed-winery');
+      expect(confirmed.allows_dogs).toBe(true);
+      expect(confirmed.has_ev_charging).toBe(true);
+      expect(confirmed.serves_wine).toBe(true);
+      expect(confirmed.good_for_children).toBe(true);
+      expect(confirmed.outdoor_seating).toBe(true);
+
+      const alreadyNull = migrated.persistentWineries.find((w: any) => w.id === 'null-winery');
+      expect(alreadyNull.allows_dogs).toBeNull();
+      expect(alreadyNull.has_ev_charging).toBeNull();
+    });
+
+    it('runs sequential migration from version 1 through version 2 to version 3', () => {
+      const persistOptions = (useWineryStore as any).persist.getOptions();
+      const v1State = {
+        persistentWineries: [
+          {
+            ...createMockWinery({ id: 'valid-v1' as any }),
+            enrichment_tier: 'enriched',
+            openingHours: { weekday_text: ['Mon: Open'] },
+            allows_dogs: false,
+            has_ev_charging: true,
+          },
+          {
+            ...createMockWinery({ id: 'corrupt-v1' as any }),
+            enrichment_tier: 'enriched',
+            openingHours: null,
+            allows_dogs: false,
+          },
+        ],
+      };
+
+      const migrated = persistOptions.migrate(v1State, 1);
+
+      expect(migrated.persistentWineries).toHaveLength(1);
+      expect(migrated.persistentWineries[0].id).toBe('valid-v1');
+      expect(migrated.persistentWineries[0].allows_dogs).toBeNull();
+      expect(migrated.persistentWineries[0].has_ev_charging).toBe(true);
     });
   });
 });
