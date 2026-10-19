@@ -93,10 +93,10 @@
 - [x] Task: Write failing unit tests for CLI argument parsing and batch execution flow (TDD Red phase) [commit: 0e4451e]
     - [x] Create `scripts/agent-resolve/tests/test_cli.py` asserting CLI flags (`--issue`, `--max-issues`, `--dry-run`), batch pacing, error handling, and `main()` exit codes against `agent_resolve.cli`
     - [x] Assert tests fail before `agent_resolve.cli` implementation
-- [ ] Task: Implement CLI entrypoint in agent_resolve.cli (TDD Green phase)
-    - [ ] Implement `scripts/agent-resolve/agent_resolve/cli.py` with argument parsing and batch execution flow
-    - [ ] Re-export `main` in `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py`
-    - [ ] Verify `test_cli.py` and full test suites pass
+- [x] Task: Implement CLI entrypoint in agent_resolve.cli (TDD Green phase) [commit: 87316517]
+    - [x] Implement `scripts/agent-resolve/agent_resolve/cli.py` with argument parsing and batch execution flow
+    - [x] Re-export `main` in `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py`
+    - [x] Verify `test_cli.py` and full test suites pass
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: Pipeline Stages & CLI Orchestrator' (Protocol in workflow.md)
 
 ## Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation
