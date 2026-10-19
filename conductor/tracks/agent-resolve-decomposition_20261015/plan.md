@@ -99,7 +99,7 @@
     - [x] Verify `test_cli.py` and full test suites pass
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Pipeline Stages & CLI Orchestrator' (Protocol in workflow.md) [commit: e5e4701]
 
-## Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation
+## Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation [checkpoint: deacef7]
 - [x] Task: Write failing comprehensive entrypoint integration, shim cutover, and parity tests (TDD Red phase) [commit: 8461ece7]
     - [x] Create `scripts/agent-resolve/tests/test_cli_and_entrypoint.py` asserting:
         1. PEP 621 `pyproject.toml` console script metadata (`[project.scripts]."agent-resolve" == "agent_resolve.cli:main"`) parsed via `tomllib` and callable invocation (`--help`) without requiring prior `pip install -e`
@@ -110,4 +110,4 @@
     - [x] Transform `scripts/agent-resolve/agent-resolve.py` into a compact backward-compatible shim that bootstraps `sys.path`, self-heals `sys.modules["agent_resolve"].__path__`, delegates attribute mutations to `agent_resolve`, re-exports `__all__`, and invokes `agent_resolve.cli.main()`
     - [x] Verify all 27 legacy test cases and all 14 modular test suites pass cleanly with `npm run test:agent` and `npm run test:agent:all`
     - [x] Update `scripts/README.md`, `docs/adr/0005-autonomous-nightly-agent-workflow.md`, and `docs/agents/issue-tracker.md` to document both the modular `agent_resolve` package architecture and the complete 4-stage (`Stage 0`–`Stage 3`) pipeline with Tier 3 Blueprint Invalidation (keeping `CONTEXT.md` strictly bounded to the winery domain)
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation' (Protocol in workflow.md) [commit: deacef7]
