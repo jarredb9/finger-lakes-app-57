@@ -35,16 +35,22 @@ Run `gh issue view <number> --comments`.
 
 ## Briefing Issues for Autonomous Resolution (`agent:resolve`)
 
-Autonomous issue resolution via `.github/workflows/agent-resolve.yml` (and the underlying `scripts/agent-resolve/agent-resolve.py` harness) executes a 3-stage TDD pipeline (Architectural Planning -> Red Phase Tests -> Green Phase Implementation). To maximize first-pass success and eliminate hallucinations, maintainers should pre-triage and brief incoming issues using the structured fields in `.github/ISSUE_TEMPLATE/bug_report.yml`:
+Autonomous issue resolution via [.github/workflows/agent-resolve.yml](file:///home/byrnesjd4821/Git/finger-lakes-app-57/.github/workflows/agent-resolve.yml) (driven by the modular `agent_resolve` package in `scripts/agent-resolve/agent_resolve/` with `scripts/agent-resolve/agent-resolve.py` CLI shim) executes a 4-stage TDD pipeline:
+1. **Stage 0 (Diagnostic Exploration)**: Bounded read-only repository search (`grep_search`, `find_files`, `read_file_snippet`).
+2. **Stage 1 (Architectural Blueprint)**: Structured planning generating `task-plan.md` grounded in Stage 0 diagnostics.
+3. **Stage 2 (Red Phase Tests)**: Compiling stubs and failing tests (`validate_jest_red_phase`), with **Tier 3 Blueprint Invalidation** fallback if test authoring hits an unrecoverable architectural impasse.
+4. **Stage 3 (Green Phase Implementation)**: Precision fuzzy patching, iterative test feedback, and mandatory full regression gate.
+
+To maximize first-pass success and eliminate hallucinations, maintainers should pre-triage and brief incoming issues using the structured fields in [.github/ISSUE_TEMPLATE/bug_report.yml](file:///home/byrnesjd4821/Git/finger-lakes-app-57/.github/ISSUE_TEMPLATE/bug_report.yml). These fields directly constrain Stage 0 diagnostic bounding and Stage 1 planning:
 
 ### Structured Pre-Triage Fields
 
 1. **Target Files & Suspected Components**:
    - Explicit repository-relative paths to files, hooks, or components to inspect or modify.
-   - Constrains the Stage 1 Planner's search space and prevents the creation of disconnected, duplicate components or parallel state stores.
+   - Constrains Stage 0 diagnostic search and the Stage 1 Planner's search space, preventing the creation of disconnected, duplicate components or parallel state stores.
 2. **Suspected Root Cause & Reproduction Seam**:
    - The concrete runtime mechanism responsible for the bug (e.g., iOS WebKit transient user gesture expiration in async callbacks, race conditions, state desync).
-   - Directs the Stage 2 Red Phase executor to author accurate, empirical failing tests targeting the exact failure seam.
+   - Guides Stage 0 snippet reads and directs the Stage 2 Red Phase executor to author accurate, empirical failing tests targeting the exact failure seam.
 3. **Architectural Constraints & Invariants**:
    - Boundaries and non-negotiables for the agent:
      - Component refactoring boundaries (e.g., refactor existing handlers in place rather than creating redundant parallel components).
