@@ -65,10 +65,10 @@
     - [x] Implement `scripts/agent-resolve/agent_resolve/llm.py`
     - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export LLM client utilities
     - [x] Verify LLM client and legacy unit tests pass
-- [ ] Task: Write failing unit tests for repository context and diagnostic exploration (TDD Red phase)
-    - [ ] Create `scripts/agent-resolve/tests/test_context.py` (`get_repository_tree`, `get_project_context`, `find_related_test_files`, `extract_test_suite_names`, `is_issue_suitable_for_headless_agent`)
-    - [ ] Create `scripts/agent-resolve/tests/test_diagnostics.py` (`grep_search`, `find_files`, `read_file_snippet`, `parse_issue_diagnostics`)
-    - [ ] Assert tests fail against `agent_resolve.context` and `agent_resolve.diagnostics`
+- [x] Task: Write failing unit tests for repository context and diagnostic exploration (TDD Red phase) [commit: e367def6]
+    - [x] Create `scripts/agent-resolve/tests/test_context.py` (`get_repository_tree`, `get_project_context`, `find_related_test_files`, `extract_test_suite_names`, `is_issue_suitable_for_headless_agent`)
+    - [x] Create `scripts/agent-resolve/tests/test_diagnostics.py` (`grep_search`, `find_files`, `read_file_snippet`, `parse_issue_diagnostics`)
+    - [x] Assert tests fail against `agent_resolve.context` and `agent_resolve.diagnostics`
 - [ ] Task: Implement context and diagnostic tools in agent_resolve.context and agent_resolve.diagnostics (TDD Green phase)
     - [ ] Implement `scripts/agent-resolve/agent_resolve/context.py` (reading `config.PROJECT_ROOT` dynamically)
     - [ ] Implement `scripts/agent-resolve/agent_resolve/diagnostics.py` (reading `config.PROJECT_ROOT` dynamically)
