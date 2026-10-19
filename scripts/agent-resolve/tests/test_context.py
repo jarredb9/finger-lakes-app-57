@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from agent_resolve import config
 from agent_resolve.context import (
+    JEST_PATHSPECS,
     extract_test_suite_names,
     find_related_test_files,
     get_project_context,
@@ -150,8 +151,9 @@ class TestFindRelatedTestFiles(unittest.TestCase):
 
             found = find_related_test_files(["lib/utils.ts"])
 
+            regex = r"/(?:lib/utils)(\.[a-zA-Z]+)?['\"]|from\s*['\"][^'\"]*lib/utils"
             mock_run_cmd.assert_called_once_with(
-                ["git", "grep", "-l", "utils", "--", "**/__tests__/*"]
+                ["git", "grep", "-E", "-l", regex, "--", *JEST_PATHSPECS]
             )
             self.assertEqual(found, ["lib/__tests__/utils.test.ts"])
 

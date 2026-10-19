@@ -56,6 +56,10 @@ class BlueprintPlan(BaseModel):
         description="Explicit list of application source file paths to create or modify"
     )
     plan_markdown: str = Field(description="Full markdown content for task-plan.md")
+    blast_radius_test_files: List[str] = Field(
+        default_factory=list,
+        description="Downstream test suites executed during Stage 3 verification but excluded from LLM prompts and Stage 2 authoring",
+    )
 
 
 class TestFileEntry(BaseModel):
