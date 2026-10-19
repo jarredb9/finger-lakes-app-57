@@ -226,6 +226,11 @@ class TestStage1Plan(unittest.TestCase):
             blueprint.target_test_files,
             [
                 "components/__tests__/Primary.test.tsx",
+            ],
+        )
+        self.assertEqual(
+            blueprint.blast_radius_test_files,
+            [
                 "components/__tests__/Dependent.test.tsx",
             ],
         )
@@ -294,6 +299,35 @@ class TestStage1Plan(unittest.TestCase):
                 stage_1_plan(self.client, 42, "Bad migration", "Body", self.tracker)
 
         self.assertIn("Modification of protected file blocked", str(ctx.exception))
+
+    def test_stage_1_populates_blast_radius_without_mutating_target_test_files(self) -> None:
+        src = self.root / "lib" / "utils" / "format.ts"
+        src.parent.mkdir(parents=True, exist_ok=True)
+        src.write_text("export const format = () => '';\n", encoding="utf-8")
+
+        mock_blueprint = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/format.test.ts"],
+            target_src_files=["lib/utils/format.ts"],
+            plan_markdown="# Plan",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve,
+            "find_related_test_files",
+            return_value=[
+                "lib/utils/__tests__/format.test.ts",
+                "components/__tests__/Dependent.test.tsx",
+            ],
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=mock_blueprint
+        ):
+            blueprint = stage_1_plan(self.client, 42, "Format issue", "Body", self.tracker)
+
+        self.assertEqual(blueprint.target_test_files, ["lib/utils/__tests__/format.test.ts"])
+        self.assertEqual(blueprint.blast_radius_test_files, ["components/__tests__/Dependent.test.tsx"])
 
 
 class TestStage2Red(unittest.TestCase):
@@ -524,6 +558,50 @@ class TestStage2Red(unittest.TestCase):
 
         self.assertIn("Red phase failed verification after 2 attempts", str(ctx.exception))
 
+    def test_stage_2_ignores_blast_radius_test_files(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/target.test.ts"],
+            target_src_files=["lib/target.ts"],
+            plan_markdown="# Plan",
+            blast_radius_test_files=["components/__tests__/blast.test.tsx"],
+        )
+
+        manifest = TestFileManifest(
+            files=[
+                TestFileEntry(
+                    file_path="lib/__tests__/target.test.ts",
+                    content="describe('target', () => { it('fails', () => { expect(true).toBe(false); }); });",
+                )
+            ]
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ) as mock_test, patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Valid assertion failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Target only", bp, self.tracker)
+
+        prompt_text = mock_gemini.call_args[0][1]
+        self.assertIn("lib/__tests__/target.test.ts", prompt_text)
+        self.assertNotIn("components/__tests__/blast.test.tsx", prompt_text)
+
+        mock_test.assert_any_call(["npx", "jest", "--json", "lib/__tests__/target.test.ts"])
+        for call_args in mock_test.call_args_list:
+            self.assertNotIn("components/__tests__/blast.test.tsx", call_args[0][0])
+        self.assertEqual(bp.blast_radius_test_files, ["components/__tests__/blast.test.tsx"])
+
 
 class TestStage3Green(unittest.TestCase):
     def setUp(self) -> None:
@@ -745,6 +823,75 @@ class TestStage3Green(unittest.TestCase):
         ])
         self.assertFalse(state_file.exists())
         self.assertFalse(handoff_file.exists())
+
+    def test_stage_3_isolates_prompt_and_executes_target_plus_blast_radius_silently(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        target_test = self.root / "lib" / "__tests__" / "target.test.ts"
+        target_test.parent.mkdir(parents=True, exist_ok=True)
+        target_test.write_text("describe('target', () => {});", encoding="utf-8")
+
+        blast_test = self.root / "components" / "__tests__" / "blast.test.tsx"
+        blast_test.parent.mkdir(parents=True, exist_ok=True)
+        blast_test.write_text("describe('blast', () => {});", encoding="utf-8")
+
+        src_file = self.root / "lib" / "target.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const val = 0;", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/target.test.ts"],
+            target_src_files=["lib/target.ts"],
+            plan_markdown="# Plan",
+            blast_radius_test_files=["components/__tests__/blast.test.tsx"],
+        )
+
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/target.ts",
+                    search_block="export const val = 0;",
+                    replace_block="export const val = 1;",
+                )
+            ]
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[
+                (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted jest
+                (0, "", ""),  # full regression jest
+                (0, "", ""),  # full regression type-check
+            ],
+        ) as mock_test, patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        # TESTS TO PASS prompt section must only contain target test files
+        prompt_text = mock_gemini.call_args[0][1]
+        self.assertIn("lib/__tests__/target.test.ts", prompt_text)
+        self.assertNotIn("components/__tests__/blast.test.tsx", prompt_text)
+
+        # Targeted Jest verification must run with --no-color, --silent and include target + blast radius
+        mock_test.assert_any_call([
+            "npx",
+            "jest",
+            "--no-color",
+            "--silent",
+            "lib/__tests__/target.test.ts",
+            "components/__tests__/blast.test.tsx",
+        ])
 
 
 if __name__ == "__main__":

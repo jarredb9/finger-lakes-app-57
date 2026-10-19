@@ -1,6 +1,7 @@
 """Unit tests for `agent_resolve.models` Pydantic schemas and dataclasses."""
 
 from dataclasses import is_dataclass
+import json
 import unittest
 
 from pydantic import BaseModel, ValidationError
@@ -54,6 +55,43 @@ class TestModels(unittest.TestCase):
 
         with self.assertRaises(ValidationError):
             BlueprintPlan(scope="winery", target_test_files=[])  # type: ignore[call-arg]
+
+    def test_blueprint_plan_blast_radius_test_files_default_and_serialization(self) -> None:
+        plan1 = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/winery.test.ts"],
+            target_src_files=["lib/utils/winery.ts"],
+            plan_markdown="# Plan",
+        )
+        plan2 = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/winery.test.ts"],
+            target_src_files=["lib/utils/winery.ts"],
+            plan_markdown="# Plan",
+        )
+        self.assertEqual(plan1.blast_radius_test_files, [])
+        plan1.blast_radius_test_files.append("lib/utils/__tests__/dependent.test.ts")
+        self.assertEqual(plan2.blast_radius_test_files, [])
+
+        plan_with_blast = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/winery.test.ts"],
+            target_src_files=["lib/utils/winery.ts"],
+            plan_markdown="# Plan",
+            blast_radius_test_files=["lib/utils/__tests__/dependent.test.ts"],
+        )
+        json_payload = plan_with_blast.model_dump_json()
+        restored = BlueprintPlan.model_validate_json(json_payload)
+        self.assertEqual(restored.blast_radius_test_files, ["lib/utils/__tests__/dependent.test.ts"])
+
+        legacy_json = json.dumps({
+            "scope": "winery",
+            "target_test_files": ["lib/utils/__tests__/winery.test.ts"],
+            "target_src_files": ["lib/utils/winery.ts"],
+            "plan_markdown": "# Plan",
+        })
+        restored_legacy = BlueprintPlan.model_validate_json(legacy_json)
+        self.assertEqual(restored_legacy.blast_radius_test_files, [])
 
     def test_test_file_manifest_with_optional_source_stubs(self) -> None:
         entry = TestFileEntry(

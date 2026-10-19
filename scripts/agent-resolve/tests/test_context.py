@@ -190,6 +190,127 @@ class TestFindRelatedTestFiles(unittest.TestCase):
         found = find_related_test_files(["lib/service.ts"])
         self.assertEqual(found, [])
 
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_restricts_to_jest_extensions_and_excludes_supabase_and_e2e(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            valid_test = tmp_root / "components" / "__tests__" / "WineryCard.test.tsx"
+            supabase_test = tmp_root / "supabase" / "functions" / "api.test.ts"
+            e2e_test = tmp_root / "e2e" / "trip-flow.spec.ts"
+            python_test = tmp_root / "scripts" / "test.py"
+
+            for f in [valid_test, supabase_test, e2e_test, python_test]:
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text("// test", encoding="utf-8")
+
+            config.set_project_root(tmp_root)
+
+            mock_run_cmd.return_value = (
+                0,
+                "components/__tests__/WineryCard.test.tsx\n"
+                "supabase/functions/api.test.ts\n"
+                "e2e/trip-flow.spec.ts\n"
+                "scripts/test.py\n",
+                "",
+            )
+
+            found = find_related_test_files(["components/WineryCard.tsx"])
+
+            cmd = mock_run_cmd.call_args[0][0]
+            self.assertIn("--", cmd)
+            dash_idx = cmd.index("--")
+            pathspecs = cmd[dash_idx + 1 :]
+            expected_patterns = {"*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"}
+            self.assertTrue(any(pat in " ".join(pathspecs) for pat in expected_patterns))
+
+            self.assertEqual(found, ["components/__tests__/WineryCard.test.tsx"])
+
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_matches_module_import_boundaries(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        mock_run_cmd.return_value = (1, "", "no matches")
+        find_related_test_files(["lib/winery.ts"])
+
+        cmd = mock_run_cmd.call_args[0][0]
+        self.assertIn("-E", cmd)
+        cmd_str = " ".join(cmd)
+        self.assertTrue(
+            "/(?:winery)" in cmd_str or "from.*winery" in cmd_str or "(?:winery)" in cmd_str,
+            f"Expected import boundary regex in command: {cmd}",
+        )
+        self.assertNotIn(" winery ", f" {cmd_str} ")
+
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_qualifies_generic_stems_with_relative_path(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        mock_run_cmd.return_value = (1, "", "no matches")
+        find_related_test_files(["lib/constants.ts"])
+
+        cmd = mock_run_cmd.call_args[0][0]
+        cmd_str = " ".join(cmd)
+        self.assertIn("lib/constants", cmd_str)
+
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_sorts_by_common_ancestor_depth_descending(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            same_dir_test = tmp_root / "components" / "map" / "__tests__" / "MapboxMap.test.tsx"
+            parent_dir_test = tmp_root / "components" / "__tests__" / "App.test.tsx"
+            unrelated_test = tmp_root / "lib" / "utils" / "__tests__" / "format.test.ts"
+
+            for f in [same_dir_test, parent_dir_test, unrelated_test]:
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text("// test", encoding="utf-8")
+
+            config.set_project_root(tmp_root)
+
+            mock_run_cmd.return_value = (
+                0,
+                "lib/utils/__tests__/format.test.ts\n"
+                "components/__tests__/App.test.tsx\n"
+                "components/map/__tests__/MapboxMap.test.tsx\n",
+                "",
+            )
+
+            found = find_related_test_files(["components/map/MapboxMap.tsx"])
+
+            self.assertEqual(
+                found,
+                [
+                    "components/map/__tests__/MapboxMap.test.tsx",
+                    "components/__tests__/App.test.tsx",
+                    "lib/utils/__tests__/format.test.ts",
+                ],
+            )
+
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_caps_results_at_eight_suites(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            tests = [tmp_root / "components" / "__tests__" / f"suite_{i}.test.tsx" for i in range(12)]
+            for t in tests:
+                t.parent.mkdir(parents=True, exist_ok=True)
+                t.write_text("// test", encoding="utf-8")
+
+            config.set_project_root(tmp_root)
+
+            mock_run_cmd.return_value = (
+                0,
+                "\n".join(f"components/__tests__/suite_{i}.test.tsx" for i in range(12)) + "\n",
+                "",
+            )
+
+            found = find_related_test_files(["components/Card.tsx"])
+            self.assertEqual(len(found), 8)
+
 
 class TestExtractTestSuiteNames(unittest.TestCase):
     def test_extracts_single_double_and_backtick_quoted_describe_titles(self) -> None:
