@@ -264,16 +264,20 @@ def infer_verification_strategy(
     task_desc_lower = task_desc.lower()
 
     is_checkpoint = (
-        "manual verification" in desc_lower
-        or "checkpoint" in desc_lower
-        or "protocol in workflow.md" in desc_lower
+        mode is None
+        and (
+            "manual verification" in task_desc_lower
+            or "protocol in workflow.md" in task_desc_lower
+            or "checkpoint end of phase" in task_desc_lower
+            or task_desc_lower.startswith("conductor - user manual verification")
+        )
     )
 
     # Determine execution mode: 'checkpoint', 'red', 'green', or 'full' (legacy)
-    if is_checkpoint:
-        resolved_mode = "checkpoint"
-    elif mode in ("red", "green", "full"):
+    if mode in ("red", "green", "full"):
         resolved_mode = mode
+    elif is_checkpoint:
+        resolved_mode = "checkpoint"
     else:
         # Strict TDD separation: default to red or green, never auto-infer full composite
         if (
