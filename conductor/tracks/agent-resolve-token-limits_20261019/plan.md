@@ -6,12 +6,12 @@
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_context.py` verifying `find_related_test_files` matches only Jest extensions (`*.test.ts(x)`, `*.spec.ts(x)`), excludes `supabase/` and `e2e/`, qualifies generic stems (`index`, `types`, `constants`, `utils`, `helpers`) with directory paths, matches import boundaries (`/(?:{pattern})(?:\.[a-zA-Z]+)?['\"]` and `from.*{pattern}`), sorts by common ancestor directory depth descending, and caps results at 8 suites
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying Stage 1 populates blast radius without mutating `target_test_files`, Stage 2 only interacts with `target_test_files`, and Stage 3 only injects `target_test_files` into prompt while executing target + blast radius in Jest with `--no-color` and `--silent`
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_vcs.py` asserting `preserve_failed_work` persists `blast_radius_test_files` in `.agent-state.json` and `update_or_create_pr` formats it in the PR body
-- [ ] Task: Implement blast radius data model, discovery bounds, generic stem qualification, and stage prompt isolation (TDD Green phase)
-    - [ ] Add `blast_radius_test_files: List[str]` to `BlueprintPlan` in `agent_resolve/models.py`
-    - [ ] Update `preserve_failed_work` and `update_or_create_pr` in `agent_resolve/vcs.py` to persist and report blast radius suites
-    - [ ] Refactor `find_related_test_files` in `agent_resolve/context.py` with import-boundary regex, generic stem path qualification, ancestor-proximity sorting, and 8-suite cap
-    - [ ] Update `stage_1_plan.py`, `stage_2_red.py`, and `stage_3_green.py` to isolate prompt injection and execute target + blast radius suites
-    - [ ] Verify all tests pass via `npm run test:agent`
+- [x] Task: Implement blast radius data model, discovery bounds, generic stem qualification, and stage prompt isolation (TDD Green phase) [commit: 9cde21eb]
+    - [x] Add `blast_radius_test_files: List[str]` to `BlueprintPlan` in `agent_resolve/models.py`
+    - [x] Update `preserve_failed_work` and `update_or_create_pr` in `agent_resolve/vcs.py` to persist and report blast radius suites
+    - [x] Refactor `find_related_test_files` in `agent_resolve/context.py` with import-boundary regex, generic stem path qualification, ancestor-proximity sorting, and 8-suite cap
+    - [x] Update `stage_1_plan.py`, `stage_2_red.py`, and `stage_3_green.py` to isolate prompt injection and execute target + blast radius suites
+    - [x] Verify all tests pass via `npm run test:agent`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Separate blast_radius_test_files from target_test_files & Bound Discovery' (Protocol in workflow.md)
 
 ## Phase 2: Stage 3 Fail-Fast Type-Check (Targeted & Regression), Silent Jest & Error Truncation
