@@ -1,5 +1,39 @@
 # Changelog
 
+## [agent-resolve] - v0.1.0 (2026-10-19)
+
+### 🤖 Autonomous Issue Resolver Decomposition & Modular Architecture ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
+* **Modular Package Architecture & PEP 621 Packaging Metadata**:
+    * Decomposed the monolithic 2,200-line autonomous resolver script `scripts/agent-resolve/agent-resolve.py` into a modular Python package located at `scripts/agent-resolve/agent_resolve/` with clean domain boundaries (`config`, `models`, `tracker`, `exceptions`, `environment`, `verification`, `patch_engine`, `vcs`, `llm`, `context`, `diagnostics`, `stages`, `pipeline`, and `cli`).
+    * Configured standard PEP 621 packaging metadata in `scripts/agent-resolve/pyproject.toml` with build backend `setuptools.build_meta`, dependencies (`google-genai>=0.1.0`, `pydantic>=2.0.0`, `tenacity>=8.2.0`), Python `>=3.12`, and console entrypoint `agent-resolve = agent_resolve.cli:main`.
+    * Added developer npm test scripts `"test:agent"` and `"test:agent:all"` in `package.json` with `sys.path` fallback bootstrapping in `scripts/agent-resolve/tests/__init__.py` to run modular tests without requiring editable package installation (`pip install -e`).
+* **Centralized Configuration & Dynamic Monkeypatch Propagation (`_AgentResolveModule`)**:
+    * Centralized global parameters in `agent_resolve.config` with depth-3 ancestor-walk `PROJECT_ROOT` resolution detecting repository root via `package.json`/`.git` markers (with `parents[3]` fallback) and runtime accessors `get_project_root()` and `set_project_root()`.
+    * Standardized all package submodules to dynamically evaluate `config.PROJECT_ROOT` at call time to prevent stale path bindings.
+    * Implemented `_AgentResolveModule` (`types.ModuleType` proxy) in `scripts/agent-resolve/agent_resolve/__init__.py` to intercept `__setattr__`, synchronizing `PROJECT_ROOT` mutations and dynamically propagating monkeypatched collaborators (`patch.object(agent_resolve, "gh_cli", ...)`, `call_gemini_with_fallback`, etc.) across all loaded `agent_resolve.*` submodules.
+* **Execution Environment, Secret Scrubbing & Verification Engine**:
+    * Extracted process execution and container isolation helpers in `agent_resolve.environment`, executing test runners inside rootless containers (`--network none`, matching host UID/GID, and tmpfs directories) to eliminate secret exfiltration risks and file ownership mismatches.
+    * Enforced SEC-02 secret scrubbing (`sanitize_secrets`) redacting GitHub tokens, PATs, AIza keys, and Bearer tokens across logging and error reporting.
+    * Isolated test failure parsing in `agent_resolve.verification` (`validate_jest_red_phase`), validating structured assertion failures, rejecting runtime crashes, and breaking circular dependencies between pipeline resumption gates and Stage 2 test authoring.
+* **Two-Tier Fuzzy Patch Engine & VCS Operations**:
+    * Implemented two-tier fuzzy patch engine in `agent_resolve.patch_engine` (`apply_patch_manifest`) supporting Tier 1 strict exact matching, Tier 2 whitespace-trimmed line matching, CRLF normalization, and transactional rollback (`reset_target_sources`).
+    * Enforced SEC-04 protected path blocking (`safe_resolve_repo_path`), barring modifications to database migrations (`supabase/migrations`), `.git/`, GitHub workflows, and agent scripts.
+    * Centralized Git and GitHub CLI operations in `agent_resolve.vcs` (`gh_cli`), supporting branch management, PR lifecycle mutations, maintainer guidance ingestion (`fetch_maintainer_hints`), and stateful WIP checkpointing (`preserve_failed_work`).
+* **LLM Client Standardization & Diagnostic Exploration Tools**:
+    * Implemented `agent_resolve.llm` standardizing strictly on `gemini-3.8-flash` with zero model downgrades, randomized jitter exponential backoff on HTTP 429/5xx, and socket/transport drops.
+    * Extracted read-only exploration tools in `agent_resolve.diagnostics` (`grep_search`, `find_files`, `read_file_snippet`) to power Stage 0 exploration.
+* **Complete 4-Stage TDD Pipeline & Backward-Compatible Executable Shim**:
+    * Decomposed the autonomous resolution workflow into 4 discrete pipeline stages under `agent_resolve.stages`:
+        * **Stage 0 (`stage_0_diagnose`)**: Iterative tool-equipped diagnostic loop bounding target files and reproduction seams.
+        * **Stage 1 (`stage_1_plan`)**: Grounded architectural blueprint generation authoring `task-plan.md`.
+        * **Stage 2 (`stage_2_red`)**: Compiling stubs and failing test generation with **Tier 3 Blueprint Invalidation** fallback on unrecoverable architectural dead ends.
+        * **Stage 3 (`stage_3_green`)**: Precision fuzzy patching, iterative test feedback, and mandatory full regression gate.
+    * Modularized CLI argument parsing and batch orchestration loop into `agent_resolve.cli` and `agent_resolve.pipeline`.
+    * Replaced monolithic `scripts/agent-resolve/agent-resolve.py` with an 80-line executable CLI shim featuring automated `sys.path` bootstrapping, `importlib.util.spec_from_file_location` loader self-healing, complete `__all__` symbol parity, and `_ShimModuleProxy` delegation.
+* **Comprehensive Multi-Tier Test Suites & Verification**:
+    * Authored 243 modular unit and integration tests across 14 dedicated test suites in `scripts/agent-resolve/tests/`.
+    * Maintained 100% backward compatibility with all 27 legacy test cases in `scripts/__tests__/test_patch_engine.py` (270 total tests passing cleanly via `npm run test:agent:all`).
+
 ## [Unreleased] - v3.7.0
 
 ### 📱 Automated iOS PWA Standalone Testing Matrix & Domain Refactoring ([ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
