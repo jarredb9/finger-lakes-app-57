@@ -90,9 +90,9 @@
     - [x] Implement `scripts/agent-resolve/agent_resolve/pipeline.py`
     - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to re-export stage functions and `resolve_issue`
     - [x] Verify pipeline, stages, and legacy unit tests pass
-- [ ] Task: Write failing unit tests for CLI argument parsing and batch execution flow (TDD Red phase)
-    - [ ] Create `scripts/agent-resolve/tests/test_cli.py` asserting CLI flags (`--issue`, `--max-issues`, `--dry-run`), batch pacing, error handling, and `main()` exit codes against `agent_resolve.cli`
-    - [ ] Assert tests fail before `agent_resolve.cli` implementation
+- [x] Task: Write failing unit tests for CLI argument parsing and batch execution flow (TDD Red phase) [commit: 0e4451e]
+    - [x] Create `scripts/agent-resolve/tests/test_cli.py` asserting CLI flags (`--issue`, `--max-issues`, `--dry-run`), batch pacing, error handling, and `main()` exit codes against `agent_resolve.cli`
+    - [x] Assert tests fail before `agent_resolve.cli` implementation
 - [ ] Task: Implement CLI entrypoint in agent_resolve.cli (TDD Green phase)
     - [ ] Implement `scripts/agent-resolve/agent_resolve/cli.py` with argument parsing and batch execution flow
     - [ ] Re-export `main` in `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py`
