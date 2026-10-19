@@ -111,3 +111,6 @@
     - [x] Verify all 27 legacy test cases and all 14 modular test suites pass cleanly with `npm run test:agent` and `npm run test:agent:all`
     - [x] Update `scripts/README.md`, `docs/adr/0005-autonomous-nightly-agent-workflow.md`, and `docs/agents/issue-tracker.md` to document both the modular `agent_resolve` package architecture and the complete 4-stage (`Stage 0`–`Stage 3`) pipeline with Tier 3 Blueprint Invalidation (keeping `CONTEXT.md` strictly bounded to the winery domain)
 - [x] Task: Conductor - User Manual Verification 'Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation' (Protocol in workflow.md) [commit: deacef7]
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions [commit: 906c55c]
