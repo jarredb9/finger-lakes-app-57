@@ -206,6 +206,49 @@ class TestLegacyShimLoaderAndSymbolParity(unittest.TestCase):
             if saved_mod is not None:
                 sys.modules["agent_resolve"] = saved_mod
 
+    def test_single_file_spec_loader_delegates_project_root_mutations(self) -> None:
+        spec = importlib.util.spec_from_file_location("agent_resolve", self.shim_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        mod = importlib.util.module_from_spec(spec)
+        saved_mod = sys.modules.get("agent_resolve")
+        orig_root = agent_resolve.config.get_project_root()
+        test_root = Path("/tmp/fake_root_single_spec_test")
+        try:
+            sys.modules["agent_resolve"] = mod
+            spec.loader.exec_module(mod)
+            mod.PROJECT_ROOT = test_root
+            self.assertEqual(agent_resolve.config.get_project_root(), test_root)
+        finally:
+            agent_resolve.config.set_project_root(orig_root)
+            if saved_mod is not None:
+                sys.modules["agent_resolve"] = saved_mod
+
+    def test_single_file_spec_loader_propagates_monkeypatched_attributes(self) -> None:
+        spec = importlib.util.spec_from_file_location("agent_resolve", self.shim_path)
+        self.assertIsNotNone(spec)
+        self.assertIsNotNone(spec.loader)
+        mod = importlib.util.module_from_spec(spec)
+        saved_mod = sys.modules.get("agent_resolve")
+        orig_gh_cli = agent_resolve.gh_cli
+        orig_vcs_gh_cli = agent_resolve.vcs.gh_cli
+
+        def fake_gh_cli(*args: Any, **kwargs: Any) -> Any:
+            return (0, "fake_single_spec", "")
+
+        try:
+            sys.modules["agent_resolve"] = mod
+            spec.loader.exec_module(mod)
+            mod.gh_cli = fake_gh_cli
+            self.assertIs(mod.gh_cli, fake_gh_cli)
+            self.assertIs(agent_resolve.vcs.gh_cli, fake_gh_cli)
+            self.assertIs(sys.modules["agent_resolve"].gh_cli, fake_gh_cli)
+        finally:
+            agent_resolve.gh_cli = orig_gh_cli
+            agent_resolve.vcs.gh_cli = orig_vcs_gh_cli
+            if saved_mod is not None:
+                sys.modules["agent_resolve"] = saved_mod
+
     def test_shim_module_proxy_delegates_project_root_mutations(self) -> None:
         shim_mod = self._load_shim_module()
         orig_root = agent_resolve.config.get_project_root()

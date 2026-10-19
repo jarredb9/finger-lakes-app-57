@@ -71,7 +71,7 @@ class _ShimModuleProxy(types.ModuleType):
                 submod.__dict__[name] = value
 
 
-if _current_mod is not None:
+if _current_mod is not None and __name__ != "agent_resolve":
     _current_mod.__class__ = _ShimModuleProxy
 
 
