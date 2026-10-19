@@ -77,10 +77,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 4: LLM Client, Context Discovery & Exploration Tools' (Protocol in workflow.md) [commit: c154af0]
 
 ## Phase 5: Pipeline Stages & CLI Orchestrator
-- [ ] Task: Write failing unit tests for pipeline stages and resolution orchestrator (TDD Red phase)
-    - [ ] Create `scripts/agent-resolve/tests/test_stages.py` (`stage_0_diagnose` explicit files & iterative loop, `stage_1_plan` blueprint authoring, `stage_2_red` compiler self-correction loop, `stage_3_green` patch application)
-    - [ ] Create `scripts/agent-resolve/tests/test_pipeline.py` (`resolve_issue` orchestration loop, branch management, dry-run mode, and resumption checkpoint fast-forward)
-    - [ ] Assert tests fail against `agent_resolve.stages` and `agent_resolve.pipeline`
+- [x] Task: Write failing unit tests for pipeline stages and resolution orchestrator (TDD Red phase) [commit: 60d13b6]
+    - [x] Create `scripts/agent-resolve/tests/test_stages.py` (`stage_0_diagnose` explicit files & iterative loop, `stage_1_plan` blueprint authoring, `stage_2_red` compiler self-correction loop, `stage_3_green` patch application)
+    - [x] Create `scripts/agent-resolve/tests/test_pipeline.py` (`resolve_issue` orchestration loop, branch management, dry-run mode, and resumption checkpoint fast-forward)
+    - [x] Assert tests fail against `agent_resolve.stages` and `agent_resolve.pipeline`
 - [ ] Task: Implement pipeline stages and resolution orchestrator in agent_resolve.stages and agent_resolve.pipeline (TDD Green phase)
     - [ ] Implement `scripts/agent-resolve/agent_resolve/stages/stage_0_diagnose.py`
     - [ ] Implement `scripts/agent-resolve/agent_resolve/stages/stage_1_plan.py`
