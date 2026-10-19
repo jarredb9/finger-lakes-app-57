@@ -41,7 +41,9 @@
     "db:check-types:local": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase gen types typescript --local --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",
     "db:gen-types": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase gen types typescript --local --schema public > lib/database.types.ts",
     "session:inspect": "node scripts/agent/inspect-session.mjs",
-    "conductor:prompt": "python3 scripts/agent/generate-prompt.py"
+    "conductor:prompt": "python3 scripts/agent/generate-prompt.py",
+    "test:agent": "python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve",
+    "test:agent:all": "python3.12 -m unittest discover -s scripts/__tests__ && python3.12 -m unittest discover -s scripts/agent-resolve/tests -t scripts/agent-resolve"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.1",

@@ -66,3 +66,9 @@ data/
 
 gha-creds-*.json
 task-plan.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+

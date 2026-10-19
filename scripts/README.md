@@ -44,7 +44,28 @@ Provides isolated rootless container runners to bypass RHEL 8 host glibc limitat
 * **`ci-step-timer.sh`**: Profiles GitHub Actions run step durations across sharded jobs using the `gh` CLI.
 
 ### 4. `agent-resolve/` (Autonomous Issue Resolver)
-* **`agent-resolve.py`**: Multi-stage autonomous TDD engine that plans, executes failing tests (Red), and patches application code (Green) against triaged GitHub issues. Invoked in [.github/workflows/agent-resolve.yml](file:///home/byrnesjd4821/Git/finger-lakes-app-57/.github/workflows/agent-resolve.yml).
+A modular Python package and CLI harness that plans, executes failing tests (Red), and patches application code (Green) against triaged GitHub issues within [.github/workflows/agent-resolve.yml](file:///home/byrnesjd4821/Git/finger-lakes-app-57/.github/workflows/agent-resolve.yml).
+
+```text
+scripts/agent-resolve/
+├── pyproject.toml              # PEP 621 packaging metadata & console entrypoint
+├── agent-resolve.py            # Backward-compatible thin executable CLI shim
+├── agent_resolve/              # Decomposed core modular package
+│   ├── config.py, models.py, tracker.py, exceptions.py, environment.py
+│   ├── verification.py, patch_engine.py, vcs.py, llm.py, context.py
+│   ├── diagnostics.py, stages/, pipeline.py, cli.py
+└── tests/                      # Modular unit and integration test suites
+```
+
+* **Complete 4-Stage Pipeline**:
+  * **Stage 0: Diagnostic Exploration (`stage_0_diagnose`)**: Autonomous read-only exploration loop (`grep_search`, `find_files`, `read_file_snippet`) producing structured `DiagnosticResult`.
+  * **Stage 1: Architectural Blueprint (`stage_1_plan`)**: Grounded planning producing `task-plan.md`, explicit target files, and conventional commit scope informed by diagnostics.
+  * **Stage 2: Red Phase Tests (`stage_2_red`)**: Generates compiling stubs (`TS6133`-compliant) and failing tests (`validate_jest_red_phase`), with **Tier 3 Blueprint Invalidation** fallback if test authoring hits an unrecoverable architectural impasse.
+  * **Stage 3: Green Phase Implementation (`stage_3_green`)**: Two-tier fuzzy search/replace patching, iterative test feedback, and mandatory full regression gate (`npm test` and `npm run type-check`).
+* **Developer Testing Workflows**:
+  * `npm run test:agent`: Runs modular unit and integration test suites in `scripts/agent-resolve/tests/`.
+  * `npm run test:agent:all`: Dual execution of legacy regression tests (`scripts/__tests__/test_patch_engine.py`) and modular test suites.
+  * CLI shim direct invocation: `python3.12 scripts/agent-resolve/agent-resolve.py --help` or console script `agent-resolve`.
 
 ### 5. `agent/` (Agent Tooling & Observability)
 * **`generate-prompt.py`**: Generates optimized Planner and Executor prompts for Conductor tracks (`npm run conductor:prompt`).
