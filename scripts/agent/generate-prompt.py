@@ -338,13 +338,26 @@ def infer_verification_strategy(
     for line in subtasks:
         for m in re.findall(r"`([a-zA-Z0-9_\-:\./\s]+)`", line):
             m = m.strip()
-            if any(m.startswith(prefix) for prefix in ["npm ", "./scripts/", "npx ", "node ", "pytest ", "deno "]):
+            if any(
+                m.startswith(prefix)
+                for prefix in ["npm ", "./scripts/", "npx ", "node ", "pytest ", "deno ", "python3", "python "]
+            ):
                 if m not in explicit_subtask_cmds:
                     explicit_subtask_cmds.append(m)
 
+    has_py_only = bool(plan_targets) and all(t.endswith((".py", ".toml")) for t in plan_targets)
+    should_type_check = wants_type_check or (resolved_mode == "green" and not has_py_only)
+
+    is_green_impl = "green phase" in task_desc_lower or task_desc_lower.startswith("implement ")
     default_verb = (
         "test"
-        if (is_red or is_full_suite or "regression" in task_desc_lower or "test execution" in task_desc_lower)
+        if (
+            is_red
+            or (
+                not is_green_impl
+                and (is_full_suite or "regression" in task_desc_lower or "test execution" in task_desc_lower)
+            )
+        )
         else (
             "refactor"
             if "refactor" in task_desc_lower
@@ -369,16 +382,27 @@ def infer_verification_strategy(
         commit_msg = f"conductor(checkpoint): Checkpoint end of Phase {phase_num}"
     elif is_full_suite:
         # Full automated regression run
-        target_spec = (" " + " ".join(spec_files)) if spec_files else ""
-        commands = [
-            "./scripts/containers/run-jest-container.sh",
-            "npm run type-check",
-        ]
-        if has_edge or "edge function" in desc_lower or "deno" in desc_lower:
-            commands.append("npm run test:functions")
-        if has_spec or spec_files or "e2e" in desc_lower or "playwright" in desc_lower:
-            commands.append(f"./scripts/containers/run-e2e-container.sh webkit{target_spec}".strip())
-        instruction = "- Verify full test suite and TypeScript types pass cleanly before committing."
+        if plan_verification_cmds:
+            commands = list(plan_verification_cmds)
+            if should_type_check and not any("type-check" in c for c in commands):
+                commands.append("npm run type-check")
+            instruction = "- Execute the verification protocol from the plan and confirm all checks pass."
+        elif explicit_subtask_cmds and not has_unit and not has_spec:
+            commands = list(explicit_subtask_cmds)
+            if should_type_check and not any("type-check" in c or "check-types" in c for c in commands):
+                commands.append("npm run type-check")
+            instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
+        else:
+            target_spec = (" " + " ".join(spec_files)) if spec_files else ""
+            commands = [
+                "./scripts/containers/run-jest-container.sh",
+                "npm run type-check",
+            ]
+            if has_edge or "edge function" in desc_lower or "deno" in desc_lower:
+                commands.append("npm run test:functions")
+            if has_spec or spec_files or "e2e" in desc_lower or "playwright" in desc_lower:
+                commands.append(f"./scripts/containers/run-e2e-container.sh webkit{target_spec}".strip())
+            instruction = "- Verify full test suite and TypeScript types pass cleanly before committing."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Execute full automated test suite for Phase {phase_num} Task {task_num}'}"
     elif is_red:
         # Red phase: failing tests
@@ -394,62 +418,71 @@ def infer_verification_strategy(
         commit_msg = f"test({scope}): {task_desc or f'Add failing tests for Phase {phase_num} Task {task_num}'}"
     elif has_spec and has_unit:
         # Both unit tests and E2E specs targeted
-        target_spec = (" " + " ".join(spec_files)) if spec_files else ""
-        unit_arg = (" " + " ".join(unit_files)) if unit_files else ""
-        commands = [
-            f"./scripts/containers/run-jest-container.sh{unit_arg}".strip(),
-            f"./scripts/containers/run-e2e-container.sh webkit{target_spec}".strip(),
-        ]
-        if wants_type_check or resolved_mode == "green":
+        if plan_verification_cmds:
+            commands = list(plan_verification_cmds)
+        else:
+            target_spec = (" " + " ".join(spec_files)) if spec_files else ""
+            unit_arg = (" " + " ".join(unit_files)) if unit_files else ""
+            commands = [
+                f"./scripts/containers/run-jest-container.sh{unit_arg}".strip(),
+                f"./scripts/containers/run-e2e-container.sh webkit{target_spec}".strip(),
+            ]
+        if should_type_check and not any("type-check" in c for c in commands):
             commands.append("npm run type-check")
         instruction = "- Verify unit tests and newly created/modified E2E specs pass cleanly before committing."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif has_spec and not has_unit:
         # Pure E2E spec task
-        target_arg = (" " + " ".join(spec_files)) if spec_files else ""
-        commands = [f"./scripts/containers/run-e2e-container.sh webkit{target_arg}".strip()]
-        if wants_type_check or resolved_mode == "green":
+        if plan_verification_cmds:
+            commands = list(plan_verification_cmds)
+        else:
+            target_arg = (" " + " ".join(spec_files)) if spec_files else ""
+            commands = [f"./scripts/containers/run-e2e-container.sh webkit{target_arg}".strip()]
+        if should_type_check and not any("type-check" in c for c in commands):
             commands.append("npm run type-check")
         instruction = "- Verify targeted E2E suite passes cleanly in WebKit."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif has_edge and not has_unit and not has_spec:
-        commands = ["npm run test:functions"]
-        if wants_type_check or resolved_mode == "green":
+        if plan_verification_cmds:
+            commands = list(plan_verification_cmds)
+        else:
+            commands = ["npm run test:functions"]
+        if should_type_check and not any("type-check" in c for c in commands):
             commands.append("npm run type-check")
         instruction = "- Verify edge function tests pass cleanly."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif has_unit:
         # Targeted unit tests
         if plan_verification_cmds:
-            commands = plan_verification_cmds
+            commands = list(plan_verification_cmds)
         elif unit_files:
             target_arg = " " + " ".join(unit_files)
             commands = [f"./scripts/containers/run-jest-container.sh{target_arg}".strip()]
         elif explicit_subtask_cmds:
-            commands = explicit_subtask_cmds
+            commands = list(explicit_subtask_cmds)
             instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
         else:
             commands = ["./scripts/containers/run-jest-container.sh"]
-        if (wants_type_check or resolved_mode == "green") and not any("type-check" in c for c in commands):
+        if should_type_check and not any("type-check" in c for c in commands):
             commands.append("npm run type-check")
         if not (not unit_files and explicit_subtask_cmds):
             instruction = "- Verify targeted unit/integration tests pass cleanly (Green phase)."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif plan_verification_cmds:
-        commands = plan_verification_cmds
-        if resolved_mode == "green" and not any("type-check" in c for c in commands):
+        commands = list(plan_verification_cmds)
+        if should_type_check and not any("type-check" in c for c in commands):
             commands.append("npm run type-check")
         instruction = "- Execute the verification protocol from the plan and confirm all checks pass."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif explicit_subtask_cmds:
-        commands = explicit_subtask_cmds
-        if (wants_type_check or resolved_mode == "green") and not any("type-check" in c or "check-types" in c for c in commands):
+        commands = list(explicit_subtask_cmds)
+        if should_type_check and not any("type-check" in c or "check-types" in c for c in commands):
             commands.append("npm run type-check")
         instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     else:
         commands = ["./scripts/containers/run-jest-container.sh"]
-        if wants_type_check or resolved_mode == "green":
+        if should_type_check:
             commands.append("npm run type-check")
         instruction = "- Run containerized Jest to verify tests pass (Green phase)."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
@@ -481,7 +514,8 @@ def get_preceding_context(track_name: str, phase_num: Optional[int], task_num: O
         note = f"Immediate Preceding Context: @[{rel_p}]"
         if task_num > 2:
             earlier = [f"Task {i}" for i in range(1, task_num - 1)]
-            note += f" (earlier completed in phase: {', '.join(earlier)})"
+            phase_label = f"Phase {phase_num}" if phase_num is not None else "this phase"
+            note += f" (earlier completed in {phase_label}: {', '.join(earlier)})"
         return note
 
     return ""
