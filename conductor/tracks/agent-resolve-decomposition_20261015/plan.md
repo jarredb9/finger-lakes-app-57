@@ -76,7 +76,7 @@
     - [x] Verify context, diagnostic, and legacy unit tests pass
 - [x] Task: Conductor - User Manual Verification 'Phase 4: LLM Client, Context Discovery & Exploration Tools' (Protocol in workflow.md) [commit: c154af0]
 
-## Phase 5: Pipeline Stages & CLI Orchestrator
+## Phase 5: Pipeline Stages & CLI Orchestrator [checkpoint: e5e4701]
 - [x] Task: Write failing unit tests for pipeline stages and resolution orchestrator (TDD Red phase) [commit: 60d13b6]
     - [x] Create `scripts/agent-resolve/tests/test_stages.py` (`stage_0_diagnose` explicit files & iterative loop, `stage_1_plan` blueprint authoring, `stage_2_red` compiler self-correction loop, `stage_3_green` patch application)
     - [x] Create `scripts/agent-resolve/tests/test_pipeline.py` (`resolve_issue` orchestration loop, branch management, dry-run mode, and resumption checkpoint fast-forward)
@@ -97,7 +97,7 @@
     - [x] Implement `scripts/agent-resolve/agent_resolve/cli.py` with argument parsing and batch execution flow
     - [x] Re-export `main` in `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py`
     - [x] Verify `test_cli.py` and full test suites pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Pipeline Stages & CLI Orchestrator' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Pipeline Stages & CLI Orchestrator' (Protocol in workflow.md) [commit: e5e4701]
 
 ## Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation
 - [ ] Task: Write failing comprehensive entrypoint integration, shim cutover, and parity tests (TDD Red phase)
