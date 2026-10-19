@@ -8,17 +8,12 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-import importlib.util
-
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent
-# Load agent-resolve.py dynamically because of hyphen in filename
-script_path = SCRIPTS_DIR / "agent-resolve" / "agent-resolve.py"
-if not script_path.exists():
-    script_path = SCRIPTS_DIR / "agent-resolve.py"
-spec = importlib.util.spec_from_file_location("agent_resolve", script_path)
-agent_resolve = importlib.util.module_from_spec(spec)
-sys.modules["agent_resolve"] = agent_resolve
-spec.loader.exec_module(agent_resolve)
+PACKAGE_ROOT = SCRIPTS_DIR / "agent-resolve"
+if str(PACKAGE_ROOT) not in sys.path:
+    sys.path.insert(0, str(PACKAGE_ROOT))
+
+import agent_resolve
 
 
 class TestPatchEngine(unittest.TestCase):
@@ -564,8 +559,12 @@ Exploration tools needed for Stage 0.
         # Point to real project root for real git grep test
         agent_resolve.PROJECT_ROOT = self.orig_root
         try:
-            discovered = agent_resolve.find_related_test_files(["components/TripCardSimplePresentational.tsx"])
+            discovered = agent_resolve.find_related_test_files([
+                "components/TripCardSimplePresentational.tsx",
+                "components/trip-card-simple.tsx",
+            ])
             self.assertIn("components/__tests__/TripCardSimplePresentational.test.tsx", discovered)
+            self.assertIn("components/__tests__/selectorHygiene.test.tsx", discovered)
             self.assertIn("components/__tests__/trip-card-simple.test.tsx", discovered)
         finally:
             agent_resolve.PROJECT_ROOT = self.root

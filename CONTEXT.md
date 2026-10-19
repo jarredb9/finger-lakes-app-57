@@ -90,9 +90,13 @@ _Avoid_: Quality score, catalog grade, data level
 A specific grape or wine variety produced or poured by a Winery (e.g., Riesling, Cabernet Franc).
 _Avoid_: Grape, blend, wine type
 
+**Amenity**:
+A structured operational or facility attribute of a Winery (e.g., Dogs Allowed, EV Charging, Outdoor Seating, Kid Friendly). Invariant: Tri-state boolean (`true` = confirmed present, `false` = confirmed absent, `null` = un-enriched/unknown); un-enriched or unreported attributes must retain `null` and never be coerced to `false`, and downstream filtering strictly matches `=== true`.
+_Avoid_: Feature, vibe tag, facility flag, attribute
+
 **Vibe Tag**:
-A descriptive ambiance or lifestyle amenity associated with a Winery (e.g., dog-friendly, scenic views). Invariant: Tri-state boolean (`true` = confirmed amenity present, `false` = confirmed absent, `null` = un-enriched/unknown). Un-enriched wineries must retain `null` and never be coerced to `false`. Downstream filtering strictly matches `=== true`.
-_Avoid_: Feature, tag, label, amenity
+A curated descriptive phrase capturing a Winery's ambiance, character, or wine specialty (e.g., Riesling Specialist, Scenic Views, Cozy Atmosphere), distinct from structured Amenities.
+_Avoid_: Amenity, feature, label, category
 
 **Operational Hours**:
 The structured weekly schedule of open and close periods and weekday descriptions associated with a Winery.
