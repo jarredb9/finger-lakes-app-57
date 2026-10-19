@@ -57,7 +57,7 @@
     - [x] Verify VCS and legacy unit tests pass
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Multi-Tier Patch Engine & VCS Operations' (Protocol in workflow.md) [commit: 27be883]
 
-## Phase 4: LLM Client, Context Discovery & Exploration Tools
+## Phase 4: LLM Client, Context Discovery & Exploration Tools [checkpoint: c154af0]
 - [x] Task: Write failing unit tests for LLM client and transient retry handling (TDD Red phase) [commit: 3fd3cf8]
     - [x] Create `scripts/agent-resolve/tests/test_llm.py` (`get_genai_client`, `is_transient_error` detecting connection resets, socket drops, 429, 503, 500, and `call_gemini_with_fallback` with mocked client and strict `gemini-3.8-flash` hard-stop policy)
     - [x] Assert tests fail against `agent_resolve.llm`
@@ -74,7 +74,7 @@
     - [x] Implement `scripts/agent-resolve/agent_resolve/diagnostics.py` (reading `config.PROJECT_ROOT` dynamically)
     - [x] Update `scripts/agent-resolve/agent_resolve/__init__.py` and `scripts/agent-resolve/agent-resolve.py` to import and re-export context and diagnostic tools
     - [x] Verify context, diagnostic, and legacy unit tests pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: LLM Client, Context Discovery & Exploration Tools' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: LLM Client, Context Discovery & Exploration Tools' (Protocol in workflow.md) [commit: c154af0]
 
 ## Phase 5: Pipeline Stages & CLI Orchestrator
 - [ ] Task: Write failing unit tests for pipeline stages and resolution orchestrator (TDD Red phase)
