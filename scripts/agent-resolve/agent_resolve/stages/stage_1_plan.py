@@ -98,9 +98,9 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
     # Blast radius discovery: automatically detect dependent test files to prevent regression collisions
     related_tests = find_related_test_files(blueprint.target_src_files)
     for rt in related_tests:
-        if rt not in blueprint.target_test_files:
+        if rt not in blueprint.target_test_files and rt not in blueprint.blast_radius_test_files:
             log(f"Discovered dependent test file for blast radius: {rt}")
-            blueprint.target_test_files.append(rt)
+            blueprint.blast_radius_test_files.append(rt)
 
     plan_path = config.get_project_root() / "task-plan.md"
     plan_path.write_text(blueprint.plan_markdown, encoding="utf-8")
@@ -109,4 +109,6 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
     log(f"Commit Scope: {blueprint.scope}")
     log(f"Target test files: {blueprint.target_test_files}")
     log(f"Target source files: {blueprint.target_src_files}")
+    if blueprint.blast_radius_test_files:
+        log(f"Blast radius test files: {blueprint.blast_radius_test_files}")
     return blueprint

@@ -161,6 +161,7 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                                 target_test_files=t_tests,
                                 target_src_files=t_src,
                                 plan_markdown=state_data.get("plan_markdown") or (plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""),
+                                blast_radius_test_files=state_data.get("blast_radius_test_files", []),
                             )
                             new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 
@@ -201,6 +202,7 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                                     target_test_files=t_tests,
                                     target_src_files=t_src,
                                     plan_markdown=state_data.get("plan_markdown") or (plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""),
+                                    blast_radius_test_files=state_data.get("blast_radius_test_files", []),
                                 )
                                 new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 

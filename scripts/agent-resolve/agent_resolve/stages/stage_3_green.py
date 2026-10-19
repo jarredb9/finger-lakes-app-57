@@ -117,7 +117,8 @@ Respond strictly in valid JSON matching the PatchManifest schema.
         # Targeted Verification Loop
         log("Running targeted verification checks...")
         tc_code, tc_out, tc_err = run_isolated_test(["npm", "run", "type-check"])
-        test_cmd = ["npx", "jest"] + target_tests
+        all_tests = target_tests + getattr(blueprint, "blast_radius_test_files", [])
+        test_cmd = ["npx", "jest", "--no-color", "--silent"] + all_tests
         t_code, t_out, t_err = run_isolated_test(test_cmd)
 
         if tc_code == 0 and t_code == 0:

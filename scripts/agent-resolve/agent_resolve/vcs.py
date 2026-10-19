@@ -81,6 +81,11 @@ def update_or_create_pr(
     is_resumption: bool = False,
 ) -> None:
     """Creates a new Draft PR or mutates an existing Draft PR in-place."""
+    blast_radius_line = ""
+    blast_radius_files = getattr(blueprint, "blast_radius_test_files", []) if blueprint else []
+    if blast_radius_files:
+        blast_radius_line = f"\n- **Blast Radius Tests:** {', '.join(f'`{f}`' for f in blast_radius_files)}"
+
     resumption_tag = " [Resumed from previous checkpoint]" if is_resumption else ""
     pr_body = f"""## Summary
 Autonomous multi-agent resolution for Issue #{issue_number}: {issue_title}
@@ -98,7 +103,7 @@ Closes #{issue_number}
 - **Token Consumption:** {token_tracker.summary()}.
 - **Target Files:**
   - Tests: {", ".join(f"`{f}`" for f in blueprint.target_test_files)}
-  - Source: {", ".join(f"`{f}`" for f in blueprint.target_src_files)}
+  - Source: {", ".join(f"`{f}`" for f in blueprint.target_src_files)}{blast_radius_line}
 """
     pr_body = sanitize_secrets(pr_body)
     pr_code, pr_list_out, _ = gh_cli(["pr", "list", "--head", branch_name, "--state", "open", "--json", "number"])
@@ -197,6 +202,7 @@ def preserve_failed_work(
         "plan_markdown": blueprint.plan_markdown if blueprint else "",
         "target_test_files": target_tests,
         "target_src_files": target_src,
+        "blast_radius_test_files": getattr(blueprint, "blast_radius_test_files", []) if blueprint else [],
         "red_phase_commit_sha": red_phase_commit_sha,
         "failed_phase": "stage_3_green" if red_phase_commit_sha else "stage_2_red",
         "attempt_count": current_attempt,

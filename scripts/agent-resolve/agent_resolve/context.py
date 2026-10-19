@@ -4,12 +4,26 @@ Repository context discovery and issue suitability evaluation (`agent_resolve.co
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import re
 from typing import List, Tuple
 
 from agent_resolve import config
 from agent_resolve.environment import run_cmd
+
+GENERIC_STEMS: frozenset[str] = frozenset({"index", "types", "constants", "utils", "helpers"})
+JEST_PATHSPECS: tuple[str, ...] = ("*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx")
+
+
+def _compute_ancestor_proximity(sf: str, tf: str) -> int:
+    """Computes directory proximity score as length of common ancestor path between source and test file."""
+    try:
+        sf_dir = os.path.dirname(sf)
+        tf_dir = os.path.dirname(tf)
+        return len(os.path.commonpath([sf_dir, tf_dir])) if (sf_dir and tf_dir) else 0
+    except (ValueError, Exception):
+        return 0
 
 
 def get_repository_tree() -> str:
@@ -51,20 +65,43 @@ def get_project_context() -> str:
 
 
 def find_related_test_files(target_src_files: List[str]) -> List[str]:
-    """Discovers test files that import or reference target source files to prevent unadapted regression collisions."""
+    """
+    Discovers test files that import target source files.
+    Restricts pathspecs to Jest patterns outside supabase/ and e2e/, qualifies generic stems,
+    sorts candidates by descending common ancestor depth, and caps results at 8 suites.
+    """
     project_root = config.get_project_root()
-    discovered: List[str] = []
+    candidates: List[str] = []
     for sf in target_src_files:
         stem = Path(sf).stem.lstrip(".")
         if not stem or len(stem) < 3:
             continue
-        code, stdout, _ = run_cmd(["git", "grep", "-l", stem, "--", "**/__tests__/*"])
+        if stem in GENERIC_STEMS:
+            ident = (Path(sf).parent / stem).as_posix().lstrip("./")
+        else:
+            ident = stem
+
+        regex_pattern = rf"/(?:{ident})(\.[a-zA-Z]+)?['\"]|from\s*['\"][^'\"]*{ident}"
+        code, stdout, _ = run_cmd(["git", "grep", "-E", "-l", regex_pattern, "--", *JEST_PATHSPECS])
         if code == 0 and stdout:
             for line in stdout.splitlines():
                 tf = line.strip()
-                if tf and tf not in discovered and (project_root / tf).exists():
-                    discovered.append(tf)
-    return discovered
+                if (
+                    tf
+                    and tf.endswith((".test.ts", ".test.tsx", ".spec.ts", ".spec.tsx"))
+                    and not tf.startswith(("supabase/", "e2e/"))
+                    and "/supabase/" not in tf
+                    and "/e2e/" not in tf
+                    and (project_root / tf).exists()
+                ):
+                    if tf not in candidates:
+                        candidates.append(tf)
+
+    def _proximity(tf: str) -> int:
+        return max((_compute_ancestor_proximity(sf, tf) for sf in target_src_files), default=0)
+
+    candidates.sort(key=_proximity, reverse=True)
+    return candidates[:8]
 
 
 def extract_test_suite_names(content: str) -> List[str]:
@@ -92,6 +129,8 @@ def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> T
 
 
 __all__: list[str] = [
+    "GENERIC_STEMS",
+    "JEST_PATHSPECS",
     "get_repository_tree",
     "get_project_context",
     "find_related_test_files",
