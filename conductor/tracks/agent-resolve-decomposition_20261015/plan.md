@@ -100,12 +100,12 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Pipeline Stages & CLI Orchestrator' (Protocol in workflow.md) [commit: e5e4701]
 
 ## Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation
-- [ ] Task: Write failing comprehensive entrypoint integration, shim cutover, and parity tests (TDD Red phase)
-    - [ ] Create `scripts/agent-resolve/tests/test_cli_and_entrypoint.py` asserting:
+- [x] Task: Write failing comprehensive entrypoint integration, shim cutover, and parity tests (TDD Red phase) [commit: 8461ece7]
+    - [x] Create `scripts/agent-resolve/tests/test_cli_and_entrypoint.py` asserting:
         1. PEP 621 `pyproject.toml` console script metadata (`[project.scripts]."agent-resolve" == "agent_resolve.cli:main"`) parsed via `tomllib` and callable invocation (`--help`) without requiring prior `pip install -e`
         2. Thin shim cutover contract on `scripts/agent-resolve/agent-resolve.py` (verifying inline monolithic definitions are removed, line count is compact, and `python3.12 scripts/agent-resolve/agent-resolve.py --help` succeeds)
         3. `importlib.util.spec_from_file_location("agent_resolve", ...)` single-file loader compatibility and full `__all__` public symbol parity between `agent_resolve` and `agent-resolve.py`
-    - [ ] Assert tests fail prior to thin shim cutover and `__all__` parity completion
+    - [x] Assert tests fail prior to thin shim cutover and `__all__` parity completion
 - [ ] Task: Finalize thin legacy shim cutover, execute full dual-suite verification, and document modular architecture (TDD Green phase)
     - [ ] Transform `scripts/agent-resolve/agent-resolve.py` into a compact backward-compatible shim that bootstraps `sys.path`, self-heals `sys.modules["agent_resolve"].__path__`, delegates attribute mutations to `agent_resolve`, re-exports `__all__`, and invokes `agent_resolve.cli.main()`
     - [ ] Verify all 27 legacy test cases and all 14 modular test suites pass cleanly with `npm run test:agent` and `npm run test:agent:all`
