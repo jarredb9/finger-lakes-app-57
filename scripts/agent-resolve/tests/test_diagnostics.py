@@ -202,8 +202,8 @@ class TestReadFileSnippet(unittest.TestCase):
         self.assertIn("Path traversal attempt blocked", err)
 
         # Protected file
-        err_prot = read_file_snippet("package.json")
-        self.assertIn("Error resolving path 'package.json':", err_prot)
+        err_prot = read_file_snippet("supabase/migrations/20261014_init.sql")
+        self.assertIn("Error resolving path 'supabase/migrations/20261014_init.sql':", err_prot)
         self.assertIn("Modification of protected file blocked", err_prot)
 
     def test_returns_not_found_message_when_file_missing_or_directory(self) -> None:

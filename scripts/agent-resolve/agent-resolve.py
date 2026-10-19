@@ -67,6 +67,21 @@ from agent_resolve.llm import (
     get_genai_client,
     is_transient_error,
 )
+from agent_resolve import context as _ar_context
+from agent_resolve import diagnostics as _ar_diagnostics
+from agent_resolve.context import (
+    extract_test_suite_names,
+    find_related_test_files,
+    get_project_context,
+    get_repository_tree,
+    is_issue_suitable_for_headless_agent,
+)
+from agent_resolve.diagnostics import (
+    find_files,
+    grep_search,
+    parse_issue_diagnostics,
+    read_file_snippet,
+)
 from agent_resolve.vcs import (
     cleanup_feature_branch,
     fetch_maintainer_hints,
@@ -163,218 +178,28 @@ is_transient_error = _ar_llm.is_transient_error
 call_gemini_with_fallback = _ar_llm.call_gemini_with_fallback
 
 
-def get_repository_tree() -> str:
-    """Extracts a compact inventory of existing repository source files to anchor architectural planning."""
-    code, stdout, _ = run_cmd(["git", "ls-files", "lib/", "components/", "app/", "supabase/functions/"])
-    if code != 0 or not stdout:
-        return ""
-    relevant_exts = (".ts", ".tsx", ".js", ".jsx", ".sql", ".json")
-    files = [f for f in stdout.splitlines() if f.endswith(relevant_exts)]
-    return "### EXISTING REPOSITORY SOURCE FILES:\n" + "\n".join(f"- {f}" for f in files)
-
-
-def get_project_context() -> str:
-    """Extracts essential project standards, architecture guidelines, and repository file inventory."""
-    context_md = ""
-    agents_md = ""
-
-    c_path = PROJECT_ROOT / "CONTEXT.md"
-    if c_path.exists():
-        context_md = c_path.read_text(encoding="utf-8")
-
-    a_path = PROJECT_ROOT / "AGENTS.md"
-    if a_path.exists():
-        agents_md = a_path.read_text(encoding="utf-8")
-
-    repo_tree = get_repository_tree()
-
-    return f"""### REPOSITORY DOMAIN MODEL (CONTEXT.md):
-{context_md}
-
-### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):
-{agents_md}
-
-{repo_tree}
-"""
-
-
-def find_related_test_files(target_src_files: List[str]) -> List[str]:
-    """Discovers test files that import or reference target source files to prevent unadapted regression collisions."""
-    discovered: List[str] = []
-    for sf in target_src_files:
-        stem = Path(sf).stem
-        if not stem or len(stem) < 3:
-            continue
-        code, stdout, _ = run_cmd(["git", "grep", "-l", stem, "--", "**/__tests__/*"])
-        if code == 0 and stdout:
-            for line in stdout.splitlines():
-                tf = line.strip()
-                if tf and tf not in discovered and (PROJECT_ROOT / tf).exists():
-                    discovered.append(tf)
-    return discovered
-
-
-def extract_test_suite_names(content: str) -> List[str]:
-    """Extracts describe block titles from a test file to detect unintentional test suite deletion."""
-    return re.findall(r"describe\s*\(\s*['\"`]([^'\"`]+)['\"`]", content)
-
-
-def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> Tuple[bool, str]:
-    """
-    Evaluates whether an issue is suitable for headless overnight resolution or requires
-    interactive Antigravity CLI due to complex UI, external URL schemes, or mobile platform quirks.
-    """
-    text = f"{issue_title}\n{issue_body}".lower()
-    reasons = []
-    if any(k in text for k in ["dropdownmenu", "dialog", "popover", "accordion", "sheet", "radix"]):
-        reasons.append("composite Radix UI / dropdown component redesign")
-    if any(k in text for k in ["ios pwa", "standalone pwa", "webkit", "gesture", "safari popup"]):
-        reasons.append("mobile WebKit / PWA runtime gesture semantics")
-    if any(k in text for k in ["maps://", "waze://", "https://maps.apple.com", "deep link"]):
-        reasons.append("external vendor deep-linking scheme")
-
-    if reasons:
-        return False, "; ".join(reasons)
-    return True, ""
-
+# =========================================================================
+# REPOSITORY CONTEXT & SUITABILITY (delegated to agent_resolve.context)
+# =========================================================================
+get_repository_tree = _ar_context.get_repository_tree
+get_project_context = _ar_context.get_project_context
+find_related_test_files = _ar_context.find_related_test_files
+extract_test_suite_names = _ar_context.extract_test_suite_names
+is_issue_suitable_for_headless_agent = _ar_context.is_issue_suitable_for_headless_agent
 
 
 # =========================================================================
-# READ-ONLY REPOSITORY EXPLORATION TOOLS
+# READ-ONLY REPOSITORY EXPLORATION TOOLS (delegated to agent_resolve.diagnostics)
 # =========================================================================
-def grep_search(query: str, path_prefix: str = "") -> str:
-    """Searches text across repository files using git grep."""
-    q = query.strip()
-    if not q:
-        return "No search query provided."
-    cmd = ["git", "grep", "-n", "-I", "-F", "-e", q]
-    if path_prefix.strip():
-        norm_prefix = path_prefix.strip().lstrip("./")
-        cmd.extend(["--", norm_prefix])
-    code, stdout, _ = run_cmd(cmd)
-    if code != 0 or not stdout.strip():
-        # Case-insensitive fallback
-        cmd_i = ["git", "grep", "-n", "-I", "-i", "-F", "-e", q]
-        if path_prefix.strip():
-            cmd_i.extend(["--", norm_prefix])
-        code_i, stdout_i, _ = run_cmd(cmd_i)
-        if code_i == 0 and stdout_i.strip():
-            stdout = stdout_i
-        else:
-            return f"No matches found for query '{query}'."
-    lines = stdout.strip().splitlines()
-    if len(lines) > 60:
-        return "\n".join(lines[:60]) + f"\n... ({len(lines) - 60} more matches truncated)"
-    return "\n".join(lines)
-
-
-def find_files(pattern: str) -> str:
-    """Locates repository files matching a glob or pattern."""
-    pat = pattern.strip()
-    if not pat:
-        return "No pattern provided."
-    glob_pat = pat if any(c in pat for c in ["*", "?", "["]) else f"*{pat}*"
-    code, stdout, _ = run_cmd(["git", "ls-files", glob_pat])
-    if code != 0 or not stdout.strip():
-        code_all, out_all, _ = run_cmd(["git", "ls-files"])
-        if code_all == 0 and out_all.strip():
-            matches = [f for f in out_all.splitlines() if pat.lower() in f.lower()]
-            if matches:
-                if len(matches) > 60:
-                    return "\n".join(matches[:60]) + f"\n... ({len(matches) - 60} more matches truncated)"
-                return "\n".join(matches)
-        return f"No files found matching pattern '{pattern}'."
-    lines = stdout.strip().splitlines()
-    if len(lines) > 60:
-        return "\n".join(lines[:60]) + f"\n... ({len(lines) - 60} more matches truncated)"
-    return "\n".join(lines)
-
-
-def read_file_snippet(file_path: str, start_line: int = 1, end_line: int = 80) -> str:
-    """Reads a line range from a repository file."""
-    try:
-        target_path = safe_resolve_repo_path(file_path)
-    except Exception as e:
-        return f"Error resolving path '{file_path}': {e}"
-    if not target_path.exists() or not target_path.is_file():
-        return f"File '{file_path}' does not exist on disk."
-    try:
-        content = target_path.read_text(encoding="utf-8", errors="replace")
-        lines = content.splitlines()
-        total_lines = len(lines)
-        start = max(1, start_line)
-        end = min(total_lines, max(start, end_line))
-        if end - start > 150:
-            end = start + 150
-        snippet_lines = [f"{i}: {lines[i - 1]}" for i in range(start, end + 1)]
-        header = f"=== File: {file_path} (Lines {start}-{end} of {total_lines}) ==="
-        return header + "\n" + "\n".join(snippet_lines)
-    except Exception as e:
-        return f"Error reading file '{file_path}': {e}"
+grep_search = _ar_diagnostics.grep_search
+find_files = _ar_diagnostics.find_files
+read_file_snippet = _ar_diagnostics.read_file_snippet
 
 
 # =========================================================================
-# STAGE 0: DIAGNOSTIC EXPLORATION
+# STAGE 0: DIAGNOSTIC EXPLORATION (delegated to agent_resolve.diagnostics)
 # =========================================================================
-def parse_issue_diagnostics(issue_body: str) -> Tuple[List[str], str]:
-    """
-    Extracts explicit target files/suspected components and root cause analysis
-    from the issue body (handling Model 1 template format and markdown headings).
-    Returns (suspected_files, root_cause).
-    """
-    suspected_files: List[str] = []
-    root_cause: str = ""
-
-    # Look for Target Files / Suspected Components section
-    target_files_match = re.search(
-        r"(?:###?|\*\*)\s*(?:Target Files|Suspected Components|Target Files & Suspected Components)[\s\S]*?(?=(?:###?|\*\*|$))",
-        issue_body,
-        re.IGNORECASE,
-    )
-    if target_files_match:
-        section_text = target_files_match.group(0)
-        file_candidates = re.findall(
-            r"[-*]\s*[`'\"]?([a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)[`'\"]?",
-            section_text,
-        )
-        file_candidates += re.findall(
-            r"[`'\"]([a-zA-Z0-9_./-]+\.(?:ts|tsx|js|jsx|json|sql|ya?ml|css))[`'\"]",
-            section_text,
-        )
-        file_candidates += re.findall(
-            r"((?:lib|components|app|pages|supabase|types|src|scripts)/[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)",
-            section_text,
-        )
-        for f in file_candidates:
-            clean_f = f.strip().strip("`'\",")
-            if clean_f and clean_f not in suspected_files:
-                suspected_files.append(clean_f)
-
-    # Look for Root Cause section
-    root_cause_match = re.search(
-        r"(?:###?|\*\*)\s*Root Cause[\s\S]*?(?=(?:###?|\*\*|$))",
-        issue_body,
-        re.IGNORECASE,
-    )
-    if root_cause_match:
-        root_cause = root_cause_match.group(0).strip()
-
-    # Fallback: scan whole issue body for candidate source files if no explicit section matched
-    if not suspected_files:
-        all_paths = re.findall(
-            r"[`'\"]([a-zA-Z0-9_./-]+\.(?:ts|tsx|js|jsx|json|sql|ya?ml|css))[`'\"]",
-            issue_body,
-        )
-        all_paths += re.findall(
-            r"((?:lib|components|app|pages|supabase|types|src|scripts)/[a-zA-Z0-9_./-]+\.[a-zA-Z0-9]+)",
-            issue_body,
-        )
-        for p in all_paths:
-            clean_p = p.strip().strip("`'\",")
-            if clean_p and clean_p not in suspected_files:
-                suspected_files.append(clean_p)
-
-    return suspected_files, root_cause
+parse_issue_diagnostics = _ar_diagnostics.parse_issue_diagnostics
 
 
 def stage_0_diagnose(
