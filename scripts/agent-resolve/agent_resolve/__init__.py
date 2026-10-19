@@ -12,6 +12,8 @@ from typing import Any
 
 from agent_resolve import (
     config,
+    context,
+    diagnostics,
     environment,
     exceptions,
     llm,
@@ -71,6 +73,19 @@ from agent_resolve.llm import (
     call_gemini_with_fallback,
     get_genai_client,
     is_transient_error,
+)
+from agent_resolve.context import (
+    extract_test_suite_names,
+    find_related_test_files,
+    get_project_context,
+    get_repository_tree,
+    is_issue_suitable_for_headless_agent,
+)
+from agent_resolve.diagnostics import (
+    find_files,
+    grep_search,
+    parse_issue_diagnostics,
+    read_file_snippet,
 )
 
 __version__: str = "0.1.0"
@@ -176,5 +191,16 @@ __all__: list[str] = [
     "call_gemini_with_fallback",
     "get_genai_client",
     "is_transient_error",
+    "context",
+    "extract_test_suite_names",
+    "find_related_test_files",
+    "get_project_context",
+    "get_repository_tree",
+    "is_issue_suitable_for_headless_agent",
+    "diagnostics",
+    "find_files",
+    "grep_search",
+    "parse_issue_diagnostics",
+    "read_file_snippet",
 ]
 
