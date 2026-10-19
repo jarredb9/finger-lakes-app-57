@@ -15,11 +15,11 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Separate blast_radius_test_files from target_test_files & Bound Discovery' (Protocol in workflow.md) [commit: 19026b7]
 
 ## Phase 2: Stage 3 Fail-Fast Type-Check (Targeted & Regression), Silent Jest & Error Truncation
-- [ ] Task: Write failing unit tests for Stage 3 fail-fast compilation, silent Jest execution, regression gate sequencing, and 8k character truncation (TDD Red phase)
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying that when `tc_code != 0`, targeted Jest execution is skipped and compiler errors populate `last_error_context`
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying `--no-color` and `--silent` flags are passed to `npx jest` in targeted verification
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying `npm run type-check` runs before `npm test` in the Mandatory Full Regression Gate
-    - [ ] Author unit tests verifying ANSI escape code stripping and head-and-tail 8,000 character truncation (4,000 head, 4,000 tail with `... [TRUNCATED {chars} CHARS OF VERIFICATION OUTPUT] ...` marker, leaving $\le 8000$ intact)
+- [x] Task: Write failing unit tests for Stage 3 fail-fast compilation, silent Jest execution, regression gate sequencing, and 8k character truncation (TDD Red phase) [commit: a30bd98]
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying that when `tc_code != 0`, targeted Jest execution is skipped and compiler errors populate `last_error_context`
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying `--no-color` and `--silent` flags are passed to `npx jest` in targeted verification
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying `npm run type-check` runs before `npm test` in the Mandatory Full Regression Gate
+    - [x] Author unit tests verifying ANSI escape code stripping and head-and-tail 8,000 character truncation (4,000 head, 4,000 tail with `... [TRUNCATED {chars} CHARS OF VERIFICATION OUTPUT] ...` marker, leaving $\le 8000$ intact)
 - [ ] Task: Implement Stage 3 fail-fast compilation, silent Jest execution, regression gate sequencing, and 8k character truncation (TDD Green phase)
     - [ ] Implement fail-fast branch in `agent_resolve/stages/stage_3_green.py` when `tc_code != 0`, skipping Jest execution
     - [ ] Add `--no-color` and `--silent` flags to targeted Jest command construction in `stage_3_green.py`
