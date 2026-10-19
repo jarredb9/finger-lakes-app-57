@@ -71,6 +71,8 @@ from agent_resolve import context as _ar_context
 from agent_resolve import diagnostics as _ar_diagnostics
 from agent_resolve import stages as _ar_stages
 from agent_resolve import pipeline as _ar_pipeline
+from agent_resolve import cli as _ar_cli
+from agent_resolve.cli import main, parse_args
 from agent_resolve.context import (
     extract_test_suite_names,
     find_related_test_files,
@@ -221,63 +223,11 @@ preserve_failed_work = _ar_vcs.preserve_failed_work
 resolve_issue = _ar_pipeline.resolve_issue
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Autonomous GitHub Issue Resolver Harness")
-    parser.add_argument("--issue", "-i", type=int, help="Specific GitHub issue number to resolve")
-    parser.add_argument("--max-issues", "-m", type=int, default=3, help="Maximum number of issues to process (default: 3)")
-    parser.add_argument("--dry-run", action="store_true", help="Run without pushing branches or updating GitHub issues")
-    args = parser.parse_args()
-
-    client = get_genai_client()
-
-    if args.issue:
-        code, out, err = gh_cli(["issue", "view", str(args.issue), "--json", "number,title,body,author,labels"])
-        if code != 0:
-            log(f"Error viewing issue #{args.issue}: {err}", file=sys.stderr)
-            sys.exit(1)
-        issue_data = json.loads(out)
-        success = resolve_issue(client, issue_data, dry_run=args.dry_run)
-        sys.exit(0 if success else 1)
-
-    log(f"Querying up to {args.max_issues} open issues labeled 'agent:resolve'...")
-    code, out, err = gh_cli([
-        "issue", "list",
-        "--state", "open",
-        "--label", "agent:resolve",
-        "--limit", str(args.max_issues),
-        "--json", "number,title,body,author,labels",
-    ])
-    if code != 0:
-        log(f"Error querying issues: {err}", file=sys.stderr)
-        sys.exit(1)
-
-    issues = json.loads(out)
-    if not issues:
-        log("No open issues labeled 'agent:resolve' found.")
-        sys.exit(0)
-
-    log(f"Found {len(issues)} issue(s) to process.")
-    results: List[Tuple[int, bool]] = []
-    for idx, issue in enumerate(issues):
-        if idx > 0 and BATCH_PACING_SECONDS > 0:
-            log(f"Pacing delay: sleeping {BATCH_PACING_SECONDS}s before next issue...")
-            time.sleep(BATCH_PACING_SECONDS)
-
-        success = resolve_issue(client, issue, dry_run=args.dry_run)
-        results.append((issue["number"], success))
-
-    log("\n================ BATCH EXECUTION SUMMARY ================")
-    all_success = True
-    for num, success in results:
-        status_icon = "✅ SUCCESS" if success else "❌ FAILED"
-        log(f"Issue #{num}: {status_icon}")
-        if not success:
-            all_success = False
-    log("=========================================================\n")
-
-    if not all_success:
-        log("Batch execution finished with one or more failed issues.", file=sys.stderr)
-        sys.exit(1)
+# =========================================================================
+# CLI ENTRYPOINTS (delegated to agent_resolve.cli)
+# =========================================================================
+parse_args = _ar_cli.parse_args
+main = _ar_cli.main
 
 
 if __name__ == "__main__":
