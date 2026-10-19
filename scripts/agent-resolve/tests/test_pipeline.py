@@ -454,7 +454,14 @@ class TestResolveIssueResumptionAndCircuitBreaker(unittest.TestCase):
         ) as mock_cmd, patch.object(
             agent_resolve, "stage_0_diagnose", return_value=DiagnosticResult([], "RC", {}, "Sum")
         ) as mock_s0, patch.object(
-            agent_resolve, "stage_1_plan", return_value=BlueprintPlan("winery", ["t.ts"], ["s.ts"], "# Plan")
+            agent_resolve,
+            "stage_1_plan",
+            return_value=BlueprintPlan(
+                scope="winery",
+                target_test_files=["t.ts"],
+                target_src_files=["s.ts"],
+                plan_markdown="# Plan",
+            ),
         ) as mock_s1, patch.object(
             agent_resolve, "stage_2_red"
         ) as mock_s2, patch.object(

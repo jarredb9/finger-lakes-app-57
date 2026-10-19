@@ -19,6 +19,8 @@ from agent_resolve import (
     llm,
     models,
     patch_engine,
+    pipeline,
+    stages,
     tracker,
     vcs,
     verification,
@@ -87,6 +89,13 @@ from agent_resolve.diagnostics import (
     parse_issue_diagnostics,
     read_file_snippet,
 )
+from agent_resolve.stages import (
+    stage_0_diagnose,
+    stage_1_plan,
+    stage_2_red,
+    stage_3_green,
+)
+from agent_resolve.pipeline import resolve_issue
 
 __version__: str = "0.1.0"
 
@@ -202,5 +211,12 @@ __all__: list[str] = [
     "grep_search",
     "parse_issue_diagnostics",
     "read_file_snippet",
+    "stages",
+    "stage_0_diagnose",
+    "stage_1_plan",
+    "stage_2_red",
+    "stage_3_green",
+    "pipeline",
+    "resolve_issue",
 ]
 
