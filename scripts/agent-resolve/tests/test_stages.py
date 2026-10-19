@@ -893,6 +893,241 @@ class TestStage3Green(unittest.TestCase):
             "components/__tests__/blast.test.tsx",
         ])
 
+    def test_stage_3_skips_jest_when_targeted_type_check_fails_and_populates_compiler_errors(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => false;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        test_calls = []
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            test_calls.append(list(cmd))
+            # On attempt 1, targeted type-check fails with compiler error
+            if len(test_calls) == 1 and cmd == ["npm", "run", "type-check"]:
+                return (2, "TS2322 Type mismatch: Type 'number' is not assignable to type 'string'.", "")
+            # If Jest is called during attempt 1 (current unadapted behavior) or subsequent calls
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        # Assert that on attempt 1, when targeted type-check failed, npx jest was NEVER called
+        self.assertEqual(test_calls[0], ["npm", "run", "type-check"])
+        self.assertEqual(test_calls[1], ["npm", "run", "type-check"], "Jest should be skipped on attempt 1 when type-check fails")
+
+        # Assert attempt 2 prompt contains compiler error and does not contain Jest execution or exit codes
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn("TS2322 Type mismatch", prompt_2)
+        self.assertNotIn("Jest Test Exit Code", prompt_2)
+        self.assertNotIn("Jest Errors", prompt_2)
+
+    def test_stage_3_regression_gate_runs_type_check_before_jest_and_skips_jest_on_compilation_failure(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => false;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        test_calls = []
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            test_calls.append(list(cmd))
+            # Attempt 1: targeted type-check passes, targeted jest passes
+            if len(test_calls) == 1 and cmd == ["npm", "run", "type-check"]:
+                return (0, "", "")
+            if len(test_calls) == 2 and cmd[:2] == ["npx", "jest"]:
+                return (0, "", "")
+            # Attempt 1 regression gate: type-check fails with TS2345
+            if cmd == ["npm", "run", "type-check"] and len(test_calls) == 3:
+                return (2, "TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.", "")
+            # If npm test is called in attempt 1 (current unadapted behavior) or subsequent calls
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        # In attempt 1:
+        # Call 1: targeted type-check
+        # Call 2: targeted jest
+        # Call 3: regression type-check MUST run before regression jest
+        self.assertEqual(test_calls[0], ["npm", "run", "type-check"])
+        self.assertEqual(test_calls[1][:2], ["npx", "jest"])
+        self.assertEqual(test_calls[2], ["npm", "run", "type-check"], "Regression type-check must run before full Jest suite")
+
+        # Regression jest must NOT be invoked when regression type-check fails on attempt 1
+        # Therefore, call 4 must be the start of attempt 2 (targeted type-check), not npm test
+        self.assertEqual(test_calls[3], ["npm", "run", "type-check"], "Full Jest suite must be skipped on regression compilation failure")
+
+        # Prompt for attempt 2 must reflect regression TypeScript failure
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn("TS2345: Argument of type", prompt_2)
+        self.assertNotIn("Full Jest Suite Errors", prompt_2)
+
+    def test_stage_3_sanitizes_and_truncates_large_compiler_error_output_in_last_error_context(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => false;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        # 12,000 characters of clean compiler errors with ANSI escape sequences
+        head_clean = "HEAD_COMPILER_ERROR_" + ("A" * 3980)  # 4,000 chars
+        middle_clean = "MIDDLE_COMPILER_ERROR_" + ("M" * 3978) # 4,000 chars
+        tail_clean = "TAIL_COMPILER_ERROR_" + ("Z" * 3980)  # 4,000 chars
+        # Total clean = 12,000 chars
+        ansi_error_output = f"\x1b[31;1m{head_clean}\x1b[0m\x1b[33m{middle_clean}\x1b[0m\x1b[34m{tail_clean}\x1b[0m"
+
+        attempt_count = 0
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            nonlocal attempt_count
+            if cmd == ["npm", "run", "type-check"]:
+                attempt_count += 1
+                if attempt_count == 1:
+                    return (2, ansi_error_output, "")
+                return (0, "", "")
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        # Must strip all ANSI escape sequences
+        self.assertNotIn("\x1b[", prompt_2)
+        # Must truncate to head (4k) and tail (4k) with exact marker
+        expected_marker = "\n\n... [TRUNCATED 4000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
+        self.assertIn(expected_marker, prompt_2)
+        self.assertIn("HEAD_COMPILER_ERROR_", prompt_2)
+        self.assertIn("TAIL_COMPILER_ERROR_", prompt_2)
+        self.assertNotIn("MIDDLE_COMPILER_ERROR_", prompt_2)
+
+    def test_stage_3_sanitizes_and_truncates_large_regression_gate_error_output_in_last_error_context(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => false;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        # 15,000 characters of clean error output with ANSI escape sequences
+        head_clean = "REG_HEAD_ERROR_" + ("H" * 3985)   # 4,000 chars
+        middle_clean = "REG_MID_ERROR_" + ("M" * 6986)   # 7,000 chars
+        tail_clean = "REG_TAIL_ERROR_" + ("T" * 3985)   # 4,000 chars
+        # Total clean = 15,000 chars. Truncated count = 15000 - 8000 = 7000.
+        ansi_error_output = f"\x1b[35m{head_clean}\x1b[0m\x1b[36m{middle_clean}\x1b[0m\x1b[31m{tail_clean}\x1b[0m"
+
+        attempt_count = 0
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            nonlocal attempt_count
+            if cmd == ["npm", "run", "type-check"]:
+                attempt_count += 1
+                if attempt_count == 1:
+                    return (0, "", "")  # attempt 1 targeted type-check passes
+                if attempt_count == 2:
+                    return (2, ansi_error_output, "") # attempt 1 regression type-check fails
+                return (0, "", "")  # attempt 2 passes
+            if cmd == ["npm", "test"] and attempt_count < 3:
+                # If current unadapted code runs npm test in regression gate on attempt 1
+                return (1, ansi_error_output, "")
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertNotIn("\x1b[", prompt_2)
+        expected_marker = "\n\n... [TRUNCATED 7000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
+        self.assertIn(expected_marker, prompt_2)
+        self.assertIn("REG_HEAD_ERROR_", prompt_2)
+        self.assertIn("REG_TAIL_ERROR_", prompt_2)
+        self.assertNotIn("REG_MID_ERROR_", prompt_2)
+
 
 if __name__ == "__main__":
     unittest.main()
