@@ -106,8 +106,8 @@
         2. Thin shim cutover contract on `scripts/agent-resolve/agent-resolve.py` (verifying inline monolithic definitions are removed, line count is compact, and `python3.12 scripts/agent-resolve/agent-resolve.py --help` succeeds)
         3. `importlib.util.spec_from_file_location("agent_resolve", ...)` single-file loader compatibility and full `__all__` public symbol parity between `agent_resolve` and `agent-resolve.py`
     - [x] Assert tests fail prior to thin shim cutover and `__all__` parity completion
-- [ ] Task: Finalize thin legacy shim cutover, execute full dual-suite verification, and document modular architecture (TDD Green phase)
-    - [ ] Transform `scripts/agent-resolve/agent-resolve.py` into a compact backward-compatible shim that bootstraps `sys.path`, self-heals `sys.modules["agent_resolve"].__path__`, delegates attribute mutations to `agent_resolve`, re-exports `__all__`, and invokes `agent_resolve.cli.main()`
-    - [ ] Verify all 27 legacy test cases and all 14 modular test suites pass cleanly with `npm run test:agent` and `npm run test:agent:all`
-    - [ ] Update `scripts/README.md`, `docs/adr/0005-autonomous-nightly-agent-workflow.md`, and `docs/agents/issue-tracker.md` to document both the modular `agent_resolve` package architecture and the complete 4-stage (`Stage 0`–`Stage 3`) pipeline with Tier 3 Blueprint Invalidation (keeping `CONTEXT.md` strictly bounded to the winery domain)
+- [x] Task: Finalize thin legacy shim cutover, execute full dual-suite verification, and document modular architecture (TDD Green phase) [commit: 7d5be106]
+    - [x] Transform `scripts/agent-resolve/agent-resolve.py` into a compact backward-compatible shim that bootstraps `sys.path`, self-heals `sys.modules["agent_resolve"].__path__`, delegates attribute mutations to `agent_resolve`, re-exports `__all__`, and invokes `agent_resolve.cli.main()`
+    - [x] Verify all 27 legacy test cases and all 14 modular test suites pass cleanly with `npm run test:agent` and `npm run test:agent:all`
+    - [x] Update `scripts/README.md`, `docs/adr/0005-autonomous-nightly-agent-workflow.md`, and `docs/agents/issue-tracker.md` to document both the modular `agent_resolve` package architecture and the complete 4-stage (`Stage 0`–`Stage 3`) pipeline with Tier 3 Blueprint Invalidation (keeping `CONTEXT.md` strictly bounded to the winery domain)
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Thin Shim Cutover, Entrypoint Parity Verification & Documentation' (Protocol in workflow.md)
