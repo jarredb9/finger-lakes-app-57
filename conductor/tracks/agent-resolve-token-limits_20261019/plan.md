@@ -1,11 +1,11 @@
 # Implementation Plan: Prevent Prompt Token Blowout, Unbounded Jest Output & Cached Token Accounting
 
 ## Phase 1: Separate `blast_radius_test_files` from `target_test_files`, Bound Discovery & Prioritize Proximity
-- [ ] Task: Write failing unit tests for blast radius data model, discovery bounds, generic stem qualification, and stage prompt isolation (TDD Red phase)
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_models.py` verifying `BlueprintPlan.blast_radius_test_files` default and serialization
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_context.py` verifying `find_related_test_files` matches only Jest extensions (`*.test.ts(x)`, `*.spec.ts(x)`), excludes `supabase/` and `e2e/`, qualifies generic stems (`index`, `types`, `constants`, `utils`, `helpers`) with directory paths, matches import boundaries (`/(?:{pattern})(?:\.[a-zA-Z]+)?['\"]` and `from.*{pattern}`), sorts by common ancestor directory depth descending, and caps results at 8 suites
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying Stage 1 populates blast radius without mutating `target_test_files`, Stage 2 only interacts with `target_test_files`, and Stage 3 only injects `target_test_files` into prompt while executing target + blast radius in Jest with `--no-color` and `--silent`
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_vcs.py` asserting `preserve_failed_work` persists `blast_radius_test_files` in `.agent-state.json` and `update_or_create_pr` formats it in the PR body
+- [x] Task: Write failing unit tests for blast radius data model, discovery bounds, generic stem qualification, and stage prompt isolation (TDD Red phase) [commit: 5a8e6c5]
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_models.py` verifying `BlueprintPlan.blast_radius_test_files` default and serialization
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_context.py` verifying `find_related_test_files` matches only Jest extensions (`*.test.ts(x)`, `*.spec.ts(x)`), excludes `supabase/` and `e2e/`, qualifies generic stems (`index`, `types`, `constants`, `utils`, `helpers`) with directory paths, matches import boundaries (`/(?:{pattern})(?:\.[a-zA-Z]+)?['\"]` and `from.*{pattern}`), sorts by common ancestor directory depth descending, and caps results at 8 suites
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying Stage 1 populates blast radius without mutating `target_test_files`, Stage 2 only interacts with `target_test_files`, and Stage 3 only injects `target_test_files` into prompt while executing target + blast radius in Jest with `--no-color` and `--silent`
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_vcs.py` asserting `preserve_failed_work` persists `blast_radius_test_files` in `.agent-state.json` and `update_or_create_pr` formats it in the PR body
 - [ ] Task: Implement blast radius data model, discovery bounds, generic stem qualification, and stage prompt isolation (TDD Green phase)
     - [ ] Add `blast_radius_test_files: List[str]` to `BlueprintPlan` in `agent_resolve/models.py`
     - [ ] Update `preserve_failed_work` and `update_or_create_pr` in `agent_resolve/vcs.py` to persist and report blast radius suites
