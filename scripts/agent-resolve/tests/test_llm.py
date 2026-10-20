@@ -153,6 +153,34 @@ class TestIsTransientError(unittest.TestCase):
             with self.subTest(error=str(err)):
                 self.assertFalse(is_transient_error(err))
 
+    def test_status_boundary_regex_rejects_embedded_numbers_and_token_counts(self) -> None:
+        embedded_cases = [
+            RuntimeError("Token budget exceeded: 500,000 tokens used (limit: 500,000)"),
+            Exception("Syntax error at line 5020: unexpected token"),
+            Exception("Processed 4290 items successfully"),
+            Exception("Task failed on worker 5031 with code 1"),
+            Exception("Memory address offset 0x504000"),
+            Exception("Token limit reached: 500,001 effective tokens"),
+        ]
+        for err in embedded_cases:
+            with self.subTest(error=str(err)):
+                self.assertFalse(is_transient_error(err))
+
+    def test_status_boundary_regex_matches_exact_http_status_codes_and_delimiters(self) -> None:
+        authentic_cases = [
+            Exception("HTTP 429 Too Many Requests"),
+            Exception("Error: 500 Internal Server Error"),
+            Exception("502 Bad Gateway"),
+            Exception("status code: 503"),
+            Exception("Gateway Timeout: 504"),
+            Exception("API error (500)"),
+            Exception("Service unavailable [503]"),
+            Exception("Server returned 502."),
+        ]
+        for err in authentic_cases:
+            with self.subTest(error=str(err)):
+                self.assertTrue(is_transient_error(err))
+
 
 class TestCallGeminiWithFallback(unittest.TestCase):
     def setUp(self) -> None:
@@ -251,6 +279,62 @@ class TestCallGeminiWithFallback(unittest.TestCase):
                 token_tracker=tracker,
             )
         self.assertIn("Token budget exceeded", str(cm.exception))
+
+    def test_pre_call_budget_check_raises_runtime_error_before_calling_gemini(self) -> None:
+        tracker = MagicMock(spec=TokenTracker)
+        tracker.check_budget.side_effect = RuntimeError(
+            "Token budget exceeded: 500,001 effective tokens used (limit: 500,000)"
+        )
+        with self.assertRaises(RuntimeError) as cm:
+            call_gemini_with_fallback(
+                self.client,
+                contents="Prompt",
+                models=["gemini-3.8-flash"],
+                token_tracker=tracker,
+            )
+        self.assertIn("Token budget exceeded", str(cm.exception))
+        self.client.models.generate_content.assert_not_called()
+
+    def test_pre_call_budget_check_raises_before_retry_attempt(self) -> None:
+        tracker = MagicMock(spec=TokenTracker)
+        tracker.check_budget.side_effect = [
+            None,
+            RuntimeError("Token budget exceeded: 500,001 effective tokens used (limit: 500,000)"),
+        ]
+        self.client.models.generate_content.side_effect = Exception("503 Service Unavailable")
+
+        with patch("time.sleep"):
+            with self.assertRaises(RuntimeError) as cm:
+                call_gemini_with_fallback(
+                    self.client,
+                    contents="Retry budget check",
+                    models=["gemini-3.8-flash"],
+                    token_tracker=tracker,
+                    max_retries_per_model=3,
+                )
+        self.assertIn("Token budget exceeded", str(cm.exception))
+        self.assertEqual(self.client.models.generate_content.call_count, 1)
+
+    def test_record_usage_isolated_from_transient_retry_handler(self) -> None:
+        tracker = MagicMock(spec=TokenTracker)
+        mock_usage = MagicMock()
+        response = MagicMock(text="OK", usage_metadata=mock_usage)
+        self.client.models.generate_content.return_value = response
+        tracker.record_usage.side_effect = RuntimeError(
+            "Token budget exceeded: 500,001 effective tokens used (limit: 500,000)"
+        )
+
+        with patch("time.sleep"):
+            with self.assertRaises(RuntimeError) as cm:
+                call_gemini_with_fallback(
+                    self.client,
+                    contents="Isolated tracker check",
+                    models=["gemini-3.8-flash"],
+                    token_tracker=tracker,
+                    max_retries_per_model=3,
+                )
+        self.assertIn("Token budget exceeded", str(cm.exception))
+        self.assertEqual(self.client.models.generate_content.call_count, 1)
 
     def test_retries_on_transient_error_and_succeeds(self) -> None:
         err = Exception("503 Service Unavailable: OVERLOADED")

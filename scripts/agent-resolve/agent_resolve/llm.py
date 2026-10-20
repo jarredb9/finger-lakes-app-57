@@ -14,6 +14,10 @@ from typing import Any, List, Optional, Type
 from agent_resolve.models import T
 from agent_resolve.tracker import TokenTracker
 
+STATUS_CODE_BOUNDARY_REGEX: re.Pattern[str] = re.compile(
+    r"(?<![0-9,])(?:429|500|502|503|504)(?![0-9,])"
+)
+
 
 def get_genai_client() -> Any:
     """Initializes and returns Google GenAI client with SDK-level transport retry options."""
@@ -45,17 +49,16 @@ def get_genai_client() -> Any:
 
 def is_transient_error(err: Exception) -> bool:
     """Identifies transient rate limits, server errors, and socket/transport disconnects eligible for backoff retry."""
-    err_str = str(err).upper()
+    raw_str = str(err)
+    if STATUS_CODE_BOUNDARY_REGEX.search(raw_str):
+        return True
+
+    err_str = raw_str.upper()
     transient_indicators = [
-        "429",
         "RESOURCE_EXHAUSTED",
         "RATE_LIMIT",
         "RATE LIMIT",
         "QUOTA",
-        "500",
-        "502",
-        "503",
-        "504",
         "UNAVAILABLE",
         "OVERLOADED",
         "DEADLINE_EXCEEDED",
@@ -97,6 +100,9 @@ def call_gemini_with_fallback(
 
     for model_name in models:
         for attempt in range(1, max_retries_per_model + 1):
+            if token_tracker:
+                token_tracker.check_budget()
+
             try:
                 config = types.GenerateContentConfig(
                     temperature=temperature,
@@ -110,29 +116,7 @@ def call_gemini_with_fallback(
                     contents=contents,
                     config=config,
                 )
-
-                if token_tracker and hasattr(response, "usage_metadata"):
-                    token_tracker.record_usage(response.usage_metadata)
-
-                if schema_cls:
-                    if hasattr(response, "parsed") and response.parsed is not None:
-                        return response.parsed
-                    if response and response.text:
-                        clean_text = re.sub(r"^```(?:json)?\s*", "", response.text.strip())
-                        clean_text = re.sub(r"\s*```$", "", clean_text.strip())
-                        return schema_cls.model_validate_json(clean_text)
-                    raise ValueError(f"Empty structured response received from model {model_name}")
-
-                if response and response.text:
-                    return response.text
-
-                raise ValueError(f"Empty text response received from model {model_name}")
-
-            except ValueError:
-                raise
             except Exception as e:
-                if isinstance(e, RuntimeError) and "Token budget exceeded" in str(e):
-                    raise
                 last_err = e
                 if is_transient_error(e) and attempt < max_retries_per_model:
                     base_delay = 2.0 * (2 ** (attempt - 1))
@@ -152,10 +136,28 @@ def call_gemini_with_fallback(
                 )
                 break
 
+            if token_tracker and hasattr(response, "usage_metadata"):
+                token_tracker.record_usage(response.usage_metadata)
+
+            if schema_cls:
+                if hasattr(response, "parsed") and response.parsed is not None:
+                    return response.parsed
+                if response and response.text:
+                    clean_text = re.sub(r"^```(?:json)?\s*", "", response.text.strip())
+                    clean_text = re.sub(r"\s*```$", "", clean_text.strip())
+                    return schema_cls.model_validate_json(clean_text)
+                raise ValueError(f"Empty structured response received from model {model_name}")
+
+            if response and response.text:
+                return response.text
+
+            raise ValueError(f"Empty text response received from model {model_name}")
+
     raise RuntimeError(f"API call to model {models[0]} failed. Last error: {last_err}")
 
 
 __all__: list[str] = [
+    "STATUS_CODE_BOUNDARY_REGEX",
     "get_genai_client",
     "is_transient_error",
     "call_gemini_with_fallback",

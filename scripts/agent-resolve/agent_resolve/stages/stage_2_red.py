@@ -89,6 +89,7 @@ DIRECTIVES (STRICT TDD RED PHASE):
 7. Output complete file contents for each target test file.
 8. JSDOM & BROWSER MOCKING INVARIANT: In Jest/JSDOM, `window.location` is locked and non-configurable. DO NOT attempt to redefine or overwrite it via `Object.defineProperty(window, 'location', ...)`. Instead, test navigation by mocking helper functions, using dependency injection, or utilizing jest.spyOn. Ensure test setup hooks (`beforeEach`/`afterEach`) execute cleanly without throwing unhandled exceptions.
 9. PRESERVATION OF EXISTING TESTS: For any target test file that already exists on disk, you MUST retain all pre-existing test suites and describe blocks (such as saveTripMembers). You may add new tests or update obsolete tests within the targeted feature suite, but you MUST NEVER silently drop or truncate unrelated test suites in the file.
+10. EDGE FUNCTION SHARED MODULE TESTING INVARIANT: When target source files include pure-TypeScript shared modules under `supabase/functions/_shared/*.ts`, import them in your Jest unit tests using path alias `@/supabase/functions/_shared/<module>`. Never author tests under `supabase/` or `e2e/`.
 
 Respond strictly in valid JSON matching the TestFileManifest schema.
 """

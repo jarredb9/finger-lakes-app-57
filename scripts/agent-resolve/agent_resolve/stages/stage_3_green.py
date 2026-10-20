@@ -9,6 +9,7 @@ from typing import Any, List, Optional
 from agent_resolve import config
 from agent_resolve.config import DEFAULT_EXECUTOR_MODELS
 from agent_resolve.context import get_project_context
+from agent_resolve.diagnostics import truncate_error_context
 from agent_resolve.environment import log, run_cmd, run_isolated_test
 from agent_resolve.llm import call_gemini_with_fallback
 from agent_resolve.models import BlueprintPlan, PatchManifest
@@ -117,62 +118,81 @@ Respond strictly in valid JSON matching the PatchManifest schema.
         # Targeted Verification Loop
         log("Running targeted verification checks...")
         tc_code, tc_out, tc_err = run_isolated_test(["npm", "run", "type-check"])
-        test_cmd = ["npx", "jest"] + target_tests
+        if tc_code != 0:
+            sanitized_errors = truncate_error_context(tc_err or tc_out)
+            last_error_context = f"""PREVIOUS ATTEMPT FAILED TARGETED VERIFICATION:
+TypeScript Check Exit Code: {tc_code}
+TypeScript Errors:
+{sanitized_errors}
+
+The working tree has been reverted to clean baseline. Generate a corrected patch against baseline that resolves these errors.
+"""
+            log(f"Attempt {attempt} verification failed:")
+            log(f"TypeScript Errors:\n{tc_err or tc_out}")
+            continue
+
+        all_tests = target_tests + getattr(blueprint, "blast_radius_test_files", [])
+        test_cmd = ["npx", "jest", "--no-color", "--silent"] + all_tests
         t_code, t_out, t_err = run_isolated_test(test_cmd)
+        if t_code != 0:
+            sanitized_errors = truncate_error_context(t_err or t_out)
+            last_error_context = f"""PREVIOUS ATTEMPT FAILED TARGETED VERIFICATION:
+TypeScript Check Exit Code: 0
 
-        if tc_code == 0 and t_code == 0:
-            log("Targeted checks passed! Running MANDATORY FULL REGRESSION GATE (full test suite + type-check)...")
-            reg_code, reg_out, reg_err = run_isolated_test(["npm", "test"])
-            reg_tc_code, reg_tc_out, reg_tc_err = run_isolated_test(["npm", "run", "type-check"])
+Jest Test Exit Code: {t_code}
+Jest Errors:
+{sanitized_errors}
 
-            if reg_code == 0 and reg_tc_code == 0:
-                log("Mandatory full regression suite passed cleanly!")
-                if baseline_ref != "HEAD":
-                    log(f"Resumption mode: soft-resetting branch to {baseline_ref[:8]} to squash WIP commits...")
-                    run_cmd(["git", "reset", "--soft", baseline_ref], check=True)
-                    for f in [".agent-state.json", "AGENT_HANDOFF.md"]:
-                        p = config.get_project_root() / f
-                        if p.exists():
-                            p.unlink()
-                run_cmd(["git", "add"] + target_src, check=True)
-                commit_msg = f"feat({scope}): Implement changes to satisfy Issue #{issue_number}"
-                run_cmd(["git", "commit", "-m", commit_msg], check=True)
-                log(f"Committed: {commit_msg}")
-                return
+The working tree has been reverted to clean baseline. Generate a corrected patch against baseline that resolves these errors.
+"""
+            log(f"Attempt {attempt} verification failed:")
+            log(f"Jest Errors:\n{t_err or t_out}")
+            continue
 
+        # Targeted checks passed! Running MANDATORY FULL REGRESSION GATE (type-check before full test suite)
+        log("Targeted checks passed! Running MANDATORY FULL REGRESSION GATE (type-check before full test suite)...")
+        reg_tc_code, reg_tc_out, reg_tc_err = run_isolated_test(["npm", "run", "type-check"])
+        if reg_tc_code != 0:
+            sanitized_errors = truncate_error_context(reg_tc_err or reg_tc_out)
             last_error_context = f"""TARGETED TESTS PASSED BUT MANDATORY FULL REGRESSION GATE FAILED:
-Full Jest Suite Exit Code: {reg_code}
-Full Jest Suite Errors:
-{reg_err or reg_out}
-
 Full TypeScript Check Exit Code: {reg_tc_code}
 Full TypeScript Errors:
-{reg_tc_err or reg_tc_out}
+{sanitized_errors}
 
 The working tree has been reverted to clean baseline. Ensure your implementation satisfies new tests without breaking existing application features or types.
 """
             log(f"Attempt {attempt} regression gate failed:")
-            if reg_code != 0:
-                log(f"Regression Jest Suite Errors:\n{reg_err or reg_out}")
-            if reg_tc_code != 0:
-                log(f"Regression TypeScript Errors:\n{reg_tc_err or reg_tc_out}")
+            log(f"Regression TypeScript Errors:\n{reg_tc_err or reg_tc_out}")
             continue
 
-        last_error_context = f"""PREVIOUS ATTEMPT FAILED TARGETED VERIFICATION:
-TypeScript Check Exit Code: {tc_code}
-TypeScript Errors:
-{tc_err or tc_out}
+        reg_code, reg_out, reg_err = run_isolated_test(["npm", "test"])
+        if reg_code != 0:
+            sanitized_errors = truncate_error_context(reg_err or reg_out)
+            last_error_context = f"""TARGETED TESTS PASSED BUT MANDATORY FULL REGRESSION GATE FAILED:
+Full Jest Suite Exit Code: {reg_code}
+Full Jest Suite Errors:
+{sanitized_errors}
 
-Jest Test Exit Code: {t_code}
-Jest Errors:
-{t_err or t_out}
+Full TypeScript Check Exit Code: 0
 
-The working tree has been reverted to clean baseline. Generate a corrected patch against baseline that resolves these errors.
+The working tree has been reverted to clean baseline. Ensure your implementation satisfies new tests without breaking existing application features or types.
 """
-        log(f"Attempt {attempt} verification failed:")
-        if tc_code != 0:
-            log(f"TypeScript Errors:\n{tc_err or tc_out}")
-        if t_code != 0:
-            log(f"Jest Errors:\n{t_err or t_out}")
+            log(f"Attempt {attempt} regression gate failed:")
+            log(f"Regression Jest Suite Errors:\n{reg_err or reg_out}")
+            continue
+
+        log("Mandatory full regression suite passed cleanly!")
+        if baseline_ref != "HEAD":
+            log(f"Resumption mode: soft-resetting branch to {baseline_ref[:8]} to squash WIP commits...")
+            run_cmd(["git", "reset", "--soft", baseline_ref], check=True)
+            for f in [".agent-state.json", "AGENT_HANDOFF.md"]:
+                p = config.get_project_root() / f
+                if p.exists():
+                    p.unlink()
+        run_cmd(["git", "add"] + target_src, check=True)
+        commit_msg = f"feat({scope}): Implement changes to satisfy Issue #{issue_number}"
+        run_cmd(["git", "commit", "-m", commit_msg], check=True)
+        log(f"Committed: {commit_msg}")
+        return
 
     raise RuntimeError(f"Green phase implementation failed to pass tests after {max_retries} attempts.\n{last_error_context}")

@@ -604,6 +604,43 @@ class TestUpdateOrCreatePr(unittest.TestCase):
         self.assertEqual(len(comment_calls), 1)
         self.assertIn("Autonomous multi-agent Draft PR submitted for review", comment_calls[0][0][0][4])
 
+    @patch("agent_resolve.vcs.gh_cli")
+    def test_update_or_create_pr_formats_blast_radius_in_pr_body(
+        self, mock_gh_cli: MagicMock
+    ) -> None:
+        def gh_side_effect(args, **kwargs):
+            if args[:2] == ["pr", "list"]:
+                return (0, "[]", "")
+            if args[:2] == ["pr", "create"]:
+                return (0, "https://github.com/org/repo/pull/106\n", "")
+            return (0, "", "")
+
+        mock_gh_cli.side_effect = gh_side_effect
+
+        blueprint_with_blast = BlueprintPlan(
+            scope="winery",
+            target_test_files=["components/__tests__/WineryCard.test.tsx"],
+            target_src_files=["components/WineryCard.tsx"],
+            plan_markdown="# Plan",
+            blast_radius_test_files=["components/__tests__/Dependent.test.tsx"],
+        )
+
+        update_or_create_pr(
+            issue_number=42,
+            issue_title="Fix Winery Card",
+            blueprint=blueprint_with_blast,
+            branch_name="agent/issue-42",
+            token_tracker=self.tracker,
+            elapsed_sec=90,
+        )
+
+        create_calls = [c for c in mock_gh_cli.call_args_list if c[0][0][:2] == ["pr", "create"]]
+        body_idx = create_calls[0][0][0].index("--body") + 1
+        body = create_calls[0][0][0][body_idx]
+        self.assertIn("### Observability & Verification", body)
+        self.assertIn("Blast Radius Tests", body)
+        self.assertIn("`components/__tests__/Dependent.test.tsx`", body)
+
 
 class TestPreserveFailedWork(unittest.TestCase):
     def setUp(self) -> None:
@@ -773,6 +810,38 @@ class TestPreserveFailedWork(unittest.TestCase):
         self.assertEqual(data["issue_number"], 42)
         self.assertEqual(data["scope"], "winery")
         self.assertEqual(data["attempt_count"], 2)
+
+    @patch("agent_resolve.vcs.reset_working_tree_to_main")
+    @patch("agent_resolve.vcs.run_cmd")
+    def test_preserve_failed_work_persists_blast_radius_test_files_in_state(
+        self, mock_run_cmd: MagicMock, mock_reset: MagicMock
+    ) -> None:
+        mock_run_cmd.return_value = (0, "", "")
+        state_file = self.root / ".agent-state.json"
+
+        blueprint_with_blast = BlueprintPlan(
+            scope="winery",
+            target_test_files=["components/__tests__/WineryCard.test.tsx"],
+            target_src_files=["components/WineryCard.tsx"],
+            plan_markdown="# Plan",
+            blast_radius_test_files=["components/__tests__/Dependent.test.tsx"],
+        )
+
+        preserve_failed_work(
+            issue_number=42,
+            issue_title="Fix Winery Card",
+            blueprint=blueprint_with_blast,
+            branch_name="agent/issue-42",
+            error_summary="Green phase failure",
+            token_tracker=self.tracker,
+            elapsed_sec=45,
+            dry_run=True,
+        )
+
+        self.assertTrue(state_file.exists())
+        data = json.loads(state_file.read_text(encoding="utf-8"))
+        self.assertIn("blast_radius_test_files", data)
+        self.assertEqual(data["blast_radius_test_files"], ["components/__tests__/Dependent.test.tsx"])
 
     @patch("agent_resolve.vcs.reset_working_tree_to_main")
     @patch("agent_resolve.vcs.run_cmd")
