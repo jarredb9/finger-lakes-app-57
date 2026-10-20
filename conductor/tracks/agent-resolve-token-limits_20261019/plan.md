@@ -14,7 +14,7 @@
     - [x] Verify all tests pass via `npm run test:agent`
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Separate blast_radius_test_files from target_test_files & Bound Discovery' (Protocol in workflow.md) [commit: 19026b7]
 
-## Phase 2: Stage 3 Fail-Fast Type-Check (Targeted & Regression), Silent Jest & Error Truncation
+## Phase 2: Stage 3 Fail-Fast Type-Check (Targeted & Regression), Silent Jest & Error Truncation [checkpoint: eef39f1]
 - [x] Task: Write failing unit tests for Stage 3 fail-fast compilation, silent Jest execution, regression gate sequencing, and 8k character truncation (TDD Red phase) [commit: a30bd98]
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying that when `tc_code != 0`, targeted Jest execution is skipped and compiler errors populate `last_error_context`
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying `--no-color` and `--silent` flags are passed to `npx jest` in targeted verification
@@ -26,7 +26,7 @@
     - [x] Sequence `npm run type-check` before `npm test` in `stage_3_green.py` regression gate
     - [x] Implement ANSI stripping and head/tail 8,000 character truncation helper in `stage_3_green.py` / `diagnostics.py`
     - [x] Verify all tests pass via `npm run test:agent`
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Stage 3 Fail-Fast Type-Check, Silent Jest Execution & Error Context Truncation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Stage 3 Fail-Fast Type-Check, Silent Jest Execution & Error Context Truncation' (Protocol in workflow.md) [commit: eef39f1]
 
 ## Phase 3: Discounted Cached Token Budget (25%), Pre-Call Guard & Status-Boundary Matching
 - [ ] Task: Write failing unit tests for 25% cached token accounting, pre-call budget checks, dual summary metrics, and boundary regex matching (TDD Red phase)
