@@ -67,11 +67,11 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Stateful Resumption Self-Healing & Issue #73 Reset Checklist' (Protocol in workflow.md) [commit: 1d66258b]
 
 ## Phase 6: ADR Documentation & End-to-End Test Suite Verification
-- [ ] Task: Update ADR-0005 with token budget discounting, test isolation, and verification invariants
-    - [ ] Document separation of `target_test_files` and `blast_radius_test_files`
-    - [ ] Document 25% cached token budgeting rule and 8,000 character error context cap
-    - [ ] Document fail-fast compiler gates (targeted and regression) and silent Jest execution
-    - [ ] Document pure-TS `supabase/functions/_shared/*.ts` Jest testing rule
+- [x] Task: Update ADR-0005 with token budget discounting, test isolation, and verification invariants [commit: 6864d29f]
+    - [x] Document separation of `target_test_files` and `blast_radius_test_files`
+    - [x] Document 25% cached token budgeting rule and 8,000 character error context cap
+    - [x] Document fail-fast compiler gates (targeted and regression) and silent Jest execution
+    - [x] Document pure-TS `supabase/functions/_shared/*.ts` Jest testing rule
 - [ ] Task: Execute full test verification across agent and container suites
     - [ ] Run unit tests via `npm run test:agent`
     - [ ] Run full agent integration tests via `npm run test:agent:all`
