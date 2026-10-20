@@ -329,6 +329,109 @@ class TestStage1Plan(unittest.TestCase):
         self.assertEqual(blueprint.target_test_files, ["lib/utils/__tests__/format.test.ts"])
         self.assertEqual(blueprint.blast_radius_test_files, ["components/__tests__/Dependent.test.tsx"])
 
+    def test_stage_1_sanitizes_invalid_paths_from_target_test_files(self) -> None:
+        mock_blueprint = BlueprintPlan(
+            scope="winery",
+            target_test_files=[
+                "supabase/functions/_shared/__tests__/geo.test.ts",
+                "e2e/winery-flow.spec.ts",
+                "lib/utils/helper.ts",
+                "lib/utils/__tests__/geo.test.ts",
+            ],
+            target_src_files=["lib/utils/geo.ts"],
+            plan_markdown="# Plan",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=mock_blueprint
+        ) as mock_gemini:
+            blueprint = stage_1_plan(self.client, 42, "Refactor geo", "Body", self.tracker)
+
+        self.assertEqual(blueprint.target_test_files, ["lib/utils/__tests__/geo.test.ts"])
+        self.assertEqual(mock_gemini.call_count, 1)
+
+    def test_stage_1_triggers_self_correction_when_target_test_files_filtered_empty(self) -> None:
+        bp_invalid = BlueprintPlan(
+            scope="winery",
+            target_test_files=["supabase/functions/places.test.ts"],
+            target_src_files=["supabase/functions/_shared/places.ts"],
+            plan_markdown="# Plan 1",
+        )
+        bp_valid = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/places.test.ts"],
+            target_src_files=["supabase/functions/_shared/places.ts"],
+            plan_markdown="# Plan 2",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", side_effect=[bp_invalid, bp_valid]
+        ) as mock_gemini:
+            blueprint = stage_1_plan(self.client, 42, "Places fix", "Body", self.tracker)
+
+        self.assertEqual(mock_gemini.call_count, 2)
+        prompt_attempt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn(
+            "Target test files must be Jest test files under lib/ or components/ and outside supabase/ and e2e/.",
+            prompt_attempt_2,
+        )
+        self.assertEqual(blueprint.target_test_files, ["lib/utils/__tests__/places.test.ts"])
+
+    def test_stage_1_raises_validation_error_when_self_correction_attempts_exhausted(self) -> None:
+        bp_invalid = BlueprintPlan(
+            scope="winery",
+            target_test_files=["supabase/functions/test.ts"],
+            target_src_files=["supabase/functions/_shared/test.ts"],
+            plan_markdown="# Plan Invalid",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", side_effect=[bp_invalid, bp_invalid]
+        ) as mock_gemini:
+            with self.assertRaises(ValueError) as ctx:
+                stage_1_plan(self.client, 42, "Invalid test paths", "Body", self.tracker)
+
+        self.assertEqual(mock_gemini.call_count, 2)
+        self.assertTrue(
+            "supabase/" in str(ctx.exception) or "e2e/" in str(ctx.exception),
+            f"Expected error message mentioning supabase/ or e2e/, got: {ctx.exception}",
+        )
+
+    def test_stage_1_prompt_includes_shared_edge_function_jest_directives(self) -> None:
+        mock_blueprint = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/geo.test.ts"],
+            target_src_files=["supabase/functions/_shared/geo.ts"],
+            plan_markdown="# Plan",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=mock_blueprint
+        ) as mock_gemini:
+            stage_1_plan(self.client, 42, "Refactor geo shared", "Body", self.tracker)
+
+        prompt_text = mock_gemini.call_args[0][1]
+        self.assertIn("supabase/functions/_shared", prompt_text)
+        self.assertIn("@/supabase/functions/_shared", prompt_text)
+        self.assertIn("lib/", prompt_text)
+
+
 
 class TestStage2Red(unittest.TestCase):
     def setUp(self) -> None:
@@ -601,6 +704,46 @@ class TestStage2Red(unittest.TestCase):
         for call_args in mock_test.call_args_list:
             self.assertNotIn("components/__tests__/blast.test.tsx", call_args[0][0])
         self.assertEqual(bp.blast_radius_test_files, ["components/__tests__/blast.test.tsx"])
+
+    def test_stage_2_prompt_includes_shared_edge_function_jest_directives(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/winery.test.ts"],
+            target_src_files=["supabase/functions/_shared/winery.ts"],
+            plan_markdown="# Plan",
+        )
+
+        manifest = TestFileManifest(
+            files=[
+                TestFileEntry(
+                    file_path="lib/utils/__tests__/winery.test.ts",
+                    content="describe('winery', () => { it('fails', () => { expect(true).toBe(false); }); });",
+                )
+            ]
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Valid assertion failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Shared winery test", bp, self.tracker)
+
+        prompt_text = mock_gemini.call_args[0][1]
+        self.assertIn("@/supabase/functions/_shared", prompt_text)
+        self.assertIn("supabase/", prompt_text)
+        self.assertIn("e2e/", prompt_text)
+
 
 
 class TestStage3Green(unittest.TestCase):

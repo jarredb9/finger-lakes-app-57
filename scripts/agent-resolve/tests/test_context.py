@@ -390,6 +390,64 @@ class TestIsIssueSuitableForHeadlessAgent(unittest.TestCase):
         self.assertTrue(suitable)
         self.assertEqual(reason, "")
 
+    def test_flags_deno_runtime_entrypoints(self) -> None:
+        deno_cases = [
+            ("Update handler to use Deno.serve", "Migrate server to Deno.serve for faster responses"),
+            ("Fix deno.serve routing", "Routing issue inside deno.serve handler"),
+            ("Add jsr import", "Import jsr:@supabase/functions-js in edge function"),
+            ("Fetch from https://deno.land/std", "Use std library at https://deno.land/std/http"),
+            ("Configure deno.json imports", "Update deno.json import map"),
+        ]
+        for title, body in deno_cases:
+            with self.subTest(title=title):
+                suitable, reason = is_issue_suitable_for_headless_agent(title, body)
+                self.assertFalse(suitable)
+                self.assertIn("Deno runtime entrypoint", reason)
+
+    def test_flags_non_shared_edge_function_paths(self) -> None:
+        paths = [
+            ("Fix enrichment bug", "Bug in supabase/functions/enrich-winery/index.ts"),
+            ("Update places handler", "Check supabase/functions/places/ handler logic"),
+            ("Sync handler crash", "Investigate supabase/functions/sync/handler.ts crash"),
+        ]
+        for title, body in paths:
+            with self.subTest(title=title):
+                suitable, reason = is_issue_suitable_for_headless_agent(title, body)
+                self.assertFalse(suitable)
+                self.assertTrue(
+                    "non-shared Edge Function" in reason or "Deno runtime entrypoint" in reason,
+                    f"Unexpected reason: {reason}",
+                )
+
+    def test_permits_pure_typescript_shared_edge_function_modules(self) -> None:
+        suitable, reason = is_issue_suitable_for_headless_agent(
+            "Refactor coordinate standardizer in supabase/functions/_shared/winery.ts",
+            "Add altitude clamp to winery normalization in supabase/functions/_shared/winery.ts without modifying Deno runtime entrypoints.",
+        )
+        self.assertTrue(suitable)
+        self.assertEqual(reason, "")
+
+    def test_flags_deno_runtime_even_if_shared_edge_function_present(self) -> None:
+        mixed_cases = [
+            (
+                "Refactor shared utils and handler",
+                "Update supabase/functions/_shared/utils.ts and migrate Deno.serve((req) => ...)",
+            ),
+            (
+                "Update shared schema and entrypoint",
+                "Touch supabase/functions/_shared/schema.ts and supabase/functions/api/index.ts",
+            ),
+        ]
+        for title, body in mixed_cases:
+            with self.subTest(title=title):
+                suitable, reason = is_issue_suitable_for_headless_agent(title, body)
+                self.assertFalse(suitable)
+                self.assertTrue(
+                    "Deno runtime entrypoint" in reason or "non-shared Edge Function" in reason,
+                    f"Unexpected reason: {reason}",
+                )
+
+
 
 if __name__ == "__main__":
     unittest.main()
