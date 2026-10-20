@@ -54,11 +54,11 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Shared Edge Function Verification Invariant' (Protocol in workflow.md) [commit: 513f315]
 
 ## Phase 5: Resumption Checkpoint Self-Healing & VCS State Persistence
-- [ ] Task: Write failing unit tests for resumption target_test_files self-healing and blast radius merging (TDD Red phase)
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_pipeline.py` simulating resumption from a polluted `.agent-state.json`
-    - [ ] Assert that `resolve_issue` sanitizes `target_test_files` using `git diff-tree` against `red_phase_commit_sha`, demoting extra valid Jest suites to `blast_radius_test_files` (merged with existing checkpoint blast radius, deduplicated, stripped of non-Jest files, and capped at 8)
-    - [ ] Assert fallback to first 3 valid Jest test files when `red_sha` diff is unavailable
-    - [ ] Assert that `BlueprintPlan` is instantiated with `blast_radius_test_files` on both clean resumption and checkpoint invalidation rollback
+- [x] Task: Write failing unit tests for resumption target_test_files self-healing and blast radius merging (TDD Red phase) [commit: 99bf5541]
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_pipeline.py` simulating resumption from a polluted `.agent-state.json`
+    - [x] Assert that `resolve_issue` sanitizes `target_test_files` using `git diff-tree` against `red_phase_commit_sha`, demoting extra valid Jest suites to `blast_radius_test_files` (merged with existing checkpoint blast radius, deduplicated, stripped of non-Jest files, and capped at 8)
+    - [x] Assert fallback to first 3 valid Jest test files when `red_sha` diff is unavailable
+    - [x] Assert that `BlueprintPlan` is instantiated with `blast_radius_test_files` on both clean resumption and checkpoint invalidation rollback
 - [ ] Task: Implement resumption target_test_files self-healing and blast radius merging (TDD Green phase)
     - [ ] Implement checkpoint sanitization and blast radius merging logic in `agent_resolve/pipeline.py`
     - [ ] Ensure `BlueprintPlan` instantiations preserve `blast_radius_test_files`
