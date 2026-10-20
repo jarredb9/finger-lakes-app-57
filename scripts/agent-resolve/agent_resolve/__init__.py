@@ -98,7 +98,7 @@ from agent_resolve.stages import (
     stage_2_red,
     stage_3_green,
 )
-from agent_resolve.pipeline import resolve_issue
+from agent_resolve.pipeline import resolve_issue, sanitize_resumption_test_targets
 from agent_resolve.cli import main, parse_args
 
 __version__: str = "0.1.0"
@@ -224,6 +224,7 @@ __all__: list[str] = [
     "stage_3_green",
     "pipeline",
     "resolve_issue",
+    "sanitize_resumption_test_targets",
     "cli",
     "main",
     "parse_args",
