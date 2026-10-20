@@ -92,7 +92,7 @@ def find_related_test_files(target_src_files: List[str]) -> List[str]:
         else:
             ident = stem
 
-        regex_pattern = rf"/(?:{ident})(\.[a-zA-Z]+)?['\"]|from\s*['\"][^'\"]*{ident}"
+        regex_pattern = rf"/({ident})(\.[a-zA-Z]+)?['\"]|from\s*['\"][^'\"]*{ident}"
         code, stdout, _ = run_cmd(["git", "grep", "-E", "-l", regex_pattern, "--", *JEST_PATHSPECS])
         if code == 0 and stdout:
             for line in stdout.splitlines():
