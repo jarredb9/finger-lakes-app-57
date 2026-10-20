@@ -72,10 +72,10 @@
     - [x] Document 25% cached token budgeting rule and 8,000 character error context cap
     - [x] Document fail-fast compiler gates (targeted and regression) and silent Jest execution
     - [x] Document pure-TS `supabase/functions/_shared/*.ts` Jest testing rule
-- [ ] Task: Execute full test verification across agent and container suites
-    - [ ] Run unit tests via `npm run test:agent`
-    - [ ] Run full agent integration tests via `npm run test:agent:all`
-    - [ ] Review manual verification checklist for Issue #73 post-merge reset
+- [x] Task: Execute full test verification across agent and container suites [commit: 7314e254]
+    - [x] Run unit tests via `npm run test:agent`
+    - [x] Run full agent integration tests via `npm run test:agent:all`
+    - [x] Review manual verification checklist for Issue #73 post-merge reset
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: ADR Documentation & End-to-End Test Suite Verification' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
