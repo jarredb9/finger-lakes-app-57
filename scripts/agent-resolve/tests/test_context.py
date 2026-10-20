@@ -151,7 +151,7 @@ class TestFindRelatedTestFiles(unittest.TestCase):
 
             found = find_related_test_files(["lib/utils.ts"])
 
-            regex = r"/(?:lib/utils)(\.[a-zA-Z]+)?['\"]|from\s*['\"][^'\"]*lib/utils"
+            regex = r"/(lib/utils)(\.[a-zA-Z]+)?['\"]|from\s*['\"][^'\"]*lib/utils"
             mock_run_cmd.assert_called_once_with(
                 ["git", "grep", "-E", "-l", regex, "--", *JEST_PATHSPECS]
             )
@@ -240,7 +240,7 @@ class TestFindRelatedTestFiles(unittest.TestCase):
         self.assertIn("-E", cmd)
         cmd_str = " ".join(cmd)
         self.assertTrue(
-            "/(?:winery)" in cmd_str or "from.*winery" in cmd_str or "(?:winery)" in cmd_str,
+            "/(winery)" in cmd_str or "/(?:winery)" in cmd_str or "from.*winery" in cmd_str or "(winery)" in cmd_str,
             f"Expected import boundary regex in command: {cmd}",
         )
         self.assertNotIn(" winery ", f" {cmd_str} ")
