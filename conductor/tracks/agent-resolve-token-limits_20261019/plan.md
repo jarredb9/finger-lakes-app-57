@@ -53,7 +53,7 @@
     - [x] Verify all tests pass via `npm run test:agent`
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Shared Edge Function Verification Invariant' (Protocol in workflow.md) [commit: 513f315]
 
-## Phase 5: Resumption Checkpoint Self-Healing & VCS State Persistence
+## Phase 5: Resumption Checkpoint Self-Healing & VCS State Persistence [checkpoint: 1d66258b]
 - [x] Task: Write failing unit tests for resumption target_test_files self-healing and blast radius merging (TDD Red phase) [commit: 99bf5541]
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_pipeline.py` simulating resumption from a polluted `.agent-state.json`
     - [x] Assert that `resolve_issue` sanitizes `target_test_files` using `git diff-tree` against `red_phase_commit_sha`, demoting extra valid Jest suites to `blast_radius_test_files` (merged with existing checkpoint blast radius, deduplicated, stripped of non-Jest files, and capped at 8)
@@ -64,7 +64,7 @@
     - [x] Ensure `BlueprintPlan` instantiations preserve `blast_radius_test_files`
     - [x] Document manual operational instructions for deleting `origin/agent/issue-73` and closing PR #76 post-merge
     - [x] Verify all tests pass via `npm run test:agent`
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Stateful Resumption Self-Healing & Issue #73 Reset Checklist' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Stateful Resumption Self-Healing & Issue #73 Reset Checklist' (Protocol in workflow.md) [commit: 1d66258b]
 
 ## Phase 6: ADR Documentation & End-to-End Test Suite Verification
 - [ ] Task: Update ADR-0005 with token budget discounting, test isolation, and verification invariants
