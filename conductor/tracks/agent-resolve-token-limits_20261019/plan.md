@@ -66,7 +66,7 @@
     - [x] Verify all tests pass via `npm run test:agent`
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Stateful Resumption Self-Healing & Issue #73 Reset Checklist' (Protocol in workflow.md) [commit: 1d66258b]
 
-## Phase 6: ADR Documentation & End-to-End Test Suite Verification
+## Phase 6: ADR Documentation & End-to-End Test Suite Verification [checkpoint: 41763f55]
 - [x] Task: Update ADR-0005 with token budget discounting, test isolation, and verification invariants [commit: 6864d29f]
     - [x] Document separation of `target_test_files` and `blast_radius_test_files`
     - [x] Document 25% cached token budgeting rule and 8,000 character error context cap
@@ -76,7 +76,7 @@
     - [x] Run unit tests via `npm run test:agent`
     - [x] Run full agent integration tests via `npm run test:agent:all`
     - [x] Review manual verification checklist for Issue #73 post-merge reset
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: ADR Documentation & End-to-End Test Suite Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 6: ADR Documentation & End-to-End Test Suite Verification' (Protocol in workflow.md) [commit: 41763f55]
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions e884439
