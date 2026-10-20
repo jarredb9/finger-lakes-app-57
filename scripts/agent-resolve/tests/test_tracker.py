@@ -98,6 +98,96 @@ class TestTokenTracker(unittest.TestCase):
             "2,000 total tokens (1,700 prompt, 300 candidates, 400 cached) across 2 API call(s)",
         )
 
+    def test_initial_state_effective_tokens_zeroed(self) -> None:
+        tracker = TokenTracker()
+        self.assertEqual(tracker.effective_tokens, 0)
+
+    def test_record_usage_calculates_effective_tokens_with_25_percent_cached(self) -> None:
+        tracker = TokenTracker()
+        call_1 = SimpleNamespace(
+            prompt_token_count=1200,
+            candidates_token_count=300,
+            total_token_count=1500,
+            cached_content_token_count=400,
+        )
+        tracker.record_usage(call_1)
+        self.assertEqual(tracker.effective_tokens, 1200)
+        self.assertEqual(tracker.total_tokens, 1500)
+
+        call_2 = SimpleNamespace(
+            prompt_token_count=500,
+            candidates_token_count=None,
+            total_token_count=500,
+            cached_content_token_count=None,
+        )
+        tracker.record_usage(call_2)
+        self.assertEqual(tracker.effective_tokens, 1700)
+        self.assertEqual(tracker.total_tokens, 2000)
+
+    def test_record_usage_clamps_negative_uncached_tokens_if_cached_exceeds_total(self) -> None:
+        tracker = TokenTracker()
+        anomalous_usage = SimpleNamespace(
+            prompt_token_count=50,
+            candidates_token_count=50,
+            total_token_count=100,
+            cached_content_token_count=150,
+        )
+        tracker.record_usage(anomalous_usage)
+        self.assertEqual(tracker.effective_tokens, 37)
+
+    def test_check_budget_allows_at_or_below_limit(self) -> None:
+        tracker = TokenTracker(max_tokens=1000)
+        tracker.effective_tokens = 1000
+        tracker.total_tokens = 2000
+        self.assertIsNone(tracker.check_budget())
+
+    def test_check_budget_raises_runtime_error_when_effective_tokens_exceed_limit(self) -> None:
+        tracker = TokenTracker(max_tokens=1000)
+        tracker.effective_tokens = 1001
+        tracker.total_tokens = 2500
+        with self.assertRaises(RuntimeError) as ctx:
+            tracker.check_budget()
+        self.assertEqual(
+            str(ctx.exception),
+            "Token budget exceeded: 1,001 effective tokens used (2,500 raw total, limit: 1,000)",
+        )
+
+    def test_record_usage_invokes_check_budget_and_raises_with_dual_metrics(self) -> None:
+        tracker = TokenTracker(max_tokens=500_000)
+        usage = SimpleNamespace(
+            prompt_token_count=500_000,
+            candidates_token_count=100_000,
+            total_token_count=600_000,
+            cached_content_token_count=100_000,
+        )
+        with self.assertRaises(RuntimeError) as ctx:
+            tracker.record_usage(usage)
+        self.assertEqual(
+            str(ctx.exception),
+            "Token budget exceeded: 525,000 effective tokens used (600,000 raw total, limit: 500,000)",
+        )
+
+    def test_summary_formats_dual_metrics_with_discounted_cache(self) -> None:
+        tracker = TokenTracker()
+        call_1 = SimpleNamespace(
+            prompt_token_count=1200,
+            candidates_token_count=300,
+            total_token_count=1500,
+            cached_content_token_count=400,
+        )
+        call_2 = SimpleNamespace(
+            prompt_token_count=500,
+            candidates_token_count=None,
+            total_token_count=500,
+            cached_content_token_count=None,
+        )
+        tracker.record_usage(call_1)
+        tracker.record_usage(call_2)
+        self.assertEqual(
+            tracker.summary(),
+            "1,700 effective tokens / 2,000 raw total (1,700 prompt [400 cached @ 25%], 300 candidates) across 2 API call(s)",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
