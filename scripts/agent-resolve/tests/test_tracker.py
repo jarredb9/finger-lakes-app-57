@@ -71,7 +71,7 @@ class TestTokenTracker(unittest.TestCase):
         with self.assertRaises(RuntimeError) as ctx:
             tracker.record_usage(over_budget_usage)
         self.assertIn(
-            "Token budget exceeded: 500,001 tokens used (limit: 500,000)",
+            "Token budget exceeded: 500,001 effective tokens used (500,001 raw total, limit: 500,000)",
             str(ctx.exception),
         )
 
@@ -95,7 +95,7 @@ class TestTokenTracker(unittest.TestCase):
         )
         self.assertEqual(
             tracker.summary(),
-            "2,000 total tokens (1,700 prompt, 300 candidates, 400 cached) across 2 API call(s)",
+            "1,700 effective tokens / 2,000 raw total (1,700 prompt [400 cached @ 25%], 300 candidates) across 2 API call(s)",
         )
 
     def test_initial_state_effective_tokens_zeroed(self) -> None:
