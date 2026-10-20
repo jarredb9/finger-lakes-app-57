@@ -33,12 +33,12 @@
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_tracker.py` asserting `effective_tokens` calculates uncached tokens + 25% cached tokens, `check_budget()` raises `RuntimeError` when `effective_tokens > limit`, and formats dual summary metrics
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_llm.py` asserting pre-call `check_budget()` raises `RuntimeError` before issuing calls or retries
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_llm.py` asserting `is_transient_error` with status boundary regex returns False for `"Token budget exceeded: 500,000 tokens used"` or line `"5020"`
-- [ ] Task: Implement 25% cached token accounting, pre-call budget checks, dual summary metrics, and boundary regex matching (TDD Green phase)
-    - [ ] Implement `effective_tokens`, `check_budget()`, and dual summary formatting in `agent_resolve/tracker.py`
-    - [ ] Add pre-call budget checks and isolate `record_usage()` outside transient retry catch in `agent_resolve/llm.py`
-    - [ ] Update `is_transient_error` in `agent_resolve/llm.py` with numeric/status boundary regex `r"(?<![0-9,])(?:429|500|502|503|504)(?![0-9,])"`
-    - [ ] Update existing unit tests in `scripts/agent-resolve/tests/test_tracker.py` and `test_llm.py` to match the dual metric summary format
-    - [ ] Verify all tests pass via `npm run test:agent`
+- [x] Task: Implement 25% cached token accounting, pre-call budget checks, dual summary metrics, and boundary regex matching (TDD Green phase) [commit: 03314f5f]
+    - [x] Implement `effective_tokens`, `check_budget()`, and dual summary formatting in `agent_resolve/tracker.py`
+    - [x] Add pre-call budget checks and isolate `record_usage()` outside transient retry catch in `agent_resolve/llm.py`
+    - [x] Update `is_transient_error` in `agent_resolve/llm.py` with numeric/status boundary regex `r"(?<![0-9,])(?:429|500|502|503|504)(?![0-9,])"`
+    - [x] Update existing unit tests in `scripts/agent-resolve/tests/test_tracker.py` and `test_llm.py` to match the dual metric summary format
+    - [x] Verify all tests pass via `npm run test:agent`
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Discounted Cached Token Budget (25%), Pre-Call Guard & Status-Boundary Matching' (Protocol in workflow.md)
 
 ## Phase 4: Shared Edge Function (`supabase/functions/_shared/*.ts`) Verification Invariant & Planner Self-Correction
