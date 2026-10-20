@@ -41,7 +41,7 @@
     - [x] Verify all tests pass via `npm run test:agent`
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Discounted Cached Token Budget (25%), Pre-Call Guard & Status-Boundary Matching' (Protocol in workflow.md) [commit: dd10837]
 
-## Phase 4: Shared Edge Function (`supabase/functions/_shared/*.ts`) Verification Invariant & Planner Self-Correction
+## Phase 4: Shared Edge Function (`supabase/functions/_shared/*.ts`) Verification Invariant & Planner Self-Correction [checkpoint: 513f315]
 - [x] Task: Write failing unit tests for Edge Function shared module prompt directives, target path guards, and planner self-correction loop (TDD Red phase) [commit: 125f8cc5]
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` asserting `stage_1_plan` sanitizes `supabase/**`, `e2e/**`, and non-Jest paths in `target_test_files`, and triggers an internal 2-attempt self-correction loop if `target_test_files` is empty
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` asserting Stage 1 & 2 system prompts include directives to author Jest tests under `lib/**/__tests__/*.test.ts` importing from `@/supabase/functions/_shared/<module>`
@@ -51,7 +51,7 @@
     - [x] Add prompt instructions to `stage_1_plan.py` and `stage_2_red.py` for shared edge function testing via `@/supabase/functions/_shared/<module>`
     - [x] Update `is_issue_suitable_for_headless_agent` in `agent_resolve/context.py` to distinguish pure-TS shared modules from Deno runtime files
     - [x] Verify all tests pass via `npm run test:agent`
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Shared Edge Function Verification Invariant' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Shared Edge Function Verification Invariant' (Protocol in workflow.md) [commit: 513f315]
 
 ## Phase 5: Resumption Checkpoint Self-Healing & VCS State Persistence
 - [ ] Task: Write failing unit tests for resumption target_test_files self-healing and blast radius merging (TDD Red phase)
