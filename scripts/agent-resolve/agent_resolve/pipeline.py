@@ -8,7 +8,7 @@ import json
 import os
 import sys
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from agent_resolve import config
 from agent_resolve.context import is_issue_suitable_for_headless_agent
@@ -22,6 +22,7 @@ from agent_resolve.stages import (
     stage_2_red,
     stage_3_green,
 )
+from agent_resolve.stages.stage_1_plan import is_valid_target_test_file
 from agent_resolve.tracker import TokenTracker
 from agent_resolve.vcs import (
     cleanup_feature_branch,
@@ -32,6 +33,62 @@ from agent_resolve.vcs import (
     update_or_create_pr,
 )
 from agent_resolve.verification import validate_jest_red_phase
+
+__all__ = [
+    "resolve_issue",
+    "sanitize_resumption_test_targets",
+]
+
+
+def sanitize_resumption_test_targets(
+    red_sha: str,
+    raw_target_test_files: List[str],
+    raw_blast_radius_test_files: Optional[List[str]] = None,
+) -> Tuple[List[str], List[str]]:
+    """
+    Sanitizes target_test_files and blast_radius_test_files during stateful iterative resumption.
+
+    1. Filters raw_target_test_files using is_valid_target_test_file:
+       - Rejects paths under supabase/** and e2e/**.
+       - Rejects paths not ending with .test.ts, .test.tsx, .spec.ts, .spec.tsx.
+    2. Queries files modified in red_phase_commit_sha via:
+       git diff-tree --no-commit-id --name-only -r <red_sha>
+    3. Filters target_test_files to valid Jest test files modified in <red_sha>.
+       Falls back to the first 3 valid Jest test files if diff is empty, command fails,
+       or matches none of the target test files.
+    4. Demotes remaining valid Jest test files from target_test_files into blast_radius_test_files.
+    5. Merges demoted files with raw_blast_radius_test_files, deduplicates preserving order,
+       strips non-Jest paths, excludes any file present in healed target_test_files,
+       and caps blast radius at 8 suites.
+
+    Returns:
+        Tuple[List[str], List[str]]: (healed_target_test_files, healed_blast_radius_test_files)
+    """
+    valid_raw_targets = [f for f in raw_target_test_files if is_valid_target_test_file(f)]
+
+    code, stdout, _ = run_cmd(["git", "diff-tree", "--no-commit-id", "--name-only", "-r", red_sha])
+    healed_targets: List[str] = []
+    if code == 0 and stdout.strip():
+        diff_files = {line.strip() for line in stdout.splitlines() if line.strip()}
+        healed_targets = [f for f in valid_raw_targets if f in diff_files]
+
+    if code != 0 or not stdout.strip() or len(healed_targets) == 0:
+        healed_targets = valid_raw_targets[:3]
+
+    demoted_targets = [f for f in valid_raw_targets if f not in healed_targets]
+
+    candidate_blast = demoted_targets + (raw_blast_radius_test_files or [])
+    healed_blast_radius: List[str] = []
+    seen = set(healed_targets)
+
+    for f in candidate_blast:
+        if is_valid_target_test_file(f) and f not in seen:
+            seen.add(f)
+            healed_blast_radius.append(f)
+            if len(healed_blast_radius) == 8:
+                break
+
+    return healed_targets, healed_blast_radius
 
 
 def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False) -> bool:
@@ -140,12 +197,14 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                         _, out_sha, _ = run_cmd(["git", "log", "--grep=^test(", "-n", "1", "--format=%H"])
                         red_sha = out_sha.strip()
 
-                    t_tests = state_data.get("target_test_files", [])
+                    raw_t_tests = state_data.get("target_test_files", [])
+                    raw_b_tests = state_data.get("blast_radius_test_files", [])
                     t_src = state_data.get("target_src_files", [])
                     t_scope = state_data.get("scope", "agent")
                     last_fail_ts = state_data.get("last_failure_timestamp", "")
 
-                    if red_sha and t_tests and t_src:
+                    if red_sha and raw_t_tests and t_src:
+                        t_tests, b_tests = sanitize_resumption_test_targets(red_sha, raw_t_tests, raw_b_tests)
                         log(f"Running deterministic Red Gate verification for checkpoint {red_sha[:8]}...")
                         reset_target_sources(t_src, baseline_ref=red_sha)
                         tc_code, tc_out, tc_err = run_isolated_test(["npm", "run", "type-check"])
@@ -161,7 +220,7 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                                 target_test_files=t_tests,
                                 target_src_files=t_src,
                                 plan_markdown=state_data.get("plan_markdown") or (plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""),
-                                blast_radius_test_files=state_data.get("blast_radius_test_files", []),
+                                blast_radius_test_files=b_tests,
                             )
                             new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 
@@ -202,7 +261,7 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                                     target_test_files=t_tests,
                                     target_src_files=t_src,
                                     plan_markdown=state_data.get("plan_markdown") or (plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""),
-                                    blast_radius_test_files=state_data.get("blast_radius_test_files", []),
+                                    blast_radius_test_files=b_tests,
                                 )
                                 new_src_files = [sf for sf in blueprint.target_src_files if not safe_resolve_repo_path(sf).exists()]
 
