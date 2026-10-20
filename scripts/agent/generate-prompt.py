@@ -365,6 +365,8 @@ def infer_verification_strategy(
         )
     )
 
+    instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
+
     if is_checkpoint:
         if plan_verification_cmds:
             commands = plan_verification_cmds
@@ -455,18 +457,19 @@ def infer_verification_strategy(
         # Targeted unit tests
         if plan_verification_cmds:
             commands = list(plan_verification_cmds)
+            instruction = "- Execute the verification protocol from the plan and confirm all checks pass."
         elif unit_files:
             target_arg = " " + " ".join(unit_files)
             commands = [f"./scripts/containers/run-jest-container.sh{target_arg}".strip()]
+            instruction = "- Verify targeted unit/integration tests pass cleanly (Green phase)."
         elif explicit_subtask_cmds:
             commands = list(explicit_subtask_cmds)
             instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
         else:
             commands = ["./scripts/containers/run-jest-container.sh"]
+            instruction = "- Verify targeted unit/integration tests pass cleanly (Green phase)."
         if should_type_check and not any("type-check" in c for c in commands):
             commands.append("npm run type-check")
-        if not (not unit_files and explicit_subtask_cmds):
-            instruction = "- Verify targeted unit/integration tests pass cleanly (Green phase)."
         commit_msg = f"{default_verb}({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif plan_verification_cmds:
         commands = list(plan_verification_cmds)
@@ -744,6 +747,14 @@ def main():
         else:
             track_name = pos_args[0]
 
+    # Check for invalid non-positive integers
+    if (phase_num is not None and phase_num <= 0) or (task_num is not None and task_num <= 0):
+        print(
+            f"Error: Phase and task numbers must be positive integers >= 1 (got phase: {phase_num}, task: {task_num}).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     # Resolve active track if not specified
     if not track_name:
         track_name = get_active_track()
@@ -752,26 +763,114 @@ def main():
             sys.exit(1)
 
     phases = parse_plan_tasks(track_name)
+    if not phases:
+        track_dir = resolve_track_dir(track_name)
+        plan_path = track_dir / "plan.md" if track_dir else None
+        print(
+            f"Error: No phases found in plan for track '{track_name}'. "
+            f"Please verify that {plan_path or 'plan.md'} exists and defines phases.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
-    # Auto-resolve next pending task if not specified
+    # Validate and resolve phase and task numbers
     task_desc = ""
     subtasks = []
-    if phase_num is None or task_num is None:
+
+    if phase_num is None and task_num is None:
         auto_p, auto_t, auto_desc, auto_subtasks = find_next_pending_task(phases)
         if auto_p is not None:
-            phase_num = phase_num or auto_p
-            task_num = task_num or auto_t
+            phase_num = auto_p
+            task_num = auto_t
             task_desc = auto_desc
             subtasks = auto_subtasks
         else:
-            phase_num = phase_num or 1
-            task_num = task_num or 1
-            if phase_num in phases and 0 < task_num <= len(phases[phase_num]["tasks"]):
-                task_desc = phases[phase_num]["tasks"][task_num - 1]["description"]
-                subtasks = phases[phase_num]["tasks"][task_num - 1].get("subtasks", [])
-    elif phase_num in phases and 0 < task_num <= len(phases[phase_num]["tasks"]):
-        task_desc = phases[phase_num]["tasks"][task_num - 1]["description"]
-        subtasks = phases[phase_num]["tasks"][task_num - 1].get("subtasks", [])
+            phase_num = min(phases.keys())
+            if phases[phase_num]["tasks"]:
+                task_num = 1
+                task_desc = phases[phase_num]["tasks"][0]["description"]
+                subtasks = phases[phase_num]["tasks"][0].get("subtasks", [])
+            else:
+                print(f"Error: Phase {phase_num} has no tasks defined in plan.md.", file=sys.stderr)
+                sys.exit(1)
+    elif phase_num is not None and task_num is None:
+        if phase_num not in phases:
+            valid_phases = ", ".join(str(p) for p in sorted(phases.keys()))
+            print(
+                f"Error: Phase {phase_num} not found in track '{track_name}'. "
+                f"Available phases: {valid_phases}.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        phase_tasks = phases[phase_num]["tasks"]
+        if not phase_tasks:
+            print(
+                f"Error: Phase {phase_num} ('{phases[phase_num]['name']}') has no tasks defined in plan.md.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        # Find first pending or in_progress task within this phase
+        selected_task_idx = None
+        for idx, t in enumerate(phase_tasks, start=1):
+            if t["status"] in ("pending", "in_progress"):
+                selected_task_idx = idx
+                task_desc = t["description"]
+                subtasks = t.get("subtasks", [])
+                break
+
+        if selected_task_idx is None:
+            selected_task_idx = 1
+            task_desc = phase_tasks[0]["description"]
+            subtasks = phase_tasks[0].get("subtasks", [])
+
+        task_num = selected_task_idx
+    elif phase_num is None and task_num is not None:
+        auto_p, _, _, _ = find_next_pending_task(phases)
+        phase_num = auto_p if auto_p is not None else min(phases.keys())
+        if phase_num not in phases:
+            valid_phases = ", ".join(str(p) for p in sorted(phases.keys()))
+            print(
+                f"Error: Could not resolve valid phase for track '{track_name}'. Available phases: {valid_phases}.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        phase_tasks = phases[phase_num]["tasks"]
+        if task_num < 1 or task_num > len(phase_tasks):
+            total_tasks = len(phase_tasks)
+            task_range_str = f"1..{total_tasks}" if total_tasks > 0 else "none"
+            print(
+                f"Error: Task {task_num} not found in Phase {phase_num} ('{phases[phase_num]['name']}'). "
+                f"Valid tasks for Phase {phase_num}: {task_range_str}.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        task_desc = phase_tasks[task_num - 1]["description"]
+        subtasks = phase_tasks[task_num - 1].get("subtasks", [])
+    else:
+        if phase_num not in phases:
+            valid_phases = ", ".join(str(p) for p in sorted(phases.keys()))
+            print(
+                f"Error: Phase {phase_num} not found in track '{track_name}'. "
+                f"Available phases: {valid_phases}.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        phase_tasks = phases[phase_num]["tasks"]
+        if task_num < 1 or task_num > len(phase_tasks):
+            total_tasks = len(phase_tasks)
+            task_range_str = f"1..{total_tasks}" if total_tasks > 0 else "none"
+            print(
+                f"Error: Task {task_num} not found in Phase {phase_num} ('{phases[phase_num]['name']}'). "
+                f"Valid tasks for Phase {phase_num}: {task_range_str}.",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+
+        task_desc = phase_tasks[task_num - 1]["description"]
+        subtasks = phase_tasks[task_num - 1].get("subtasks", [])
 
     if parsed.recovery:
         rec_prompt = build_recovery_prompt(track_name, phase_num, task_num)
