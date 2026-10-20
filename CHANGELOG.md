@@ -2,6 +2,34 @@
 
 ## [agent-resolve] - v0.1.0 (2026-10-19)
 
+### 🛡️ Prompt Token Blowout Prevention, Blast-Radius Test Isolation & Cached Token Accounting ([#77](https://github.com/jarredb9/finger-lakes-app-57/issues/77) / [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
+* **Blast-Radius Test Isolation & Ancestor Proximity Ranking**:
+    * Added `blast_radius_test_files` to `BlueprintPlan` (`agent_resolve.models`), serializing to `.agent-state.json` and reporting in the PR body (`agent_resolve.vcs`) to separate regression verification suites from LLM prompt context.
+    * Hardened test discovery in `agent_resolve.context` (`find_related_test_files`): restricted pathspecs strictly to Jest test extensions (`**/*.test.ts(x)`, `**/*.spec.ts(x)`), excluded `supabase/` and `e2e/`, qualified generic module stems (`index`, `types`, `constants`, `utils`, `helpers`) with directory paths to avoid cross-module collisions, matched import boundaries via POSIX ERE-compatible regex (`/(?:{pattern})(?:\.[a-zA-Z]+)?['\"]` and `from.*{pattern}`), sorted candidate suites by common ancestor directory depth descending, and capped discovered suites at 8 files.
+    * Enforced prompt isolation in `stage_1_plan`, `stage_2_red`, and `stage_3_green`: only `target_test_files` are authored in Stage 2 and injected into the `TESTS TO PASS` section of Stage 3 prompts, while blast-radius suites execute strictly as immutable regression guards in Stage 3.
+* **Fail-Fast TypeScript Compilation, Silent Jest & Error Output Truncation**:
+    * Implemented fail-fast compiler check in `agent_resolve.stages.stage_3_green`: runs `npm run type-check` before targeted Jest verification; if compilation fails (`tc_code != 0`), skips running Jest on that attempt and populates `last_error_context` solely with TypeScript errors.
+    * Configured targeted Jest verification with `["npx", "jest", "--no-color", "--silent"] + target_tests + blast_radius_tests` to suppress ANSI escape sequences and console noise from passing suites.
+    * Sequenced `npm run type-check` ahead of `npm test` in the Mandatory Full Regression Gate to fail fast on compilation errors prior to running the full test suite.
+    * Implemented ANSI escape sequence stripping and head/tail error truncation capping `last_error_context` at 8,000 characters (retaining 4,000 head and 4,000 tail characters with `... [TRUNCATED {chars} CHARS OF VERIFICATION OUTPUT] ...`), preventing context blowout from large stack traces.
+* **Discounted Cached Token Budgeting (25%), Pre-Call Guard & Boundary Regex**:
+    * Implemented `effective_tokens` in `TokenTracker` (`agent_resolve.tracker`) applying a 25% discount weight to cached prompt tokens (`effective_call_tokens = max(0, total - cached) + int(0.25 * cached)`), preventing premature halting on repeated context queries while maintaining the 500,000-token issue budget limit.
+    * Added pre-flight `check_budget()` guard in `agent_resolve.llm` before issuing Gemini API calls and exponential backoff retries to fail fast when budget is exhausted.
+    * Isolated `token_tracker.record_usage()` outside the transient retry handler, eliminating false-positive budget error retries.
+    * Hardened transient error detection with status-boundary regex `r"(?<![0-9,])(?:429|500|502|503|504)(?![0-9,])"` to prevent false-positive retries on formatted token amounts (`500,000`) or line numbers.
+    * Formatted dual metrics in `summary()`, PR bodies, and logs (`<effective> effective tokens / <raw> raw total (<prompt> prompt [<cached> cached @ 25%], <candidates> candidates)`).
+* **Shared Edge Function (`supabase/functions/_shared/*.ts`) Verification Invariant & Planner Self-Correction**:
+    * Implemented target test file validation guard in `stage_1_plan.py` filtering out `supabase/**`, `e2e/**`, and non-Jest paths, backed by an internal 2-attempt self-correction loop when target test suites become empty.
+    * Added explicit Planner and Red Phase prompt instructions requiring unit tests for pure-TypeScript shared Edge Functions (`supabase/functions/_shared/*.ts`) to be authored under `lib/**/__tests__/*.test.ts` importing via `@/supabase/functions/_shared/<module>`.
+    * Updated `is_issue_suitable_for_headless_agent` in `agent_resolve.context` to permit pure-TypeScript shared modules while flagging Deno runtime entrypoints (`Deno.serve`, `jsr:`, `https://deno.land`, `deno.json`) and non-shared functions.
+* **Stateful Resumption Checkpoint Self-Healing & VCS State Persistence**:
+    * Implemented checkpoint sanitization in `agent_resolve.pipeline` (`resolve_issue`): queries files modified in `red_phase_commit_sha` via `git diff-tree`, demoting extra valid Jest suites from dirty checkpoints to `blast_radius_test_files`, deduplicating, stripping non-Jest files, and capping at 8 suites (with fallback to first 3 valid Jest suites if diff is unavailable).
+    * Guaranteed `BlueprintPlan` instantiations preserve `blast_radius_test_files` across both clean resumption and Tier 3 checkpoint invalidation rollback.
+    * Serialized `blast_radius_test_files` into `.agent-state.json` via `preserve_failed_work` and draft PR summaries in `agent_resolve.vcs`.
+* **ADR Documentation & Comprehensive Test Verification**:
+    * Updated [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md) to formally document blast-radius isolation, 25% cached token budgeting, fail-fast compiler gates, 8k error context truncation, and shared Edge Function testing rules.
+    * Authored extensive unit tests across `scripts/agent-resolve/tests/` (test suites for models, context, stages, tracker, llm, and pipeline), verifying 100% pass rate alongside legacy test suites via `npm run test:agent:all`.
+
 ### 🤖 Autonomous Issue Resolver Decomposition & Modular Architecture ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
 * **Modular Package Architecture & PEP 621 Packaging Metadata**:
     * Decomposed the monolithic 2,200-line autonomous resolver script `scripts/agent-resolve/agent-resolve.py` into a modular Python package located at `scripts/agent-resolve/agent_resolve/` with clean domain boundaries (`config`, `models`, `tracker`, `exceptions`, `environment`, `verification`, `patch_engine`, `vcs`, `llm`, `context`, `diagnostics`, `stages`, `pipeline`, and `cli`).
