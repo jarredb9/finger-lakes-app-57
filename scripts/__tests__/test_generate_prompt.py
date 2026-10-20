@@ -92,10 +92,16 @@ class TestGeneratePromptCLI(unittest.TestCase):
         self.assertIn("Error: Phase and task numbers must be positive integers >= 1", result.stderr)
 
     def test_phase_only_resolves_pending_task_in_phase(self):
-        # In Phase 3, Task 1 is completed [x], Task 2 is pending [ ]
-        result = self.run_cli(["3", "--plan"])
+        # Resolves first pending task in an active phase (Phase 4)
+        phases = generate_prompt.parse_plan_tasks("agent-resolve-token-limits_20261019")
+        target_phase = 4
+        pending_task_idx = next(
+            (idx for idx, t in enumerate(phases[target_phase]["tasks"], start=1) if t["status"] in ("pending", "in_progress")),
+            1,
+        )
+        result = self.run_cli([str(target_phase), "--plan"])
         self.assertEqual(result.returncode, 0)
-        self.assertIn("Plan Phase 3 Task 2 only", result.stdout)
+        self.assertIn(f"Plan Phase {target_phase} Task {pending_task_idx} only", result.stdout)
 
     def test_valid_exec_prompt_succeeds(self):
         result = self.run_cli(["3", "2", "--exec"])
