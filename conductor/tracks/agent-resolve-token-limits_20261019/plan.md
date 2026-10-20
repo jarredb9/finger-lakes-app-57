@@ -20,12 +20,12 @@
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying `--no-color` and `--silent` flags are passed to `npx jest` in targeted verification
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_stages.py` verifying `npm run type-check` runs before `npm test` in the Mandatory Full Regression Gate
     - [x] Author unit tests verifying ANSI escape code stripping and head-and-tail 8,000 character truncation (4,000 head, 4,000 tail with `... [TRUNCATED {chars} CHARS OF VERIFICATION OUTPUT] ...` marker, leaving $\le 8000$ intact)
-- [ ] Task: Implement Stage 3 fail-fast compilation, silent Jest execution, regression gate sequencing, and 8k character truncation (TDD Green phase)
-    - [ ] Implement fail-fast branch in `agent_resolve/stages/stage_3_green.py` when `tc_code != 0`, skipping Jest execution
-    - [ ] Add `--no-color` and `--silent` flags to targeted Jest command construction in `stage_3_green.py`
-    - [ ] Sequence `npm run type-check` before `npm test` in `stage_3_green.py` regression gate
-    - [ ] Implement ANSI stripping and head/tail 8,000 character truncation helper in `stage_3_green.py` / `diagnostics.py`
-    - [ ] Verify all tests pass via `npm run test:agent`
+- [x] Task: Implement Stage 3 fail-fast compilation, silent Jest execution, regression gate sequencing, and 8k character truncation (TDD Green phase) [commit: a65aa694]
+    - [x] Implement fail-fast branch in `agent_resolve/stages/stage_3_green.py` when `tc_code != 0`, skipping Jest execution
+    - [x] Add `--no-color` and `--silent` flags to targeted Jest command construction in `stage_3_green.py`
+    - [x] Sequence `npm run type-check` before `npm test` in `stage_3_green.py` regression gate
+    - [x] Implement ANSI stripping and head/tail 8,000 character truncation helper in `stage_3_green.py` / `diagnostics.py`
+    - [x] Verify all tests pass via `npm run test:agent`
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Stage 3 Fail-Fast Type-Check, Silent Jest Execution & Error Context Truncation' (Protocol in workflow.md)
 
 ## Phase 3: Discounted Cached Token Budget (25%), Pre-Call Guard & Status-Boundary Matching
