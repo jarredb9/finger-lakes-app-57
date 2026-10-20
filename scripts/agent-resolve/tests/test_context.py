@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 from agent_resolve import config
 from agent_resolve.context import (
+    JEST_PATHSPECS,
     extract_test_suite_names,
     find_related_test_files,
     get_project_context,
@@ -150,8 +151,9 @@ class TestFindRelatedTestFiles(unittest.TestCase):
 
             found = find_related_test_files(["lib/utils.ts"])
 
+            regex = r"/(lib/utils)(\.[a-zA-Z]+)?['\"]|from\s*['\"][^'\"]*lib/utils"
             mock_run_cmd.assert_called_once_with(
-                ["git", "grep", "-l", "utils", "--", "**/__tests__/*"]
+                ["git", "grep", "-E", "-l", regex, "--", *JEST_PATHSPECS]
             )
             self.assertEqual(found, ["lib/__tests__/utils.test.ts"])
 
@@ -189,6 +191,127 @@ class TestFindRelatedTestFiles(unittest.TestCase):
         mock_run_cmd.return_value = (1, "", "no matches")
         found = find_related_test_files(["lib/service.ts"])
         self.assertEqual(found, [])
+
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_restricts_to_jest_extensions_and_excludes_supabase_and_e2e(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            valid_test = tmp_root / "components" / "__tests__" / "WineryCard.test.tsx"
+            supabase_test = tmp_root / "supabase" / "functions" / "api.test.ts"
+            e2e_test = tmp_root / "e2e" / "trip-flow.spec.ts"
+            python_test = tmp_root / "scripts" / "test.py"
+
+            for f in [valid_test, supabase_test, e2e_test, python_test]:
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text("// test", encoding="utf-8")
+
+            config.set_project_root(tmp_root)
+
+            mock_run_cmd.return_value = (
+                0,
+                "components/__tests__/WineryCard.test.tsx\n"
+                "supabase/functions/api.test.ts\n"
+                "e2e/trip-flow.spec.ts\n"
+                "scripts/test.py\n",
+                "",
+            )
+
+            found = find_related_test_files(["components/WineryCard.tsx"])
+
+            cmd = mock_run_cmd.call_args[0][0]
+            self.assertIn("--", cmd)
+            dash_idx = cmd.index("--")
+            pathspecs = cmd[dash_idx + 1 :]
+            expected_patterns = {"*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx"}
+            self.assertTrue(any(pat in " ".join(pathspecs) for pat in expected_patterns))
+
+            self.assertEqual(found, ["components/__tests__/WineryCard.test.tsx"])
+
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_matches_module_import_boundaries(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        mock_run_cmd.return_value = (1, "", "no matches")
+        find_related_test_files(["lib/winery.ts"])
+
+        cmd = mock_run_cmd.call_args[0][0]
+        self.assertIn("-E", cmd)
+        cmd_str = " ".join(cmd)
+        self.assertTrue(
+            "/(winery)" in cmd_str or "/(?:winery)" in cmd_str or "from.*winery" in cmd_str or "(winery)" in cmd_str,
+            f"Expected import boundary regex in command: {cmd}",
+        )
+        self.assertNotIn(" winery ", f" {cmd_str} ")
+
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_qualifies_generic_stems_with_relative_path(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        mock_run_cmd.return_value = (1, "", "no matches")
+        find_related_test_files(["lib/constants.ts"])
+
+        cmd = mock_run_cmd.call_args[0][0]
+        cmd_str = " ".join(cmd)
+        self.assertIn("lib/constants", cmd_str)
+
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_sorts_by_common_ancestor_depth_descending(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            same_dir_test = tmp_root / "components" / "map" / "__tests__" / "MapboxMap.test.tsx"
+            parent_dir_test = tmp_root / "components" / "__tests__" / "App.test.tsx"
+            unrelated_test = tmp_root / "lib" / "utils" / "__tests__" / "format.test.ts"
+
+            for f in [same_dir_test, parent_dir_test, unrelated_test]:
+                f.parent.mkdir(parents=True, exist_ok=True)
+                f.write_text("// test", encoding="utf-8")
+
+            config.set_project_root(tmp_root)
+
+            mock_run_cmd.return_value = (
+                0,
+                "lib/utils/__tests__/format.test.ts\n"
+                "components/__tests__/App.test.tsx\n"
+                "components/map/__tests__/MapboxMap.test.tsx\n",
+                "",
+            )
+
+            found = find_related_test_files(["components/map/MapboxMap.tsx"])
+
+            self.assertEqual(
+                found,
+                [
+                    "components/map/__tests__/MapboxMap.test.tsx",
+                    "components/__tests__/App.test.tsx",
+                    "lib/utils/__tests__/format.test.ts",
+                ],
+            )
+
+    @patch("agent_resolve.context.run_cmd")
+    def test_find_related_test_files_caps_results_at_eight_suites(
+        self, mock_run_cmd: MagicMock
+    ) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            tests = [tmp_root / "components" / "__tests__" / f"suite_{i}.test.tsx" for i in range(12)]
+            for t in tests:
+                t.parent.mkdir(parents=True, exist_ok=True)
+                t.write_text("// test", encoding="utf-8")
+
+            config.set_project_root(tmp_root)
+
+            mock_run_cmd.return_value = (
+                0,
+                "\n".join(f"components/__tests__/suite_{i}.test.tsx" for i in range(12)) + "\n",
+                "",
+            )
+
+            found = find_related_test_files(["components/Card.tsx"])
+            self.assertEqual(len(found), 8)
 
 
 class TestExtractTestSuiteNames(unittest.TestCase):
@@ -266,6 +389,64 @@ class TestIsIssueSuitableForHeadlessAgent(unittest.TestCase):
         )
         self.assertTrue(suitable)
         self.assertEqual(reason, "")
+
+    def test_flags_deno_runtime_entrypoints(self) -> None:
+        deno_cases = [
+            ("Update handler to use Deno.serve", "Migrate server to Deno.serve for faster responses"),
+            ("Fix deno.serve routing", "Routing issue inside deno.serve handler"),
+            ("Add jsr import", "Import jsr:@supabase/functions-js in edge function"),
+            ("Fetch from https://deno.land/std", "Use std library at https://deno.land/std/http"),
+            ("Configure deno.json imports", "Update deno.json import map"),
+        ]
+        for title, body in deno_cases:
+            with self.subTest(title=title):
+                suitable, reason = is_issue_suitable_for_headless_agent(title, body)
+                self.assertFalse(suitable)
+                self.assertIn("Deno runtime entrypoint", reason)
+
+    def test_flags_non_shared_edge_function_paths(self) -> None:
+        paths = [
+            ("Fix enrichment bug", "Bug in supabase/functions/enrich-winery/index.ts"),
+            ("Update places handler", "Check supabase/functions/places/ handler logic"),
+            ("Sync handler crash", "Investigate supabase/functions/sync/handler.ts crash"),
+        ]
+        for title, body in paths:
+            with self.subTest(title=title):
+                suitable, reason = is_issue_suitable_for_headless_agent(title, body)
+                self.assertFalse(suitable)
+                self.assertTrue(
+                    "non-shared Edge Function" in reason or "Deno runtime entrypoint" in reason,
+                    f"Unexpected reason: {reason}",
+                )
+
+    def test_permits_pure_typescript_shared_edge_function_modules(self) -> None:
+        suitable, reason = is_issue_suitable_for_headless_agent(
+            "Refactor coordinate standardizer in supabase/functions/_shared/winery.ts",
+            "Add altitude clamp to winery normalization in supabase/functions/_shared/winery.ts without modifying Deno runtime entrypoints.",
+        )
+        self.assertTrue(suitable)
+        self.assertEqual(reason, "")
+
+    def test_flags_deno_runtime_even_if_shared_edge_function_present(self) -> None:
+        mixed_cases = [
+            (
+                "Refactor shared utils and handler",
+                "Update supabase/functions/_shared/utils.ts and migrate Deno.serve((req) => ...)",
+            ),
+            (
+                "Update shared schema and entrypoint",
+                "Touch supabase/functions/_shared/schema.ts and supabase/functions/api/index.ts",
+            ),
+        ]
+        for title, body in mixed_cases:
+            with self.subTest(title=title):
+                suitable, reason = is_issue_suitable_for_headless_agent(title, body)
+                self.assertFalse(suitable)
+                self.assertTrue(
+                    "Deno runtime entrypoint" in reason or "non-shared Edge Function" in reason,
+                    f"Unexpected reason: {reason}",
+                )
+
 
 
 if __name__ == "__main__":

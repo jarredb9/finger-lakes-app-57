@@ -13,6 +13,8 @@ from agent_resolve.diagnostics import (
     grep_search,
     parse_issue_diagnostics,
     read_file_snippet,
+    strip_ansi,
+    truncate_error_context,
 )
 
 
@@ -300,6 +302,43 @@ class TestParseIssueDiagnostics(unittest.TestCase):
         files, root_cause = parse_issue_diagnostics(body)
         self.assertEqual(files, [])
         self.assertEqual(root_cause, "")
+
+
+class TestStripAnsi(unittest.TestCase):
+    def test_strip_ansi_removes_standard_color_and_formatting_codes(self) -> None:
+        raw = "\x1b[31mError:\x1b[0m \x1b[32;1mSuccess\x1b[0m"
+        self.assertEqual(strip_ansi(raw), "Error: Success")
+
+    def test_strip_ansi_removes_cursor_and_clear_codes(self) -> None:
+        raw = "Loading...\x1b[2K\x1b[1ADone"
+        self.assertEqual(strip_ansi(raw), "Loading...Done")
+
+    def test_strip_ansi_preserves_plain_text_and_newlines(self) -> None:
+        raw = "Line 1\nLine 2\tTabbed\nLine 3"
+        self.assertEqual(strip_ansi(raw), raw)
+
+
+class TestTruncateErrorContext(unittest.TestCase):
+    def test_truncate_error_context_preserves_output_under_limit(self) -> None:
+        text = "Short verification output\nAll tests passed."
+        self.assertEqual(truncate_error_context(text), text)
+
+    def test_truncate_error_context_strips_ansi_before_measuring_length(self) -> None:
+        # 7,900 clean chars + ANSI escapes = over 8,000 chars raw, but clean is <= 8000
+        clean_part = "A" * 7900
+        raw = f"\x1b[31m{clean_part}\x1b[0m"
+        self.assertEqual(truncate_error_context(raw), clean_part)
+
+    def test_truncate_error_context_splits_head_and_tail_with_marker(self) -> None:
+        head = "H" * 4000
+        middle = "M" * 2000
+        tail = "T" * 4000
+        text = f"{head}{middle}{tail}"  # 10,000 chars -> 2000 truncated
+        expected = f"{head}\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n{tail}"
+        self.assertEqual(truncate_error_context(text), expected)
+
+    def test_truncate_error_context_handles_empty_string(self) -> None:
+        self.assertEqual(truncate_error_context(""), "")
 
 
 if __name__ == "__main__":
