@@ -28,7 +28,7 @@
     - [x] Verify all tests pass via `npm run test:agent`
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Stage 3 Fail-Fast Type-Check, Silent Jest Execution & Error Context Truncation' (Protocol in workflow.md) [commit: eef39f1]
 
-## Phase 3: Discounted Cached Token Budget (25%), Pre-Call Guard & Status-Boundary Matching
+## Phase 3: Discounted Cached Token Budget (25%), Pre-Call Guard & Status-Boundary Matching [checkpoint: dd10837]
 - [x] Task: Write failing unit tests for 25% cached token accounting, pre-call budget checks, dual summary metrics, and boundary regex matching (TDD Red phase) [commit: 91f7fdec]
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_tracker.py` asserting `effective_tokens` calculates uncached tokens + 25% cached tokens, `check_budget()` raises `RuntimeError` when `effective_tokens > limit`, and formats dual summary metrics
     - [x] Author unit tests in `scripts/agent-resolve/tests/test_llm.py` asserting pre-call `check_budget()` raises `RuntimeError` before issuing calls or retries
@@ -39,7 +39,7 @@
     - [x] Update `is_transient_error` in `agent_resolve/llm.py` with numeric/status boundary regex `r"(?<![0-9,])(?:429|500|502|503|504)(?![0-9,])"`
     - [x] Update existing unit tests in `scripts/agent-resolve/tests/test_tracker.py` and `test_llm.py` to match the dual metric summary format
     - [x] Verify all tests pass via `npm run test:agent`
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Discounted Cached Token Budget (25%), Pre-Call Guard & Status-Boundary Matching' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Discounted Cached Token Budget (25%), Pre-Call Guard & Status-Boundary Matching' (Protocol in workflow.md) [commit: dd10837]
 
 ## Phase 4: Shared Edge Function (`supabase/functions/_shared/*.ts`) Verification Invariant & Planner Self-Correction
 - [ ] Task: Write failing unit tests for Edge Function shared module prompt directives, target path guards, and planner self-correction loop (TDD Red phase)
