@@ -5,7 +5,7 @@ Read-only repository exploration and diagnostic parsing tools (`agent_resolve.di
 from __future__ import annotations
 
 import re
-from typing import List, Tuple
+from typing import Final, List, Pattern, Tuple
 
 from agent_resolve.environment import run_cmd
 from agent_resolve.patch_engine import safe_resolve_repo_path
@@ -143,9 +143,39 @@ def parse_issue_diagnostics(issue_body: str) -> Tuple[List[str], str]:
     return suspected_files, root_cause
 
 
+ANSI_ESCAPE_PATTERN: Final[Pattern[str]] = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+
+def strip_ansi(text: str) -> str:
+    """Removes all ANSI escape sequences (colors, cursor navigation, terminal control) from text."""
+    if not text:
+        return ""
+    return ANSI_ESCAPE_PATTERN.sub("", text)
+
+
+def truncate_error_context(text: str, max_chars: int = 8000) -> str:
+    """
+    Strips ANSI codes and enforces an 8,000 character maximum cap on verification error context.
+    If stripped text exceeds max_chars, retains the first 4,000 characters and last 4,000 characters,
+    joined by '\\n\\n... [TRUNCATED {chars} CHARS OF VERIFICATION OUTPUT] ...\\n\\n'.
+    Texts <= max_chars are returned intact after ANSI stripping.
+    """
+    clean = strip_ansi(text)
+    total = len(clean)
+    if total <= max_chars:
+        return clean
+    head = clean[:4000]
+    tail = clean[-4000:]
+    truncated_count = total - 8000
+    marker = f"\n\n... [TRUNCATED {truncated_count} CHARS OF VERIFICATION OUTPUT] ...\n\n"
+    return f"{head}{marker}{tail}"
+
+
 __all__: list[str] = [
     "grep_search",
     "find_files",
     "read_file_snippet",
     "parse_issue_diagnostics",
+    "strip_ansi",
+    "truncate_error_context",
 ]

@@ -668,8 +668,8 @@ class TestStage3Green(unittest.TestCase):
             side_effect=[
                 (0, "", ""),  # targeted type-check
                 (0, "", ""),  # targeted jest
-                (0, "", ""),  # full regression jest
                 (0, "", ""),  # full regression type-check
+                (0, "", ""),  # full regression jest
             ],
         ) as mock_test, patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")
@@ -753,14 +753,13 @@ class TestStage3Green(unittest.TestCase):
                 # Attempt 1: targeted type-check exits 0, targeted jest exits 1
                 (0, "", ""),
                 (1, "Targeted jest failed", ""),
-                # Attempt 2: targeted type-check exits 0, targeted jest exits 0, full reg jest exits 1
+                # Attempt 2: targeted type-check exits 0, targeted jest exits 0, full reg type-check exits 0, full reg jest exits 1
+                (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
                 (1, "Full regression jest failed", ""),
-                (0, "", ""),
-                # Attempt 3: targeted type-check exits 2
+                # Attempt 3: targeted type-check exits 2 (fails fast, skips jest)
                 (2, "Type error", ""),
-                (0, "", ""),
             ],
         ):
             with self.assertRaises(RuntimeError) as ctx:
@@ -870,8 +869,8 @@ class TestStage3Green(unittest.TestCase):
             side_effect=[
                 (0, "", ""),  # targeted type-check
                 (0, "", ""),  # targeted jest
-                (0, "", ""),  # full regression jest
                 (0, "", ""),  # full regression type-check
+                (0, "", ""),  # full regression jest
             ],
         ) as mock_test, patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")

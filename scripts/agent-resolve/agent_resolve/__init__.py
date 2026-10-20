@@ -89,6 +89,8 @@ from agent_resolve.diagnostics import (
     grep_search,
     parse_issue_diagnostics,
     read_file_snippet,
+    strip_ansi,
+    truncate_error_context,
 )
 from agent_resolve.stages import (
     stage_0_diagnose,
@@ -213,6 +215,8 @@ __all__: list[str] = [
     "grep_search",
     "parse_issue_diagnostics",
     "read_file_snippet",
+    "strip_ansi",
+    "truncate_error_context",
     "stages",
     "stage_0_diagnose",
     "stage_1_plan",
