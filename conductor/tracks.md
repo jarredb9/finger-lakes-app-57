@@ -35,9 +35,9 @@
 | **explore-enrichment-sync_20261006** | ExploreTabContent Data Pipeline Desynchronization & Missing Winery Enrichment (Issue #44) | [x] Archived | [Plan](./archive/explore-enrichment-sync_20261006/plan.md) |
 | **ios-pwa-testing_20261015** | Automated iOS PWA Standalone Testing Matrix & Domain Refactoring (Issue #71) | [x] Archived | [Plan](./archive/ios-pwa-testing_20261015/plan.md) |
 | **agent-resolve-decomposition_20261015** | Decompose monolithic agent-resolve.py into a modular Python package | [x] Archived | [Plan](./archive/agent-resolve-decomposition_20261015/plan.md) |
-| **agent-resolve-token-limits_20261019** | Prevent prompt token blowout from blast-radius test injection, unbounded Jest output, and cached token accounting | [~] In Progress | [Plan](./tracks/agent-resolve-token-limits_20261019/plan.md) |
+| **agent-resolve-token-limits_20261019** | Prevent prompt token blowout from blast-radius test injection, unbounded Jest output, and cached token accounting | [x] Complete | [Plan](./tracks/agent-resolve-token-limits_20261019/plan.md) |
 
 ---
 
-- [ ] **Track: Prevent prompt token blowout from blast-radius test injection, unbounded Jest output, and cached token accounting**
+- [x] **Track: Prevent prompt token blowout from blast-radius test injection, unbounded Jest output, and cached token accounting**
 *Link: [./tracks/agent-resolve-token-limits_20261019/](./tracks/agent-resolve-token-limits_20261019/)*
