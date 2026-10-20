@@ -164,9 +164,10 @@ def truncate_error_context(text: str, max_chars: int = 8000) -> str:
     total = len(clean)
     if total <= max_chars:
         return clean
-    head = clean[:4000]
-    tail = clean[-4000:]
-    truncated_count = total - 8000
+    half = max_chars // 2
+    head = clean[:half]
+    tail = clean[-half:]
+    truncated_count = total - (half * 2)
     marker = f"\n\n... [TRUNCATED {truncated_count} CHARS OF VERIFICATION OUTPUT] ...\n\n"
     return f"{head}{marker}{tail}"
 
