@@ -29,10 +29,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Stage 3 Fail-Fast Type-Check, Silent Jest Execution & Error Context Truncation' (Protocol in workflow.md) [commit: eef39f1]
 
 ## Phase 3: Discounted Cached Token Budget (25%), Pre-Call Guard & Status-Boundary Matching
-- [ ] Task: Write failing unit tests for 25% cached token accounting, pre-call budget checks, dual summary metrics, and boundary regex matching (TDD Red phase)
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_tracker.py` asserting `effective_tokens` calculates uncached tokens + 25% cached tokens, `check_budget()` raises `RuntimeError` when `effective_tokens > limit`, and formats dual summary metrics
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_llm.py` asserting pre-call `check_budget()` raises `RuntimeError` before issuing calls or retries
-    - [ ] Author unit tests in `scripts/agent-resolve/tests/test_llm.py` asserting `is_transient_error` with status boundary regex returns False for `"Token budget exceeded: 500,000 tokens used"` or line `"5020"`
+- [x] Task: Write failing unit tests for 25% cached token accounting, pre-call budget checks, dual summary metrics, and boundary regex matching (TDD Red phase) [commit: 91f7fdec]
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_tracker.py` asserting `effective_tokens` calculates uncached tokens + 25% cached tokens, `check_budget()` raises `RuntimeError` when `effective_tokens > limit`, and formats dual summary metrics
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_llm.py` asserting pre-call `check_budget()` raises `RuntimeError` before issuing calls or retries
+    - [x] Author unit tests in `scripts/agent-resolve/tests/test_llm.py` asserting `is_transient_error` with status boundary regex returns False for `"Token budget exceeded: 500,000 tokens used"` or line `"5020"`
 - [ ] Task: Implement 25% cached token accounting, pre-call budget checks, dual summary metrics, and boundary regex matching (TDD Green phase)
     - [ ] Implement `effective_tokens`, `check_budget()`, and dual summary formatting in `agent_resolve/tracker.py`
     - [ ] Add pre-call budget checks and isolate `record_usage()` outside transient retry catch in `agent_resolve/llm.py`
