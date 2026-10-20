@@ -15,6 +15,17 @@ from agent_resolve.environment import run_cmd
 GENERIC_STEMS: frozenset[str] = frozenset({"index", "types", "constants", "utils", "helpers"})
 JEST_PATHSPECS: tuple[str, ...] = ("*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx")
 
+DENO_ENTRYPOINT_PATTERNS: tuple[str, ...] = (
+    "deno.serve",
+    "jsr:",
+    "https://deno.land",
+    "deno.json",
+)
+
+NON_SHARED_EDGE_FUNCTION_REGEX: re.Pattern[str] = re.compile(
+    r"supabase/functions/(?!_shared(?:/|$|\.))[\w.-]+"
+)
+
 
 def _compute_ancestor_proximity(sf: str, tf: str) -> int:
     """Computes directory proximity score as length of common ancestor path between source and test file."""
@@ -112,7 +123,8 @@ def extract_test_suite_names(content: str) -> List[str]:
 def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> Tuple[bool, str]:
     """
     Evaluates whether an issue is suitable for headless overnight resolution or requires
-    interactive Antigravity CLI due to complex UI, external URL schemes, or mobile platform quirks.
+    interactive Antigravity CLI due to complex UI, external URL schemes, mobile platform quirks,
+    or Deno runtime entrypoints/non-shared Edge Function handlers.
     """
     text = f"{issue_title}\n{issue_body}".lower()
     reasons: List[str] = []
@@ -122,6 +134,10 @@ def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> T
         reasons.append("mobile WebKit / PWA runtime gesture semantics")
     if any(k in text for k in ["maps://", "waze://", "https://maps.apple.com", "deep link"]):
         reasons.append("external vendor deep-linking scheme")
+    if any(p in text for p in DENO_ENTRYPOINT_PATTERNS):
+        reasons.append("Deno runtime entrypoint")
+    if NON_SHARED_EDGE_FUNCTION_REGEX.search(text):
+        reasons.append("non-shared Edge Function path")
 
     if reasons:
         return False, "; ".join(reasons)
@@ -129,8 +145,10 @@ def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> T
 
 
 __all__: list[str] = [
+    "DENO_ENTRYPOINT_PATTERNS",
     "GENERIC_STEMS",
     "JEST_PATHSPECS",
+    "NON_SHARED_EDGE_FUNCTION_REGEX",
     "get_repository_tree",
     "get_project_context",
     "find_related_test_files",
