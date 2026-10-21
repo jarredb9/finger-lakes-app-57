@@ -11,7 +11,7 @@ import time
 from typing import Any, Dict, List, Optional, Tuple
 
 from agent_resolve import config
-from agent_resolve.context import is_issue_suitable_for_headless_agent
+from agent_resolve.context import extract_agent_brief, is_issue_suitable_for_headless_agent
 from agent_resolve.environment import log, run_cmd, run_isolated_test
 from agent_resolve.exceptions import Stage2CompilationError
 from agent_resolve.models import BlueprintPlan
@@ -97,6 +97,11 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
     issue_title = issue_data.get("title", "")
     issue_body = issue_data.get("body", "")
     author_login = issue_data.get("author", {}).get("login", "")
+
+    brief = extract_agent_brief(issue_data)
+    if brief:
+        log(f"Ingested authoritative Agent Brief from @jarredb9 for Issue #{issue_number}.")
+        issue_body = f"{issue_body}\n\n---\n\n### AUTHORITATIVE TRIAGE SPECIFICATION:\n{brief}"
 
     start_time = time.time()
     token_tracker = TokenTracker()
