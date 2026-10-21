@@ -33,7 +33,7 @@ def main(argv: Optional[List[str]] = None) -> None:
     client = get_genai_client()
 
     if args.issue:
-        code, out, err = gh_cli(["issue", "view", str(args.issue), "--json", "number,title,body,author,labels"])
+        code, out, err = gh_cli(["issue", "view", str(args.issue), "--json", "number,title,body,author,labels,comments"])
         if code != 0:
             log(f"Error viewing issue #{args.issue}: {err}", file=sys.stderr)
             sys.exit(1)
@@ -47,7 +47,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         "--state", "open",
         "--label", "agent:resolve",
         "--limit", str(args.max_issues),
-        "--json", "number,title,body,author,labels",
+        "--json", "number,title,body,author,labels,comments",
     ])
     if code != 0:
         log(f"Error querying issues: {err}", file=sys.stderr)
