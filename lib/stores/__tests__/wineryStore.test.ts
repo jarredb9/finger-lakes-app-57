@@ -640,4 +640,38 @@ describe('WineryUIStore: fetchWineryData', () => {
       consoleErrorSpy.mockRestore();
     });
   });
+
+  describe('WineryUIStore: Standalone Mode Amenity Healing & Tri-State Invariant (Issue #73)', () => {
+    it('heals poisoned false amenities on version 2 persisted wineries without clearing user collection state', async () => {
+      const poisonedWinery: Winery = {
+        ...createMockWinery({ id: 'ChIJ_toast_15504' as GooglePlaceId, dbId: 15504 as WineryDbId, name: 'Toast Winery' }),
+        enrichment_tier: 'enriched',
+        allows_dogs: false,
+        has_ev_charging: false,
+        serves_wine: false,
+        good_for_children: false,
+        outdoor_seating: false,
+        isFavorite: true,
+        onWishlist: true,
+        userVisited: true,
+        favoriteIsPrivate: false,
+        wishlistIsPrivate: true,
+      };
+
+      const persistOptions = (useWineryStore as any).persist.getOptions();
+      const migratedState = persistOptions.migrate({ persistentWineries: [poisonedWinery] }, 2);
+      const healed = migratedState.persistentWineries[0];
+
+      expect(healed.allows_dogs).toBeNull();
+      expect(healed.has_ev_charging).toBeNull();
+      expect(healed.serves_wine).toBeNull();
+      expect(healed.good_for_children).toBeNull();
+      expect(healed.outdoor_seating).toBeNull();
+      expect(healed.isFavorite).toBe(true);
+      expect(healed.onWishlist).toBe(true);
+      expect(healed.userVisited).toBe(true);
+      expect(healed.favoriteIsPrivate).toBe(false);
+      expect(healed.wishlistIsPrivate).toBe(true);
+    });
+  });
 });
