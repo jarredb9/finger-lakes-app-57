@@ -66,6 +66,11 @@ def get_active_track() -> Optional[str]:
         if tracks:
             return tracks[0]
 
+    # Priority 4: Most recent track from conductor/tracks.md
+    all_tracks = re.findall(r"\|\s*\*\*([a-zA-Z0-9_\-]+)\*\*\s*\|", content)
+    if all_tracks:
+        return all_tracks[-1]
+
     return None
 
 
