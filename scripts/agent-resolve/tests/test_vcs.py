@@ -1196,6 +1196,42 @@ class TestPreserveFailedWork(unittest.TestCase):
         self.assertIn("[REDACTED_GH_TOKEN]", handoff_content)
         self.assertIn("[REDACTED_AIZA_KEY]", handoff_content)
 
+    @patch("agent_resolve.vcs.reset_working_tree_to_main")
+    @patch("agent_resolve.vcs.run_cmd")
+    def test_preserve_failed_work_cleans_untracked_and_unstaged_files_before_checkpoint(
+        self, mock_run_cmd: MagicMock, mock_reset: MagicMock
+    ) -> None:
+        src_file = self.root / "components" / "WineryCard.tsx"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("// partial\n", encoding="utf-8")
+
+        def cmd_side_effect(cmd, **kwargs):
+            if cmd == ["git", "status", "--porcelain"]:
+                return (0, " M components/WineryCard.tsx\n?? stray-file.txt\n", "")
+            return (0, "", "")
+
+        mock_run_cmd.side_effect = cmd_side_effect
+
+        preserve_failed_work(
+            issue_number=42,
+            issue_title="Fix Winery Card",
+            blueprint=self.blueprint,
+            branch_name="agent/issue-42",
+            error_summary="Verification failed",
+            token_tracker=self.tracker,
+            elapsed_sec=50,
+            dry_run=True,
+        )
+
+        mock_run_cmd.assert_has_calls([
+            call(["git", "add", "components/WineryCard.tsx"]),
+            call(["git", "commit", "-m", "wip(winery): Incomplete implementation for Issue #42 [skip ci]"]),
+            call(["git", "checkout", "--", "."]),
+            call(["git", "clean", "-fd"]),
+            call(["git", "add", ".agent-state.json", "AGENT_HANDOFF.md"]),
+            call(["git", "commit", "-m", "docs(agent): Checkpoint state for Issue #42 [skip ci]"]),
+        ])
+
 
 if __name__ == "__main__":
     unittest.main()
