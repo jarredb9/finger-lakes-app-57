@@ -959,5 +959,144 @@ class TestResolveIssueResumptionSelfHealing(unittest.TestCase):
         )
 
 
+class TestResolveIssueAgentBriefIngestion(unittest.TestCase):
+    def setUp(self) -> None:
+        self.orig_root = config.get_project_root()
+        self.temp_dir = TemporaryDirectory()
+        self.root = Path(self.temp_dir.name)
+        config.set_project_root(self.root)
+        self.client = MagicMock()
+
+    def tearDown(self) -> None:
+        config.set_project_root(self.orig_root)
+        self.temp_dir.cleanup()
+
+    def test_merges_maintainer_agent_brief_into_stage_0_and_stage_1_issue_body(self) -> None:
+        brief_body = "## Agent Brief\n\n**Category:** bug\n**Acceptance criteria:**\n- [ ] Sort by distance"
+        original_body = "User report: coordinates are reversed"
+        issue_data = {
+            "number": 73,
+            "title": "Bug in coordinates",
+            "body": original_body,
+            "author": {"login": "jarredb9"},
+            "labels": [{"name": "agent:resolve"}],
+            "comments": [
+                {
+                    "author": {"login": "jarredb9"},
+                    "body": brief_body,
+                }
+            ],
+        }
+
+        mock_diagnostic = DiagnosticResult(
+            target_files=["lib/winery.ts"],
+            root_cause="Reversed coordinates",
+            code_snippets={},
+            investigation_summary="",
+        )
+        mock_blueprint = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/winery.test.ts"],
+            target_src_files=["lib/winery.ts"],
+            plan_markdown="# Plan",
+        )
+
+        expected_enriched_body = (
+            f"{original_body}\n\n---\n\n### AUTHORITATIVE TRIAGE SPECIFICATION:\n{brief_body}"
+        )
+
+        with patch.object(
+            agent_resolve, "gh_cli", return_value=(0, "[]", "")
+        ), patch.object(
+            agent_resolve, "reset_working_tree_to_main"
+        ), patch.object(
+            agent_resolve,
+            "run_cmd",
+            side_effect=lambda cmd, **kwargs: (2, "", "") if "ls-remote" in cmd else (0, "", ""),
+        ), patch.object(
+            agent_resolve, "is_issue_suitable_for_headless_agent", return_value=(True, "")
+        ) as mock_suitable, patch.object(
+            agent_resolve, "stage_0_diagnose", return_value=mock_diagnostic
+        ) as mock_s0, patch.object(
+            agent_resolve, "stage_1_plan", return_value=mock_blueprint
+        ) as mock_s1, patch.object(
+            agent_resolve, "stage_2_red"
+        ), patch.object(
+            agent_resolve, "stage_3_green"
+        ), patch("agent_resolve.pipeline.log") as mock_log:
+            result = resolve_issue(self.client, issue_data, dry_run=True)
+
+        self.assertTrue(result)
+        mock_suitable.assert_called_once_with("Bug in coordinates", expected_enriched_body)
+        mock_s0.assert_called_once()
+        self.assertEqual(mock_s0.call_args[0][0], self.client)
+        self.assertEqual(mock_s0.call_args[0][1], "Bug in coordinates")
+        self.assertEqual(mock_s0.call_args[0][2], expected_enriched_body)
+
+        mock_s1.assert_called_once()
+        self.assertEqual(mock_s1.call_args[0][0], self.client)
+        self.assertEqual(mock_s1.call_args[0][1], 73)
+        self.assertEqual(mock_s1.call_args[0][2], "Bug in coordinates")
+        self.assertEqual(mock_s1.call_args[0][3], expected_enriched_body)
+        self.assertEqual(mock_s1.call_args.kwargs.get("diagnostic_result"), mock_diagnostic)
+
+        mock_log.assert_any_call("Ingested authoritative Agent Brief from @jarredb9 for Issue #73.")
+
+    def test_preserves_original_issue_body_when_no_agent_brief_present(self) -> None:
+        original_body = "User report without brief"
+        issue_data = {
+            "number": 73,
+            "title": "Bug in coordinates",
+            "body": original_body,
+            "author": {"login": "jarredb9"},
+            "labels": [{"name": "agent:resolve"}],
+            "comments": [
+                {
+                    "author": {"login": "someone"},
+                    "body": "No brief here",
+                }
+            ],
+        }
+
+        mock_diagnostic = DiagnosticResult(
+            target_files=["lib/winery.ts"],
+            root_cause="",
+            code_snippets={},
+            investigation_summary="",
+        )
+        mock_blueprint = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/winery.test.ts"],
+            target_src_files=["lib/winery.ts"],
+            plan_markdown="# Plan",
+        )
+
+        with patch.object(
+            agent_resolve, "gh_cli", return_value=(0, "[]", "")
+        ), patch.object(
+            agent_resolve, "reset_working_tree_to_main"
+        ), patch.object(
+            agent_resolve,
+            "run_cmd",
+            side_effect=lambda cmd, **kwargs: (2, "", "") if "ls-remote" in cmd else (0, "", ""),
+        ), patch.object(
+            agent_resolve, "is_issue_suitable_for_headless_agent", return_value=(True, "")
+        ) as mock_suitable, patch.object(
+            agent_resolve, "stage_0_diagnose", return_value=mock_diagnostic
+        ) as mock_s0, patch.object(
+            agent_resolve, "stage_1_plan", return_value=mock_blueprint
+        ) as mock_s1, patch.object(
+            agent_resolve, "stage_2_red"
+        ), patch.object(
+            agent_resolve, "stage_3_green"
+        ):
+            result = resolve_issue(self.client, issue_data, dry_run=True)
+
+        self.assertTrue(result)
+        mock_suitable.assert_called_once_with("Bug in coordinates", original_body)
+        self.assertEqual(mock_s0.call_args[0][2], original_body)
+        self.assertEqual(mock_s1.call_args[0][3], original_body)
+
+
 if __name__ == "__main__":
     unittest.main()
