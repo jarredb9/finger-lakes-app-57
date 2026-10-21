@@ -4,12 +4,22 @@ Unit tests for `agent_resolve.patch_engine` (TDD Red Phase).
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 import unittest
 from unittest.mock import MagicMock, call, patch
 
 import agent_resolve
 from agent_resolve import config
 from agent_resolve.models import PatchChunk, PatchManifest
+
+try:
+    from agent_resolve.models import TestPatchManifest
+except ImportError:
+    from pydantic import BaseModel
+
+    class TestPatchManifest(BaseModel):  # type: ignore[no-redef]
+        patches: list[PatchChunk] = []
+        source_stubs: list[Any] = []
 from agent_resolve.patch_engine import (
     apply_patch_manifest,
     reset_target_sources,
@@ -361,6 +371,46 @@ class TestApplyPatchManifest(unittest.TestCase):
         created = self.root / "lib" / "brand_new.ts"
         self.assertTrue(created.exists())
         self.assertEqual(created.read_text(encoding="utf-8"), "export const BRAND_NEW = true;\n")
+
+    def test_apply_patch_manifest_accepts_test_patch_manifest(self) -> None:
+        self.assertTrue(
+            hasattr(agent_resolve.models, "TestPatchManifest"),
+            "agent_resolve.models must define TestPatchManifest",
+        )
+        target = self.root / "lib" / "__tests__" / "existing.test.ts"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("describe('old', () => {});\n", encoding="utf-8")
+
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/existing.test.ts",
+                    search_block="describe('old', () => {});",
+                    replace_block="describe('updated', () => {});",
+                )
+            ]
+        )
+
+        success, errors = apply_patch_manifest(manifest)
+        self.assertTrue(success, f"Failed to apply patch from TestPatchManifest: {errors}")
+        self.assertEqual(target.read_text(encoding="utf-8"), "describe('updated', () => {});\n")
+
+    def test_apply_patch_manifest_supports_new_files_empty_search_block(self) -> None:
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/brand_new.test.ts",
+                    search_block="",
+                    replace_block="describe('brand new', () => {});\n",
+                )
+            ]
+        )
+
+        success, errors = apply_patch_manifest(manifest, new_files=["lib/__tests__/brand_new.test.ts"])
+        self.assertTrue(success, f"Failed to create new test file via new_files: {errors}")
+        created = self.root / "lib" / "__tests__" / "brand_new.test.ts"
+        self.assertTrue(created.exists())
+        self.assertEqual(created.read_text(encoding="utf-8"), "describe('brand new', () => {});\n")
 
     def test_rejects_empty_search_block_on_existing_file_not_in_new_src(self) -> None:
         target = self.root / "lib" / "existing.ts"

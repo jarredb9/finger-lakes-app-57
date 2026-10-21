@@ -4,6 +4,7 @@ Unit tests for `agent_resolve.stages` (TDD Red Phase).
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 import unittest
 from unittest.mock import MagicMock, call, patch
 
@@ -20,6 +21,15 @@ from agent_resolve.models import (
     TestFileEntry,
     TestFileManifest,
 )
+
+try:
+    from agent_resolve.models import TestPatchManifest
+except ImportError:
+    from pydantic import BaseModel
+
+    class TestPatchManifest(BaseModel):  # type: ignore[no-redef]
+        patches: list[PatchChunk] = []
+        source_stubs: list[SourceStubEntry] = []
 from agent_resolve.tracker import TokenTracker
 
 # Modular imports under test (TDD Red Phase: raises ModuleNotFoundError until Phase 5 Task 2)
@@ -546,11 +556,12 @@ class TestStage2Red(unittest.TestCase):
             plan_markdown="# Plan",
         )
 
-        manifest = TestFileManifest(
-            files=[
-                TestFileEntry(
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
                     file_path="lib/__tests__/new.test.ts",
-                    content="describe('new', () => { it('fails', () => { expect(true).toBe(false); }); });",
+                    search_block="",
+                    replace_block="describe('new', () => { it('fails', () => { expect(true).toBe(false); }); });\n",
                 )
             ],
             source_stubs=[
@@ -593,7 +604,7 @@ class TestStage2Red(unittest.TestCase):
             ),
         ])
 
-    def test_retries_when_pre_existing_describe_suite_dropped(self) -> None:
+    def test_stage_2_preserves_unmodified_suites_without_extract_test_suite_names_check(self) -> None:
         (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
         test_file = self.root / "lib" / "__tests__" / "existing.test.ts"
         test_file.parent.mkdir(parents=True, exist_ok=True)
@@ -606,19 +617,12 @@ class TestStage2Red(unittest.TestCase):
             plan_markdown="# Plan",
         )
 
-        manifest_dropped = TestFileManifest(
-            files=[
-                TestFileEntry(
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
                     file_path="lib/__tests__/existing.test.ts",
-                    content="describe('SuiteA', () => {});",
-                )
-            ]
-        )
-        manifest_fixed = TestFileManifest(
-            files=[
-                TestFileEntry(
-                    file_path="lib/__tests__/existing.test.ts",
-                    content="describe('SuiteA', () => {});\ndescribe('SuiteB', () => {});",
+                    search_block="describe('SuiteA', () => {});",
+                    replace_block="describe('SuiteA', () => { it('fails', () => { expect(1).toBe(2); }); });",
                 )
             ]
         )
@@ -626,7 +630,7 @@ class TestStage2Red(unittest.TestCase):
         with patch.object(
             agent_resolve, "get_project_context", return_value="CONTEXT"
         ), patch.object(
-            agent_resolve, "call_gemini_with_fallback", side_effect=[manifest_dropped, manifest_fixed]
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
         ) as mock_gemini, patch.object(
             agent_resolve,
             "run_isolated_test",
@@ -637,11 +641,11 @@ class TestStage2Red(unittest.TestCase):
             agent_resolve, "run_cmd", return_value=(0, "", "")
         ):
             stage_2_red(self.client, 42, "Update test", bp, self.tracker)
-            self.assertEqual(mock_gemini.call_count, 2)
+            self.assertEqual(mock_gemini.call_count, 1)
 
-        prompt_2 = mock_gemini.call_args_list[1][0][1]
-        self.assertIn("PREVIOUS ATTEMPT DROPPED PRE-EXISTING TEST SUITES", prompt_2)
-        self.assertIn("SuiteB", prompt_2)
+        updated_content = test_file.read_text(encoding="utf-8")
+        self.assertIn("SuiteB", updated_content)
+        self.assertIn("expect(1).toBe(2)", updated_content)
 
     def test_self_corrects_on_compiler_failure_then_succeeds(self) -> None:
         (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
@@ -821,6 +825,224 @@ class TestStage2Red(unittest.TestCase):
         self.assertIn("@/supabase/functions/_shared", prompt_text)
         self.assertIn("supabase/", prompt_text)
         self.assertIn("e2e/", prompt_text)
+
+    def test_stage_2_requests_test_patch_manifest_and_applies_via_patch_engine(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/feature.test.ts"],
+            target_src_files=["lib/feature.ts"],
+            plan_markdown="# Plan",
+        )
+
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/feature.test.ts",
+                    search_block="",
+                    replace_block="describe('feature', () => { it('fails', () => { expect(true).toBe(false); }); });\n",
+                )
+            ],
+            source_stubs=[
+                SourceStubEntry(
+                    file_path="lib/feature.ts",
+                    content="export const feature = () => { throw new Error('Not implemented'); };",
+                )
+            ],
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Valid assertion failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ) as mock_cmd:
+            stage_2_red(self.client, 42, "Feature test", bp, self.tracker)
+
+        self.assertIn("schema_cls", mock_gemini.call_args[1])
+        self.assertTrue(
+            hasattr(agent_resolve.models, "TestPatchManifest")
+            and mock_gemini.call_args[1]["schema_cls"] is getattr(agent_resolve.models, "TestPatchManifest", None),
+            f"Expected schema_cls to be TestPatchManifest from agent_resolve.models, got {mock_gemini.call_args[1].get('schema_cls')}",
+        )
+
+        self.assertTrue((self.root / "lib" / "feature.ts").exists())
+        self.assertTrue((self.root / "lib" / "__tests__" / "feature.test.ts").exists())
+        mock_cmd.assert_has_calls([
+            call(
+                ["git", "add", "lib/__tests__/feature.test.ts", "lib/feature.ts"],
+                check=True,
+            ),
+            call(
+                ["git", "commit", "-m", "test(winery): Add failing tests for Issue #42"],
+                check=True,
+            ),
+        ])
+
+    def test_stage_2_passes_allowed_files_to_prevent_source_tampering(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "utils" / "winery.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const keepMe = true;\n", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/tamper.test.ts"],
+            target_src_files=["lib/utils/winery.ts"],
+            plan_markdown="# Plan",
+        )
+
+        tampering_manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/utils/winery.ts",
+                    search_block="export const keepMe = true;\n",
+                    replace_block="export const keepMe = false;\n",
+                ),
+                PatchChunk(
+                    file_path="lib/__tests__/tamper.test.ts",
+                    search_block="",
+                    replace_block="describe('tamper', () => {});\n",
+                ),
+            ]
+        )
+        valid_manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/tamper.test.ts",
+                    search_block="",
+                    replace_block="describe('tamper', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ]
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", side_effect=[tampering_manifest, valid_manifest]
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Valid assertion failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Tamper test", bp, self.tracker)
+            self.assertEqual(mock_gemini.call_count, 2)
+
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn("rejected", prompt_2)
+        self.assertIn("lib/utils/winery.ts", prompt_2)
+        self.assertEqual(src_file.read_text(encoding="utf-8"), "export const keepMe = true;\n")
+
+    def test_stage_2_reverts_target_tests_and_cleans_staged_stubs_before_retry(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "revert.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('baseline', () => {});\n", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/revert.test.ts"],
+            target_src_files=["lib/new_stub.ts"],
+            plan_markdown="# Plan",
+        )
+
+        bad_manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/revert.test.ts",
+                    search_block="describe('baseline', () => {});\n",
+                    replace_block="describe('corrupt', () => { syntax error here\n",
+                )
+            ],
+            source_stubs=[
+                SourceStubEntry(
+                    file_path="lib/new_stub.ts",
+                    content="export const bad = 1;",
+                )
+            ],
+        )
+        good_manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/revert.test.ts",
+                    search_block="describe('baseline', () => {});\n",
+                    replace_block="describe('baseline', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ]
+        )
+
+        cmd_calls: list[list[str]] = []
+
+        def fake_run_cmd(cmd: list[str], **kwargs: Any) -> tuple[int, str, str]:
+            cmd_calls.append(cmd)
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", side_effect=[bad_manifest, good_manifest]
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(1, "TypeScript compilation error", ""), (0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Clean failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", side_effect=fake_run_cmd
+        ):
+            stage_2_red(self.client, 42, "Revert test", bp, self.tracker)
+
+        checkout_calls = [c for c in cmd_calls if len(c) >= 3 and c[:3] == ["git", "checkout", "HEAD"]]
+        self.assertTrue(len(checkout_calls) >= 1, f"Expected git checkout HEAD call, got: {cmd_calls}")
+
+    def test_stage_2_supports_empty_search_blocks_for_new_test_files(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/brand_new_authored.test.ts"],
+            target_src_files=["lib/brand_new.ts"],
+            plan_markdown="# Plan",
+        )
+
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/brand_new_authored.test.ts",
+                    search_block="",
+                    replace_block="describe('brand new', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ]
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Clean failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Brand new test authoring", bp, self.tracker)
+
+        created = self.root / "lib" / "__tests__" / "brand_new_authored.test.ts"
+        self.assertTrue(created.exists())
+        self.assertIn("describe('brand new'", created.read_text(encoding="utf-8"))
 
 
 

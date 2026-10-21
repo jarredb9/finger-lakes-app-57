@@ -17,6 +17,11 @@ from agent_resolve.models import (
     TestFileManifest,
 )
 
+try:
+    from agent_resolve.models import TestPatchManifest
+except ImportError:
+    TestPatchManifest = None  # type: ignore[assignment,misc]
+
 
 class TestModels(unittest.TestCase):
     def test_diagnostic_action_defaults_and_validation(self) -> None:
@@ -107,6 +112,41 @@ class TestModels(unittest.TestCase):
         manifest_with_stubs = TestFileManifest(files=[entry], source_stubs=[stub])
         self.assertEqual(len(manifest_with_stubs.source_stubs), 1)
         self.assertEqual(manifest_with_stubs.source_stubs[0].file_path, "lib/utils/new-helper.ts")
+
+    def test_test_patch_manifest_validation_and_defaults(self) -> None:
+        self.assertIsNotNone(TestPatchManifest, "TestPatchManifest must be defined in agent_resolve.models")
+        assert TestPatchManifest is not None
+
+        chunk = PatchChunk(
+            file_path="lib/utils/__tests__/winery.test.ts",
+            search_block="",
+            replace_block="describe('winery', () => {});",
+        )
+        manifest_default = TestPatchManifest(patches=[chunk])
+        self.assertEqual(len(manifest_default.patches), 1)
+        self.assertEqual(manifest_default.patches[0].file_path, "lib/utils/__tests__/winery.test.ts")
+        self.assertEqual(manifest_default.source_stubs, [])
+
+        # Verify instance list isolation (default_factory=list)
+        manifest_default.source_stubs.append(
+            SourceStubEntry(file_path="lib/utils/stub.ts", content="export {};")
+        )
+        manifest_clean = TestPatchManifest(patches=[chunk])
+        self.assertEqual(manifest_clean.source_stubs, [])
+
+        stub = SourceStubEntry(file_path="lib/utils/new-helper.ts", content="export {};")
+        manifest_with_stubs = TestPatchManifest(patches=[chunk], source_stubs=[stub])
+        self.assertEqual(len(manifest_with_stubs.source_stubs), 1)
+        self.assertEqual(manifest_with_stubs.source_stubs[0].file_path, "lib/utils/new-helper.ts")
+
+        with self.assertRaises(ValidationError):
+            TestPatchManifest()  # type: ignore[call-arg]
+
+        # Bidirectional JSON serialization
+        json_str = manifest_with_stubs.model_dump_json()
+        deserialized = TestPatchManifest.model_validate_json(json_str)
+        self.assertEqual(deserialized.patches[0].file_path, manifest_with_stubs.patches[0].file_path)
+        self.assertEqual(deserialized.source_stubs[0].file_path, manifest_with_stubs.source_stubs[0].file_path)
 
     def test_patch_manifest_and_patch_chunk_validation(self) -> None:
         new_file_chunk = PatchChunk(
