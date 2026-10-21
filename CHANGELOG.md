@@ -18,6 +18,10 @@
 * **Resumption Git Index Hygiene & ADR Documentation**:
     * Explicitly purged checkpoint metadata files (`.agent-state.json`, `AGENT_HANDOFF.md`) from the git index (`git rm -f --ignore-unmatch` and `git reset HEAD`) prior to staging target sources on checkpoint resumption in `agent_resolve.vcs`.
     * Updated [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md) documenting Supabase sandbox fallback injection and blast radius isolation invariants.
+* **Maintainer Agent Brief Triage Ingestion ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))**:
+    * Expanded GitHub CLI issue queries (`gh issue view` and `gh issue list`) in `agent_resolve.cli` to retrieve issue comments (`--json number,title,body,author,labels,comments`).
+    * Implemented `extract_agent_brief` in `agent_resolve.context` to parse issue comments and extract authoritative maintainer `## Agent Brief` specifications authored strictly by `@jarredb9` (per `.agents/skills/triage/AGENT-BRIEF.md`).
+    * Injected authoritative triage specifications (`### AUTHORITATIVE TRIAGE SPECIFICATION:\n<brief>`) into `issue_body` across `resolve_issue` (`agent_resolve.pipeline`), anchoring complexity suitability evaluation, Stage 0 diagnostic exploration, and Stage 1 blueprint planning directly to maintainer acceptance criteria.
 
 ## [agent-resolve] - v0.1.0 (2026-10-19)
 
