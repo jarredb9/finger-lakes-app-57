@@ -6,6 +6,11 @@ import path from 'path';
 // Load env vars from .env.local
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
+// Provide safe fallback values for Supabase environment variables during test execution
+process.env.NEXT_PUBLIC_SUPABASE_URL ||= 'http://127.0.0.1:54321';
+process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||= 'test-anon-key';
+process.env.SUPABASE_SERVICE_ROLE_KEY ||= 'test-service-role-key';
+
 // Mock idb-keyval globally as it's used in syncStore and initialized at top level
 jest.mock('idb-keyval', () => ({
   get: jest.fn().mockResolvedValue(null),
