@@ -1,0 +1,8 @@
+{
+  "track_id": "agent-resolve-quality-hardening_20261021",
+  "type": "refactor",
+  "status": "new",
+  "created_at": "2026-10-21T17:26:31Z",
+  "updated_at": "2026-10-21T17:26:31Z",
+  "description": "refactor(agent-resolve): Quality hardening via patch-based Red phase, test deduplication, targeted linter gates, and prompt context pruning"
+}
