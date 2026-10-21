@@ -98,7 +98,7 @@ class TestCliSingleIssueExecution(unittest.TestCase):
                 main(["--issue", "42"])
             self.assertEqual(cm.exception.code, 0)
             mock_gh.assert_called_once_with(
-                ["issue", "view", "42", "--json", "number,title,body,author,labels"]
+                ["issue", "view", "42", "--json", "number,title,body,author,labels,comments"]
             )
             mock_resolve.assert_called_once_with(self.client, sample_issue, dry_run=False)
 
@@ -120,7 +120,7 @@ class TestCliSingleIssueExecution(unittest.TestCase):
                 main(["--issue", "42", "--dry-run"])
             self.assertEqual(cm.exception.code, 0)
             mock_gh.assert_called_once_with(
-                ["issue", "view", "42", "--json", "number,title,body,author,labels"]
+                ["issue", "view", "42", "--json", "number,title,body,author,labels,comments"]
             )
             mock_resolve.assert_called_once_with(self.client, sample_issue, dry_run=True)
 
@@ -202,7 +202,7 @@ class TestCliBatchExecution(unittest.TestCase):
                 "--state", "open",
                 "--label", "agent:resolve",
                 "--limit", "7",
-                "--json", "number,title,body,author,labels",
+                "--json", "number,title,body,author,labels,comments",
             ])
             mock_resolve.assert_not_called()
 
@@ -220,7 +220,7 @@ class TestCliBatchExecution(unittest.TestCase):
                 "--state", "open",
                 "--label", "agent:resolve",
                 "--limit", "3",
-                "--json", "number,title,body,author,labels",
+                "--json", "number,title,body,author,labels,comments",
             ])
             mock_resolve.assert_not_called()
 

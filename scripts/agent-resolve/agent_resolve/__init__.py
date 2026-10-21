@@ -78,6 +78,7 @@ from agent_resolve.llm import (
     is_transient_error,
 )
 from agent_resolve.context import (
+    extract_agent_brief,
     extract_test_suite_names,
     find_related_test_files,
     get_project_context,
@@ -205,6 +206,7 @@ __all__: list[str] = [
     "get_genai_client",
     "is_transient_error",
     "context",
+    "extract_agent_brief",
     "extract_test_suite_names",
     "find_related_test_files",
     "get_project_context",
