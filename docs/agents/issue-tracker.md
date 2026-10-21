@@ -66,7 +66,7 @@ gh issue view <number>
 # 2. Update the issue body with structured briefing sections
 gh issue edit <number> --body-file /path/to/briefed-issue-body.md
 
-# 3. Queue the issue for autonomous resolution in the next batch
+# 3. Queue the issue for autonomous resolution in the next batch (`agent:resolve` is the active trigger label)
 gh issue edit <number> --add-label "ready-for-agent,agent:resolve" --remove-label "needs-triage"
 ```
 
