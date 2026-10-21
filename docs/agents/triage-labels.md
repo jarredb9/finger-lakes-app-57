@@ -8,7 +8,8 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 | -------------------------- | -------------------- | ---------------------------------------- |
 | `needs-triage`             | `needs-triage`       | Maintainer needs to evaluate this issue  |
 | `needs-info`               | `needs-info`         | Waiting on reporter for more information |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, theoretically eligible for an AFK agent |
+| `ready-for-agent`          | `ready-for-agent`    | Fully specified, architecturally eligible for an agent (static readiness tag; does NOT trigger execution) |
+| `agent:resolve`            | `agent:resolve`      | Active pipeline trigger label that authorizes and executes the automated resolution workflow |
 | `ready-for-human`          | `ready-for-human`    | Requires human implementation or agent failure fallback |
 | `wontfix`                  | `wontfix`            | Will not be actioned                     |
 
