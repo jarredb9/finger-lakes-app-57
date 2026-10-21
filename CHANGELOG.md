@@ -1,5 +1,24 @@
 # Changelog
 
+## [agent-resolve] - v0.1.1 (2026-10-21)
+
+### 🔒 Sandbox Hardening, Patch Whitelisting & Diagnostic Unmasking ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
+* **Comprehensive Supabase Fallback Variables & Environment Consolidation**:
+    * Defined `DEFAULT_SUPABASE_TEST_ENV` in `agent_resolve.environment` with canonical dummy values (`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`, `NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key`, and `SUPABASE_SERVICE_ROLE_KEY=test-service-role-key`).
+    * Injected fallback environment variables into Docker container test execution (`--network none`) and scrubbed subprocess fallback execution, preventing runtime failures during Supabase client initialization in test sandboxes.
+    * Added fallback defaults to `jest.setup.ts` via `process.env.* ||=` to protect direct Jest invocations.
+* **Patch Whitelisting, Path Normalization & Pre-Attempt Working Tree Reset**:
+    * Enforced strict patch target whitelisting (`allowed_files=target_src`) in `apply_patch_manifest` (`agent_resolve.patch_engine`), rejecting patches targeting un-targeted files.
+    * Normalized file paths (`safe_resolve_repo_path` targets) for both `allowed_files` and `new_src_files` to eliminate path format mismatches (`./path` vs `path`).
+    * Enforced clean working tree resets before each Stage 3 attempt (`git checkout baseline_ref -- .` and `git clean -fd`) in `agent_resolve.stages.stage_3_green`, preventing dirty state accumulation across retry attempts.
+    * Preserved `blast_radius_test_files` immutability, ensuring regression test suites remain execution-only guards.
+* **Diagnostic Unmasking & Mandatory Full Regression Gate**:
+    * Merged stdout and stderr (`f"{out}\n{err}".strip()`) before passing failure output to `truncate_error_context` in `agent_resolve.stages.stage_3_green`, preventing non-fatal stderr messages (deprecation warnings, bundler notices) from shadowing Jest assertion failures.
+    * Enforced `npm run type-check` before full test suite execution in the mandatory full regression gate.
+* **Resumption Git Index Hygiene & ADR Documentation**:
+    * Explicitly purged checkpoint metadata files (`.agent-state.json`, `AGENT_HANDOFF.md`) from the git index (`git rm -f --ignore-unmatch` and `git reset HEAD`) prior to staging target sources on checkpoint resumption in `agent_resolve.vcs`.
+    * Updated [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md) documenting Supabase sandbox fallback injection and blast radius isolation invariants.
+
 ## [agent-resolve] - v0.1.0 (2026-10-19)
 
 ### 🛡️ Prompt Token Blowout Prevention, Blast-Radius Test Isolation & Cached Token Accounting ([#77](https://github.com/jarredb9/finger-lakes-app-57/issues/77) / [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
