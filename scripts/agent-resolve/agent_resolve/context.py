@@ -7,7 +7,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import re
-from typing import List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from agent_resolve import config
 from agent_resolve.environment import run_cmd
@@ -144,11 +144,40 @@ def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> T
     return True, ""
 
 
+def extract_agent_brief(issue_data: Dict[str, Any]) -> Optional[str]:
+    """
+    Extracts authoritative maintainer '## Agent Brief' comment from issue comments if present.
+
+    Filters comments strictly authored by '@jarredb9' containing '## Agent Brief'.
+    If multiple brief comments are found, returns the latest one.
+    Returns None if no matching brief exists or comments is empty/absent.
+    """
+    comments = issue_data.get("comments")
+    if not isinstance(comments, list):
+        return None
+
+    matching_brief: Optional[str] = None
+    for comment in comments:
+        if not isinstance(comment, dict):
+            continue
+        author = comment.get("author")
+        if not isinstance(author, dict):
+            continue
+        if author.get("login") != "jarredb9":
+            continue
+        body = comment.get("body")
+        if isinstance(body, str) and "## Agent Brief" in body:
+            matching_brief = body.strip()
+
+    return matching_brief
+
+
 __all__: list[str] = [
     "DENO_ENTRYPOINT_PATTERNS",
     "GENERIC_STEMS",
     "JEST_PATHSPECS",
     "NON_SHARED_EDGE_FUNCTION_REGEX",
+    "extract_agent_brief",
     "get_repository_tree",
     "get_project_context",
     "find_related_test_files",
