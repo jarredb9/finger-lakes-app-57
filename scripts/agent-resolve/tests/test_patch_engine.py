@@ -521,7 +521,7 @@ class TestApplyPatchManifest(unittest.TestCase):
             patches=[
                 PatchChunk(
                     file_path="lib/allowed.ts",
-                    search_block="initial content",
+                    search_block="initial content\n",
                     replace_block="v1\n",
                 )
             ]
