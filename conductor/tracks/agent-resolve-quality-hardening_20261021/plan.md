@@ -1,12 +1,12 @@
 # Implementation Plan: Agent-Resolve Quality Hardening & Token Optimization
 
 ## Phase 1: Stage 2 Patch-Based Test Authoring & Unified Patch Engine
-- [ ] Task: Write failing unit tests for Stage 2 patch-based test authoring and TestPatchManifest (TDD Red phase)
-    - [ ] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` asserting Stage 2 requests and applies `TestPatchManifest` schema (`patches` and `source_stubs`).
-    - [ ] Assert that `stage_2_red.py` passes `allowed_files = target_tests` to `apply_patch_manifest` to prevent source file tampering.
-    - [ ] Assert that `stage_2_red.py` reverts `target_test_files` to git baseline and cleans staged stubs before each retry attempt.
-    - [ ] Assert removal of `extract_test_suite_names` check and support for empty search blocks when creating brand new test files.
-    - [ ] Execute `npm run test:agent` and confirm expected test failures.
+- [x] Task: Write failing unit tests for Stage 2 patch-based test authoring and TestPatchManifest (TDD Red phase) [commit: 2ec1b98]
+    - [x] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` asserting Stage 2 requests and applies `TestPatchManifest` schema (`patches` and `source_stubs`).
+    - [x] Assert that `stage_2_red.py` passes `allowed_files = target_tests` to `apply_patch_manifest` to prevent source file tampering.
+    - [x] Assert that `stage_2_red.py` reverts `target_test_files` to git baseline and cleans staged stubs before each retry attempt.
+    - [x] Assert removal of `extract_test_suite_names` check and support for empty search blocks when creating brand new test files.
+    - [x] Execute `npm run test:agent` and confirm expected test failures.
 - [ ] Task: Implement Stage 2 patch-based test authoring and TestPatchManifest to pass tests (TDD Green phase)
     - [ ] Define `TestPatchManifest` in `scripts/agent-resolve/agent_resolve/models.py`.
     - [ ] Generalize `apply_patch_manifest` in `scripts/agent-resolve/agent_resolve/patch_engine.py` to accept new test files for empty search blocks.
