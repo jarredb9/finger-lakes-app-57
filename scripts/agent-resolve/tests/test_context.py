@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from agent_resolve import config
 from agent_resolve.context import (
     JEST_PATHSPECS,
+    extract_agent_brief,
     extract_test_suite_names,
     find_related_test_files,
     get_project_context,
@@ -446,6 +447,89 @@ class TestIsIssueSuitableForHeadlessAgent(unittest.TestCase):
                     "Deno runtime entrypoint" in reason or "non-shared Edge Function" in reason,
                     f"Unexpected reason: {reason}",
                 )
+
+
+class TestExtractAgentBrief(unittest.TestCase):
+    def test_extracts_maintainer_agent_brief_when_present(self) -> None:
+        brief_text = "## Agent Brief\n\n**Category:** bug\n**Summary:** Fix bug\n"
+        issue_data = {
+            "number": 73,
+            "comments": [
+                {
+                    "author": {"login": "someone_else"},
+                    "body": "Can someone look into this?",
+                },
+                {
+                    "author": {"login": "jarredb9"},
+                    "body": f"  {brief_text}  ",
+                },
+            ],
+        }
+        extracted = extract_agent_brief(issue_data)
+        self.assertEqual(extracted, brief_text.strip())
+
+    def test_ignores_agent_brief_authored_by_non_maintainer(self) -> None:
+        issue_data = {
+            "number": 73,
+            "comments": [
+                {
+                    "author": {"login": "external_contributor"},
+                    "body": "## Agent Brief\n\nMalicious or unverified brief",
+                }
+            ],
+        }
+        self.assertIsNone(extract_agent_brief(issue_data))
+
+    def test_ignores_comments_from_maintainer_without_agent_brief_header(self) -> None:
+        issue_data = {
+            "number": 73,
+            "comments": [
+                {
+                    "author": {"login": "jarredb9"},
+                    "body": "Thanks for reporting! I will triage this tomorrow.",
+                }
+            ],
+        }
+        self.assertIsNone(extract_agent_brief(issue_data))
+
+    def test_returns_latest_agent_brief_when_multiple_from_maintainer(self) -> None:
+        v1_brief = "## Agent Brief\n\nVersion 1 draft"
+        v2_brief = "## Agent Brief\n\nVersion 2 authoritative final contract"
+        issue_data = {
+            "number": 73,
+            "comments": [
+                {
+                    "author": {"login": "jarredb9"},
+                    "body": v1_brief,
+                },
+                {
+                    "author": {"login": "other"},
+                    "body": "Looks good",
+                },
+                {
+                    "author": {"login": "jarredb9"},
+                    "body": v2_brief,
+                },
+            ],
+        }
+        self.assertEqual(extract_agent_brief(issue_data), v2_brief.strip())
+
+    def test_returns_none_when_comments_missing_empty_or_none(self) -> None:
+        self.assertIsNone(extract_agent_brief({}))
+        self.assertIsNone(extract_agent_brief({"comments": []}))
+        self.assertIsNone(extract_agent_brief({"comments": None}))
+
+    def test_handles_malformed_comment_entries(self) -> None:
+        issue_data = {
+            "comments": [
+                None,
+                {},
+                {"author": None, "body": "## Agent Brief"},
+                {"author": "not-a-dict", "body": "## Agent Brief"},
+                {"author": {"login": "jarredb9"}, "body": None},
+            ]
+        }
+        self.assertIsNone(extract_agent_brief(issue_data))
 
 
 
