@@ -135,6 +135,9 @@ def run_isolated_test(
             "-e", "JEST_CACHE_DIR=/tmp/jest",
             "-e", "NO_UPDATE_NOTIFIER=1",
             "-e", "npm_config_audit=false",
+            "-e", "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321",
+            "-e", "NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key",
+            "-e", "SUPABASE_SERVICE_ROLE_KEY=test-service-role-key",
             "-e", "PATH=/app/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "node:24-slim",
         ] + list(cmd)
@@ -143,6 +146,9 @@ def run_isolated_test(
     isolated_env = os.environ.copy()
     for key in SENSITIVE_ENV_KEYS:
         isolated_env.pop(key, None)
+    isolated_env["NEXT_PUBLIC_SUPABASE_URL"] = "http://127.0.0.1:54321"
+    isolated_env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] = "test-anon-key"
+    isolated_env["SUPABASE_SERVICE_ROLE_KEY"] = "test-service-role-key"
     return run_cmd(list(cmd), cwd=target_cwd, env=isolated_env, check=False, timeout=timeout)
 
 
