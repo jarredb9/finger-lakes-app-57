@@ -116,6 +116,7 @@ INSTRUCTIONS & ARCHITECTURAL INVARIANTS:
 8. Identify explicit target application source files (e.g. `lib/utils/foo.ts` or `components/Bar.tsx`).
 9. Determine a clean conventional commit scope (e.g. `winery`, `trip`, `geo`, `ui`).
 10. EDGE FUNCTION SHARED MODULE TESTING INVARIANT: When target source files include pure-TypeScript shared modules under `supabase/functions/_shared/*.ts`, their unit tests MUST be authored as Jest test files under `lib/` (e.g. `lib/utils/__tests__/<name>.test.ts`) importing from `@/supabase/functions/_shared/<module>`. Never plan tests under `supabase/` or `e2e/`.
+11. SCHEMA & CONTRACT EVOLUTION INVARIANT: When modifying existing stores, schemas, or APIs with breaking changes (e.g., bumping Zustand persist store version, modifying DB schema, changing API signatures), inspect existing test suites and explicitly include all tests with affected assertions in target_test_files. Never leave contract-invalidated tests in blast radius, as blast radius suites are immutable regression guards.
 
 Respond strictly in valid JSON matching the BlueprintPlan schema.
 """
@@ -149,12 +150,28 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
     for sf in blueprint.target_src_files:
         safe_resolve_repo_path(sf)
 
-    # Blast radius discovery: automatically detect dependent test files to prevent regression collisions
-    related_tests = find_related_test_files(blueprint.target_src_files)
-    for rt in related_tests:
-        if rt not in blueprint.target_test_files and rt not in blueprint.blast_radius_test_files:
-            log(f"Discovered dependent test file for blast radius: {rt}")
-            blueprint.blast_radius_test_files.append(rt)
+    # Blast radius discovery: merge model-planned suites with automatically discovered dependent test files,
+    # sanitize, deduplicate, exclude target test files, and cap at a maximum of 8 suites.
+    raw_blast_candidates = list(blueprint.blast_radius_test_files or []) + find_related_test_files(
+        blueprint.target_src_files
+    )
+    target_tests_set = set(blueprint.target_test_files)
+    sanitized_blast: list[str] = []
+    seen_blast: set[str] = set()
+
+    for candidate in raw_blast_candidates:
+        if (
+            is_valid_target_test_file(candidate)
+            and candidate not in target_tests_set
+            and candidate not in seen_blast
+        ):
+            seen_blast.add(candidate)
+            sanitized_blast.append(candidate)
+            log(f"Discovered dependent test file for blast radius: {candidate}")
+            if len(sanitized_blast) >= 8:
+                break
+
+    blueprint.blast_radius_test_files = sanitized_blast
 
     plan_path = config.get_project_root() / "task-plan.md"
     plan_path.write_text(blueprint.plan_markdown, encoding="utf-8")

@@ -59,7 +59,9 @@ def stage_3_green(
     for attempt in range(1, max_retries + 1):
         log(f"Implementation attempt {attempt}/{max_retries}...")
 
-        # Reset target source files to clean baseline before each attempt to prevent compounding patch errors
+        # Reset working tree back to baseline_ref before each attempt to prevent compounding patch errors
+        run_cmd(["git", "checkout", baseline_ref, "--", "."])
+        run_cmd(["git", "clean", "-fd"])
         reset_target_sources(target_src, baseline_ref=baseline_ref)
 
         src_content = ""
@@ -109,7 +111,11 @@ Respond strictly in valid JSON matching the PatchManifest schema.
             token_tracker=token_tracker,
         )
 
-        patch_success, patch_errors = apply_patch_manifest(manifest, new_src_files=new_src_files)
+        patch_success, patch_errors = apply_patch_manifest(
+            manifest,
+            new_src_files=new_src_files,
+            allowed_files=target_src,
+        )
         if not patch_success:
             last_error_context = "PREVIOUS ATTEMPT FAILED TO APPLY PATCHES:\n" + "\n".join(patch_errors) + "\nEnsure exact match of search_block against clean baseline source files."
             log(f"Attempt {attempt} patch application failed:\n" + "\n".join(patch_errors))
