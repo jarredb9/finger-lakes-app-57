@@ -120,13 +120,15 @@ export function normalizeGooglePlaceV1(place: GooglePlaceInput, tier: 'basic' | 
     generative_summary: place.generativeSummary ? { overview: { text: place.generativeSummary.overview?.text } } : undefined,
     neighborhood_summary: place.neighborhoodSummary ? { overview: { text: place.neighborhoodSummary.overview?.text } } : undefined,
     editorial_summary: place.editorialSummary ? { overview: { text: place.editorialSummary.overview?.text } } : undefined,
-    allows_dogs: place.allowsDogs,
+    allows_dogs: place.allowsDogs ?? null,
     has_ev_charging: place.evChargeOptions !== undefined && place.evChargeOptions !== null
-      ? (typeof place.evChargeOptions.connectorCount === 'number' ? place.evChargeOptions.connectorCount > 0 : true)
-      : (place.parkingOptions?.hasEvChargingStations),
-    serves_wine: place.servesWine,
-    good_for_children: place.goodForChildren,
-    outdoor_seating: place.outdoorSeating,
+      ? (typeof place.evChargeOptions.connectorCount === 'number'
+          ? (place.evChargeOptions.connectorCount > 0 ? true : (place.parkingOptions?.hasEvChargingStations ?? null))
+          : true)
+      : (place.parkingOptions?.hasEvChargingStations ?? null),
+    serves_wine: place.servesWine ?? null,
+    good_for_children: place.goodForChildren ?? null,
+    outdoor_seating: place.outdoorSeating ?? null,
     parking_options: place.parkingOptions,
     accessibility_flags: place.accessibilityOptions,
     primary_photo_reference: place.photos && place.photos.length > 0 ? place.photos[0].name : null,

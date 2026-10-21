@@ -767,10 +767,10 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'winery-data-storage-e2e' : 'winery-data-storage',
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => idbStorage),
       migrate: (persistedState: any, version: number) => {
-        if (version >= 2) {
+        if (version >= 3) {
           return persistedState;
         }
 
@@ -779,35 +779,53 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           return persistedState;
         }
 
-        const migratedWineries = state.persistentWineries.filter((w: any) => {
-          if (!w || typeof w !== 'object') return false;
-          if (!w.id || typeof w.id !== 'string' || w.id.trim().length === 0) return false;
-          if (typeof w.name !== 'string' || w.name.trim().length === 0) return false;
-          if (
-            typeof w.latitude !== 'number' ||
-            isNaN(w.latitude) ||
-            typeof w.longitude !== 'number' ||
-            isNaN(w.longitude)
-          ) {
-            return false;
-          }
+        let currentWineries: Winery[] = state.persistentWineries as Winery[];
 
-          // If record claims to be enriched or full, it MUST have valid openingHours
-          if (w.enrichment_tier === 'enriched' || w.enrichment_tier === 'full') {
-            const hasHours =
-              w.openingHours &&
-              typeof w.openingHours === 'object' &&
-              ((Array.isArray(w.openingHours.weekday_text) && w.openingHours.weekday_text.length > 0) ||
-                (Array.isArray(w.openingHours.periods) && w.openingHours.periods.length > 0));
-            if (!hasHours) return false;
-          }
+        if (version < 2) {
+          currentWineries = currentWineries.filter((w: any) => {
+            if (!w || typeof w !== 'object') return false;
+            if (!w.id || typeof w.id !== 'string' || w.id.trim().length === 0) return false;
+            if (typeof w.name !== 'string' || w.name.trim().length === 0) return false;
+            if (
+              typeof w.latitude !== 'number' ||
+              isNaN(w.latitude) ||
+              typeof w.longitude !== 'number' ||
+              isNaN(w.longitude)
+            ) {
+              return false;
+            }
 
-          return true;
-        });
+            // If record claims to be enriched or full, it MUST have valid openingHours
+            if (w.enrichment_tier === 'enriched' || w.enrichment_tier === 'full') {
+              const hasHours =
+                w.openingHours &&
+                typeof w.openingHours === 'object' &&
+                ((Array.isArray(w.openingHours.weekday_text) && w.openingHours.weekday_text.length > 0) ||
+                  (Array.isArray(w.openingHours.periods) && w.openingHours.periods.length > 0));
+              if (!hasHours) return false;
+            }
+
+            return true;
+          });
+        }
+
+        if (version < 3) {
+          currentWineries = currentWineries.map((w: any) => {
+            if (!w || typeof w !== 'object') return w;
+            return {
+              ...w,
+              allows_dogs: w.allows_dogs === false ? null : w.allows_dogs,
+              has_ev_charging: w.has_ev_charging === false ? null : w.has_ev_charging,
+              serves_wine: w.serves_wine === false ? null : w.serves_wine,
+              good_for_children: w.good_for_children === false ? null : w.good_for_children,
+              outdoor_seating: w.outdoor_seating === false ? null : w.outdoor_seating,
+            };
+          });
+        }
 
         return {
           ...state,
-          persistentWineries: migratedWineries,
+          persistentWineries: currentWineries,
         };
       },
       partialize: (state): Partial<WineryState> => {
