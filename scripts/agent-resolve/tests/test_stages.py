@@ -431,6 +431,84 @@ class TestStage1Plan(unittest.TestCase):
         self.assertIn("@/supabase/functions/_shared", prompt_text)
         self.assertIn("lib/", prompt_text)
 
+    def test_stage_1_prompt_contains_schema_and_contract_evolution_invariant(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ) as mock_gemini:
+            stage_1_plan(self.client, 42, "Store migration", "Bump store version", self.tracker)
+
+        prompt_text = mock_gemini.call_args[0][1]
+        self.assertIn(
+            "SCHEMA & CONTRACT EVOLUTION INVARIANT: When modifying existing stores, schemas, or APIs with breaking changes "
+            "(e.g., bumping Zustand persist store version, modifying DB schema, changing API signatures), "
+            "inspect existing test suites and explicitly include all tests with affected assertions in target_test_files. "
+            "Never leave contract-invalidated tests in blast radius, as blast radius suites are immutable regression guards.",
+            prompt_text,
+        )
+
+    def test_stage_1_blast_radius_merging_sanitizing_deduplicating_and_capping_at_8(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/target.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            blast_radius_test_files=[
+                "lib/__tests__/target.test.ts",  # Must be excluded (already in target_test_files)
+                "supabase/functions/_shared/__tests__/bad.test.ts",  # Must be excluded (invalid path)
+                "e2e/flow.spec.ts",  # Must be excluded (invalid path)
+                "lib/__tests__/valid1.test.ts",  # Valid candidate 1
+                "lib/__tests__/valid2.test.ts",  # Valid candidate 2
+                "lib/__tests__/valid1.test.ts",  # Duplicate of 1 (must be deduplicated)
+                "lib/__tests__/valid3.test.ts",  # Valid candidate 3
+            ],
+            plan_markdown="# Plan",
+        )
+
+        discovered_related = [
+            "lib/__tests__/valid2.test.ts",  # Duplicate of candidate 2
+            "lib/__tests__/valid4.test.ts",  # Valid candidate 4
+            "lib/__tests__/valid5.test.ts",  # Valid candidate 5
+            "lib/__tests__/valid6.test.ts",  # Valid candidate 6
+            "lib/__tests__/valid7.test.ts",  # Valid candidate 7
+            "lib/__tests__/valid8.test.ts",  # Valid candidate 8
+            "lib/__tests__/valid9.test.ts",  # Valid candidate 9 (should exceed max 8)
+            "lib/__tests__/valid10.test.ts",  # Valid candidate 10 (should exceed max 8)
+        ]
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=discovered_related
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ):
+            result_bp = stage_1_plan(self.client, 42, "Blast radius test", "Body", self.tracker)
+
+        expected_blast_radius = [
+            "lib/__tests__/valid1.test.ts",
+            "lib/__tests__/valid2.test.ts",
+            "lib/__tests__/valid3.test.ts",
+            "lib/__tests__/valid4.test.ts",
+            "lib/__tests__/valid5.test.ts",
+            "lib/__tests__/valid6.test.ts",
+            "lib/__tests__/valid7.test.ts",
+            "lib/__tests__/valid8.test.ts",
+        ]
+        self.assertEqual(len(result_bp.blast_radius_test_files), 8)
+        self.assertEqual(result_bp.blast_radius_test_files, expected_blast_radius)
+        self.assertNotIn("lib/__tests__/target.test.ts", result_bp.blast_radius_test_files)
+        self.assertNotIn("supabase/functions/_shared/__tests__/bad.test.ts", result_bp.blast_radius_test_files)
+        self.assertNotIn("e2e/flow.spec.ts", result_bp.blast_radius_test_files)
+
 
 
 class TestStage2Red(unittest.TestCase):
@@ -904,6 +982,8 @@ class TestStage3Green(unittest.TestCase):
                 # Attempt 3: targeted type-check exits 2 (fails fast, skips jest)
                 (2, "Type error", ""),
             ],
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
         ):
             with self.assertRaises(RuntimeError) as ctx:
                 stage_3_green(self.client, 42, "Flaky green", bp, self.tracker)
@@ -913,6 +993,71 @@ class TestStage3Green(unittest.TestCase):
         self.assertIn("PREVIOUS ATTEMPT FAILED TARGETED VERIFICATION:", prompt_2)
         prompt_3 = mock_gemini.call_args_list[2][0][1]
         self.assertIn("TARGETED TESTS PASSED BUT MANDATORY FULL REGRESSION GATE FAILED:", prompt_3)
+
+    def test_stage_3_resets_working_tree_and_cleans_before_each_attempt(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ), patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ) as mock_cmd:
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker, baseline_ref="custom_base")
+
+        mock_cmd.assert_has_calls([
+            call(["git", "checkout", "custom_base", "--", "."]),
+            call(["git", "clean", "-fd"]),
+        ])
+
+    def test_stage_3_passes_allowed_files_to_apply_patch_manifest(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts", "lib/bar.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ), patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ) as mock_apply, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker, new_src_files=["lib/bar.ts"])
+
+        mock_apply.assert_called_once_with(
+            manifest,
+            new_src_files=["lib/bar.ts"],
+            allowed_files=["lib/foo.ts", "lib/bar.ts"],
+        )
 
     def test_resumption_mode_soft_resets_to_baseline_and_removes_checkpoint_files(self) -> None:
         (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")

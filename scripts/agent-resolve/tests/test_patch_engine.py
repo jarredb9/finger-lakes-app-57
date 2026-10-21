@@ -466,3 +466,66 @@ class TestApplyPatchManifest(unittest.TestCase):
         success, errors = apply_patch_manifest(manifest)
         self.assertFalse(success)
         self.assertTrue(any("invalid file path" in e or "blocked" in e for e in errors))
+
+    def test_allowed_files_rejects_unallowed_file(self) -> None:
+        target = self.root / "lib" / "unallowed.ts"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("initial content\n", encoding="utf-8")
+
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/unallowed.ts",
+                    search_block="initial content",
+                    replace_block="changed content",
+                )
+            ]
+        )
+
+        allowed_files = ["lib/allowed.ts"]
+        success, errors = apply_patch_manifest(manifest, allowed_files=allowed_files)
+        self.assertFalse(success)
+        self.assertTrue(
+            any("rejected: file is not in allowed target files ['lib/allowed.ts']" in e for e in errors),
+            f"Unexpected errors: {errors}",
+        )
+        self.assertEqual(target.read_text(encoding="utf-8"), "initial content\n")
+
+    def test_allowed_files_permits_whitelisted_file(self) -> None:
+        target = self.root / "lib" / "allowed.ts"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("initial content\n", encoding="utf-8")
+
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/allowed.ts",
+                    search_block="initial content",
+                    replace_block="changed content",
+                )
+            ]
+        )
+
+        allowed_files = ["lib/allowed.ts"]
+        success, errors = apply_patch_manifest(manifest, allowed_files=allowed_files)
+        self.assertTrue(success, f"Failed with errors: {errors}")
+        self.assertEqual(target.read_text(encoding="utf-8"), "changed content\n")
+
+    def test_allowed_files_none_permits_any_valid_repo_file(self) -> None:
+        target = self.root / "lib" / "file.ts"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("initial content\n", encoding="utf-8")
+
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/file.ts",
+                    search_block="initial content",
+                    replace_block="changed content",
+                )
+            ]
+        )
+
+        success, errors = apply_patch_manifest(manifest, allowed_files=None)
+        self.assertTrue(success, f"Failed with errors: {errors}")
+        self.assertEqual(target.read_text(encoding="utf-8"), "changed content\n")
