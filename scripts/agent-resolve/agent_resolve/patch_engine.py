@@ -68,6 +68,7 @@ def reset_target_sources(target_src: Sequence[str], baseline_ref: str = "HEAD") 
 def apply_patch_manifest(
     manifest: PatchManifest,
     new_src_files: Sequence[str] | None = None,
+    allowed_files: Sequence[str] | None = None,
 ) -> tuple[bool, list[str]]:
     """
     Applies search/replace patches to target source files using a resilient two-tier engine:
@@ -80,11 +81,34 @@ def apply_patch_manifest(
     errors: list[str] = []
     staged_edits: dict[Path, str] = {}
 
+    allowed_targets: set[Path] | None = None
+    if allowed_files is not None:
+        allowed_targets = set()
+        for af in allowed_files:
+            try:
+                allowed_targets.add(safe_resolve_repo_path(af))
+            except Exception:
+                allowed_targets.add(Path(af).resolve())
+
+    new_src_targets: set[Path] = set()
+    if new_src_files:
+        for nf in new_src_files:
+            try:
+                new_src_targets.add(safe_resolve_repo_path(nf))
+            except Exception:
+                new_src_targets.add(Path(nf).resolve())
+
     for idx, patch in enumerate(manifest.patches, 1):
         try:
             target_path = safe_resolve_repo_path(patch.file_path)
         except Exception as e:
             errors.append(f"Patch #{idx} invalid file path: {e}")
+            continue
+
+        if allowed_targets is not None and target_path not in allowed_targets:
+            errors.append(
+                f"Patch #{idx} for '{patch.file_path}' rejected: file is not in allowed target files {list(allowed_files)}."
+            )
             continue
 
         current_content = staged_edits.get(target_path)
@@ -102,7 +126,7 @@ def apply_patch_manifest(
 
         # Case 1: Creating a brand new file (or replacing stub of a new file)
         if not search_block:
-            is_new = bool(new_src_files and patch.file_path in new_src_files)
+            is_new = bool(new_src_files and target_path in new_src_targets)
             if current_content is not None and target_path.exists() and not is_new:
                 errors.append(
                     f"Patch #{idx} specifies empty search_block for '{patch.file_path}', but the file already exists. "

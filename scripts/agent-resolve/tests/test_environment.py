@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import agent_resolve
 from agent_resolve import config
 from agent_resolve.environment import (
+    DEFAULT_SUPABASE_TEST_ENV,
     is_docker_available,
     log,
     run_cmd,
@@ -282,8 +283,65 @@ class TestEnvironment(unittest.TestCase):
 
                 passed_env = called_kwargs["env"]
                 self.assertEqual(passed_env.get("SAFE_VAR"), "keep_me")
-                for key in sensitive_keys:
+                for key in [
+                    "GEMINI_API_KEY",
+                    "GH_TOKEN",
+                    "GITHUB_TOKEN",
+                    "APP_ID",
+                    "APP_PRIVATE_KEY",
+                    "GOOGLE_MAPS_API_KEY",
+                ]:
                     self.assertNotIn(key, passed_env)
+
+                # Supabase secrets must be scrubbed and replaced with safe fallback values
+                self.assertEqual(passed_env.get("NEXT_PUBLIC_SUPABASE_URL"), "http://127.0.0.1:54321")
+                self.assertEqual(passed_env.get("NEXT_PUBLIC_SUPABASE_ANON_KEY"), "test-anon-key")
+                self.assertEqual(passed_env.get("SUPABASE_SERVICE_ROLE_KEY"), "test-service-role-key")
+
+    def test_run_isolated_test_docker_branch_injects_supabase_dummy_env_vars(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir).resolve()
+            config.set_project_root(tmp_path)
+            agent_resolve.PROJECT_ROOT = tmp_path
+
+            test_cmd = ["npm", "test"]
+            with patch("agent_resolve.environment.is_docker_available", return_value=True), \
+                 patch("os.getuid", return_value=1000), \
+                 patch("os.getgid", return_value=1000), \
+                 patch("agent_resolve.environment.run_cmd", return_value=(0, "ok", "")) as mock_run_cmd:
+                code, out, err = run_isolated_test(test_cmd, timeout=60)
+                self.assertEqual(code, 0)
+                docker_cmd = mock_run_cmd.call_args[0][0]
+                self.assertIn("NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321", docker_cmd)
+                self.assertIn("NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key", docker_cmd)
+                self.assertIn("SUPABASE_SERVICE_ROLE_KEY=test-service-role-key", docker_cmd)
+
+    def test_run_isolated_test_fallback_branch_injects_supabase_dummy_env_vars(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir).resolve()
+            config.set_project_root(tmp_path)
+            agent_resolve.PROJECT_ROOT = tmp_path
+
+            test_cmd = ["npm", "test"]
+            with patch("agent_resolve.environment.is_docker_available", return_value=False), \
+                 patch("agent_resolve.environment.run_cmd", return_value=(0, "ok", "")) as mock_run_cmd:
+                code, out, err = run_isolated_test(test_cmd, timeout=60)
+                self.assertEqual(code, 0)
+                passed_env = mock_run_cmd.call_args[1]["env"]
+                self.assertEqual(passed_env.get("NEXT_PUBLIC_SUPABASE_URL"), "http://127.0.0.1:54321")
+                self.assertEqual(passed_env.get("NEXT_PUBLIC_SUPABASE_ANON_KEY"), "test-anon-key")
+                self.assertEqual(passed_env.get("SUPABASE_SERVICE_ROLE_KEY"), "test-service-role-key")
+
+
+    def test_default_supabase_test_env_constant_contains_canonical_fallbacks(self) -> None:
+        self.assertEqual(
+            DEFAULT_SUPABASE_TEST_ENV,
+            {
+                "NEXT_PUBLIC_SUPABASE_URL": "http://127.0.0.1:54321",
+                "NEXT_PUBLIC_SUPABASE_ANON_KEY": "test-anon-key",
+                "SUPABASE_SERVICE_ROLE_KEY": "test-service-role-key",
+            },
+        )
 
 
 if __name__ == "__main__":

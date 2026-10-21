@@ -466,3 +466,99 @@ class TestApplyPatchManifest(unittest.TestCase):
         success, errors = apply_patch_manifest(manifest)
         self.assertFalse(success)
         self.assertTrue(any("invalid file path" in e or "blocked" in e for e in errors))
+
+    def test_allowed_files_rejects_unallowed_file(self) -> None:
+        target = self.root / "lib" / "unallowed.ts"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("initial content\n", encoding="utf-8")
+
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/unallowed.ts",
+                    search_block="initial content",
+                    replace_block="changed content",
+                )
+            ]
+        )
+
+        allowed_files = ["lib/allowed.ts"]
+        success, errors = apply_patch_manifest(manifest, allowed_files=allowed_files)
+        self.assertFalse(success)
+        self.assertTrue(
+            any("rejected: file is not in allowed target files ['lib/allowed.ts']" in e for e in errors),
+            f"Unexpected errors: {errors}",
+        )
+        self.assertEqual(target.read_text(encoding="utf-8"), "initial content\n")
+
+    def test_allowed_files_permits_whitelisted_file(self) -> None:
+        target = self.root / "lib" / "allowed.ts"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("initial content\n", encoding="utf-8")
+
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/allowed.ts",
+                    search_block="initial content",
+                    replace_block="changed content",
+                )
+            ]
+        )
+
+        allowed_files = ["lib/allowed.ts"]
+        success, errors = apply_patch_manifest(manifest, allowed_files=allowed_files)
+        self.assertTrue(success, f"Failed with errors: {errors}")
+        self.assertEqual(target.read_text(encoding="utf-8"), "changed content\n")
+
+    def test_allowed_files_normalizes_relative_dot_slash_paths(self) -> None:
+        target = self.root / "lib" / "allowed.ts"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("initial content\n", encoding="utf-8")
+
+        # Case 1: allowed_files has leading ./ but patch does not
+        manifest1 = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/allowed.ts",
+                    search_block="initial content\n",
+                    replace_block="v1\n",
+                )
+            ]
+        )
+        success1, errors1 = apply_patch_manifest(manifest1, allowed_files=["./lib/allowed.ts"])
+        self.assertTrue(success1, f"Failed case 1 with errors: {errors1}")
+        self.assertEqual(target.read_text(encoding="utf-8"), "v1\n")
+
+        # Case 2: patch has leading ./ but allowed_files does not
+        manifest2 = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="./lib/allowed.ts",
+                    search_block="v1\n",
+                    replace_block="v2\n",
+                )
+            ]
+        )
+        success2, errors2 = apply_patch_manifest(manifest2, allowed_files=["lib/allowed.ts"])
+        self.assertTrue(success2, f"Failed case 2 with errors: {errors2}")
+        self.assertEqual(target.read_text(encoding="utf-8"), "v2\n")
+
+    def test_allowed_files_none_permits_any_valid_repo_file(self) -> None:
+        target = self.root / "lib" / "file.ts"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("initial content\n", encoding="utf-8")
+
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/file.ts",
+                    search_block="initial content",
+                    replace_block="changed content",
+                )
+            ]
+        )
+
+        success, errors = apply_patch_manifest(manifest, allowed_files=None)
+        self.assertTrue(success, f"Failed with errors: {errors}")
+        self.assertEqual(target.read_text(encoding="utf-8"), "changed content\n")

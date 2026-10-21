@@ -25,6 +25,12 @@ SENSITIVE_ENV_KEYS: tuple[str, ...] = (
     "GOOGLE_MAPS_API_KEY",
 )
 
+DEFAULT_SUPABASE_TEST_ENV: dict[str, str] = {
+    "NEXT_PUBLIC_SUPABASE_URL": "http://127.0.0.1:54321",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "test-anon-key",
+    "SUPABASE_SERVICE_ROLE_KEY": "test-service-role-key",
+}
+
 
 def log(msg: str, file: Any = None) -> None:
     """Prints a timestamped message and flushes immediately to eliminate CI block buffering."""
@@ -135,6 +141,11 @@ def run_isolated_test(
             "-e", "JEST_CACHE_DIR=/tmp/jest",
             "-e", "NO_UPDATE_NOTIFIER=1",
             "-e", "npm_config_audit=false",
+        ] + [
+            arg
+            for k, v in DEFAULT_SUPABASE_TEST_ENV.items()
+            for arg in ("-e", f"{k}={v}")
+        ] + [
             "-e", "PATH=/app/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "node:24-slim",
         ] + list(cmd)
@@ -143,10 +154,12 @@ def run_isolated_test(
     isolated_env = os.environ.copy()
     for key in SENSITIVE_ENV_KEYS:
         isolated_env.pop(key, None)
+    isolated_env.update(DEFAULT_SUPABASE_TEST_ENV)
     return run_cmd(list(cmd), cwd=target_cwd, env=isolated_env, check=False, timeout=timeout)
 
 
 __all__: list[str] = [
+    "DEFAULT_SUPABASE_TEST_ENV",
     "SENSITIVE_ENV_KEYS",
     "log",
     "sanitize_secrets",

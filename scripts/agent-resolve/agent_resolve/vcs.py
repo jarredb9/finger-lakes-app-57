@@ -182,6 +182,9 @@ def preserve_failed_work(
             run_cmd(["git", "add"] + staged_targets)
             run_cmd(["git", "commit", "-m", f"wip({scope}): Incomplete implementation for Issue #{issue_number} [skip ci]"])
 
+    run_cmd(["git", "checkout", "--", "."])
+    run_cmd(["git", "clean", "-fd"])
+
     # Prepare checkpoint state
     now_iso = datetime.now(timezone.utc).isoformat()
     prev_attempts = 0
