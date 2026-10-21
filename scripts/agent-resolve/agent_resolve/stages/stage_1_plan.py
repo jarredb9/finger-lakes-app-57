@@ -16,6 +16,8 @@ from agent_resolve.models import BlueprintPlan, DiagnosticResult
 from agent_resolve.patch_engine import safe_resolve_repo_path
 from agent_resolve.tracker import TokenTracker
 
+MAX_BLAST_RADIUS_TESTS: int = 8
+
 
 def is_valid_target_test_file(path: str) -> bool:
     """
@@ -168,7 +170,7 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
             seen_blast.add(candidate)
             sanitized_blast.append(candidate)
             log(f"Discovered dependent test file for blast radius: {candidate}")
-            if len(sanitized_blast) >= 8:
+            if len(sanitized_blast) >= MAX_BLAST_RADIUS_TESTS:
                 break
 
     blueprint.blast_radius_test_files = sanitized_blast
