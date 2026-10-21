@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import agent_resolve
 from agent_resolve import config
 from agent_resolve.environment import (
+    DEFAULT_SUPABASE_TEST_ENV,
     is_docker_available,
     log,
     run_cmd,
@@ -330,6 +331,17 @@ class TestEnvironment(unittest.TestCase):
                 self.assertEqual(passed_env.get("NEXT_PUBLIC_SUPABASE_URL"), "http://127.0.0.1:54321")
                 self.assertEqual(passed_env.get("NEXT_PUBLIC_SUPABASE_ANON_KEY"), "test-anon-key")
                 self.assertEqual(passed_env.get("SUPABASE_SERVICE_ROLE_KEY"), "test-service-role-key")
+
+
+    def test_default_supabase_test_env_constant_contains_canonical_fallbacks(self) -> None:
+        self.assertEqual(
+            DEFAULT_SUPABASE_TEST_ENV,
+            {
+                "NEXT_PUBLIC_SUPABASE_URL": "http://127.0.0.1:54321",
+                "NEXT_PUBLIC_SUPABASE_ANON_KEY": "test-anon-key",
+                "SUPABASE_SERVICE_ROLE_KEY": "test-service-role-key",
+            },
+        )
 
 
 if __name__ == "__main__":
