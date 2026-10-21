@@ -68,6 +68,7 @@ def reset_target_sources(target_src: Sequence[str], baseline_ref: str = "HEAD") 
 def apply_patch_manifest(
     manifest: PatchManifest,
     new_src_files: Sequence[str] | None = None,
+    allowed_files: Sequence[str] | None = None,
 ) -> tuple[bool, list[str]]:
     """
     Applies search/replace patches to target source files using a resilient two-tier engine:
@@ -81,6 +82,12 @@ def apply_patch_manifest(
     staged_edits: dict[Path, str] = {}
 
     for idx, patch in enumerate(manifest.patches, 1):
+        if allowed_files is not None and patch.file_path not in allowed_files:
+            errors.append(
+                f"Patch #{idx} for '{patch.file_path}' rejected: file is not in allowed target files {list(allowed_files)}."
+            )
+            continue
+
         try:
             target_path = safe_resolve_repo_path(patch.file_path)
         except Exception as e:
