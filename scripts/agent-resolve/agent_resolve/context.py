@@ -7,13 +7,14 @@ from __future__ import annotations
 import os
 from pathlib import Path
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from agent_resolve import config
 from agent_resolve.environment import run_cmd
 
 GENERIC_STEMS: frozenset[str] = frozenset({"index", "types", "constants", "utils", "helpers"})
 JEST_PATHSPECS: tuple[str, ...] = ("*.test.ts", "*.test.tsx", "*.spec.ts", "*.spec.tsx")
+JEST_EXTENSIONS: tuple[str, ...] = (".test.tsx", ".spec.tsx", ".test.ts", ".spec.ts")
 
 DENO_ENTRYPOINT_PATTERNS: tuple[str, ...] = (
     "deno.serve",
@@ -115,6 +116,94 @@ def find_related_test_files(target_src_files: List[str]) -> List[str]:
     return candidates[:8]
 
 
+def extract_test_component_stem(path: str) -> tuple[str, str]:
+    """
+    Extracts (grouping_key, specialization) from a Jest test path.
+
+    Parameters:
+        path: Relative or normalized path to a Jest test file.
+
+    Returns:
+        tuple[str, str]:
+            - grouping_key: Normalized directory path combined with base component stem
+              (e.g., 'lib/stores/__tests__/wineryStore').
+            - specialization: Component specialization sub-extension
+              (e.g., 'persist', 'enrichment', 'variant'), or '' for generic fallback suites.
+    """
+    norm_path = path.replace("\\", "/").lstrip("./")
+    dir_name = os.path.dirname(norm_path)
+    filename = os.path.basename(norm_path)
+    base_name = filename
+    for ext in JEST_EXTENSIONS:
+        if filename.endswith(ext):
+            base_name = filename[:-len(ext)]
+            break
+
+    if "." in base_name:
+        stem, specialization = base_name.split(".", 1)
+    else:
+        stem = base_name
+        specialization = ""
+
+    grouping_key = f"{dir_name}/{stem}" if dir_name else stem
+    return grouping_key, specialization
+
+
+def deduplicate_target_test_files(
+    target_test_files: Sequence[str],
+) -> tuple[list[str], list[str]]:
+    """
+    Deduplicates candidate target test files by architectural component stem.
+
+    For each unique component stem:
+    - Retains only the single most specialized suite (e.g., .persist.test.ts, .enrichment.test.ts)
+      in primary target test files.
+    - Demotes unselected generic fallback suites (e.g., .test.ts) and extra specialized suites
+      into demoted test files for downstream blast radius regression coverage.
+    - Retains generic suites when no specialized suite exists for that component stem.
+    - Preserves distinct directory namespaces (e.g., lib/utils vs components).
+
+    Parameters:
+        target_test_files: Sequence of candidate test file paths.
+
+    Returns:
+        tuple[list[str], list[str]]: (primary_target_tests, demoted_tests)
+    """
+    unique_inputs: list[str] = []
+    seen_inputs: set[str] = set()
+    for tf in target_test_files:
+        if tf not in seen_inputs:
+            seen_inputs.add(tf)
+            unique_inputs.append(tf)
+
+    grouped: dict[str, list[tuple[str, str]]] = {}
+    for tf in unique_inputs:
+        grouping_key, spec = extract_test_component_stem(tf)
+        if grouping_key not in grouped:
+            grouped[grouping_key] = []
+        grouped[grouping_key].append((tf, spec))
+
+    primary_target_tests: list[str] = []
+    demoted_tests: list[str] = []
+
+    for _grouping_key, items in grouped.items():
+        specialized = [tf for tf, spec in items if spec != ""]
+        generic = [tf for tf, spec in items if spec == ""]
+        if specialized:
+            chosen = specialized[0]
+            primary_target_tests.append(chosen)
+            for tf, _ in items:
+                if tf != chosen:
+                    demoted_tests.append(tf)
+        else:
+            chosen = generic[0]
+            primary_target_tests.append(chosen)
+            for tf in generic[1:]:
+                demoted_tests.append(tf)
+
+    return primary_target_tests, demoted_tests
+
+
 def extract_test_suite_names(content: str) -> List[str]:
     """Extracts describe block titles from a test file to detect unintentional test suite deletion."""
     return re.findall(r"describe\s*\(\s*['\"`]([^'\"`]+)['\"`]", content)
@@ -175,9 +264,12 @@ def extract_agent_brief(issue_data: Dict[str, Any]) -> Optional[str]:
 __all__: list[str] = [
     "DENO_ENTRYPOINT_PATTERNS",
     "GENERIC_STEMS",
+    "JEST_EXTENSIONS",
     "JEST_PATHSPECS",
     "NON_SHARED_EDGE_FUNCTION_REGEX",
+    "deduplicate_target_test_files",
     "extract_agent_brief",
+    "extract_test_component_stem",
     "get_repository_tree",
     "get_project_context",
     "find_related_test_files",
