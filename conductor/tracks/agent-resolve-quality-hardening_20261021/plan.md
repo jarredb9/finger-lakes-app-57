@@ -21,11 +21,11 @@
     - [x] Assert that specialized test suites (e.g. `.persist.test.ts`, `.enrichment.test.ts`) are prioritized in `blueprint.target_test_files`, while generic suites (`.test.ts`) are demoted into `blueprint.blast_radius_test_files`.
     - [x] Assert that demoted test files are deduplicated and capped at `MAX_BLAST_RADIUS_TESTS = 8`.
     - [x] Execute `npm run test:agent` and confirm expected test failures.
-- [ ] Task: Implement Stage 1 test deduplication and blast radius demotion to pass tests (TDD Green phase)
-    - [ ] Implement `deduplicate_target_test_files` in `scripts/agent-resolve/agent_resolve/context.py` / `stages/stage_1_plan.py`.
-    - [ ] Update `stage_1_plan.py` to retain the primary specialized suite in `target_test_files` and route demoted suites into `blast_radius_test_files`.
-    - [ ] Add prompt directive in Stage 1 Planner constraining selection to 1 primary test suite per architectural component.
-    - [ ] Run `npm run test:agent` and verify all tests pass.
+- [x] Task: Implement Stage 1 test deduplication and blast radius demotion to pass tests (TDD Green phase) [commit: e462558]
+    - [x] Implement `deduplicate_target_test_files` in `scripts/agent-resolve/agent_resolve/context.py` / `stages/stage_1_plan.py`.
+    - [x] Update `stage_1_plan.py` to retain the primary specialized suite in `target_test_files` and route demoted suites into `blast_radius_test_files`.
+    - [x] Add prompt directive in Stage 1 Planner constraining selection to 1 primary test suite per architectural component.
+    - [x] Run `npm run test:agent` and verify all tests pass.
 - [ ] Task: Conductor - User Manual Verification 'Stage 1 Target Test Deduplication & Cohesion' (Protocol in workflow.md)
 
 ## Phase 3: Stage 3 Targeted ESLint Gate & Code Hygiene Directives
