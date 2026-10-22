@@ -13,6 +13,7 @@ from agent_resolve.context import (
     deduplicate_target_test_files,
     find_related_test_files,
     get_project_context,
+    get_repository_tree,
 )
 from agent_resolve.environment import log
 from agent_resolve.llm import call_gemini_with_fallback
@@ -68,6 +69,8 @@ def stage_1_plan(
     """Generates task-plan.md and structured file manifest using Planner model."""
     log(f"\n--- [Stage 1] Architectural Planning for Issue #{issue_number} ---")
     project_context = get_project_context()
+    repo_tree = get_repository_tree()
+    repo_tree_section = f"\n{repo_tree}\n" if repo_tree else ""
 
     diagnostic_section = ""
     if diagnostic_result:
@@ -102,10 +105,9 @@ Investigation Summary:
 Revise your architectural blueprint to resolve these failures. Do not re-attempt an incompatible design.
 """
 
-        prompt = f"""You are the Staff Principal Architect generating an authoritative implementation blueprint for Issue #{issue_number}: {issue_title}.
+        prompt = f"""You are the Staff Principal Architect generating an authoritative implementation blueprint.
 
-{project_context}
-
+{project_context}{repo_tree_section}
 ISSUE CONTEXT:
 Issue #{issue_number}: {issue_title}
 

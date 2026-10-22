@@ -53,8 +53,18 @@ def get_repository_tree() -> str:
     return "### EXISTING REPOSITORY SOURCE FILES:\n" + "\n".join(f"- {f}" for f in files)
 
 
-def get_project_context() -> str:
-    """Extracts essential project standards, architecture guidelines, and repository file inventory."""
+def get_project_context(include_tree: bool = False) -> str:
+    """
+    Extracts essential project standards and architecture guidelines (CONTEXT.md and AGENTS.md).
+    When include_tree is True, appends the repository source file tree from get_repository_tree().
+    Defaults to False to optimize static prompt caching prefixes and reduce token overhead.
+
+    Parameters:
+        include_tree: Whether to append the repository file inventory. Defaults to False.
+
+    Returns:
+        str: Formatted markdown string containing domain model and architectural rules.
+    """
     project_root = config.get_project_root()
     context_md = ""
     agents_md = ""
@@ -67,16 +77,18 @@ def get_project_context() -> str:
     if a_path.exists():
         agents_md = a_path.read_text(encoding="utf-8")
 
-    repo_tree = get_repository_tree()
-
-    return f"""### REPOSITORY DOMAIN MODEL (CONTEXT.md):
+    base_context = f"""### REPOSITORY DOMAIN MODEL (CONTEXT.md):
 {context_md}
 
 ### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):
 {agents_md}
-
-{repo_tree}
 """
+
+    if include_tree:
+        repo_tree = get_repository_tree()
+        if repo_tree:
+            return f"{base_context}\n{repo_tree}\n"
+    return base_context
 
 
 def find_related_test_files(target_src_files: List[str]) -> List[str]:

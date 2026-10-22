@@ -75,9 +75,11 @@ The files above do not exist in the repository yet. To ensure TypeScript compila
 Existing source files must remain untouched.
 """
 
-        prompt = f"""You are the Red Phase Executor Agent authoring failing tests for Issue #{issue_number}: {issue_title}.
+        prompt = f"""You are the Red Phase Executor Agent authoring failing tests.
 
 {project_context}
+ISSUE CONTEXT:
+Issue #{issue_number}: {issue_title}
 
 ARCHITECTURAL BLUEPRINT (task-plan.md):
 {plan_md}
