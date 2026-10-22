@@ -419,11 +419,11 @@ class TestStage1Plan(unittest.TestCase):
             f"Expected error message mentioning supabase/ or e2e/, got: {ctx.exception}",
         )
 
-    def test_stage_1_prompt_includes_shared_edge_function_jest_directives(self) -> None:
+    def test_stage_1_prompt_omits_deprecated_edge_function_directives(self) -> None:
         mock_blueprint = BlueprintPlan(
             scope="winery",
             target_test_files=["lib/utils/__tests__/geo.test.ts"],
-            target_src_files=["supabase/functions/_shared/geo.ts"],
+            target_src_files=["lib/utils/geo.ts"],
             plan_markdown="# Plan",
         )
 
@@ -434,12 +434,10 @@ class TestStage1Plan(unittest.TestCase):
         ), patch.object(
             agent_resolve, "call_gemini_with_fallback", return_value=mock_blueprint
         ) as mock_gemini:
-            stage_1_plan(self.client, 42, "Refactor geo shared", "Body", self.tracker)
+            stage_1_plan(self.client, 42, "Refactor geo", "Body", self.tracker)
 
         prompt_text = mock_gemini.call_args[0][1]
-        self.assertIn("supabase/functions/_shared", prompt_text)
-        self.assertIn("@/supabase/functions/_shared", prompt_text)
-        self.assertIn("lib/", prompt_text)
+        self.assertNotIn("EDGE FUNCTION SHARED MODULE TESTING INVARIANT", prompt_text)
 
     def test_stage_1_prompt_contains_schema_and_contract_evolution_invariant(self) -> None:
         bp = BlueprintPlan(
@@ -889,13 +887,13 @@ class TestStage2Red(unittest.TestCase):
             self.assertNotIn("components/__tests__/blast.test.tsx", call_args[0][0])
         self.assertEqual(bp.blast_radius_test_files, ["components/__tests__/blast.test.tsx"])
 
-    def test_stage_2_prompt_includes_shared_edge_function_jest_directives(self) -> None:
+    def test_stage_2_prompt_omits_deprecated_edge_function_directives(self) -> None:
         (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
 
         bp = BlueprintPlan(
             scope="winery",
             target_test_files=["lib/utils/__tests__/winery.test.ts"],
-            target_src_files=["supabase/functions/_shared/winery.ts"],
+            target_src_files=["lib/utils/winery.ts"],
             plan_markdown="# Plan",
         )
 
@@ -924,9 +922,7 @@ class TestStage2Red(unittest.TestCase):
             stage_2_red(self.client, 42, "Shared winery test", bp, self.tracker)
 
         prompt_text = mock_gemini.call_args[0][1]
-        self.assertIn("@/supabase/functions/_shared", prompt_text)
-        self.assertIn("supabase/", prompt_text)
-        self.assertIn("e2e/", prompt_text)
+        self.assertNotIn("EDGE FUNCTION SHARED MODULE TESTING INVARIANT", prompt_text)
 
     def test_stage_2_requests_test_patch_manifest_and_applies_via_patch_engine(self) -> None:
         (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")

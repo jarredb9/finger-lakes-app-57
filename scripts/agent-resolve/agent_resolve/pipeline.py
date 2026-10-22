@@ -120,11 +120,14 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
             gh_cli(["issue", "comment", str(issue_number), "--body", "⚠️ Autonomous agent resolution rejected: Issue author is not verified repository maintainer."])
         return False
 
-    # Complexity & Scope Triage Advisory
+    # Complexity & Suitability Gate
     is_suitable, reason = is_issue_suitable_for_headless_agent(issue_title, issue_body)
     if not is_suitable:
-        log(f"⚠️ Complexity Advisory for Issue #{issue_number}: Contains interactive or platform-specific elements: {reason}.")
-        log("Advisory: If resolution involves complex DOM gestures or deep-links, human-in-the-loop Antigravity CLI review is recommended.")
+        log(f"⚠️ Suitability Gate Rejected: Issue #{issue_number} is unsuitable for headless resolution: {reason}.")
+        if not dry_run:
+            gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:resolve", "--add-label", "ready-for-human"])
+            gh_cli(["issue", "comment", str(issue_number), "--body", f"⚠️ Autonomous agent resolution halted: Issue requires human-in-the-loop Antigravity CLI session due to Edge Function / platform complexity: {reason}."])
+        return False
 
     branch_name = f"agent/issue-{issue_number}"
 
@@ -335,6 +338,20 @@ Do not attempt to modify incompatible existing components; design clean, isolate
         if not is_resumption:
             # Stage 0: Diagnostic Exploration
             diagnostic_result = stage_0_diagnose(client, issue_title, issue_body, token_tracker)
+
+            has_edge_function = any(
+                f.startswith("supabase/functions/") or "/supabase/functions/" in f or "supabase/functions" in f
+                for f in (diagnostic_result.target_files or [])
+            )
+            if has_edge_function:
+                log("⚠️ Secondary Suitability Gate: Stage 0 diagnostics identified target files touching Edge Functions under supabase/functions/. Halting autonomous resolution.")
+                if not dry_run:
+                    gh_cli(["issue", "edit", str(issue_number), "--remove-label", "agent:in-progress", "--remove-label", "agent:resolve", "--add-label", "ready-for-human"])
+                    gh_cli(["issue", "comment", str(issue_number), "--body", "⚠️ Autonomous agent resolution halted: Stage 0 diagnostics identified target files touching Edge Functions (`supabase/functions/`), which require the Deno runtime. Human-in-the-loop Antigravity CLI session required."])
+                reset_working_tree_to_main()
+                if dry_run:
+                    run_cmd(["git", "branch", "-D", branch_name])
+                return False
 
             # Stage 1: Blueprint Plan
             blueprint = stage_1_plan(

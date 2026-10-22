@@ -151,10 +151,10 @@ class TestResolveIssueSuitabilityGating(unittest.TestCase):
         )
         comment_calls = [
             c for c in mock_gh.call_args_list
-            if len(c[0]) > 0 and len(c[0][0]) >= 4 and c[0][0][:2] == ["issue", "comment"]
+            if len(c[0]) > 0 and len(c[0][0]) >= 5 and c[0][0][:2] == ["issue", "comment"]
         ]
         self.assertTrue(len(comment_calls) > 0, "Expected issue comment call not found")
-        comment_body = comment_calls[0][0][0][3]
+        comment_body = comment_calls[0][0][0][4]
         self.assertIn("human-in-the-loop Antigravity CLI", comment_body)
         self.assertIn("Edge Function modification (supabase/functions/) requires Deno runtime", comment_body)
 
@@ -241,10 +241,10 @@ class TestResolveIssueSuitabilityGating(unittest.TestCase):
         )
         comment_calls = [
             c for c in mock_gh.call_args_list
-            if len(c[0]) > 0 and len(c[0][0]) >= 4 and c[0][0][:2] == ["issue", "comment"]
+            if len(c[0]) > 0 and len(c[0][0]) >= 5 and c[0][0][:2] == ["issue", "comment"]
         ]
         self.assertTrue(len(comment_calls) > 0, "Expected issue comment call not found")
-        comment_body = comment_calls[0][0][0][3]
+        comment_body = comment_calls[0][0][0][4]
         self.assertIn("supabase/functions", comment_body)
         self.assertIn("Antigravity CLI", comment_body)
 
@@ -294,10 +294,10 @@ class TestResolveIssueSuitabilityGating(unittest.TestCase):
         )
         comment_calls = [
             c for c in mock_gh.call_args_list
-            if len(c[0]) > 0 and len(c[0][0]) >= 4 and c[0][0][:2] == ["issue", "comment"]
+            if len(c[0]) > 0 and len(c[0][0]) >= 5 and c[0][0][:2] == ["issue", "comment"]
         ]
         self.assertTrue(len(comment_calls) > 0, "Expected issue comment call not found")
-        comment_body = comment_calls[0][0][0][3]
+        comment_body = comment_calls[0][0][0][4]
         self.assertIn("supabase/functions", comment_body)
         self.assertIn("Antigravity CLI", comment_body)
 

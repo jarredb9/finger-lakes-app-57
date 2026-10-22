@@ -417,7 +417,9 @@ class TestIsIssueSuitableForHeadlessAgent(unittest.TestCase):
                 suitable, reason = is_issue_suitable_for_headless_agent(title, body)
                 self.assertFalse(suitable)
                 self.assertTrue(
-                    "non-shared Edge Function" in reason or "Deno runtime entrypoint" in reason,
+                    "Edge Function modification (supabase/functions/) requires Deno runtime" in reason
+                    or "non-shared Edge Function" in reason
+                    or "Deno runtime entrypoint" in reason,
                     f"Unexpected reason: {reason}",
                 )
 

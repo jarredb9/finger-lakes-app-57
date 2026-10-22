@@ -23,6 +23,9 @@ DENO_ENTRYPOINT_PATTERNS: tuple[str, ...] = (
     "deno.json",
 )
 
+EDGE_FUNCTION_UNSUITABLE_REASON: str = "Edge Function modification (supabase/functions/) requires Deno runtime"
+EDGE_FUNCTION_PATH_REGEX: re.Pattern[str] = re.compile(r"supabase/functions(?:/|\b)", re.IGNORECASE)
+
 NON_SHARED_EDGE_FUNCTION_REGEX: re.Pattern[str] = re.compile(
     r"supabase/functions/(?!_shared(?:/|$|\.))[\w.-]+"
 )
@@ -213,7 +216,7 @@ def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> T
     """
     Evaluates whether an issue is suitable for headless overnight resolution or requires
     interactive Antigravity CLI due to complex UI, external URL schemes, mobile platform quirks,
-    or Deno runtime entrypoints/non-shared Edge Function handlers.
+    or Edge Function modifications touching supabase/functions/ (including _shared/).
     """
     text = f"{issue_title}\n{issue_body}".lower()
     reasons: List[str] = []
@@ -225,8 +228,8 @@ def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> T
         reasons.append("external vendor deep-linking scheme")
     if any(p in text for p in DENO_ENTRYPOINT_PATTERNS):
         reasons.append("Deno runtime entrypoint")
-    if NON_SHARED_EDGE_FUNCTION_REGEX.search(text):
-        reasons.append("non-shared Edge Function path")
+    if EDGE_FUNCTION_PATH_REGEX.search(text):
+        reasons.append(EDGE_FUNCTION_UNSUITABLE_REASON)
 
     if reasons:
         return False, "; ".join(reasons)
@@ -263,6 +266,8 @@ def extract_agent_brief(issue_data: Dict[str, Any]) -> Optional[str]:
 
 __all__: list[str] = [
     "DENO_ENTRYPOINT_PATTERNS",
+    "EDGE_FUNCTION_PATH_REGEX",
+    "EDGE_FUNCTION_UNSUITABLE_REASON",
     "GENERIC_STEMS",
     "JEST_EXTENSIONS",
     "JEST_PATHSPECS",
