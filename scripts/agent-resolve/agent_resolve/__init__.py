@@ -79,6 +79,8 @@ from agent_resolve.llm import (
     is_transient_error,
 )
 from agent_resolve.context import (
+    EDGE_FUNCTION_PATH_REGEX,
+    EDGE_FUNCTION_UNSUITABLE_REASON,
     deduplicate_target_test_files,
     extract_agent_brief,
     extract_test_component_stem,
@@ -210,6 +212,8 @@ __all__: list[str] = [
     "get_genai_client",
     "is_transient_error",
     "context",
+    "EDGE_FUNCTION_PATH_REGEX",
+    "EDGE_FUNCTION_UNSUITABLE_REASON",
     "deduplicate_target_test_files",
     "extract_agent_brief",
     "extract_test_component_stem",

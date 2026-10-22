@@ -122,8 +122,7 @@ INSTRUCTIONS & ARCHITECTURAL INVARIANTS:
 7. Identify explicit target test files (e.g. `lib/utils/__tests__/foo.test.ts` or `components/__tests__/Bar.test.tsx`). Select only the single most cohesive test file for each modified source file. Do not duplicate identical unit tests across multiple test files.
 8. Identify explicit target application source files (e.g. `lib/utils/foo.ts` or `components/Bar.tsx`).
 9. Determine a clean conventional commit scope (e.g. `winery`, `trip`, `geo`, `ui`).
-10. EDGE FUNCTION SHARED MODULE TESTING INVARIANT: When target source files include pure-TypeScript shared modules under `supabase/functions/_shared/*.ts`, their unit tests MUST be authored as Jest test files under `lib/` (e.g. `lib/utils/__tests__/<name>.test.ts`) importing from `@/supabase/functions/_shared/<module>`. Never plan tests under `supabase/` or `e2e/`.
-11. SCHEMA & CONTRACT EVOLUTION INVARIANT: When modifying existing stores, schemas, or APIs with breaking changes (e.g., bumping Zustand persist store version, modifying DB schema, changing API signatures), inspect existing test suites and explicitly include all tests with affected assertions in target_test_files. Never leave contract-invalidated tests in blast radius, as blast radius suites are immutable regression guards.
+10. SCHEMA & CONTRACT EVOLUTION INVARIANT: When modifying existing stores, schemas, or APIs with breaking changes (e.g., bumping Zustand persist store version, modifying DB schema, changing API signatures), inspect existing test suites and explicitly include all tests with affected assertions in target_test_files. Never leave contract-invalidated tests in blast radius, as blast radius suites are immutable regression guards.
 
 Respond strictly in valid JSON matching the BlueprintPlan schema.
 """
