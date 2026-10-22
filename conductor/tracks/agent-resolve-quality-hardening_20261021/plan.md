@@ -56,11 +56,11 @@
 - [x] Task: Conductor - User Manual Verification 'Edge Function Runtime Boundary & Suitability Gate' (Protocol in workflow.md) [commit: 32cf662]
 
 ## Phase 5: Context Pruning & Static Prefix Prompt Caching
-- [ ] Task: Write failing unit tests for prompt context pruning and static prefix caching layout (TDD Red phase)
-    - [ ] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` and `test_context.py` asserting that `get_project_context(include_tree=False)` omits repository files.
-    - [ ] Assert that Stage 2 and Stage 3 prompts do not contain repository file tree dumps.
-    - [ ] Assert that prompts in Stages 1, 2, and 3 place static repository guidelines (`CONTEXT.md`, `AGENTS.md`) and immutable role headers at byte 0.
-    - [ ] Execute `npm run test:agent` and confirm expected test failures.
+- [x] Task: Write failing unit tests for prompt context pruning and static prefix caching layout (TDD Red phase) [commit: f376a6e]
+    - [x] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` and `test_context.py` asserting that `get_project_context(include_tree=False)` omits repository files.
+    - [x] Assert that Stage 2 and Stage 3 prompts do not contain repository file tree dumps.
+    - [x] Assert that prompts in Stages 1, 2, and 3 place static repository guidelines (`CONTEXT.md`, `AGENTS.md`) and immutable role headers at byte 0.
+    - [x] Execute `npm run test:agent` and confirm expected test failures.
 - [ ] Task: Implement prompt context pruning and static prefix caching to pass tests (TDD Green phase)
     - [ ] Update `context.py` to support `get_project_context(include_tree: bool = False)` (default `False`).
     - [ ] Update `stage_1_plan.py` to call `get_repository_tree()` explicitly, and update `stage_2_red.py` and `stage_3_green.py` to omit it.
