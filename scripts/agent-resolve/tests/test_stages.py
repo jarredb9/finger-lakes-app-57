@@ -519,6 +519,108 @@ class TestStage1Plan(unittest.TestCase):
         self.assertNotIn("supabase/functions/_shared/__tests__/bad.test.ts", result_bp.blast_radius_test_files)
         self.assertNotIn("e2e/flow.spec.ts", result_bp.blast_radius_test_files)
 
+    def test_stage_1_deduplicates_target_tests_and_routes_demoted_to_blast_radius(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=[
+                "lib/stores/__tests__/wineryStore.persist.test.ts",
+                "lib/stores/__tests__/wineryStore.test.ts",
+            ],
+            target_src_files=["lib/stores/wineryStore.ts"],
+            plan_markdown="# Plan",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ):
+            result_bp = stage_1_plan(self.client, 42, "Deduplicate tests", "Body", self.tracker)
+
+        self.assertEqual(
+            result_bp.target_test_files,
+            ["lib/stores/__tests__/wineryStore.persist.test.ts"],
+        )
+        self.assertIn(
+            "lib/stores/__tests__/wineryStore.test.ts",
+            result_bp.blast_radius_test_files,
+        )
+
+    def test_stage_1_demoted_test_files_deduplicated_and_capped_at_max_blast_radius(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=[
+                "lib/stores/__tests__/wineryStore.persist.test.ts",
+                "lib/stores/__tests__/wineryStore.test.ts",
+            ],
+            target_src_files=["lib/stores/wineryStore.ts"],
+            blast_radius_test_files=[
+                "lib/stores/__tests__/wineryStore.test.ts",
+                "lib/__tests__/extra1.test.ts",
+                "lib/__tests__/extra2.test.ts",
+                "lib/__tests__/extra3.test.ts",
+                "lib/__tests__/extra4.test.ts",
+            ],
+            plan_markdown="# Plan",
+        )
+
+        discovered_related = [
+            "lib/__tests__/extra5.test.ts",
+            "lib/__tests__/extra6.test.ts",
+            "lib/__tests__/extra7.test.ts",
+            "lib/__tests__/extra8.test.ts",
+            "lib/__tests__/extra9.test.ts",
+        ]
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=discovered_related
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ):
+            result_bp = stage_1_plan(self.client, 42, "Capping test", "Body", self.tracker)
+
+        self.assertEqual(
+            result_bp.target_test_files,
+            ["lib/stores/__tests__/wineryStore.persist.test.ts"],
+        )
+        self.assertEqual(len(result_bp.blast_radius_test_files), 8)
+        self.assertNotIn(
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            result_bp.blast_radius_test_files,
+        )
+        self.assertIn(
+            "lib/stores/__tests__/wineryStore.test.ts",
+            result_bp.blast_radius_test_files,
+        )
+
+    def test_stage_1_prompt_contains_target_test_cohesion_and_deduplication_directive(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/target.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ) as mock_gemini:
+            stage_1_plan(self.client, 42, "Prompt test", "Body", self.tracker)
+
+        prompt_text = mock_gemini.call_args[0][1]
+        self.assertIn(
+            "Select only the single most cohesive test file for each modified source file. "
+            "Do not duplicate identical unit tests across multiple test files.",
+            prompt_text,
+        )
+
 
 
 class TestStage2Red(unittest.TestCase):

@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from agent_resolve import config
 from agent_resolve.context import (
     JEST_PATHSPECS,
+    deduplicate_target_test_files,
     extract_agent_brief,
     extract_test_suite_names,
     find_related_test_files,
@@ -530,6 +531,99 @@ class TestExtractAgentBrief(unittest.TestCase):
             ]
         }
         self.assertIsNone(extract_agent_brief(issue_data))
+
+
+
+
+class TestDeduplicateTargetTestFiles(unittest.TestCase):
+    def test_deduplicate_separates_specialized_from_generic_stem(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            "lib/stores/__tests__/wineryStore.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/stores/__tests__/wineryStore.persist.test.ts"])
+        self.assertEqual(demoted, ["lib/stores/__tests__/wineryStore.test.ts"])
+
+    def test_deduplicate_prioritizes_specialized_regardless_of_input_order(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.test.ts",
+            "lib/stores/__tests__/wineryStore.enrichment.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/stores/__tests__/wineryStore.enrichment.test.ts"])
+        self.assertEqual(demoted, ["lib/stores/__tests__/wineryStore.test.ts"])
+
+    def test_deduplicate_retains_generic_when_no_specialized_suite_exists(self) -> None:
+        inputs = ["lib/utils/__tests__/winery.test.ts"]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/utils/__tests__/winery.test.ts"])
+        self.assertEqual(demoted, [])
+
+    def test_deduplicate_handles_multiple_independent_component_stems(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            "lib/stores/__tests__/wineryStore.test.ts",
+            "lib/stores/__tests__/tripStore.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(
+            primary,
+            [
+                "lib/stores/__tests__/wineryStore.persist.test.ts",
+                "lib/stores/__tests__/tripStore.test.ts",
+            ],
+        )
+        self.assertEqual(demoted, ["lib/stores/__tests__/wineryStore.test.ts"])
+
+    def test_deduplicate_handles_multiple_specialized_suites_for_same_stem(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            "lib/stores/__tests__/wineryStore.enrichment.test.ts",
+            "lib/stores/__tests__/wineryStore.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/stores/__tests__/wineryStore.persist.test.ts"])
+        self.assertEqual(
+            demoted,
+            [
+                "lib/stores/__tests__/wineryStore.enrichment.test.ts",
+                "lib/stores/__tests__/wineryStore.test.ts",
+            ],
+        )
+
+    def test_deduplicate_preserves_distinct_directories_with_same_base_filename(self) -> None:
+        inputs = [
+            "lib/utils/__tests__/format.test.ts",
+            "components/__tests__/format.test.tsx",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(
+            primary,
+            [
+                "lib/utils/__tests__/format.test.ts",
+                "components/__tests__/format.test.tsx",
+            ],
+        )
+        self.assertEqual(demoted, [])
+
+    def test_deduplicate_supports_tsx_and_spec_extensions(self) -> None:
+        inputs = [
+            "components/__tests__/TripCard.variant.spec.tsx",
+            "components/__tests__/TripCard.spec.tsx",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["components/__tests__/TripCard.variant.spec.tsx"])
+        self.assertEqual(demoted, ["components/__tests__/TripCard.spec.tsx"])
+
+    def test_deduplicate_deduplicates_exact_duplicate_paths(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/stores/__tests__/wineryStore.persist.test.ts"])
+        self.assertEqual(demoted, [])
 
 
 
