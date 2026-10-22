@@ -33,13 +33,13 @@
     - [x] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` asserting Stage 3 executes targeted ESLint after type checking and captures truncated diagnostics into `last_error_context` on failure.
     - [x] Add unit tests asserting that ESLint failure triggers retry loop, while exit code 0 proceeds to Jest verification.
     - [x] Execute `npm run test:agent` and confirm expected test failures.
-- [ ] Task: Implement Stage 3 ESLint verification gate, eslint config update, and refactor existing ternaries to pass tests (TDD Green phase)
-    - [ ] Add `"no-nested-ternary": "error"` rule to `eslint.config.mjs`.
-    - [ ] Refactor existing nested ternaries in `lib/utils/adapters/google-v1.ts` and `components/TripCardSimplePresentational.tsx`.
-    - [ ] Update `scripts/agent-resolve/agent_resolve/stages/stage_3_green.py` to execute `npx eslint --no-warn-ignored <target_src_files>`.
-    - [ ] Wire ESLint exit code failures into retry loop with sanitized diagnostic error context (`truncate_error_context`).
-    - [ ] Add code hygiene directive to Stage 3 Green prompt prohibiting nested ternaries (>1 level) and mandating pure helper extraction.
-    - [ ] Run `npm run test:agent` and verify all tests pass.
+- [x] Task: Implement Stage 3 ESLint verification gate, eslint config update, and refactor existing ternaries to pass tests (TDD Green phase) [commit: f391b83]
+    - [x] Add `"no-nested-ternary": "error"` rule to `eslint.config.mjs`.
+    - [x] Refactor existing nested ternaries in `lib/utils/adapters/google-v1.ts` and `components/TripCardSimplePresentational.tsx`.
+    - [x] Update `scripts/agent-resolve/agent_resolve/stages/stage_3_green.py` to execute `npx eslint --no-warn-ignored <target_src_files>`.
+    - [x] Wire ESLint exit code failures into retry loop with sanitized diagnostic error context (`truncate_error_context`).
+    - [x] Add code hygiene directive to Stage 3 Green prompt prohibiting nested ternaries (>1 level) and mandating pure helper extraction.
+    - [x] Run `npm run test:agent` and verify all tests pass.
 - [ ] Task: Conductor - User Manual Verification 'Stage 3 Targeted ESLint Gate & Code Hygiene Directives' (Protocol in workflow.md)
 
 ## Phase 4: Edge Function Runtime Boundary & Suitability Gate
