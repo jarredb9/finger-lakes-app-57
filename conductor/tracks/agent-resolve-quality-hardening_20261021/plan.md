@@ -61,11 +61,11 @@
     - [x] Assert that Stage 2 and Stage 3 prompts do not contain repository file tree dumps.
     - [x] Assert that prompts in Stages 1, 2, and 3 place static repository guidelines (`CONTEXT.md`, `AGENTS.md`) and immutable role headers at byte 0.
     - [x] Execute `npm run test:agent` and confirm expected test failures.
-- [ ] Task: Implement prompt context pruning and static prefix caching to pass tests (TDD Green phase)
-    - [ ] Update `context.py` to support `get_project_context(include_tree: bool = False)` (default `False`).
-    - [ ] Update `stage_1_plan.py` to call `get_repository_tree()` explicitly, and update `stage_2_red.py` and `stage_3_green.py` to omit it.
-    - [ ] Reorder prompts across all stages to position static guidelines at the prefix.
-    - [ ] Run `npm run test:agent` and `npm run test:agent:all` to ensure zero regressions across the entire suite.
+- [x] Task: Implement prompt context pruning and static prefix caching to pass tests (TDD Green phase) [commit: 7144f96]
+    - [x] Update `context.py` to support `get_project_context(include_tree: bool = False)` (default `False`).
+    - [x] Update `stage_1_plan.py` to call `get_repository_tree()` explicitly, and update `stage_2_red.py` and `stage_3_green.py` to omit it.
+    - [x] Reorder prompts across all stages to position static guidelines at the prefix.
+    - [x] Run `npm run test:agent` and `npm run test:agent:all` to ensure zero regressions across the entire suite.
 - [ ] Task: Conductor - User Manual Verification 'Context Pruning & Static Prefix Prompt Caching' (Protocol in workflow.md)
 
 ## Phase 6: Semantic Diagnostic Filtering & Stack Trace Pruning
