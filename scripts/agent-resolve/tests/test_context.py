@@ -421,15 +421,32 @@ class TestIsIssueSuitableForHeadlessAgent(unittest.TestCase):
                     f"Unexpected reason: {reason}",
                 )
 
-    def test_permits_pure_typescript_shared_edge_function_modules(self) -> None:
+    def test_flags_shared_edge_function_paths_as_unsuitable(self) -> None:
         suitable, reason = is_issue_suitable_for_headless_agent(
             "Refactor coordinate standardizer in supabase/functions/_shared/winery.ts",
-            "Add altitude clamp to winery normalization in supabase/functions/_shared/winery.ts without modifying Deno runtime entrypoints.",
+            "Add altitude clamp to winery normalization in supabase/functions/_shared/winery.ts",
         )
-        self.assertTrue(suitable)
-        self.assertEqual(reason, "")
+        self.assertFalse(suitable)
+        self.assertIn("Edge Function modification (supabase/functions/) requires Deno runtime", reason)
 
-    def test_flags_deno_runtime_even_if_shared_edge_function_present(self) -> None:
+    def test_flags_all_edge_function_modifications_including_shared(self) -> None:
+        cases = [
+            ("Fix places function", "Modifies supabase/functions/places/index.ts"),
+            ("Update shared utils", "Touches supabase/functions/_shared/utils.ts"),
+            ("Update shared cors", "Changes in supabase/functions/_shared/cors.ts"),
+            ("Add new edge function", "Create supabase/functions/new-fn/index.ts"),
+            ("Update root config", "Edit supabase/functions/deno.json"),
+        ]
+        for title, body in cases:
+            with self.subTest(title=title):
+                suitable, reason = is_issue_suitable_for_headless_agent(title, body)
+                self.assertFalse(suitable)
+                self.assertIn(
+                    "Edge Function modification (supabase/functions/) requires Deno runtime",
+                    reason,
+                )
+
+    def test_flags_deno_runtime_and_edge_function_paths_with_combined_reasons(self) -> None:
         mixed_cases = [
             (
                 "Refactor shared utils and handler",
@@ -444,9 +461,9 @@ class TestIsIssueSuitableForHeadlessAgent(unittest.TestCase):
             with self.subTest(title=title):
                 suitable, reason = is_issue_suitable_for_headless_agent(title, body)
                 self.assertFalse(suitable)
-                self.assertTrue(
-                    "Deno runtime entrypoint" in reason or "non-shared Edge Function" in reason,
-                    f"Unexpected reason: {reason}",
+                self.assertIn(
+                    "Edge Function modification (supabase/functions/) requires Deno runtime",
+                    reason,
                 )
 
 
