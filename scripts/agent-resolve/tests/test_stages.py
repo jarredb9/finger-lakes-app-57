@@ -986,6 +986,11 @@ class TestStage2Red(unittest.TestCase):
 
         def fake_run_cmd(cmd: list[str], **kwargs: Any) -> tuple[int, str, str]:
             cmd_calls.append(cmd)
+            if len(cmd) >= 4 and cmd[:3] == ["git", "checkout", "HEAD"]:
+                for target_file in cmd[4:]:
+                    p = self.root / target_file
+                    if p.name == "revert.test.ts":
+                        p.write_text("describe('baseline', () => {});\n", encoding="utf-8")
             return (0, "", "")
 
         with patch.object(

@@ -70,6 +70,7 @@ from agent_resolve.models import (
     T,
     TestFileEntry,
     TestFileManifest,
+    TestPatchManifest,
 )
 from agent_resolve.tracker import TokenTracker
 from agent_resolve.llm import (
@@ -183,6 +184,7 @@ __all__: list[str] = [
     "TestFileEntry",
     "SourceStubEntry",
     "TestFileManifest",
+    "TestPatchManifest",
     "PatchChunk",
     "PatchManifest",
     "DiagnosticResult",
