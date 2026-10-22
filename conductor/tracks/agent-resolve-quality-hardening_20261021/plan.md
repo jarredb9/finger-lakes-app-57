@@ -42,7 +42,7 @@
     - [x] Run `npm run test:agent` and verify all tests pass.
 - [x] Task: Conductor - User Manual Verification 'Stage 3 Targeted ESLint Gate & Code Hygiene Directives' (Protocol in workflow.md) [commit: 556f983]
 
-## Phase 4: Edge Function Runtime Boundary & Suitability Gate
+## Phase 4: Edge Function Runtime Boundary & Suitability Gate [checkpoint: 32cf662]
 - [x] Task: Write failing unit tests for Edge Function suitability hard gating in context and pipeline (TDD Red phase) [commit: 44c80b6]
     - [x] Add unit tests in `scripts/agent-resolve/tests/test_context.py` asserting `is_issue_suitable_for_headless_agent` returns `(False, ...)` for all issues modifying `supabase/functions/` (including `_shared/`).
     - [x] Add unit tests in `scripts/agent-resolve/tests/test_pipeline.py` asserting that unsuitable issues cause `pipeline.py` to post a comment via `gh_cli` and exit cleanly without executing stages.
@@ -53,7 +53,7 @@
     - [x] Update `scripts/agent-resolve/agent_resolve/pipeline.py` to enforce the hard gate upfront and after Stage 0 diagnostics, posting a GitHub advisory comment and halting cleanly.
     - [x] Remove Directive 10 from `stage_1_plan.py` and `stage_2_red.py`.
     - [x] Run `npm run test:agent` and verify all tests pass.
-- [ ] Task: Conductor - User Manual Verification 'Edge Function Runtime Boundary & Suitability Gate' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Edge Function Runtime Boundary & Suitability Gate' (Protocol in workflow.md) [commit: 32cf662]
 
 ## Phase 5: Context Pruning & Static Prefix Prompt Caching
 - [ ] Task: Write failing unit tests for prompt context pruning and static prefix caching layout (TDD Red phase)
