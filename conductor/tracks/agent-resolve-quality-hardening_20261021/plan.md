@@ -16,11 +16,11 @@
 - [x] Task: Conductor - User Manual Verification 'Stage 2 Patch-Based Test Authoring & Unified Patch Engine' (Protocol in workflow.md) [commit: 0e79c6e]
 
 ## Phase 2: Stage 1 Target Test Deduplication & Cohesion
-- [ ] Task: Write failing unit tests for Stage 1 target test deduplication and blast radius demotion (TDD Red phase)
-    - [ ] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` and `scripts/agent-resolve/tests/test_context.py` verifying test file deduplication by component stem (`<stem>.*.test.ts*` vs `<stem>.test.ts*`).
-    - [ ] Assert that specialized test suites (e.g. `.persist.test.ts`, `.enrichment.test.ts`) are prioritized in `blueprint.target_test_files`, while generic suites (`.test.ts`) are demoted into `blueprint.blast_radius_test_files`.
-    - [ ] Assert that demoted test files are deduplicated and capped at `MAX_BLAST_RADIUS_TESTS = 8`.
-    - [ ] Execute `npm run test:agent` and confirm expected test failures.
+- [x] Task: Write failing unit tests for Stage 1 target test deduplication and blast radius demotion (TDD Red phase) [commit: 1339f17]
+    - [x] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` and `scripts/agent-resolve/tests/test_context.py` verifying test file deduplication by component stem (`<stem>.*.test.ts*` vs `<stem>.test.ts*`).
+    - [x] Assert that specialized test suites (e.g. `.persist.test.ts`, `.enrichment.test.ts`) are prioritized in `blueprint.target_test_files`, while generic suites (`.test.ts`) are demoted into `blueprint.blast_radius_test_files`.
+    - [x] Assert that demoted test files are deduplicated and capped at `MAX_BLAST_RADIUS_TESTS = 8`.
+    - [x] Execute `npm run test:agent` and confirm expected test failures.
 - [ ] Task: Implement Stage 1 test deduplication and blast radius demotion to pass tests (TDD Green phase)
     - [ ] Implement `deduplicate_target_test_files` in `scripts/agent-resolve/agent_resolve/context.py` / `stages/stage_1_plan.py`.
     - [ ] Update `stage_1_plan.py` to retain the primary specialized suite in `target_test_files` and route demoted suites into `blast_radius_test_files`.
