@@ -1892,6 +1892,271 @@ class TestStage3Green(unittest.TestCase):
             self.assertIn("STDERR_REG_JEST_WARN_NOTICE", prompt_2)
             self.assertIn(call(["npx", "jest", "--no-color", "--silent"]), mock_test.call_args_list)
 
+    def test_stage_3_executes_targeted_eslint_after_type_check_and_proceeds_to_jest_on_success(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src1 = self.root / "lib" / "foo.ts"
+        src1.parent.mkdir(parents=True, exist_ok=True)
+        src1.write_text("export const foo = () => true;", encoding="utf-8")
+        src2 = self.root / "lib" / "bar.ts"
+        src2.write_text("export const bar = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts", "lib/bar.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ), patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[
+                (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
+                (0, "", ""),  # targeted jest
+                (0, "", ""),  # full regression type-check
+                (0, "", ""),  # full regression jest
+            ],
+        ) as mock_test, patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        eslint_cmd = ["npx", "eslint", "--no-warn-ignored", "lib/foo.ts", "lib/bar.ts"]
+        self.assertIn(call(eslint_cmd), mock_test.call_args_list)
+
+        calls = [c[0][0] for c in mock_test.call_args_list]
+        tc_idx = calls.index(["npm", "run", "type-check"])
+        eslint_idx = calls.index(eslint_cmd)
+        jest_idx = calls.index(["npx", "jest", "--no-color", "--silent", "lib/__tests__/foo.test.ts"])
+        self.assertLess(tc_idx, eslint_idx)
+        self.assertLess(eslint_idx, jest_idx)
+
+    def test_stage_3_skips_jest_when_targeted_eslint_fails_and_triggers_retry_loop(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        test_calls = []
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            test_calls.append(list(cmd))
+            # Attempt 1: targeted type-check passes, targeted eslint fails
+            if len(test_calls) == 1 and cmd == ["npm", "run", "type-check"]:
+                return (0, "", "")
+            if len(test_calls) == 2 and len(cmd) >= 3 and cmd[:3] == ["npx", "eslint", "--no-warn-ignored"]:
+                return (1, "lib/foo.ts:10:5: error: Do not nest ternary expressions no-nested-ternary", "")
+            # Subsequent verification calls pass
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ) as mock_reset, patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        # In Attempt 1, Jest must NEVER be called
+        attempt_1_calls = test_calls[:2]
+        self.assertFalse(any("jest" in arg for c in attempt_1_calls for arg in c))
+
+        # Reset should be called twice (before Attempt 1 and Attempt 2)
+        self.assertEqual(mock_reset.call_count, 2)
+
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn("TypeScript Check Exit Code: 0", prompt_2)
+        self.assertIn("ESLint Exit Code: 1", prompt_2)
+        self.assertIn("Do not nest ternary expressions no-nested-ternary", prompt_2)
+        self.assertNotIn("Jest Test Exit Code", prompt_2)
+        self.assertNotIn("Jest Errors", prompt_2)
+
+    def test_stage_3_sanitizes_and_truncates_large_eslint_error_output_in_last_error_context(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        # 12,000 characters of clean eslint errors with ANSI escape sequences
+        head_clean = "HEAD_ESLINT_ERROR_" + ("A" * 3982)  # 4,000 chars
+        middle_clean = "MIDDLE_ESLINT_ERROR_" + ("M" * 3980)  # 4,000 chars
+        tail_clean = "TAIL_ESLINT_ERROR_" + ("Z" * 3982)  # 4,000 chars
+        ansi_error_output = f"\x1b[31;1m{head_clean}\x1b[0m\x1b[33m{middle_clean}\x1b[0m\x1b[34m{tail_clean}\x1b[0m"
+
+        attempt_count = 0
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            nonlocal attempt_count
+            if len(cmd) >= 3 and cmd[:3] == ["npx", "eslint", "--no-warn-ignored"]:
+                attempt_count += 1
+                if attempt_count == 1:
+                    return (1, ansi_error_output, "")
+                return (0, "", "")
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        self.assertGreaterEqual(
+            len(mock_gemini.call_args_list),
+            2,
+            "ESLint failure must trigger a retry attempt with error context",
+        )
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertNotIn("\x1b[", prompt_2)
+        expected_marker = "\n\n... [TRUNCATED 4000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
+        self.assertIn(expected_marker, prompt_2)
+        self.assertIn("HEAD_ESLINT_ERROR_", prompt_2)
+        self.assertIn("TAIL_ESLINT_ERROR_", prompt_2)
+        self.assertNotIn("MIDDLE_ESLINT_ERROR_", prompt_2)
+
+    def test_stage_3_combines_stdout_and_stderr_on_eslint_failure(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        attempt_count = 0
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            nonlocal attempt_count
+            if len(cmd) >= 3 and cmd[:3] == ["npx", "eslint", "--no-warn-ignored"]:
+                attempt_count += 1
+                if attempt_count == 1:
+                    return (1, "LINT_STDOUT_ERROR_MSG", "LINT_STDERR_WARN_NOTICE")
+                return (0, "", "")
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        self.assertGreaterEqual(
+            len(mock_gemini.call_args_list),
+            2,
+            "ESLint failure must trigger a retry attempt with error context",
+        )
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn("LINT_STDOUT_ERROR_MSG", prompt_2)
+        self.assertIn("LINT_STDERR_WARN_NOTICE", prompt_2)
+
+    def test_stage_3_prompt_contains_code_hygiene_and_nested_ternary_directive(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", return_value=(0, "", "")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        self.assertIn(
+            "Avoid nested ternary operators (>1 level). When resolving conditional state with multiple fallbacks, extract the logic into a pure, well-named helper function.",
+            prompt,
+        )
+
+    def test_eslint_config_enforces_no_nested_ternary(self) -> None:
+        eslint_config_path = self.orig_root / "eslint.config.mjs"
+        self.assertTrue(eslint_config_path.exists(), f"{eslint_config_path} must exist")
+        config_content = eslint_config_path.read_text(encoding="utf-8")
+        self.assertIn('"no-nested-ternary": "error"', config_content)
+
 
 if __name__ == "__main__":
     unittest.main()
