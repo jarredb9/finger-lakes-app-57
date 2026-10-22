@@ -28,6 +28,16 @@ interface TripCardSimpleProps {
     onExportToMaps?: (provider?: NavigationProvider) => void;
 }
 
+function formatTripIdDisplay(tripId: number, isPending: boolean): string | number {
+    if (tripId <= 0) {
+        return 'Pending';
+    }
+    if (isPending) {
+        return 'Syncing...';
+    }
+    return tripId;
+}
+
 export default function TripCardSimple({ 
     trip, 
     isOwner, 
@@ -151,7 +161,7 @@ export default function TripCardSimple({
                         <p className="text-sm text-muted-foreground">{new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}</p>
                     </div>
                     <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider" data-testid="trip-id-display">
-                        ID: {trip.id > 0 ? (isPending ? 'Syncing...' : trip.id) : 'Pending'}
+                        ID: {formatTripIdDisplay(trip.id, isPending)}
                     </div>
                 </div>
                 {currentMembers.length > 0 && (

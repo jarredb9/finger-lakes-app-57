@@ -98,6 +98,7 @@ DIRECTIVES (STRICT TDD GREEN PHASE - TARGETED SEARCH/REPLACE PATCHING):
 5. For new files, set search_block to an empty string and provide complete file content in replace_block.
 6. TYPE HYGIENE: Ensure custom types, interfaces, and function signatures do not clash with global browser DOM or Node.js built-ins. Use explicit type imports and clean naming.
 7. DOMAIN INVARIANTS & UI HYGIENE: Adhere strictly to CONTEXT.md naming conventions and AGENTS.md guidelines. When refactoring UI components or adding dropdown menus, NEVER attach click or navigation handlers to trigger elements (such as `DropdownMenuTrigger asChild`), and avoid hacking trigger labels to satisfy obsolete tests.
+8. CODE HYGIENE & COMPLEXITY: Avoid nested ternary operators (>1 level). When resolving conditional state with multiple fallbacks, extract the logic into a pure, well-named helper function.
 
 Respond strictly in valid JSON matching the PatchManifest schema.
 """
@@ -136,6 +137,24 @@ The working tree has been reverted to clean baseline. Generate a corrected patch
 """
             log(f"Attempt {attempt} verification failed:")
             log(f"TypeScript Errors:\n{tc_diag}")
+            continue
+
+        eslint_cmd = ["npx", "eslint", "--no-warn-ignored"] + target_src
+        lint_code, lint_out, lint_err = run_isolated_test(eslint_cmd)
+        if lint_code != 0:
+            lint_diag = f"{lint_out}\n{lint_err}".strip()
+            sanitized_errors = truncate_error_context(lint_diag)
+            last_error_context = f"""PREVIOUS ATTEMPT FAILED TARGETED VERIFICATION:
+TypeScript Check Exit Code: 0
+
+ESLint Exit Code: {lint_code}
+ESLint Errors:
+{sanitized_errors}
+
+The working tree has been reverted to clean baseline. Generate a corrected patch against baseline that resolves these errors.
+"""
+            log(f"Attempt {attempt} verification failed:")
+            log(f"ESLint Errors:\n{lint_diag}")
             continue
 
         all_tests = target_tests + getattr(blueprint, "blast_radius_test_files", [])

@@ -10,6 +10,16 @@ import { GoogleV1Place, Winery, GooglePlaceId } from '../../types';
  * - Map formattedAddress to address.
  * - Map camelCase (API) to snake_case (DB/Winery internal fields).
  */
+function resolveHasEvCharging(place: GoogleV1Place): boolean | null {
+  if (place.evChargeOptions !== undefined && place.evChargeOptions !== null) {
+    if (typeof place.evChargeOptions.connectorCount === 'number') {
+      return place.evChargeOptions.connectorCount > 0;
+    }
+    return true;
+  }
+  return (place.parkingOptions as any)?.hasEvChargingStations ?? null;
+}
+
 export function googleV1ToWinery(place: GoogleV1Place): Winery {
   const winery: Winery = {
     // Explicitly cast Google API ID to internal GooglePlaceId type
@@ -26,9 +36,7 @@ export function googleV1ToWinery(place: GoogleV1Place): Winery {
     generative_summary: place.generativeSummary?.overview?.text || null,
     neighborhood_summary: place.neighborhoodSummary?.overview?.text || null,
     allows_dogs: place.allowsDogs ?? null,
-    has_ev_charging: place.evChargeOptions !== undefined && place.evChargeOptions !== null
-      ? (typeof place.evChargeOptions.connectorCount === 'number' ? place.evChargeOptions.connectorCount > 0 : true)
-      : ((place.parkingOptions as any)?.hasEvChargingStations ?? null),
+    has_ev_charging: resolveHasEvCharging(place),
     serves_wine: place.servesWine ?? null,
     good_for_children: place.goodForChildren ?? null,
     outdoor_seating: place.outdoorSeating ?? null,
