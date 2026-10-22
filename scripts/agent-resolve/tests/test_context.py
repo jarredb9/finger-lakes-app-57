@@ -90,7 +90,7 @@ class TestGetProjectContext(unittest.TestCase):
             (tmp_root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
             config.set_project_root(tmp_root)
 
-            context = get_project_context()
+            context = get_project_context(include_tree=True)
 
             self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):", context)
             self.assertIn("# Domain Context\nFinger Lakes Winery Planner", context)
@@ -107,7 +107,7 @@ class TestGetProjectContext(unittest.TestCase):
             tmp_root = Path(tmp_dir)
             config.set_project_root(tmp_root)
 
-            context = get_project_context()
+            context = get_project_context(include_tree=True)
 
             self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):\n\n", context)
             self.assertIn("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):\n\n", context)

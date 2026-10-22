@@ -75,9 +75,11 @@ def stage_3_green(
             else:
                 src_content += f"\nSOURCE FILE ({sf}): (new file to create - set search_block='')\n"
 
-        prompt = f"""You are the Green Phase Executor Agent implementing code to satisfy Issue #{issue_number}: {issue_title}.
+        prompt = f"""You are the Green Phase Executor Agent implementing code to satisfy the requirements.
 
 {project_context}
+ISSUE CONTEXT:
+Issue #{issue_number}: {issue_title}
 
 ARCHITECTURAL BLUEPRINT:
 {plan_md}
