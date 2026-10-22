@@ -7,12 +7,12 @@
     - [x] Assert that `stage_2_red.py` reverts `target_test_files` to git baseline and cleans staged stubs before each retry attempt.
     - [x] Assert removal of `extract_test_suite_names` check and support for empty search blocks when creating brand new test files.
     - [x] Execute `npm run test:agent` and confirm expected test failures.
-- [ ] Task: Implement Stage 2 patch-based test authoring and TestPatchManifest to pass tests (TDD Green phase)
-    - [ ] Define `TestPatchManifest` in `scripts/agent-resolve/agent_resolve/models.py`.
-    - [ ] Generalize `apply_patch_manifest` in `scripts/agent-resolve/agent_resolve/patch_engine.py` to accept new test files for empty search blocks.
-    - [ ] Update `scripts/agent-resolve/agent_resolve/stages/stage_2_red.py` to use `TestPatchManifest`, apply source stubs, apply test patches with `allowed_files = target_tests`, and reset working tree state between retry attempts.
-    - [ ] Remove `extract_test_suite_names` and update prompt directives to request surgical search/replace diffs.
-    - [ ] Run `npm run test:agent` and verify all tests pass.
+- [x] Task: Implement Stage 2 patch-based test authoring and TestPatchManifest to pass tests (TDD Green phase) [commit: 4ae00cb]
+    - [x] Define `TestPatchManifest` in `scripts/agent-resolve/agent_resolve/models.py`.
+    - [x] Generalize `apply_patch_manifest` in `scripts/agent-resolve/agent_resolve/patch_engine.py` to accept new test files for empty search blocks.
+    - [x] Update `scripts/agent-resolve/agent_resolve/stages/stage_2_red.py` to use `TestPatchManifest`, apply source stubs, apply test patches with `allowed_files = target_tests`, and reset working tree state between retry attempts.
+    - [x] Remove `extract_test_suite_names` and update prompt directives to request surgical search/replace diffs.
+    - [x] Run `npm run test:agent` and verify all tests pass.
 - [ ] Task: Conductor - User Manual Verification 'Stage 2 Patch-Based Test Authoring & Unified Patch Engine' (Protocol in workflow.md)
 
 ## Phase 2: Stage 1 Target Test Deduplication & Cohesion
