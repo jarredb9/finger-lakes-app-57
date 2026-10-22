@@ -619,6 +619,45 @@ class TestStage1Plan(unittest.TestCase):
             prompt_text,
         )
 
+    def test_stage_1_prompt_places_static_guidelines_and_role_header_at_prefix(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/target.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        fake_context = (
+            "### REPOSITORY DOMAIN MODEL (CONTEXT.md):\nDomain Model Rules\n\n"
+            "### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):\nAgent Standards"
+        )
+        with patch.object(
+            agent_resolve, "get_project_context", return_value=fake_context
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ) as mock_gemini:
+            stage_1_plan(self.client, 42, "Prompt Caching Optimization", "Body", self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        first_line = prompt.splitlines()[0] if prompt.splitlines() else ""
+
+        self.assertTrue(
+            prompt.startswith("You are the Staff Principal Architect generating an authoritative implementation blueprint.")
+        )
+        self.assertNotIn("42", first_line)
+        self.assertNotIn("Prompt Caching Optimization", first_line)
+
+        pos_context = prompt.find("### REPOSITORY DOMAIN MODEL (CONTEXT.md):")
+        pos_agents = prompt.find("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):")
+        pos_issue = prompt.find("Issue #42")
+
+        self.assertNotEqual(pos_context, -1)
+        self.assertNotEqual(pos_agents, -1)
+        self.assertNotEqual(pos_issue, -1)
+        self.assertLess(pos_context, pos_issue)
+        self.assertLess(pos_agents, pos_issue)
+
 
 
 class TestStage2Red(unittest.TestCase):
@@ -1146,6 +1185,100 @@ class TestStage2Red(unittest.TestCase):
         created = self.root / "lib" / "__tests__" / "brand_new_authored.test.ts"
         self.assertTrue(created.exists())
         self.assertIn("describe('brand new'", created.read_text(encoding="utf-8"))
+
+    def test_stage_2_prompt_omits_repository_tree(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/sample.test.ts"],
+            target_src_files=["lib/sample.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/sample.test.ts",
+                    search_block="",
+                    replace_block="describe('sample', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ],
+            source_stubs=[],
+        )
+        with patch(
+            "agent_resolve.context.get_repository_tree",
+            return_value="### EXISTING REPOSITORY SOURCE FILES:\n- lib/unrelated.ts",
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Clean failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Context tree omission", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        self.assertNotIn("### EXISTING REPOSITORY SOURCE FILES:", prompt)
+
+    def test_stage_2_prompt_places_static_guidelines_and_role_header_at_prefix(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        (self.root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+        (self.root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/sample.test.ts"],
+            target_src_files=["lib/sample.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/sample.test.ts",
+                    search_block="",
+                    replace_block="describe('sample', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ],
+            source_stubs=[],
+        )
+        with patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Clean failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Prompt caching prefix", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        first_line = prompt.splitlines()[0] if prompt.splitlines() else ""
+
+        self.assertTrue(
+            prompt.startswith("You are the Red Phase Executor Agent authoring failing tests.")
+        )
+        self.assertNotIn("42", first_line)
+        self.assertNotIn("Prompt caching prefix", first_line)
+
+        pos_context = prompt.find("### REPOSITORY DOMAIN MODEL (CONTEXT.md):")
+        pos_agents = prompt.find("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):")
+        pos_issue = prompt.find("Issue #42")
+        pos_blueprint = prompt.find("ARCHITECTURAL BLUEPRINT")
+
+        self.assertNotEqual(pos_context, -1)
+        self.assertNotEqual(pos_agents, -1)
+        self.assertNotEqual(pos_issue, -1)
+        self.assertNotEqual(pos_blueprint, -1)
+
+        self.assertLess(pos_context, pos_issue)
+        self.assertLess(pos_context, pos_blueprint)
+        self.assertLess(pos_agents, pos_issue)
+        self.assertLess(pos_agents, pos_blueprint)
 
 
 
@@ -2168,6 +2301,128 @@ class TestStage3Green(unittest.TestCase):
         self.assertTrue(eslint_config_path.exists(), f"{eslint_config_path} must exist")
         config_content = eslint_config_path.read_text(encoding="utf-8")
         self.assertIn('"no-nested-ternary": "error"', config_content)
+
+    def test_stage_3_prompt_omits_repository_tree(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "sample.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('sample', () => {});", encoding="utf-8")
+        src_file = self.root / "lib" / "sample.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const sample = () => false;", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/sample.test.ts"],
+            target_src_files=["lib/sample.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/sample.ts",
+                    search_block="export const sample = () => false;",
+                    replace_block="export const sample = () => true;",
+                )
+            ]
+        )
+        with patch(
+            "agent_resolve.context.get_repository_tree",
+            return_value="### EXISTING REPOSITORY SOURCE FILES:\n- lib/unrelated.ts",
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[
+                (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
+                (0, "", ""),  # targeted jest
+                (0, "", ""),  # full regression type-check
+                (0, "", ""),  # full regression jest
+            ],
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Context tree omission", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        self.assertNotIn("### EXISTING REPOSITORY SOURCE FILES:", prompt)
+
+    def test_stage_3_prompt_places_static_guidelines_and_role_header_at_prefix(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        (self.root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+        (self.root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "sample.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('sample', () => {});", encoding="utf-8")
+        src_file = self.root / "lib" / "sample.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const sample = () => false;", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/sample.test.ts"],
+            target_src_files=["lib/sample.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/sample.ts",
+                    search_block="export const sample = () => false;",
+                    replace_block="export const sample = () => true;",
+                )
+            ]
+        )
+        with patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[
+                (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
+                (0, "", ""),  # targeted jest
+                (0, "", ""),  # full regression type-check
+                (0, "", ""),  # full regression jest
+            ],
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Prompt caching prefix", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        first_line = prompt.splitlines()[0] if prompt.splitlines() else ""
+
+        self.assertTrue(
+            prompt.startswith("You are the Green Phase Executor Agent implementing code to satisfy the requirements.")
+        )
+        self.assertNotIn("42", first_line)
+        self.assertNotIn("Prompt caching prefix", first_line)
+
+        pos_context = prompt.find("### REPOSITORY DOMAIN MODEL (CONTEXT.md):")
+        pos_agents = prompt.find("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):")
+        pos_issue = prompt.find("Issue #42")
+        pos_blueprint = prompt.find("ARCHITECTURAL BLUEPRINT")
+
+        self.assertNotEqual(pos_context, -1)
+        self.assertNotEqual(pos_agents, -1)
+        self.assertNotEqual(pos_issue, -1)
+        self.assertNotEqual(pos_blueprint, -1)
+
+        self.assertLess(pos_context, pos_issue)
+        self.assertLess(pos_context, pos_blueprint)
+        self.assertLess(pos_agents, pos_issue)
+        self.assertLess(pos_agents, pos_blueprint)
 
 
 if __name__ == "__main__":
