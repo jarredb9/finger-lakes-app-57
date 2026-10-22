@@ -48,11 +48,11 @@
     - [x] Add unit tests in `scripts/agent-resolve/tests/test_pipeline.py` asserting that unsuitable issues cause `pipeline.py` to post a comment via `gh_cli` and exit cleanly without executing stages.
     - [x] Add unit tests in `scripts/agent-resolve/tests/test_pipeline.py` asserting that Stage 0 verified target files touching `supabase/functions/` trigger the same comment and halt.
     - [x] Execute `npm run test:agent` and confirm expected test failures.
-- [ ] Task: Implement Edge Function suitability hard gate in context and pipeline to pass tests (TDD Green phase)
-    - [ ] Update `is_issue_suitable_for_headless_agent` in `scripts/agent-resolve/agent_resolve/context.py` to reject issues modifying `supabase/functions/`.
-    - [ ] Update `scripts/agent-resolve/agent_resolve/pipeline.py` to enforce the hard gate upfront and after Stage 0 diagnostics, posting a GitHub advisory comment and halting cleanly.
-    - [ ] Remove Directive 10 from `stage_1_plan.py` and `stage_2_red.py`.
-    - [ ] Run `npm run test:agent` and verify all tests pass.
+- [x] Task: Implement Edge Function suitability hard gate in context and pipeline to pass tests (TDD Green phase) [commit: 03cf94a]
+    - [x] Update `is_issue_suitable_for_headless_agent` in `scripts/agent-resolve/agent_resolve/context.py` to reject issues modifying `supabase/functions/`.
+    - [x] Update `scripts/agent-resolve/agent_resolve/pipeline.py` to enforce the hard gate upfront and after Stage 0 diagnostics, posting a GitHub advisory comment and halting cleanly.
+    - [x] Remove Directive 10 from `stage_1_plan.py` and `stage_2_red.py`.
+    - [x] Run `npm run test:agent` and verify all tests pass.
 - [ ] Task: Conductor - User Manual Verification 'Edge Function Runtime Boundary & Suitability Gate' (Protocol in workflow.md)
 
 ## Phase 5: Context Pruning & Static Prefix Prompt Caching
