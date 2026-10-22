@@ -53,6 +53,16 @@ Quality hardening and performance optimization of the autonomous `agent-resolve`
   - Maximize Gemini prompt cache hit rates (>70%) across retry attempts and consecutive stages.
 - Author unit tests verifying prompt composition, prefix positioning, and repository tree exclusion in Stages 2 and 3.
 
+### 6. Semantic Diagnostic Filtering & Stack Trace Pruning
+- **Target Files:** `scripts/agent-resolve/agent_resolve/diagnostics.py`, `stage_3_green.py`, `docs/adr/0005-autonomous-nightly-agent-workflow.md`, `tests/test_diagnostics.py`
+- Enhance `truncate_error_context()` in `diagnostics.py` with universal negative stack frame filtering:
+  - Strip internal framework stack frames matching `node_modules/` (including container `/app/node_modules/`) and `internal/` / `node:internal/`.
+  - Collapse 3+ consecutive newlines down to 2 (`\n\n`) to prevent sparse prompt whitespace.
+  - Preserve all error descriptions, assertion diffs, code frames, user-space stack frames, TypeScript compiler diagnostics, and ESLint outputs.
+  - Lower the default truncation cap from 8,000 characters to 4,000 characters (2,000 head / 2,000 tail).
+- Update Section 7 of `docs/adr/0005-autonomous-nightly-agent-workflow.md` to reflect the 4,000-character truncation invariant and stack frame pruning.
+- Author unit tests in `tests/test_diagnostics.py` asserting negative frame filtering, retention of TypeScript and ESLint diagnostics, assertion diff preservation, newline collapsing, and the 4,000 character limit.
+
 ## Acceptance Criteria
 - [ ] `TestPatchManifest` schema is defined with `patches: List[PatchChunk]` and `source_stubs: List[SourceStubEntry] = []`.
 - [ ] Stage 2 uses `TestPatchManifest` search/replace patching with `allowed_files = target_tests` and resets working tree before each attempt.
@@ -63,6 +73,8 @@ Quality hardening and performance optimization of the autonomous `agent-resolve`
 - [ ] Stage 3 prompt includes explicit directives prohibiting nested ternaries (>1 level) and enforcing helper extraction.
 - [ ] Edge Function suitability gating flags issues touching `supabase/functions/` as requiring interactive Antigravity sessions and hard-halts headless execution in `pipeline.py` with an informative GitHub comment.
 - [ ] Stage 2 and Stage 3 prompts omit full repository file tree dumps and structure static context at byte 0 for prompt caching.
+- [ ] `truncate_error_context` negatively prunes `node_modules/` and `internal/` stack frames, collapses consecutive newlines, preserves TypeScript/ESLint/assertion diffs, and enforces a 4,000 character ceiling.
+- [ ] Section 7 of `docs/adr/0005-autonomous-nightly-agent-workflow.md` is updated to reflect the 4,000 character cap and stack trace pruning.
 - [ ] All unit tests pass cleanly via `npm run test:agent` and `npm run test:agent:all`.
 
 ## Out of Scope
