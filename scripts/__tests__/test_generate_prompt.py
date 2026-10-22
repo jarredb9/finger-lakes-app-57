@@ -75,13 +75,13 @@ class TestGeneratePromptCLI(unittest.TestCase):
         )
 
     def test_rejects_out_of_bounds_task(self):
-        result = self.run_cli(["3", "32", "--plan"])
+        result = self.run_cli(["3", "32", "--plan", "--track", "agent-resolve-token-limits_20261019"])
         self.assertEqual(result.returncode, 1)
         self.assertIn("Error: Task 32 not found in Phase 3", result.stderr)
         self.assertIn("Valid tasks for Phase 3: 1..3", result.stderr)
 
     def test_rejects_non_existent_phase(self):
-        result = self.run_cli(["99", "1", "--plan"])
+        result = self.run_cli(["99", "1", "--plan", "--track", "agent-resolve-token-limits_20261019"])
         self.assertEqual(result.returncode, 1)
         self.assertIn("Error: Phase 99 not found in track", result.stderr)
         self.assertIn("Available phases: 1, 2, 3, 4, 5, 6, 7", result.stderr)
@@ -99,12 +99,12 @@ class TestGeneratePromptCLI(unittest.TestCase):
             (idx for idx, t in enumerate(phases[target_phase]["tasks"], start=1) if t["status"] in ("pending", "in_progress")),
             1,
         )
-        result = self.run_cli([str(target_phase), "--plan"])
+        result = self.run_cli([str(target_phase), "--plan", "--track", "agent-resolve-token-limits_20261019"])
         self.assertEqual(result.returncode, 0)
         self.assertIn(f"Plan Phase {target_phase} Task {pending_task_idx} only", result.stdout)
 
     def test_valid_exec_prompt_succeeds(self):
-        result = self.run_cli(["3", "2", "--exec"])
+        result = self.run_cli(["3", "2", "--exec", "--track", "agent-resolve-token-limits_20261019"])
         self.assertEqual(result.returncode, 0)
         self.assertIn("Execute Phase 3 Task 2 following", result.stdout)
         self.assertIn("python3.12 -m unittest scripts/agent-resolve/tests/test_tracker.py", result.stdout)

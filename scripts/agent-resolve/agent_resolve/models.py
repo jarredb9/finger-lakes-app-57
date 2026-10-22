@@ -102,6 +102,16 @@ class PatchManifest(BaseModel):
     )
 
 
+class TestPatchManifest(BaseModel):
+    patches: List[PatchChunk] = Field(
+        description="Ordered list of search/replace patch chunks to apply to target test files"
+    )
+    source_stubs: List[SourceStubEntry] = Field(
+        default_factory=list,
+        description="Minimal stubs for brand new source files that do not yet exist on disk",
+    )
+
+
 @dataclass
 class DiagnosticResult:
     target_files: List[str]
@@ -119,5 +129,6 @@ __all__ = [
     "TestFileManifest",
     "PatchChunk",
     "PatchManifest",
+    "TestPatchManifest",
     "DiagnosticResult",
 ]
