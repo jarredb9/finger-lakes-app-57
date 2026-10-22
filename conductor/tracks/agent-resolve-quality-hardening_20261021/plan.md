@@ -28,7 +28,7 @@
     - [x] Run `npm run test:agent` and verify all tests pass.
 - [x] Task: Conductor - User Manual Verification 'Stage 1 Target Test Deduplication & Cohesion' (Protocol in workflow.md) [commit: 8314526]
 
-## Phase 3: Stage 3 Targeted ESLint Gate & Code Hygiene Directives
+## Phase 3: Stage 3 Targeted ESLint Gate & Code Hygiene Directives [checkpoint: 556f983]
 - [x] Task: Write failing unit tests for Stage 3 ESLint gating, retry diagnostics, and eslint config update (TDD Red phase) [commit: 589af95]
     - [x] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` asserting Stage 3 executes targeted ESLint after type checking and captures truncated diagnostics into `last_error_context` on failure.
     - [x] Add unit tests asserting that ESLint failure triggers retry loop, while exit code 0 proceeds to Jest verification.
@@ -40,7 +40,7 @@
     - [x] Wire ESLint exit code failures into retry loop with sanitized diagnostic error context (`truncate_error_context`).
     - [x] Add code hygiene directive to Stage 3 Green prompt prohibiting nested ternaries (>1 level) and mandating pure helper extraction.
     - [x] Run `npm run test:agent` and verify all tests pass.
-- [ ] Task: Conductor - User Manual Verification 'Stage 3 Targeted ESLint Gate & Code Hygiene Directives' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Stage 3 Targeted ESLint Gate & Code Hygiene Directives' (Protocol in workflow.md) [commit: 556f983]
 
 ## Phase 4: Edge Function Runtime Boundary & Suitability Gate
 - [ ] Task: Write failing unit tests for Edge Function suitability hard gating in context and pipeline (TDD Red phase)
