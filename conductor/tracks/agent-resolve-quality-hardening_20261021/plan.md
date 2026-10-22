@@ -43,11 +43,11 @@
 - [x] Task: Conductor - User Manual Verification 'Stage 3 Targeted ESLint Gate & Code Hygiene Directives' (Protocol in workflow.md) [commit: 556f983]
 
 ## Phase 4: Edge Function Runtime Boundary & Suitability Gate
-- [ ] Task: Write failing unit tests for Edge Function suitability hard gating in context and pipeline (TDD Red phase)
-    - [ ] Add unit tests in `scripts/agent-resolve/tests/test_context.py` asserting `is_issue_suitable_for_headless_agent` returns `(False, ...)` for all issues modifying `supabase/functions/` (including `_shared/`).
-    - [ ] Add unit tests in `scripts/agent-resolve/tests/test_pipeline.py` asserting that unsuitable issues cause `pipeline.py` to post a comment via `gh_cli` and exit cleanly without executing stages.
-    - [ ] Add unit tests in `scripts/agent-resolve/tests/test_pipeline.py` asserting that Stage 0 verified target files touching `supabase/functions/` trigger the same comment and halt.
-    - [ ] Execute `npm run test:agent` and confirm expected test failures.
+- [x] Task: Write failing unit tests for Edge Function suitability hard gating in context and pipeline (TDD Red phase) [commit: 44c80b6]
+    - [x] Add unit tests in `scripts/agent-resolve/tests/test_context.py` asserting `is_issue_suitable_for_headless_agent` returns `(False, ...)` for all issues modifying `supabase/functions/` (including `_shared/`).
+    - [x] Add unit tests in `scripts/agent-resolve/tests/test_pipeline.py` asserting that unsuitable issues cause `pipeline.py` to post a comment via `gh_cli` and exit cleanly without executing stages.
+    - [x] Add unit tests in `scripts/agent-resolve/tests/test_pipeline.py` asserting that Stage 0 verified target files touching `supabase/functions/` trigger the same comment and halt.
+    - [x] Execute `npm run test:agent` and confirm expected test failures.
 - [ ] Task: Implement Edge Function suitability hard gate in context and pipeline to pass tests (TDD Green phase)
     - [ ] Update `is_issue_suitable_for_headless_agent` in `scripts/agent-resolve/agent_resolve/context.py` to reject issues modifying `supabase/functions/`.
     - [ ] Update `scripts/agent-resolve/agent_resolve/pipeline.py` to enforce the hard gate upfront and after Stage 0 diagnostics, posting a GitHub advisory comment and halting cleanly.
