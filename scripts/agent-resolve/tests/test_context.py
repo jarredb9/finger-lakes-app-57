@@ -130,6 +130,62 @@ class TestGetProjectContext(unittest.TestCase):
             config.set_project_root(root2)
             self.assertIn("Context Root 2", get_project_context())
 
+    @patch("agent_resolve.context.get_repository_tree")
+    def test_get_project_context_defaults_to_omitting_repository_tree(
+        self, mock_get_tree: MagicMock
+    ) -> None:
+        mock_get_tree.return_value = "### EXISTING REPOSITORY SOURCE FILES:\n- lib/app.ts"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            (tmp_root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+            (tmp_root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+            config.set_project_root(tmp_root)
+
+            context = get_project_context()
+
+            self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):", context)
+            self.assertIn("# Domain Context\nFinger Lakes Winery Planner", context)
+            self.assertIn("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):", context)
+            self.assertIn("# Agent Rules\nRule 1: Always test", context)
+            self.assertNotIn("### EXISTING REPOSITORY SOURCE FILES:", context)
+            mock_get_tree.assert_not_called()
+
+    @patch("agent_resolve.context.get_repository_tree")
+    def test_get_project_context_with_include_tree_false_omits_repository_tree(
+        self, mock_get_tree: MagicMock
+    ) -> None:
+        mock_get_tree.return_value = "### EXISTING REPOSITORY SOURCE FILES:\n- lib/app.ts"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            (tmp_root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+            (tmp_root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+            config.set_project_root(tmp_root)
+
+            context = get_project_context(include_tree=False)
+
+            mock_get_tree.assert_not_called()
+            self.assertNotIn("### EXISTING REPOSITORY SOURCE FILES:", context)
+            self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):", context)
+            self.assertIn("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):", context)
+
+    @patch("agent_resolve.context.get_repository_tree")
+    def test_get_project_context_with_include_tree_true_includes_repository_tree(
+        self, mock_get_tree: MagicMock
+    ) -> None:
+        mock_get_tree.return_value = "### EXISTING REPOSITORY SOURCE FILES:\n- lib/app.ts"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            (tmp_root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+            (tmp_root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+            config.set_project_root(tmp_root)
+
+            context = get_project_context(include_tree=True)
+
+            mock_get_tree.assert_called_once()
+            self.assertIn("### EXISTING REPOSITORY SOURCE FILES:\n- lib/app.ts", context)
+            self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):", context)
+            self.assertIn("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):", context)
+
 
 class TestFindRelatedTestFiles(unittest.TestCase):
     def setUp(self) -> None:
