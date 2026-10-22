@@ -29,10 +29,10 @@
 - [x] Task: Conductor - User Manual Verification 'Stage 1 Target Test Deduplication & Cohesion' (Protocol in workflow.md) [commit: 8314526]
 
 ## Phase 3: Stage 3 Targeted ESLint Gate & Code Hygiene Directives
-- [ ] Task: Write failing unit tests for Stage 3 ESLint gating, retry diagnostics, and eslint config update (TDD Red phase)
-    - [ ] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` asserting Stage 3 executes targeted ESLint after type checking and captures truncated diagnostics into `last_error_context` on failure.
-    - [ ] Add unit tests asserting that ESLint failure triggers retry loop, while exit code 0 proceeds to Jest verification.
-    - [ ] Execute `npm run test:agent` and confirm expected test failures.
+- [x] Task: Write failing unit tests for Stage 3 ESLint gating, retry diagnostics, and eslint config update (TDD Red phase) [commit: 589af95]
+    - [x] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` asserting Stage 3 executes targeted ESLint after type checking and captures truncated diagnostics into `last_error_context` on failure.
+    - [x] Add unit tests asserting that ESLint failure triggers retry loop, while exit code 0 proceeds to Jest verification.
+    - [x] Execute `npm run test:agent` and confirm expected test failures.
 - [ ] Task: Implement Stage 3 ESLint verification gate, eslint config update, and refactor existing ternaries to pass tests (TDD Green phase)
     - [ ] Add `"no-nested-ternary": "error"` rule to `eslint.config.mjs`.
     - [ ] Refactor existing nested ternaries in `lib/utils/adapters/google-v1.ts` and `components/TripCardSimplePresentational.tsx`.
