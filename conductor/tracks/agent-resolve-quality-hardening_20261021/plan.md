@@ -26,7 +26,7 @@
     - [x] Update `stage_1_plan.py` to retain the primary specialized suite in `target_test_files` and route demoted suites into `blast_radius_test_files`.
     - [x] Add prompt directive in Stage 1 Planner constraining selection to 1 primary test suite per architectural component.
     - [x] Run `npm run test:agent` and verify all tests pass.
-- [ ] Task: Conductor - User Manual Verification 'Stage 1 Target Test Deduplication & Cohesion' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Stage 1 Target Test Deduplication & Cohesion' (Protocol in workflow.md) [commit: 8314526]
 
 ## Phase 3: Stage 3 Targeted ESLint Gate & Code Hygiene Directives
 - [ ] Task: Write failing unit tests for Stage 3 ESLint gating, retry diagnostics, and eslint config update (TDD Red phase)
