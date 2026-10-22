@@ -55,7 +55,7 @@
     - [x] Run `npm run test:agent` and verify all tests pass.
 - [x] Task: Conductor - User Manual Verification 'Edge Function Runtime Boundary & Suitability Gate' (Protocol in workflow.md) [commit: 32cf662]
 
-## Phase 5: Context Pruning & Static Prefix Prompt Caching
+## Phase 5: Context Pruning & Static Prefix Prompt Caching [checkpoint: 389104c]
 - [x] Task: Write failing unit tests for prompt context pruning and static prefix caching layout (TDD Red phase) [commit: f376a6e]
     - [x] Add unit tests in `scripts/agent-resolve/tests/test_stages.py` and `test_context.py` asserting that `get_project_context(include_tree=False)` omits repository files.
     - [x] Assert that Stage 2 and Stage 3 prompts do not contain repository file tree dumps.
@@ -66,7 +66,7 @@
     - [x] Update `stage_1_plan.py` to call `get_repository_tree()` explicitly, and update `stage_2_red.py` and `stage_3_green.py` to omit it.
     - [x] Reorder prompts across all stages to position static guidelines at the prefix.
     - [x] Run `npm run test:agent` and `npm run test:agent:all` to ensure zero regressions across the entire suite.
-- [ ] Task: Conductor - User Manual Verification 'Context Pruning & Static Prefix Prompt Caching' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Context Pruning & Static Prefix Prompt Caching' (Protocol in workflow.md) [commit: 389104c]
 
 ## Phase 6: Semantic Diagnostic Filtering & Stack Trace Pruning
 - [ ] Task: Write failing unit tests for semantic diagnostic filtering and stack trace pruning (TDD Red phase)
