@@ -1217,6 +1217,7 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
                 (0, "", ""),  # targeted jest
                 (0, "", ""),  # full regression type-check
                 (0, "", ""),  # full regression jest
@@ -1227,9 +1228,10 @@ class TestStage3Green(unittest.TestCase):
             stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
 
         mock_reset.assert_called_once_with(["lib/foo.ts"], baseline_ref="HEAD")
-        self.assertEqual(mock_test.call_count, 4)
+        self.assertEqual(mock_test.call_count, 5)
         mock_test.assert_has_calls([
             call(["npm", "run", "type-check"]),
+            call(["npx", "eslint", "--no-warn-ignored", "lib/foo.ts"]),
             call(["npx", "jest", "--no-color", "--silent", "lib/__tests__/foo.test.ts"]),
             call(["npm", "run", "type-check"]),
             call(["npx", "jest", "--no-color", "--silent"]),
@@ -1267,7 +1269,7 @@ class TestStage3Green(unittest.TestCase):
         ), patch.object(
             agent_resolve,
             "run_isolated_test",
-            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
         ), patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")
         ):
@@ -1306,10 +1308,12 @@ class TestStage3Green(unittest.TestCase):
             agent_resolve,
             "run_isolated_test",
             side_effect=[
-                # Attempt 1: targeted type-check exits 0, targeted jest exits 1
+                # Attempt 1: targeted type-check exits 0, targeted eslint exits 0, targeted jest exits 1
+                (0, "", ""),
                 (0, "", ""),
                 (1, "Targeted jest failed", ""),
-                # Attempt 2: targeted type-check exits 0, targeted jest exits 0, full reg type-check exits 0, full reg jest exits 1
+                # Attempt 2: targeted type-check exits 0, targeted eslint exits 0, targeted jest exits 0, full reg type-check exits 0, full reg jest exits 1
+                (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
@@ -1350,7 +1354,7 @@ class TestStage3Green(unittest.TestCase):
         ), patch.object(
             agent_resolve,
             "run_isolated_test",
-            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
         ), patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")
         ) as mock_cmd:
@@ -1382,7 +1386,7 @@ class TestStage3Green(unittest.TestCase):
         ) as mock_apply, patch.object(
             agent_resolve,
             "run_isolated_test",
-            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
         ), patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")
         ):
@@ -1428,7 +1432,7 @@ class TestStage3Green(unittest.TestCase):
         ), patch.object(
             agent_resolve,
             "run_isolated_test",
-            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
         ), patch.object(
             agent_resolve, "run_cmd", side_effect=fake_run_cmd
         ) as mock_cmd:
@@ -1501,6 +1505,7 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
                 (0, "", ""),  # targeted jest
                 (0, "", ""),  # full regression type-check
                 (0, "", ""),  # full regression jest
@@ -1596,13 +1601,15 @@ class TestStage3Green(unittest.TestCase):
         test_calls = []
         def fake_run_isolated_test(cmd: list) -> tuple:
             test_calls.append(list(cmd))
-            # Attempt 1: targeted type-check passes, targeted jest passes
+            # Attempt 1: targeted type-check passes, targeted eslint passes, targeted jest passes
             if len(test_calls) == 1 and cmd == ["npm", "run", "type-check"]:
                 return (0, "", "")
-            if len(test_calls) == 2 and cmd[:2] == ["npx", "jest"]:
+            if len(test_calls) == 2 and len(cmd) >= 3 and cmd[:3] == ["npx", "eslint", "--no-warn-ignored"]:
+                return (0, "", "")
+            if len(test_calls) == 3 and cmd[:2] == ["npx", "jest"]:
                 return (0, "", "")
             # Attempt 1 regression gate: type-check fails with TS2345
-            if cmd == ["npm", "run", "type-check"] and len(test_calls) == 3:
+            if cmd == ["npm", "run", "type-check"] and len(test_calls) == 4:
                 return (2, "TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.", "")
             # If npm test is called in attempt 1 (current unadapted behavior) or subsequent calls
             return (0, "", "")
@@ -1624,15 +1631,17 @@ class TestStage3Green(unittest.TestCase):
 
         # In attempt 1:
         # Call 1: targeted type-check
-        # Call 2: targeted jest
-        # Call 3: regression type-check MUST run before regression jest
+        # Call 2: targeted eslint
+        # Call 3: targeted jest
+        # Call 4: regression type-check MUST run before regression jest
         self.assertEqual(test_calls[0], ["npm", "run", "type-check"])
-        self.assertEqual(test_calls[1][:2], ["npx", "jest"])
-        self.assertEqual(test_calls[2], ["npm", "run", "type-check"], "Regression type-check must run before full Jest suite")
+        self.assertEqual(test_calls[1][:3], ["npx", "eslint", "--no-warn-ignored"])
+        self.assertEqual(test_calls[2][:2], ["npx", "jest"])
+        self.assertEqual(test_calls[3], ["npm", "run", "type-check"], "Regression type-check must run before full Jest suite")
 
         # Regression jest must NOT be invoked when regression type-check fails on attempt 1
-        # Therefore, call 4 must be the start of attempt 2 (targeted type-check), not npm test
-        self.assertEqual(test_calls[3], ["npm", "run", "type-check"], "Full Jest suite must be skipped on regression compilation failure")
+        # Therefore, call 5 must be the start of attempt 2 (targeted type-check), not npm test
+        self.assertEqual(test_calls[4], ["npm", "run", "type-check"], "Full Jest suite must be skipped on regression compilation failure")
 
         # Prompt for attempt 2 must reflect regression TypeScript failure
         prompt_2 = mock_gemini.call_args_list[1][0][1]
@@ -1795,6 +1804,7 @@ class TestStage3Green(unittest.TestCase):
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
+                (0, "", ""),
             ],
         ), patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")
@@ -1818,7 +1828,9 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted tc passes
+                (0, "", ""),  # targeted eslint passes
                 (1, "STDOUT_JEST_ERR_MSG", "STDERR_JEST_WARN_NOTICE"),  # targeted jest fails
+                (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
@@ -1846,8 +1858,10 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted tc passes
+                (0, "", ""),  # targeted eslint passes
                 (0, "", ""),  # targeted jest passes
                 (2, "STDOUT_REG_TC_ERR_MSG", "STDERR_REG_TC_WARN_NOTICE"),  # reg tc fails
+                (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
@@ -1875,9 +1889,11 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted tc passes
+                (0, "", ""),  # targeted eslint passes
                 (0, "", ""),  # targeted jest passes
                 (0, "", ""),  # reg tc passes
                 (1, "STDOUT_REG_JEST_ERR_MSG", "STDERR_REG_JEST_WARN_NOTICE"),  # reg jest fails
+                (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
