@@ -69,11 +69,11 @@
 - [x] Task: Conductor - User Manual Verification 'Context Pruning & Static Prefix Prompt Caching' (Protocol in workflow.md) [commit: 389104c]
 
 ## Phase 6: Semantic Diagnostic Filtering & Stack Trace Pruning
-- [ ] Task: Write failing unit tests for semantic diagnostic filtering and stack trace pruning (TDD Red phase)
-    - [ ] Add unit tests in `scripts/agent-resolve/tests/test_diagnostics.py` asserting `truncate_error_context` strips `node_modules/` and runtime internal stack frames while preserving user-space frames.
-    - [ ] Assert retention of TypeScript compiler output (`error TS...`), ESLint diagnostics, and Jest multi-line assertion diffs.
-    - [ ] Assert collapse of consecutive blank lines and verify the 4,000 character ceiling with split head/tail marker.
-    - [ ] Execute `npm run test:agent` and confirm expected test failures.
+- [x] Task: Write failing unit tests for semantic diagnostic filtering and stack trace pruning (TDD Red phase) [commit: 55f267f]
+    - [x] Add unit tests in `scripts/agent-resolve/tests/test_diagnostics.py` asserting `truncate_error_context` strips `node_modules/` and runtime internal stack frames while preserving user-space frames.
+    - [x] Assert retention of TypeScript compiler output (`error TS...`), ESLint diagnostics, and Jest multi-line assertion diffs.
+    - [x] Assert collapse of consecutive blank lines and verify the 4,000 character ceiling with split head/tail marker.
+    - [x] Execute `npm run test:agent` and confirm expected test failures.
 - [ ] Task: Implement semantic diagnostic filtering and update ADR-0005 to pass tests (TDD Green phase)
     - [ ] Update `truncate_error_context` in `scripts/agent-resolve/agent_resolve/diagnostics.py` with regex-based negative line filtering and newline collapsing.
     - [ ] Lower `max_chars` parameter default to 4000.
