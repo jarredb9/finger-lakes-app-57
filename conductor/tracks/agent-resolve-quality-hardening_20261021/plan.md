@@ -68,7 +68,7 @@
     - [x] Run `npm run test:agent` and `npm run test:agent:all` to ensure zero regressions across the entire suite.
 - [x] Task: Conductor - User Manual Verification 'Context Pruning & Static Prefix Prompt Caching' (Protocol in workflow.md) [commit: 389104c]
 
-## Phase 6: Semantic Diagnostic Filtering & Stack Trace Pruning
+## Phase 6: Semantic Diagnostic Filtering & Stack Trace Pruning [checkpoint: 980d9eb]
 - [x] Task: Write failing unit tests for semantic diagnostic filtering and stack trace pruning (TDD Red phase) [commit: 55f267f]
     - [x] Add unit tests in `scripts/agent-resolve/tests/test_diagnostics.py` asserting `truncate_error_context` strips `node_modules/` and runtime internal stack frames while preserving user-space frames.
     - [x] Assert retention of TypeScript compiler output (`error TS...`), ESLint diagnostics, and Jest multi-line assertion diffs.
@@ -79,4 +79,4 @@
     - [x] Lower `max_chars` parameter default to 4000.
     - [x] Update Section 7 of `docs/adr/0005-autonomous-nightly-agent-workflow.md` to document the 4,000-character cap and diagnostic sanitization.
     - [x] Run `npm run test:agent` and `npm run test:agent:all` to verify all tests pass.
-- [ ] Task: Conductor - User Manual Verification 'Semantic Diagnostic Filtering & Stack Trace Pruning' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Semantic Diagnostic Filtering & Stack Trace Pruning' (Protocol in workflow.md) [commit: 980d9eb]
