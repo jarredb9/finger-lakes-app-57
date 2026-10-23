@@ -99,6 +99,257 @@ class TestResolveIssueSecurityAndGuards(unittest.TestCase):
         )
 
 
+class TestResolveIssueSuitabilityGating(unittest.TestCase):
+    def setUp(self) -> None:
+        self.orig_root = config.get_project_root()
+        self.temp_dir = TemporaryDirectory()
+        self.root = Path(self.temp_dir.name)
+        config.set_project_root(self.root)
+        self.client = MagicMock()
+
+    def tearDown(self) -> None:
+        config.set_project_root(self.orig_root)
+        self.temp_dir.cleanup()
+
+    def test_halts_upfront_when_issue_unsuitable_and_posts_comment_in_live_run(self) -> None:
+        issue_data = {
+            "number": 55,
+            "title": "Fix places function",
+            "body": "Modifies supabase/functions/places/index.ts",
+            "author": {"login": "jarredb9"},
+            "labels": [{"name": "agent:resolve"}],
+        }
+
+        with patch.object(
+            agent_resolve,
+            "is_issue_suitable_for_headless_agent",
+            return_value=(False, "Edge Function modification (supabase/functions/) requires Deno runtime"),
+        ), patch.object(
+            agent_resolve, "gh_cli", return_value=(0, "[]", "")
+        ) as mock_gh, patch.object(
+            agent_resolve, "reset_working_tree_to_main"
+        ) as mock_reset, patch.object(
+            agent_resolve,
+            "run_cmd",
+            side_effect=lambda cmd, **kwargs: (2, "", "") if "ls-remote" in cmd else (0, "", ""),
+        ), patch.object(
+            agent_resolve, "stage_0_diagnose"
+        ) as mock_stage0, patch.object(
+            agent_resolve, "stage_1_plan"
+        ) as mock_stage1, patch.object(
+            agent_resolve, "stage_2_red"
+        ) as mock_stage2, patch.object(
+            agent_resolve, "stage_3_green"
+        ) as mock_stage3:
+            result = resolve_issue(self.client, issue_data, dry_run=False)
+
+        mock_stage0.assert_not_called()
+        mock_stage1.assert_not_called()
+        self.assertFalse(result)
+        mock_gh.assert_any_call(
+            ["issue", "edit", "55", "--remove-label", "agent:resolve", "--add-label", "ready-for-human"]
+        )
+        comment_calls = [
+            c for c in mock_gh.call_args_list
+            if len(c[0]) > 0 and len(c[0][0]) >= 5 and c[0][0][:2] == ["issue", "comment"]
+        ]
+        self.assertTrue(len(comment_calls) > 0, "Expected issue comment call not found")
+        comment_body = comment_calls[0][0][0][4]
+        self.assertIn("human-in-the-loop Antigravity CLI", comment_body)
+        self.assertIn("Edge Function modification (supabase/functions/) requires Deno runtime", comment_body)
+
+    def test_halts_upfront_when_issue_unsuitable_without_gh_mutations_in_dry_run(self) -> None:
+        issue_data = {
+            "number": 55,
+            "title": "Fix places function",
+            "body": "Modifies supabase/functions/places/index.ts",
+            "author": {"login": "jarredb9"},
+            "labels": [{"name": "agent:resolve"}],
+        }
+
+        with patch.object(
+            agent_resolve,
+            "is_issue_suitable_for_headless_agent",
+            return_value=(False, "Edge Function modification (supabase/functions/) requires Deno runtime"),
+        ), patch.object(
+            agent_resolve, "gh_cli", return_value=(0, "[]", "")
+        ) as mock_gh, patch.object(
+            agent_resolve, "reset_working_tree_to_main"
+        ) as mock_reset, patch.object(
+            agent_resolve,
+            "run_cmd",
+            side_effect=lambda cmd, **kwargs: (2, "", "") if "ls-remote" in cmd else (0, "", ""),
+        ), patch.object(
+            agent_resolve, "stage_0_diagnose"
+        ) as mock_stage0, patch.object(
+            agent_resolve, "stage_1_plan"
+        ) as mock_stage1, patch.object(
+            agent_resolve, "stage_2_red"
+        ) as mock_stage2, patch.object(
+            agent_resolve, "stage_3_green"
+        ) as mock_stage3:
+            result = resolve_issue(self.client, issue_data, dry_run=True)
+
+        mock_stage0.assert_not_called()
+        mock_stage1.assert_not_called()
+        mock_gh.assert_not_called()
+        self.assertFalse(result)
+
+    def test_halts_after_stage_0_when_diagnostic_target_files_touch_edge_functions_in_live_run(self) -> None:
+        issue_data = {
+            "number": 55,
+            "title": "Add winery sorting",
+            "body": "Sort by distance",
+            "author": {"login": "jarredb9"},
+            "labels": [{"name": "agent:resolve"}],
+        }
+
+        mock_diagnostic = DiagnosticResult(
+            target_files=["supabase/functions/enrich-winery/index.ts", "lib/winery.ts"],
+            root_cause="Enrichment function needs coordinates",
+            code_snippets={},
+            investigation_summary="Found edge function modification needed",
+        )
+
+        with patch.object(
+            agent_resolve, "gh_cli", return_value=(0, "[]", "")
+        ) as mock_gh, patch.object(
+            agent_resolve, "reset_working_tree_to_main"
+        ) as mock_reset, patch.object(
+            agent_resolve,
+            "run_cmd",
+            side_effect=lambda cmd, **kwargs: (2, "", "") if "ls-remote" in cmd else (0, "", ""),
+        ), patch.object(
+            agent_resolve, "stage_0_diagnose", return_value=mock_diagnostic
+        ) as mock_s0, patch.object(
+            agent_resolve, "stage_1_plan"
+        ) as mock_s1, patch.object(
+            agent_resolve, "stage_2_red"
+        ) as mock_s2, patch.object(
+            agent_resolve, "stage_3_green"
+        ) as mock_s3:
+            result = resolve_issue(self.client, issue_data, dry_run=False)
+
+        mock_s0.assert_called_once()
+        mock_s1.assert_not_called()
+        mock_s2.assert_not_called()
+        mock_s3.assert_not_called()
+        self.assertFalse(result)
+        mock_reset.assert_called()
+        mock_gh.assert_any_call(
+            ["issue", "edit", "55", "--remove-label", "agent:in-progress", "--remove-label", "agent:resolve", "--add-label", "ready-for-human"]
+        )
+        comment_calls = [
+            c for c in mock_gh.call_args_list
+            if len(c[0]) > 0 and len(c[0][0]) >= 5 and c[0][0][:2] == ["issue", "comment"]
+        ]
+        self.assertTrue(len(comment_calls) > 0, "Expected issue comment call not found")
+        comment_body = comment_calls[0][0][0][4]
+        self.assertIn("supabase/functions", comment_body)
+        self.assertIn("Antigravity CLI", comment_body)
+
+    def test_halts_after_stage_0_when_diagnostic_target_files_touch_shared_edge_functions_in_live_run(self) -> None:
+        issue_data = {
+            "number": 55,
+            "title": "Add winery sorting",
+            "body": "Sort by distance",
+            "author": {"login": "jarredb9"},
+            "labels": [{"name": "agent:resolve"}],
+        }
+
+        mock_diagnostic = DiagnosticResult(
+            target_files=["supabase/functions/_shared/winery.ts"],
+            root_cause="Shared winery utils need updates",
+            code_snippets={},
+            investigation_summary="Found shared edge function modification",
+        )
+
+        with patch.object(
+            agent_resolve, "gh_cli", return_value=(0, "[]", "")
+        ) as mock_gh, patch.object(
+            agent_resolve, "reset_working_tree_to_main"
+        ) as mock_reset, patch.object(
+            agent_resolve,
+            "run_cmd",
+            side_effect=lambda cmd, **kwargs: (2, "", "") if "ls-remote" in cmd else (0, "", ""),
+        ), patch.object(
+            agent_resolve, "stage_0_diagnose", return_value=mock_diagnostic
+        ) as mock_s0, patch.object(
+            agent_resolve, "stage_1_plan"
+        ) as mock_s1, patch.object(
+            agent_resolve, "stage_2_red"
+        ) as mock_s2, patch.object(
+            agent_resolve, "stage_3_green"
+        ) as mock_s3:
+            result = resolve_issue(self.client, issue_data, dry_run=False)
+
+        mock_s0.assert_called_once()
+        mock_s1.assert_not_called()
+        mock_s2.assert_not_called()
+        mock_s3.assert_not_called()
+        self.assertFalse(result)
+        mock_reset.assert_called()
+        mock_gh.assert_any_call(
+            ["issue", "edit", "55", "--remove-label", "agent:in-progress", "--remove-label", "agent:resolve", "--add-label", "ready-for-human"]
+        )
+        comment_calls = [
+            c for c in mock_gh.call_args_list
+            if len(c[0]) > 0 and len(c[0][0]) >= 5 and c[0][0][:2] == ["issue", "comment"]
+        ]
+        self.assertTrue(len(comment_calls) > 0, "Expected issue comment call not found")
+        comment_body = comment_calls[0][0][0][4]
+        self.assertIn("supabase/functions", comment_body)
+        self.assertIn("Antigravity CLI", comment_body)
+
+    def test_halts_after_stage_0_when_diagnostics_touch_edge_functions_without_gh_mutations_in_dry_run(self) -> None:
+        issue_data = {
+            "number": 55,
+            "title": "Add winery sorting",
+            "body": "Sort by distance",
+            "author": {"login": "jarredb9"},
+            "labels": [{"name": "agent:resolve"}],
+        }
+
+        mock_diagnostic = DiagnosticResult(
+            target_files=["supabase/functions/enrich-winery/index.ts"],
+            root_cause="Enrichment function needs coordinates",
+            code_snippets={},
+            investigation_summary="Found edge function modification needed",
+        )
+
+        with patch.object(
+            agent_resolve, "gh_cli", return_value=(0, "[]", "")
+        ) as mock_gh, patch.object(
+            agent_resolve, "reset_working_tree_to_main"
+        ) as mock_reset, patch.object(
+            agent_resolve,
+            "run_cmd",
+            side_effect=lambda cmd, **kwargs: (2, "", "") if "ls-remote" in cmd else (0, "", ""),
+        ) as mock_cmd, patch.object(
+            agent_resolve, "stage_0_diagnose", return_value=mock_diagnostic
+        ) as mock_s0, patch.object(
+            agent_resolve, "stage_1_plan"
+        ) as mock_s1, patch.object(
+            agent_resolve, "stage_2_red"
+        ) as mock_s2, patch.object(
+            agent_resolve, "stage_3_green"
+        ) as mock_s3:
+            result = resolve_issue(self.client, issue_data, dry_run=True)
+
+        mock_s0.assert_called_once()
+        mock_s1.assert_not_called()
+        mock_s2.assert_not_called()
+        mock_s3.assert_not_called()
+        self.assertFalse(result)
+        # Verify no mutating gh_cli calls in dry-run mode
+        for c in mock_gh.call_args_list:
+            args = c[0][0]
+            self.assertFalse(
+                len(args) >= 2 and args[0] == "issue" and args[1] in ("edit", "comment"),
+                f"Unexpected mutating gh_cli call in dry-run: {args}",
+            )
+
+
 class TestResolveIssueFreshExecutionAndDryRun(unittest.TestCase):
     def setUp(self) -> None:
         self.orig_root = config.get_project_root()

@@ -10,7 +10,7 @@ from typing import Sequence
 
 from agent_resolve import config
 from agent_resolve.environment import log, run_cmd
-from agent_resolve.models import PatchManifest
+from agent_resolve.models import PatchManifest, TestPatchManifest
 
 PROTECTED_PATHS: tuple[str, ...] = (
     ".git",
@@ -66,16 +66,19 @@ def reset_target_sources(target_src: Sequence[str], baseline_ref: str = "HEAD") 
 
 
 def apply_patch_manifest(
-    manifest: PatchManifest,
+    manifest: PatchManifest | TestPatchManifest,
     new_src_files: Sequence[str] | None = None,
     allowed_files: Sequence[str] | None = None,
+    new_files: Sequence[str] | None = None,
 ) -> tuple[bool, list[str]]:
     """
-    Applies search/replace patches to target source files using a resilient two-tier engine:
+    Applies search/replace patches to target files using a resilient two-tier engine:
       Tier 1: Exact character sequence match.
       Tier 2: Line-by-line whitespace-trimmed fallback matching (must match uniquely).
-    Validates that each search_block resolves to exactly one occurrence in the target file.
-    If all patches pass validation, applies changes atomically.
+    Accepts PatchManifest or TestPatchManifest.
+    Permits empty search_block when target_path is specified in new_src_files or new_files,
+    or does not exist on disk.
+    Restricts applied paths strictly to allowed_files when provided.
     Returns (success, error_diagnostics).
     """
     errors: list[str] = []
@@ -90,13 +93,18 @@ def apply_patch_manifest(
             except Exception:
                 allowed_targets.add(Path(af).resolve())
 
-    new_src_targets: set[Path] = set()
+    new_file_targets: set[Path] = set()
+    candidate_new_files: list[str] = []
     if new_src_files:
-        for nf in new_src_files:
-            try:
-                new_src_targets.add(safe_resolve_repo_path(nf))
-            except Exception:
-                new_src_targets.add(Path(nf).resolve())
+        candidate_new_files.extend(new_src_files)
+    if new_files:
+        candidate_new_files.extend(new_files)
+
+    for nf in candidate_new_files:
+        try:
+            new_file_targets.add(safe_resolve_repo_path(nf))
+        except Exception:
+            new_file_targets.add(Path(nf).resolve())
 
     for idx, patch in enumerate(manifest.patches, 1):
         try:
@@ -126,7 +134,7 @@ def apply_patch_manifest(
 
         # Case 1: Creating a brand new file (or replacing stub of a new file)
         if not search_block:
-            is_new = bool(new_src_files and target_path in new_src_targets)
+            is_new = bool(target_path in new_file_targets)
             if current_content is not None and target_path.exists() and not is_new:
                 errors.append(
                     f"Patch #{idx} specifies empty search_block for '{patch.file_path}', but the file already exists. "

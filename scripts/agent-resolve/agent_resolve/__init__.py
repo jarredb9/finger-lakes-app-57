@@ -70,6 +70,7 @@ from agent_resolve.models import (
     T,
     TestFileEntry,
     TestFileManifest,
+    TestPatchManifest,
 )
 from agent_resolve.tracker import TokenTracker
 from agent_resolve.llm import (
@@ -78,7 +79,11 @@ from agent_resolve.llm import (
     is_transient_error,
 )
 from agent_resolve.context import (
+    EDGE_FUNCTION_PATH_REGEX,
+    EDGE_FUNCTION_UNSUITABLE_REASON,
+    deduplicate_target_test_files,
     extract_agent_brief,
+    extract_test_component_stem,
     extract_test_suite_names,
     find_related_test_files,
     get_project_context,
@@ -183,6 +188,7 @@ __all__: list[str] = [
     "TestFileEntry",
     "SourceStubEntry",
     "TestFileManifest",
+    "TestPatchManifest",
     "PatchChunk",
     "PatchManifest",
     "DiagnosticResult",
@@ -206,7 +212,11 @@ __all__: list[str] = [
     "get_genai_client",
     "is_transient_error",
     "context",
+    "EDGE_FUNCTION_PATH_REGEX",
+    "EDGE_FUNCTION_UNSUITABLE_REASON",
+    "deduplicate_target_test_files",
     "extract_agent_brief",
+    "extract_test_component_stem",
     "extract_test_suite_names",
     "find_related_test_files",
     "get_project_context",

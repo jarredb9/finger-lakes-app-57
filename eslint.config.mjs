@@ -9,6 +9,7 @@ export default [
   {
     rules: {
       "no-console": "warn",
+      "no-nested-ternary": "error",
     },
   },
   {
