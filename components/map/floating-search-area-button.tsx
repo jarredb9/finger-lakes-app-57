@@ -72,7 +72,7 @@ export function FloatingSearchAreaButton({
       disabled={resolvedIsSearching}
       onClick={onClick}
       className={cn(
-        "absolute top-4 left-1/2 -translate-x-1/2 z-30 shadow-lg rounded-full px-4 py-2 bg-background/95 backdrop-blur-sm border text-xs font-medium hover:bg-accent transition-all duration-200 pointer-events-auto flex items-center gap-1.5",
+        "absolute top-14 sm:top-4 left-1/2 -translate-x-1/2 z-30 shadow-lg rounded-full px-4 py-2 bg-background/95 backdrop-blur-sm border text-xs font-medium hover:bg-accent transition-all duration-200 pointer-events-auto flex items-center gap-1.5",
         className
       )}
     >
