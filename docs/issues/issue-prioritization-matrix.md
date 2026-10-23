@@ -13,7 +13,9 @@
 
 ---
 
-## 1. Prioritization Framework
+## 1. Prioritization & Resolution Framework
+
+### 1.1 Priority Tiers
 
 Issues are ranked by balancing user impact, data integrity risk, architectural dependencies, security perimeter defense, and milestone alignment:
 
@@ -49,40 +51,78 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 
 ---
 
+### 1.2 Context Hygiene, Session Budgets & Agent Topologies
+
+To prevent context bloat (>120k tokens / >50 turns) that leads to degraded code quality, hallucinations, and shallow patches, work is classified into 4 explicit **Agent Execution Topologies**:
+
+| Topology | Label & Profile | When to Use | Context Hygiene Protocol |
+| :--- | :--- | :--- | :--- |
+| **Topology A** | **Single Focused Agent**<br>`1 Session, <40 turns` | Surgical, low-exploration tasks (<3 files) with well-understood reproduction seams. | Research and implementation happen in one clean session. Avoid reading non-essential files. |
+| **Topology B** | **Decoupled Plan -> Fresh Execution**<br>`2 Sessions / Agents` | Bounded tasks requiring substantial architecture or UX alignment (security, routing, slots). | **Session 1 (Architect/Planner):** Conducts interview or `/plan`, delegating broad research to background subagents (`invoke_subagent`) to keep context <30k tokens. Emits approved `implementation_plan.md`.<br>**Session 2 (Implementer):** Starts in a **fresh context window** seeded strictly with the approved plan artifact to execute Red/Green TDD. |
+| **Topology C** | **Conductor Track**<br>`Multiple Agents / Phased Sessions` | Multi-domain, high-risk, or multi-PR epics spanning database DDL, state engines, and UI. | Managed in `conductor/tracks/` with 3–4 tasks per phase. Each phase runs in a fresh agent session (<60 turns) with phase verification checkpoints and git notes. |
+| **Topology D** | **Autonomous Overnight**<br>`1 Headless Agent` | Narrow blast radius ($\le 2$ files), pure-logic, data migrations, or leaf-component styling with deterministic Jest assertions. | Headless AFK batch runner (`scripts/agent-resolve/agent-resolve.py`) with strict turn and token caps. Zero human interaction. |
+
+```mermaid
+flowchart TD
+    Start["Issue Selected"] --> Q_Autonomous{"Narrow blast radius (≤2 files),<br>pure logic/reducer or leaf styling,<br>deterministic Jest test?"}
+    Q_Autonomous -- Yes --> Top_D["Topology D: Autonomous Overnight<br>(agent:resolve)"]
+    Q_Autonomous -- No --> Q_Scope{"Multi-phase epic, multi-PR,<br>or touches DB schema +<br>stores + UI across domains?"}
+    Q_Scope -- Yes --> Top_C["Topology C: Conductor Track<br>(Multiple Agents / Phased Sessions)"]
+    Q_Scope -- No --> Q_Ambiguous{"Ambiguous UX, contentious design,<br>or needs doc/ADR settlement?"}
+    Q_Ambiguous -- Yes --> Top_B_Grill["Topology B: /grill-with-docs Session<br>(Agent 1: Grill/Plan -> Agent 2: Fresh Execute)"]
+    Q_Ambiguous -- No --> Q_Complexity{"Multi-file security hardening,<br>new route, or container refactor?"}
+    Q_Complexity -- Yes --> Top_B_Plan["Topology B: Standard /plan Session<br>(Agent 1: Plan -> Agent 2: Fresh Execute)"]
+    Q_Complexity -- No --> Top_A["Topology A: Targeted TDD Fix<br>(1 Focused Agent, <40 turns)"]
+```
+
+---
+
+### 1.3 Workflow Archetypes & Resolution Playbook
+
+| Workflow Archetype | Primary Entry Command | Scope & Boundary | Artifacts & Output |
+| :--- | :--- | :--- | :--- |
+| **`Conductor Track`** | `/conductor-new-track` -> `conductor-implement` | Multi-phase initiatives; strict expand-and-contract; 3–4 tasks per phase. | `spec.md`, `plan.md`, git notes checkpoints, `tracks.md` registry. |
+| **`Standard /plan Session`** | `/plan` -> interactive implementation | Bounded single PR; well-specified requirements; high architectural/security rigor. | `implementation_plan.md` artifact (user approved) -> TDD -> `walkthrough.md`. |
+| **`/grill-with-docs Session`** | `/grill-with-docs` -> `/plan` | Underspecified requirements; UX trade-offs; domain language settlement. | Updates `CONTEXT.md` / ADRs -> implementation plan -> fresh execution. |
+| **`Autonomous Overnight (agent:resolve)`** | `agent:resolve` label or `agent-resolve.py` | Headless overnight batch execution at 20:00 EST; pure data/logic or leaf styling. | Automated Red/Green TDD Draft PR with Architectural Scorecard. |
+| **`Targeted TDD Fix Session`** | `/tdd` / standard interactive session | Surgical bug fixes (<3 files); clear root cause; deterministic reproduction seam. | Failing regression test -> minimal fix -> clean commit. |
+
+---
+
 ## 2. Master Ranked Stack
 
-| Rank | Issue | Type | Milestone | Execution Mode | Strategic Summary |
-| :---: | :--- | :--- | :--- | :--- | :--- |
-| **1** | [#97: close agent Docker sandbox escape via Husky pre-commit, restrict production secrets in CI, and harden workflows](https://github.com/jarredb9/finger-lakes-app-57/issues/97) | Security / CI | `v3.7.1` | `ready-for-agent` | **Critical Pipeline & Credential Security:** Closes Docker sandbox escape in `agent-resolve` where Husky `pre-commit` hooks run un-sandboxed on the host runner with `GEMINI_API_KEY` and write-enabled `GH_TOKEN`. Removes production `SUPABASE_DB_URL` from untrusted `pull_request` builds, sanitizes environment variables, and hardens CI workflows against expression injection. |
-| **2** | [#87: harden RLS, revoke anon & pg_graphql exposure, drop legacy RPCs, and default RPCs to SECURITY INVOKER](https://github.com/jarredb9/finger-lakes-app-57/issues/87) | Security / DB | `v3.7.1` | `ready-for-agent` | **Critical Security & Production Integrity:** Resolves 97 Supabase security linter warnings. Revokes `anon`/`authenticated` default schema privileges, restricts `anon` table access, defaults RPCs to `SECURITY INVOKER`, prevents unauthenticated catalog overwrites, isolates cross-user idempotency keys, and disables `pg_graphql` (ADR-0007). |
-| **3** | [#93: harden PostgREST direct table RLS, storage policies, trip/friend membership validation, and webhook GUC priority](https://github.com/jarredb9/finger-lakes-app-57/issues/93) | Security / DB | `v3.7.1` | `ready-for-agent` | **Critical Database & Storage Access Control:** Patches direct PostgREST RLS bypasses. Enforces bilateral consent on `public.friends` (prevents unilateral friend acceptance), sets `public = false` on `visit-photos` storage bucket, restricts `profiles.email` mutation (prevents registration DoS), restricts trip member injection, and revokes table write grants on `public.wineries`. |
-| **4** | [#94: enforce caller authentication, isolate private visit reviews from Gemini summaries, and harden Edge Functions](https://github.com/jarredb9/finger-lakes-app-57/issues/94) | Security / Functions | `v3.7.1` | `ready-for-agent` | **Data Privacy & API Hardening:** Filters private visit reviews from `get-winery-details` to prevent private user notes from leaking into Gemini prompts and public catalog `generative_summary`. Enforces caller authorization on `send-social-notification` to stop friend-graph harvesting, and turns on `verify_jwt = true` on Edge Functions to prevent billed API exhaustion. |
-| **5** | [#73: Winery Showing Amenities Incorrectly](https://github.com/jarredb9/finger-lakes-app-57/issues/73) | Bug | `v3.7.1` | `agent:resolve` | **Critical Data Poisoning:** Prior coercion of `null` to `false` in `standardizeWineryData` poisoned `v2` IndexedDB caches, falsely telling users dog-friendly wineries are "Not Dog Friendly". Bump store to `version: 3` and heal falsified booleans. |
-| **6** | [#75: PWA Hours Population Issue](https://github.com/jarredb9/finger-lakes-app-57/issues/75) | Bug | `v3.7.1` | `ready-for-agent` | **Core PWA Regression:** Edge function `shouldEnrich` cache deadlock + missing frontend Places masks + IndexedDB cache-purge loop leaves wineries with blank hours on iOS PWA. |
-| **7** | [#41: Implement deep linking for winery share URLs (/winery/[id])](https://github.com/jarredb9/finger-lakes-app-57/issues/41) | Bug / Fix | `v3.8.0` | `ready-for-agent` | **Broken Core Journey:** The "Share" button produces `/winery/<id>`, which currently returns a **404 Not Found** in Next.js App Router. Highest user-facing embarrassment factor. |
-| **8** | [#95: fix open redirects, password reset header poisoning, route exposures, service_role client cookie binding, and add security headers](https://github.com/jarredb9/finger-lakes-app-57/issues/95) | Security / Web | `v3.7.1` | `ready-for-agent` | **Web Perimeter & Route Hardening:** Sanitizes `redirectTo` in `/login` to stop open redirects. Derives password reset URLs strictly from configured base URLs (preventing host header poisoning). Disables `/debug` and `/manual-confirm` in production, decouples cookie stores from `createAdminClient()`, clamps `/api/wineries` parameters, and configures HTTP security headers in `next.config.mjs`. |
-| **9** | [#96: fix winery URL render DoS, purge offline DLQ/stores across logouts, and sanitize photo uploads](https://github.com/jarredb9/finger-lakes-app-57/issues/96) | Security / Client | `v3.7.1` | `ready-for-agent` | **Client Resiliency & Storage Confidentiality:** Wraps `new URL(winery.website)` in safe parsing to prevent uncaught runtime exceptions from crashing WineryModal (Render DoS). Encrypts offline DLQ payloads and purges DLQ + IndexedDB stores on logout. Isolates multi-user state on account switch, and adds client-side photo MIME/size validation. |
-| **10** | [#88: add HaveIBeenPwned k-anonymity leaked password check in sign-up and password reset](https://github.com/jarredb9/finger-lakes-app-57/issues/88) | Security / Auth | `v3.7.1` | `ready-for-agent` | **Auth Perimeter Hardening:** Supabase Free-tier lacks native leaked password protection (`auth_leaked_password_protection`). Implement client and server-side HaveIBeenPwned k-anonymity SHA-1 range checks on `/signup` and `/reset-password` with fail-open resilience. |
-| **11** | [#50: Interactive Upcoming Trips Checklist in WineryModal](https://github.com/jarredb9/finger-lakes-app-57/issues/50) | Enhancement | `v3.8.0` | `ready-for-agent` | **Trip Planning Friction:** Replaces clumsy date-picker gate in `TripPlannerSection.tsx` with a 1-tap upcoming trips checklist. Directly improves primary trip-planning workflow. |
-| **12** | [#89: Mobile Device "Search this area" button Overlap](https://github.com/jarredb9/finger-lakes-app-57/issues/89) | Bug / UI | `v3.8.0` | `agent:resolve` | **Map Leaf Presentation:** PR #99 opened. Responsive Tailwind offset (`top-14 sm:top-4`) preventing floating search button from colliding with style switcher on mobile viewports. |
-| **13** | [#92: extract unified MapOverlayLayout to eliminate hardcoded absolute coordinates](https://github.com/jarredb9/finger-lakes-app-57/issues/92) | Refactor / Map | `v3.8.0` | `ready-for-agent` | **Map Architecture:** Architectural sibling following #89. Replaces scattered hardcoded absolute coordinates across MapView and WineryMap with a unified slot-based `MapOverlayLayout` container. |
-| **14** | [#74: Support Visitor-confirmed Amenities & Decouple AI Vibe Tags](https://github.com/jarredb9/finger-lakes-app-57/issues/74) | Enhancement | `v3.8.0` | Needs Triage | **Architectural Sibling to #73:** Stops Gemini AI from generating conflicting `"Dog Friendly"` vibe tags when structured amenities are unknown/false, and allows on-site visitors to verify amenities. |
-| **15** | [#47: Map Geolocation & Viewport Search UX ("Search This Area")](https://github.com/jarredb9/finger-lakes-app-57/issues/47) | Enhancement | `v3.8.0` | Interactive CLI | **Map Usability:** Introduces "Search This Area" floating pill and Mapbox geolocation centering FAB. Directly benefits all discovery workflows. |
-| **16** | [#61: Standardize coordinate utilities & contract legacy RPC dual-keys](https://github.com/jarredb9/finger-lakes-app-57/issues/61) | Tech Debt | `v3.8.0` | `agent:resolve` | **Unblocked by #57:** Pure algorithmic/data refactoring in `lib/utils/geo.ts` to accept `{ latitude, longitude }` and contract legacy `lat`/`lng` aliases. Low blast radius. |
-| **17** | [#55: Deprecate and remove legacy asymmetric follows schema & RPCs](https://github.com/jarredb9/finger-lakes-app-57/issues/55) | Tech Debt | `v3.8.0` | `ready-for-agent` | **ADR-0002 Enforcement:** Social model is strictly bidirectional friendships. Drops orphaned `follows` / `follow_requests` tables, obsolete RPCs, and legacy tests. Unblocked with zero dependencies. |
-| **18** | [#52: Epic: TypeScript Code Health & 'any' Type Remediation Roadmap](https://github.com/jarredb9/finger-lakes-app-57/issues/52) | Tech Debt | `v3.8.0` | Interactive CLI | **Type Safety & Build Velocity:** Fast-track PR 1 (#53) is closed. Remaining PRs 2–4 target Supabase SQL RPC type generation and store shims, eliminating ~70 compiler errors. |
-| **19** | [#31: Component Maintainability & Architectural Decomposition](https://github.com/jarredb9/finger-lakes-app-57/issues/31) | Refactor | `v3.8.0` | Interactive CLI | **All Blockers Resolved:** Prerequisites (#36, #37, #38) are now closed. Ready to break down 10 High Priority God Components (>250 LOC) across modals and cards. |
-| **20** | [#32: Google OAuth Authentication & Existing Account Linking](https://github.com/jarredb9/finger-lakes-app-57/issues/32) | Feature | `v3.9.0` | Interactive CLI | **High Conversion Value:** All middleware prerequisites in `proxy.ts` (#35, #36) are resolved. Enables 1-click Google Sign-In with automatic account linking. |
-| **21** | [#34: Winery Lifecycle & Rebranding Management](https://github.com/jarredb9/finger-lakes-app-57/issues/34) | Feature / DDL | `v3.9.0` | Interactive CLI | **Data Integrity:** Gracefully handles Google Places 404s when wineries close/rebrand, preserving historical visit logs while hiding closed wineries from exploration. Prerequisite #35 is closed. |
-| **22** | [#13: Advanced Markers & PostGIS-Powered Regional Guides](https://github.com/jarredb9/finger-lakes-app-57/issues/13) | Feature | `v3.9.0` | Interactive CLI | **Visual Polish:** PostGIS regional boundaries and Mapbox marker status indicators (EV, Dogs, Visited). Consumes `business_status` from #34. |
-| **23** | [#46: Feature: Social Visit Tagging & Shared History](https://github.com/jarredb9/finger-lakes-app-57/issues/46) | Feature | `v3.10.0` | Interactive CLI | **Social Expansion:** Tag friends on visits with mutual timeline updates and privacy enforcement. Preserved from archived tracks. |
-| **24** | [#45: Feature: Taste Profiles & Smart Recommendations](https://github.com/jarredb9/finger-lakes-app-57/issues/45) | Feature | `v3.10.0` | Interactive CLI | **Discovery Personalization:** JSONB taste preferences and recommendation scoring based on friend activity. |
-| **25** | [#48: Feature: Community Discovery & Global Activity Feed](https://github.com/jarredb9/finger-lakes-app-57/issues/48) | Feature | `v3.10.0` | Interactive CLI | **Broad Surface Area:** Realtime global activity feed. Lowest urgency until core community density reaches critical mass. |
-| **—** | [#77: fix prompt token blowout from blast-radius test injection](https://github.com/jarredb9/finger-lakes-app-57/issues/77) | Infra / Bug | `Tooling` | `agent:resolve` | **Merged via PR #79:** Fixed prompt token blowout and hardened verification limits. Ready for maintainer closure. |
-| **—** | [#84: Quality hardening via patch-based Red phase](https://github.com/jarredb9/finger-lakes-app-57/issues/84) | Infra / Refactor | `Tooling` | `ready-for-agent` | **Merged via PR #90:** Implemented patch-based Red phase, test deduplication, and linter gates. Ready for maintainer closure. |
-| **—** | [#100: Architectural guardrails, semantic UI contracts, and morning review observability](https://github.com/jarredb9/finger-lakes-app-57/issues/100) | Infra / Architecture | `Tooling` | `ready-for-agent` | **Pipeline Hardening (Prerequisite to #85):** Establishes Zero Coordinate Coupling invariant in Stage 1 planning, replaces Directive 10 class assertions with Semantic UI Contracts in Stage 2, bounds triage briefs to boundaries/acceptance criteria, and formats high-signal PR Architectural Scorecards for morning review. |
-| **—** | [#85: Extract agent-resolve into standalone engine repo](https://github.com/jarredb9/finger-lakes-app-57/issues/85) | Infra / Feature | `Tooling` | `ready-for-agent` | **Engine Decoupling:** Extract `scripts/agent-resolve` into an independent engine package with contract configuration. |
-| **—** | [#86: Author setup-agent-resolve onboarding skill](https://github.com/jarredb9/finger-lakes-app-57/issues/86) | Infra / Skill | `Tooling` | `ready-for-agent` | **Skill Authoring:** Create interactive agent skill to bootstrap `agent-resolve` in target repositories. |
+| Rank | Issue | Type | Milestone | Triage Label | Recommended Workflow | Agent Topology & Sizing | Strategic Summary |
+| :---: | :--- | :--- | :---: | :---: | :--- | :--- | :--- |
+| **1** | [#97: close agent Docker sandbox escape via Husky pre-commit, restrict production secrets in CI, and harden workflows](https://github.com/jarredb9/finger-lakes-app-57/issues/97) | Security / CI | `v3.7.1` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Critical Pipeline & Credential Security:** Closes Docker sandbox escape in `agent-resolve` where Husky `pre-commit` hooks run un-sandboxed on the host runner with `GEMINI_API_KEY` and write-enabled `GH_TOKEN`. Removes production `SUPABASE_DB_URL` from untrusted `pull_request` builds, sanitizes environment variables, and hardens CI workflows against expression injection. |
+| **2** | [#87: harden RLS, revoke anon & pg_graphql exposure, drop legacy RPCs, and default RPCs to SECURITY INVOKER](https://github.com/jarredb9/finger-lakes-app-57/issues/87) | Security / DB | `v3.7.1` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Critical Security & Production Integrity:** Resolves 97 Supabase security linter warnings. Revokes `anon`/`authenticated` default schema privileges, restricts `anon` table access, defaults RPCs to `SECURITY INVOKER`, prevents unauthenticated catalog overwrites, isolates cross-user idempotency keys, and disables `pg_graphql` (ADR-0007). |
+| **3** | [#93: harden PostgREST direct table RLS, storage policies, trip/friend membership validation, and webhook GUC priority](https://github.com/jarredb9/finger-lakes-app-57/issues/93) | Security / DB | `v3.7.1` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Critical Database & Storage Access Control:** Patches direct PostgREST RLS bypasses. Enforces bilateral consent on `public.friends` (prevents unilateral friend acceptance), sets `public = false` on `visit-photos` storage bucket, restricts `profiles.email` mutation (prevents registration DoS), restricts trip member injection, and revokes table write grants on `public.wineries`. |
+| **4** | [#94: enforce caller authentication, isolate private visit reviews from Gemini summaries, and harden Edge Functions](https://github.com/jarredb9/finger-lakes-app-57/issues/94) | Security / Functions | `v3.7.1` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Data Privacy & API Hardening:** Filters private visit reviews from `get-winery-details` to prevent private user notes from leaking into Gemini prompts and public catalog `generative_summary`. Enforces caller authorization on `send-social-notification` to stop friend-graph harvesting, and turns on `verify_jwt = true` on Edge Functions to prevent billed API exhaustion. |
+| **5** | [#73: Winery Showing Amenities Incorrectly](https://github.com/jarredb9/finger-lakes-app-57/issues/73) | Bug | `v3.7.1` | `agent:resolve` | `Autonomous Overnight` | **Topology D** (1 Headless Agent) | **Critical Data Poisoning:** Prior coercion of `null` to `false` in `standardizeWineryData` poisoned `v2` IndexedDB caches, falsely telling users dog-friendly wineries are "Not Dog Friendly". Bump store to `version: 3` and heal falsified booleans. |
+| **6** | [#75: PWA Hours Population Issue](https://github.com/jarredb9/finger-lakes-app-57/issues/75) | Bug | `v3.7.1` | `ready-for-agent` | `Targeted TDD Fix` | **Topology A** (1 Agent, <30 turns) | **Core PWA Regression:** Edge function `shouldEnrich` cache deadlock + missing frontend Places masks + IndexedDB cache-purge loop leaves wineries with blank hours on iOS PWA. |
+| **7** | [#41: Implement deep linking for winery share URLs (/winery/[id])](https://github.com/jarredb9/finger-lakes-app-57/issues/41) | Bug / Fix | `v3.8.0` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Broken Core Journey:** The "Share" button produces `/winery/<id>`, which currently returns a **404 Not Found** in Next.js App Router. Highest user-facing embarrassment factor. |
+| **8** | [#95: fix open redirects, password reset header poisoning, route exposures, service_role client cookie binding, and add security headers](https://github.com/jarredb9/finger-lakes-app-57/issues/95) | Security / Web | `v3.7.1` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Web Perimeter & Route Hardening:** Sanitizes `redirectTo` in `/login` to stop open redirects. Derives password reset URLs strictly from configured base URLs (preventing host header poisoning). Disables `/debug` and `/manual-confirm` in production, decouples cookie stores from `createAdminClient()`, clamps `/api/wineries` parameters, and configures HTTP security headers in `next.config.mjs`. |
+| **9** | [#96: fix winery URL render DoS, purge offline DLQ/stores across logouts, and sanitize photo uploads](https://github.com/jarredb9/finger-lakes-app-57/issues/96) | Security / Client | `v3.7.1` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Client Resiliency & Storage Confidentiality:** Wraps `new URL(winery.website)` in safe parsing to prevent uncaught runtime exceptions from crashing WineryModal (Render DoS). Encrypts offline DLQ payloads and purges DLQ + IndexedDB stores on logout. Isolates multi-user state on account switch, and adds client-side photo MIME/size validation. |
+| **10** | [#88: add HaveIBeenPwned k-anonymity leaked password check in sign-up and password reset](https://github.com/jarredb9/finger-lakes-app-57/issues/88) | Security / Auth | `v3.7.1` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Auth Perimeter Hardening:** Supabase Free-tier lacks native leaked password protection (`auth_leaked_password_protection`). Implement client and server-side HaveIBeenPwned k-anonymity SHA-1 range checks on `/signup` and `/reset-password` with fail-open resilience. |
+| **11** | [#50: Interactive Upcoming Trips Checklist in WineryModal](https://github.com/jarredb9/finger-lakes-app-57/issues/50) | Enhancement | `v3.8.0` | `ready-for-agent` | `Standard /plan Session` | **Topology A** (1 Agent, <40 turns) | **Trip Planning Friction:** Replaces clumsy date-picker gate in `TripPlannerSection.tsx` with a 1-tap upcoming trips checklist. Directly improves primary trip-planning workflow. |
+| **12** | [#89: Mobile Device "Search this area" button Overlap](https://github.com/jarredb9/finger-lakes-app-57/issues/89) | Bug / UI | `v3.8.0` | `agent:resolve` | `Autonomous Overnight` | **Topology D** (1 Headless Agent) | **Map Leaf Presentation:** PR #99 opened. Responsive Tailwind offset (`top-14 sm:top-4`) preventing floating search button from colliding with style switcher on mobile viewports. |
+| **13** | [#92: extract unified MapOverlayLayout to eliminate hardcoded absolute coordinates](https://github.com/jarredb9/finger-lakes-app-57/issues/92) | Refactor / Map | `v3.8.0` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Map Architecture:** Architectural sibling following #89. Replaces scattered hardcoded absolute coordinates across MapView and WineryMap with a unified slot-based `MapOverlayLayout` container. |
+| **14** | [#74: Support Visitor-confirmed Amenities & Decouple AI Vibe Tags](https://github.com/jarredb9/finger-lakes-app-57/issues/74) | Enhancement | `v3.8.0` | `needs-triage` | `/grill-with-docs Session` | **Topology B** (2 Agents: Grill/Plan -> Execute) | **Architectural Sibling to #73:** Stops Gemini AI from generating conflicting `"Dog Friendly"` vibe tags when structured amenities are unknown/false, and allows on-site visitors to verify amenities. |
+| **15** | [#47: Map Geolocation & Viewport Search UX ("Search This Area")](https://github.com/jarredb9/finger-lakes-app-57/issues/47) | Enhancement | `v3.8.0` | `ready-for-agent` | `/grill-with-docs Session` | **Topology B** (2 Agents: Grill/Plan -> Execute) | **Map Usability:** Introduces "Search This Area" floating pill and Mapbox geolocation centering FAB. Directly benefits all discovery workflows. |
+| **16** | [#61: Standardize coordinate utilities & contract legacy RPC dual-keys](https://github.com/jarredb9/finger-lakes-app-57/issues/61) | Tech Debt | `v3.8.0` | `agent:resolve` | `Autonomous Overnight` | **Topology D** (1 Headless Agent) | **Unblocked by #57:** Pure algorithmic/data refactoring in `lib/utils/geo.ts` to accept `{ latitude, longitude }` and contract legacy `lat`/`lng` aliases. Low blast radius. |
+| **17** | [#55: Deprecate and remove legacy asymmetric follows schema & RPCs](https://github.com/jarredb9/finger-lakes-app-57/issues/55) | Tech Debt | `v3.8.0` | `ready-for-agent` | `Standard /plan Session` | **Topology A** (1 Agent, <40 turns) | **ADR-0002 Enforcement:** Social model is strictly bidirectional friendships. Drops orphaned `follows` / `follow_requests` tables, obsolete RPCs, and legacy tests. Unblocked with zero dependencies. |
+| **18** | [#52: Epic: TypeScript Code Health & 'any' Type Remediation Roadmap](https://github.com/jarredb9/finger-lakes-app-57/issues/52) | Tech Debt | `v3.8.0` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Type Safety & Build Velocity:** Fast-track PR 1 (#53) is closed. Remaining PRs 2–4 target Supabase SQL RPC type generation and store shims, eliminating ~70 compiler errors. |
+| **19** | [#31: Component Maintainability & Architectural Decomposition](https://github.com/jarredb9/finger-lakes-app-57/issues/31) | Refactor | `v3.8.0` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **All Blockers Resolved:** Prerequisites (#36, #37, #38) are now closed. Ready to break down 10 High Priority God Components (>250 LOC) across modals and cards. |
+| **20** | [#32: Google OAuth Authentication & Existing Account Linking](https://github.com/jarredb9/finger-lakes-app-57/issues/32) | Feature | `v3.9.0` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **High Conversion Value:** All middleware prerequisites in `proxy.ts` (#35, #36) are resolved. Enables 1-click Google Sign-In with automatic account linking. |
+| **21** | [#34: Winery Lifecycle & Rebranding Management](https://github.com/jarredb9/finger-lakes-app-57/issues/34) | Feature / DDL | `v3.9.0` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Data Integrity:** Gracefully handles Google Places 404s when wineries close/rebrand, preserving historical visit logs while hiding closed wineries from exploration. Prerequisite #35 is closed. |
+| **22** | [#13: Advanced Markers & PostGIS-Powered Regional Guides](https://github.com/jarredb9/finger-lakes-app-57/issues/13) | Feature | `v3.9.0` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Visual Polish:** PostGIS regional boundaries and Mapbox marker status indicators (EV, Dogs, Visited). Consumes `business_status` from #34. |
+| **23** | [#46: Feature: Social Visit Tagging & Shared History](https://github.com/jarredb9/finger-lakes-app-57/issues/46) | Feature | `v3.10.0` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Social Expansion:** Tag friends on visits with mutual timeline updates and privacy enforcement. Preserved from archived tracks. |
+| **24** | [#45: Feature: Taste Profiles & Smart Recommendations](https://github.com/jarredb9/finger-lakes-app-57/issues/45) | Feature | `v3.10.0` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Discovery Personalization:** JSONB taste preferences and recommendation scoring based on friend activity. |
+| **25** | [#48: Feature: Community Discovery & Global Activity Feed](https://github.com/jarredb9/finger-lakes-app-57/issues/48) | Feature | `v3.10.0` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Broad Surface Area:** Realtime global activity feed. Lowest urgency until core community density reaches critical mass. |
+| **—** | [#77: fix prompt token blowout from blast-radius test injection](https://github.com/jarredb9/finger-lakes-app-57/issues/77) | Infra / Bug | `Tooling` | `closed` | `Autonomous Overnight` | **Topology D** (1 Headless Agent) | **Merged via PR #79:** Fixed prompt token blowout and hardened verification limits. Ready for maintainer closure. |
+| **—** | [#84: Quality hardening via patch-based Red phase](https://github.com/jarredb9/finger-lakes-app-57/issues/84) | Infra / Refactor | `Tooling` | `closed` | `Standard /plan Session` | **Topology B** (2 Agents) | **Merged via PR #90:** Implemented patch-based Red phase, test deduplication, and linter gates. Ready for maintainer closure. |
+| **—** | [#100: Architectural guardrails, semantic UI contracts, and morning review observability](https://github.com/jarredb9/finger-lakes-app-57/issues/100) | Infra / Architecture | `Tooling` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Pipeline Hardening (Prerequisite to #85):** Establishes Zero Coordinate Coupling invariant in Stage 1 planning, replaces Directive 10 class assertions with Semantic UI Contracts in Stage 2, bounds triage briefs to boundaries/acceptance criteria, and formats high-signal PR Architectural Scorecards for morning review. |
+| **—** | [#85: Extract agent-resolve into standalone engine repo](https://github.com/jarredb9/finger-lakes-app-57/issues/85) | Infra / Feature | `Tooling` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Engine Decoupling:** Extract `scripts/agent-resolve` into an independent engine package with contract configuration. |
+| **—** | [#86: Author setup-agent-resolve onboarding skill](https://github.com/jarredb9/finger-lakes-app-57/issues/86) | Infra / Skill | `Tooling` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Skill Authoring:** Create interactive agent skill to bootstrap `agent-resolve` in target repositories. |
 
 ---
 
@@ -106,7 +146,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Fail closed in CI if Docker/Podman is unavailable; expand `SENSITIVE_ENV_KEYS` and `sanitize_secrets()`; add `--` delimiters before file path arguments.
   - `chmod 600` on `.env*` files, eliminate credential reuse, add localhost guards to `scripts/db/*`, and replace `eval` with positional array forwarding in container scripts.
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
-- **Execution Mode:** `ready-for-agent`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Critical security perimeter changes across GitHub Actions, Python runner scripts, and container wrappers. Agent 1 drafts the audit and implementation plan artifact with subagent research; Agent 2 executes Python and YAML changes in a clean context window to maintain zero-defect precision.
 
 #### 2. [#87: security(db): harden RLS, revoke anon & pg_graphql exposure, drop legacy RPCs, and default RPCs to SECURITY INVOKER](https://github.com/jarredb9/finger-lakes-app-57/issues/87)
 - **Problem & Impact:** Supabase database security linter flags 97 warnings across 4 categories (`0026`, `0027`, `0028`, `0029`). Specifically:
@@ -125,7 +168,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Add `AND user_id = auth.uid()` guards to idempotency key lookups.
   - Follow ADR-0007 (`docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md`).
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
-- **Execution Mode:** `ready-for-agent`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** Resolving 97 security warnings spans privilege revocation, dropping 10 dead RPCs, altering active RPC security contexts, updating catalog upsert rules, and regenerating TypeScript definitions. Executing this via a multi-phase Conductor track (Phase 1: Revoke/drop; Phase 2: RPCs; Phase 3: Types) guarantees each change is verified without context exhaustion.
 
 #### 3. [#93: security(db): harden PostgREST direct table RLS, storage policies, trip/friend membership validation, and webhook GUC priority](https://github.com/jarredb9/finger-lakes-app-57/issues/93)
 - **Problem & Impact:**
@@ -145,7 +191,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Drop `"Authenticated users can insert wineries"` and revoke `INSERT, UPDATE, DELETE, TRUNCATE` from `anon, authenticated`. Validate coordinate ranges, rating bounds, and `^https?://` website URLs in `ensure_winery`.
   - Prioritize `vault.decrypted_secrets` before `app.settings.*`. Fix `handle_activity_ledger_entry` privacy level assignment, and append `, pg_temp` to all `SECURITY DEFINER` search paths.
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
-- **Execution Mode:** `ready-for-agent`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** Spans multi-table PostgREST RLS (friends, trip members, profiles, wineries) and Supabase Storage bucket security policies. Phasing into Phase 1 (Database RLS & Bilateral Consent) and Phase 2 (Storage Bucket Privacy & Client Upload Validation) keeps test suites isolated and prevents context exhaustion.
 
 #### 4. [#94: security(functions): enforce caller authentication, isolate private visit reviews from Gemini summaries, and harden Edge Functions](https://github.com/jarredb9/finger-lakes-app-57/issues/94)
 - **Problem & Impact:**
@@ -161,7 +210,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Set `verify_jwt = true` in `supabase/config.toml` and `supabase/config.ci.toml` for `search-wineries` and `get-winery-details`. Validate caller JWT via `supabase.auth.getUser(token)` in function handlers.
   - Validate `placeId` matches `^[A-Za-z0-9_-]{1,255}$` and URL-encode before external requests.
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
-- **Execution Mode:** `ready-for-agent`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Self-contained Edge Function perimeter change. Agent 1 audits function endpoints and drafts the security plan artifact; Agent 2 implements Deno handlers and executes Edge Function tests (`npm run test:functions`) in a fresh session.
 
 #### 5. [#73: Winery Showing Amenities Incorrectly](https://github.com/jarredb9/finger-lakes-app-57/issues/73)
 - **Problem & Impact:** On iOS PWA (Standalone Mode), Toast Winery incorrectly displays as "Not Dog Friendly" (`allows_dogs: false`), whereas the browser displays "Unknown (Ask Reviews)". This misleads users and directly degrades trust.
@@ -171,7 +223,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - In `migrate(persistedState, version)`, reset any `false` on the 5 tri-state amenities (`allows_dogs`, `has_ev_charging`, `serves_wine`, `good_for_children`, `outdoor_seating`) back to `null`.
   - Coalesce omitted boolean fields in `supabase/functions/_shared/normalization.ts` to `null` (`?? null`).
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
-- **Execution Mode:** `agent:resolve` (headless overnight or single-turn CLI execution).
+- **Triage Label:** `agent:resolve`
+- **Recommended Workflow:** `Autonomous Overnight (agent:resolve)`
+- **Agent Topology & Sizing:** `Topology D (1 Headless Agent)`
+- **Workflow & Sizing Rationale:** Low blast radius ($\le 2$ files); pure reducer and store migration logic (`wineryStore.ts` version 3 bump) verified by deterministic unit tests (`wineryStore.test.ts`). Zero UI/DOM gesture dependencies.
 
 #### 6. [#75: PWA Hours Population Issue](https://github.com/jarredb9/finger-lakes-app-57/issues/75)
 - **Problem & Impact:** Wineries opened on PWA fail to show operating hours, showing perpetual loading or dropping cached data on restart.
@@ -185,7 +240,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Add `places.regularOpeningHours`, `websiteUri`, `internationalPhoneNumber` to client masks.
   - Render "Hours Unavailable" with winery website fallback link when Google confirms no hours.
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
-- **Execution Mode:** `ready-for-agent` (interactive CLI).
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Targeted TDD Fix Session`
+- **Agent Topology & Sizing:** `Topology A (1 Focused Agent, <30 turns)`
+- **Workflow & Sizing Rationale:** Well-understood root cause with a deterministic reproduction seam. A single interactive agent can write the failing test, apply the condition/mask patches across the edge function and autocomplete constants, and verify within 30 turns.
 
 ---
 
@@ -200,7 +258,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Fly Mapbox camera to resolved coordinates.
   - Sync address bar back to `/` on modal dismissal via `window.history.replaceState`.
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
-- **Execution Mode:** `ready-for-agent`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Dynamic App Router route creation requiring SSR auth gating, URL state hydration, and Mapbox camera fly-to synchronization. Agent 1 drafts the route contract and modal lifecycle plan; Agent 2 implements the page, shell hydration, and unit tests in a clean session.
 
 #### 8. [#95: security(web): fix open redirects, password reset header poisoning, route exposures, service_role client cookie binding, and add security headers](https://github.com/jarredb9/finger-lakes-app-57/issues/95)
 - **Problem & Impact:**
@@ -220,7 +281,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Clamp `page` and `limit` in `/api/wineries`, validate `query.length`, route writes through `ensure_winery`, and use a server-only Google Maps key.
   - Add `async headers()` in `next.config.mjs` with standard security headers (CSP, Referrer-Policy, X-Frame-Options). Remove client `env:` block in production builds.
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
-- **Execution Mode:** `ready-for-agent`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Spans 7 distinct web perimeter files across Next.js config, server actions, route handlers, and proxy middleware. Separating plan generation from implementation keeps context clean and ensures all security headers and redirect guards pass automated tests.
 
 #### 9. [#96: security(client): fix winery URL render DoS, purge offline DLQ/stores across logouts, and sanitize photo uploads](https://github.com/jarredb9/finger-lakes-app-57/issues/96)
 - **Problem & Impact:**
@@ -240,7 +304,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Validate file size (`<= 5MB`) and allowed MIME types in `PhotoUploader.tsx`, compress before Base64 conversion, and generate sanitized UUID filenames for storage paths.
   - Replace `i.pravatar.cc` email URLs with local initials or opaque identifiers.
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
-- **Execution Mode:** `ready-for-agent`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Spans client render crash fixes, IndexedDB DLQ encryption/purge, multi-user cache isolation, and photo upload MIME validation. Decoupling plan authoring from implementation guarantees that cryptographic and storage lifecycle changes are executed with a full reasoning budget.
 
 #### 10. [#88: security(auth): add HaveIBeenPwned k-anonymity leaked password check in sign-up and password reset](https://github.com/jarredb9/finger-lakes-app-57/issues/88)
 - **Problem & Impact:** Supabase security advisor reports `auth_leaked_password_protection` ("Leaked Password Protection Disabled"). Free-tier Supabase does not include native HIBP checking, leaving the application vulnerable to credential stuffing with known breached passwords on signup and password reset.
@@ -252,7 +319,10 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Integrate server-side defense-in-depth into `app/api/auth/reset-password/route.ts` executed *before* `supabase.auth.exchangeCodeForSession(code)` so one-time recovery codes are never burned on rejected passwords.
   - Add comprehensive unit tests in `lib/utils/__tests__/password-security.test.ts` and `components/__tests__/auth-forms.test.tsx`.
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
-- **Execution Mode:** `ready-for-agent`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Self-contained feature introducing a new Web Crypto k-anonymity utility and integrating it into signup/reset forms and server routes. Agent 1 plans the API client and timeout/fail-open resilience; Agent 2 executes unit tests and form integration.
 
 ---
 
@@ -262,16 +332,28 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 - **Problem & Impact:** In the "Trip" tab of `WineryModal`, users cannot easily add a winery to an existing upcoming trip without manually picking a date from a date picker.
 - **Remediation:** Replace date picker gate with an interactive upcoming trips checklist showing 1-tap `[+ Add]` and `[✕ Remove]` actions, optimistic toast feedback, and stop notes expansion.
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology A (1 Focused Agent, <40 turns)`
+- **Workflow & Sizing Rationale:** Bounded UI enhancement isolated to `TripPlannerSection.tsx` and `tripStore.ts`. Well-specified requirements easily accomplished in a single plan-and-implement session.
 
 #### 12. [#89: Mobile Device "Search this area" button Overlap of "Outdoor/Streets" Selector](https://github.com/jarredb9/finger-lakes-app-57/issues/89)
 - **Problem & Impact:** On narrow mobile viewports (<430px), `FloatingSearchAreaButton` rendered at `top-4 left-1/2` collides with `MapStyleSwitcher` rendered at `top-4 left-4`.
 - **Remediation:** Draft PR #99 authored by autonomous agent applying responsive Tailwind classes (`top-14 sm:top-4`).
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
+- **Triage Label:** `agent:resolve`
+- **Recommended Workflow:** `Autonomous Overnight (agent:resolve)`
+- **Agent Topology & Sizing:** `Topology D (1 Headless Agent)`
+- **Workflow & Sizing Rationale:** Leaf component declarative Tailwind styling (`top-14 sm:top-4`), exactly 1 component + 1 unit test, deterministic Jest class assertion (`toHaveClass`). Draft PR #99 already opened.
 
 #### 13. [#92: refactor(map): extract unified MapOverlayLayout to eliminate hardcoded absolute coordinates](https://github.com/jarredb9/finger-lakes-app-57/issues/92)
 - **Problem & Impact:** Hardcoded absolute coordinates (`top-4`, `left-4`, `top-14`) are scattered across `WineryMap.tsx`, `MapView.tsx`, and `floating-search-area-button.tsx`, coupling sibling layouts.
 - **Remediation:** Extract slot-based `MapOverlayLayout` container (`TopLeft`, `TopCenter`, `TopBanner`, `BottomLeft`) managing single stacking context and pointer event dispatching.
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Architectural refactoring following #89 to decouple sibling map controls into slot containers. Agent 1 designs container slots and pointer event contracts; Agent 2 refactors callers and verifies layout stability in a clean session.
 
 #### 14. [#74: Support Visitor-confirmed Amenities & Decouple AI Vibe Tags](https://github.com/jarredb9/finger-lakes-app-57/issues/74)
 - **Problem & Impact:** Gemini AI vibe tags frequently emit duplicate amenity phrases (`"Dog Friendly"`, `"EV Charging"`), causing visual contradictions between the modal header badges and the structured Amenities tab.
@@ -279,11 +361,19 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   - Decouple AI vibe prompt instructions in `supabase/functions/_shared/gemini.ts` from structured facility attributes.
   - Allow on-site visitors logging a visit via `VisitForm` to confirm amenities to crowdsource missing Google data.
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
+- **Triage Label:** `needs-triage`
+- **Recommended Workflow:** `/grill-with-docs Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Grill/Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Underspecified requirements regarding amenity verification data model, visitor quorum, and conflict resolution with Gemini vibe tags. Agent 1 grills maintainer against `CONTEXT.md` to establish domain rules; Agent 2 implements in a fresh session.
 
 #### 15. [#47: Map Geolocation & Viewport Search UX ("Search This Area")](https://github.com/jarredb9/finger-lakes-app-57/issues/47)
 - **Problem & Impact:** Users exploring the map have no one-touch way to center the map on their location or manually trigger a search of the currently visible bounding box.
 - **Remediation:** Implement `useGeolocation` hook, top-center "Search This Area" dirty-viewport button, and map FAB location trigger.
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `/grill-with-docs Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Grill/Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** High UX nuance (viewport dirtiness thresholds, debounce/throttle limits, Mapbox pitch/bearing handling, mobile FAB placement). Agent 1 conducts grilling interview to pin down UX contracts; Agent 2 executes implementation.
 
 ---
 
@@ -293,22 +383,37 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 - **Prerequisites:** Issue #57 is **CLOSED**.
 - **Scope:** Update `calculateDistance` in `lib/utils/geo.ts` to accept canonical `{ latitude, longitude }`, remove manual reshaping in `TripCardPresentational.tsx`, and contract obsolete `lat`/`lng` JSON keys in PostgreSQL RPC responses.
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
-- **Execution Mode:** `agent:resolve` eligible.
+- **Triage Label:** `agent:resolve`
+- **Recommended Workflow:** `Autonomous Overnight (agent:resolve)`
+- **Agent Topology & Sizing:** `Topology D (1 Headless Agent)`
+- **Workflow & Sizing Rationale:** Algorithmic geo refactor in `lib/utils/geo.ts` accepting `{ latitude, longitude }` with low blast radius and deterministic unit tests.
 
 #### 17. [#55: Deprecate and remove legacy asymmetric follows schema & RPCs](https://github.com/jarredb9/finger-lakes-app-57/issues/55)
 - **Prerequisites:** None (ADR-0002 is fully adopted; #87 revokes schema grants on legacy follows tables).
 - **Scope:** Cleanly drop obsolete `public.follows` and `public.follow_requests` tables, drop deprecated RPCs (`send_follow_request`, `respond_to_follow_request`), and regenerate TypeScript definitions.
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology A (1 Focused Agent, <40 turns)`
+- **Workflow & Sizing Rationale:** Clean schema contraction dropping deprecated tables and updating type exports (ADR-0002). Bounded database migration and TypeScript type refresh.
 
 #### 18. [#52: Epic: TypeScript Code Health & 'any' Type Remediation Roadmap](https://github.com/jarredb9/finger-lakes-app-57/issues/52)
 - **Status:** Fast-track PR 1 (#53) is **CLOSED**.
 - **Scope:** Execute PR 2 (Offline Crypto & Stores), PR 3 (Supabase SQL Migrations & Map Layer), and PR 4 (Component Polish) to eliminate unchecked `any` casts and enable automatic Supabase CLI type generation.
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** Multi-PR code health epic across offline crypto, SQL migrations, store shims, and components. Must be executed across phased sessions with independent PR verification gates.
 
 #### 19. [#31: Component Maintainability & Architectural Decomposition](https://github.com/jarredb9/finger-lakes-app-57/issues/31)
 - **Prerequisites:** Issues #36, #37, and #38 are **CLOSED**.
 - **Scope:** Refactor 10 God Components (>250 LOC) mixing store logic, SDK bindings, and JSX into presentational/container sub-components with React 19 `useActionState` forms.
 - **Milestone:** Assigned to `v3.8.0 - Component Decomposition & UI Modernization`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** Refactoring 10 God Components (>250 LOC). Massive refactor partitioned into 3–4 components per phase/agent to prevent context blowout and regression cascades.
 
 ---
 
@@ -318,16 +423,28 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 - **Prerequisites:** Issues #35 and #36 are **CLOSED** (redirect cookie forwarding and `/privacy` route whitelisting implemented in `proxy.ts`).
 - **Scope:** Supabase Auth Google provider integration with automatic linking for existing email/password accounts with matching email.
 - **Milestone:** Assigned to `v3.9.0 - Platform Feature Expansions`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** Google OAuth provider setup, proxy middleware cookie handling, account linking RPCs, and UI integration across distinct phases.
 
 #### 21. [#34: Winery Lifecycle & Rebranding Management](https://github.com/jarredb9/finger-lakes-app-57/issues/34)
 - **Prerequisites:** Issue #35 (BE-07, BE-15) is **CLOSED**.
 - **Scope:** Handle closed or rebranded wineries by introducing `business_status` (`OPERATIONAL`, `CLOSED_PERMANENTLY`, `ARCHIVED`) and `rebrand_history` JSONB tracking, preventing broken Place IDs while preserving user visit histories.
 - **Milestone:** Assigned to `v3.9.0 - Platform Feature Expansions`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** PostgreSQL schema migrations (`business_status`, `rebrand_history`), Places API 404 handling, and catalog/visit log adaptations across phases.
 
 #### 22. [#13: Advanced Markers & PostGIS-Powered Regional Guides](https://github.com/jarredb9/finger-lakes-app-57/issues/13)
 - **Prerequisites:** Coordinate with #34 and #35.
 - **Scope:** PostGIS-backed `regions` boundary polygons in Supabase and Mapbox custom HTML markers with status emblems (Visited, EV, Dogs).
 - **Milestone:** Assigned to `v3.9.0 - Platform Feature Expansions`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** PostGIS spatial extensions, polygon tables, Mapbox vector rendering, and custom HTML markers across phases.
 
 ---
 
@@ -336,14 +453,26 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 #### 23. [#46: Feature: Social Visit Tagging & Shared History](https://github.com/jarredb9/finger-lakes-app-57/issues/46)
 - **Scope:** `visit_participants` schema, atomic `log_visit_with_friends` RPC, friend picker UI in `VisitForm`, and mutual privacy enforcement.
 - **Milestone:** Assigned to `v3.10.0 - Social Discovery & Recommendation Platform`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** Multi-table social schema, atomic `log_visit_with_friends` RPC, friend picker UI, and mutual privacy ledger across phases.
 
 #### 24. [#45: Feature: Taste Profiles & Smart Recommendations](https://github.com/jarredb9/finger-lakes-app-57/issues/45)
 - **Scope:** Structured `taste_preferences` JSONB on profiles, `get_taste_matches` affinity scoring RPC, and recommendation badges.
 - **Milestone:** Assigned to `v3.10.0 - Social Discovery & Recommendation Platform`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** JSONB taste preferences, affinity scoring RPC, recommendation matching engine, and badges UI across phases.
 
 #### 25. [#48: Feature: Community Discovery & Global Activity Feed](https://github.com/jarredb9/finger-lakes-app-57/issues/48)
 - **Scope:** Realtime public activity stream with cursor pagination over `activity_ledger` and public feed UI.
 - **Milestone:** Assigned to `v3.10.0 - Social Discovery & Recommendation Platform`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** Realtime Supabase channel subscriptions, cursor pagination over activity ledger, and social feed cards across phases.
 
 ---
 
@@ -352,10 +481,18 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 #### [#77: fix prompt token blowout from blast-radius test injection](https://github.com/jarredb9/finger-lakes-app-57/issues/77)
 - **Status:** **Merged via PR #79.** Ready for maintainer closure.
 - **Milestone:** Assigned to `Tooling: agent-resolve Engine & Developer Experience`.
+- **Triage Label:** `closed`
+- **Recommended Workflow:** `Autonomous Overnight (agent:resolve)`
+- **Agent Topology & Sizing:** `Topology D (1 Headless Agent)`
+- **Workflow & Sizing Rationale:** Merged via PR #79.
 
 #### [#84: Quality hardening via patch-based Red phase](https://github.com/jarredb9/finger-lakes-app-57/issues/84)
 - **Status:** **Merged via PR #90.** Ready for maintainer closure.
 - **Milestone:** Assigned to `Tooling: agent-resolve Engine & Developer Experience`.
+- **Triage Label:** `closed`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents)`
+- **Workflow & Sizing Rationale:** Merged via PR #90.
 
 #### [#100: feat(agent-resolve): Architectural guardrails, semantic UI contracts, and morning review observability](https://github.com/jarredb9/finger-lakes-app-57/issues/100)
 - **Scope & Architectural Motivation:** Hardens the autonomous issue resolver against shallow local monkey-patches, magic-number coordinate coupling, and fragile JSDOM class-token assertions (as identified during the PR #99 post-mortem).
@@ -366,14 +503,26 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
   5. *Sandbox Boundary:* Preserves the fast, lightweight TypeScript + Jest inner loop in `node:24-slim` with `--network none`, isolating Playwright to downstream PR CI.
 - **Prerequisite Role:** Serves as the essential internal hardening step prior to extracting the engine into a standalone repository in #85.
 - **Milestone:** Assigned to `Tooling: agent-resolve Engine & Developer Experience`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Concrete architectural guardrails and semantic UI contracts for `agent-resolve`. Agent 1 drafts contract specs and blueprint validation rules; Agent 2 updates Python pipeline scripts and tests in a clean window.
 
 #### [#85: feat(infra): Extract agent-resolve into standalone engine repo](https://github.com/jarredb9/finger-lakes-app-57/issues/85)
 - **Scope:** Extract `scripts/agent-resolve/agent_resolve` into a standalone engine repository with schema-driven contracts for test runners and patch engines.
 - **Milestone:** Assigned to `Tooling: agent-resolve Engine & Developer Experience`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** Engine repository extraction, contract decoupling, and CI packaging across multi-phase agent sessions.
 
 #### [#86: feat(skill): Author setup-agent-resolve onboarding skill](https://github.com/jarredb9/finger-lakes-app-57/issues/86)
 - **Scope:** Interactive CLI skill to scaffold and calibrate `agent-resolve` workflows and test container configurations on new repositories.
 - **Milestone:** Assigned to `Tooling: agent-resolve Engine & Developer Experience`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Standard /plan Session`
+- **Agent Topology & Sizing:** `Topology B (2 Agents: Plan -> Fresh Execute)`
+- **Workflow & Sizing Rationale:** Agent skill authoring with bash scaffolding wizard and calibration loop. Agent 1 specs skill architecture and prompt templates; Agent 2 authors bash scripts and unit tests.
 
 ---
 
@@ -384,29 +533,29 @@ Milestone v3.7.0 Release Gate
  └── Tag v3.7.0 & bump package.json version -> Closes Milestone v3.7.0 (0 open issues)
  │
 Milestone v3.7.1 - Security Hardening & Production Defense (P0 / P1)
- ├── Step 1: Fix #97 (CI & Runner Security) -> Close Docker sandbox escape & protect CI secrets (ready-for-agent)
- ├── Step 2: Fix #87 (Database Security Part 1) -> Drop dead RPCs, disable pg_graphql, enforce SECURITY INVOKER & catalog immutability (ready-for-agent)
- ├── Step 3: Fix #93 (Database Security Part 2) -> PostgREST direct RLS, storage bucket privacy, friend/trip consent (ready-for-agent)
- ├── Step 4: Fix #94 (Edge Functions Security) -> Isolate private visits from Gemini, authorize webhooks, verify JWTs (ready-for-agent)
- ├── Step 5: Fix #73 (Amenities Bug) -> Store version 3 bump & IndexedDB heal (agent:resolve)
- ├── Step 6: Fix #75 (PWA Hours Bug) -> shouldEnrich healing + Places client masks (ready-for-agent)
- ├── Step 7: Fix #95 (Web Route & Auth Hardening) -> Open redirect sanitize, reset host header fix, route guards, security headers (ready-for-agent)
- ├── Step 8: Fix #96 (Client Stability & Storage Privacy) -> URL render crash fix, DLQ encryption/purge on logout, user isolation (ready-for-agent)
- └── Step 9: Implement #88 (HaveIBeenPwned Leaked Password Check) -> k-anonymity utility & form gates (ready-for-agent) -> Closes Milestone v3.7.1
+ ├── Step 1: Fix #97 (CI & Runner Security) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 2: Fix #87 (Database Security Part 1) -> Topology C [Conductor Track: Multiple Phased Agents]
+ ├── Step 3: Fix #93 (Database Security Part 2) -> Topology C [Conductor Track: Multiple Phased Agents]
+ ├── Step 4: Fix #94 (Edge Functions Security) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 5: Fix #73 (Amenities Bug) -> Topology D [Autonomous Overnight: agent:resolve]
+ ├── Step 6: Fix #75 (PWA Hours Bug) -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 7: Fix #95 (Web Route & Auth Hardening) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 8: Fix #96 (Client Stability & Storage Privacy) -> Topology B [Standard /plan Session: 2 Agents]
+ └── Step 9: Implement #88 (HaveIBeenPwned Leaked Password Check) -> Topology B [Standard /plan Session: 2 Agents]
  │
 Milestone v3.8.0 - Component Decomposition & UI Modernization
- ├── Step 10: Fix #41 (Deep Linking 404) -> Dynamic /winery/[id] route implementation (ready-for-agent)
- ├── Step 11: Implement #50 (WineryModal Upcoming Trips Checklist)
- ├── Step 12: Merge #89 / Execute #92 (MapOverlayLayout Slot Architecture)
- ├── Step 13: Execute #52 (TypeScript Epic PR 2 & 3)
- ├── Step 14: Execute #61 (Coordinate standardizations) & #55 (Drop deprecated follows schema)
- └── Step 15: Execute #31 (Component Decomposition) -> Closes Milestone v3.8.0
+ ├── Step 10: Fix #41 (Deep Linking 404) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 11: Implement #50 (WineryModal Upcoming Trips Checklist) -> Topology A [Standard /plan Session: 1 Agent]
+ ├── Step 12: Merge #89 (Topology D) / Execute #92 (MapOverlayLayout Slot Architecture) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 13: Execute #52 (TypeScript Epic PR 2 & 3) -> Topology C [Conductor Track: Multiple Phased Agents]
+ ├── Step 14: Execute #61 (Coordinate standardizations: Topology D) & #55 (Drop follows schema) -> Topology A [Standard /plan Session: 1 Agent]
+ └── Step 15: Execute #31 (Component Decomposition) -> Topology C [Conductor Track: Multiple Phased Agents]
  │
 Milestone v3.9.0 - Platform Feature Expansions
- ├── Step 16: Implement #32 (Google OAuth & Account Linking)
- ├── Step 17: Implement #34 (Winery Lifecycle / Rebranding)
- └── Step 18: Implement #13 (Mapbox Markers & PostGIS Regions) -> Closes Milestone v3.9.0
+ ├── Step 16: Implement #32 (Google OAuth & Account Linking) -> Topology C [Conductor Track: Multiple Phased Agents]
+ ├── Step 17: Implement #34 (Winery Lifecycle / Rebranding) -> Topology C [Conductor Track: Multiple Phased Agents]
+ └── Step 18: Implement #13 (Mapbox Markers & PostGIS Regions) -> Topology C [Conductor Track: Multiple Phased Agents]
  │
 Milestone v3.10.0 - Social Discovery & Recommendations
- └── Step 19: Implement #46 (Social Tagging), #45 (Taste Profiles), #48 (Community Feed)
+ └── Step 19: Implement #46 (Social Tagging), #45 (Taste Profiles), #48 (Community Feed) -> Topology C [Conductor Track: Multiple Phased Agents]
 ```
