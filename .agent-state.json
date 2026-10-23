@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "issue_number": 89,
+  "issue_title": "Mobile Device \"Search this area\" button Overlap of \"Outdoor/Streets\" Selector",
+  "scope": "map",
+  "plan_markdown": "# Implementation Plan: Mobile Search Area Button Offset\n\n## Overview\nOn mobile viewports (<640px), the floating \"Search this area\" button collides with the MapStyleSwitcher (\"Outdoor / Streets\" toggle) located at `top-4 left-4`. To prevent this visual overlap, the floating search area button must be positioned at `top-14` on mobile devices and return to `top-4` (`sm:top-4`) on tablet and desktop screens.\n\n## Architectural Constraints & Invariants\n- TDD Task Granularity Invariant: Red phase (`test(map)`) and Green phase (`feat(map)`) must be sequential and separated.\n- Refactor `FloatingSearchAreaButton` styling in-place using Tailwind utility classes `top-14 sm:top-4 left-1/2 -translate-x-1/2`.\n- Do not modify `MapStyleSwitcher` or other components.\n- JSDOM testing constraint: Assert responsive Tailwind class tokens (`top-14`, `sm:top-4`) directly via `expect(button).toHaveClass(...)` without attempting DOM bounding-box math.\n\n## Implementation Phases\n\n### Phase 1: Red Phase (TDD)\n- **Task**: Write failing unit tests for responsive positioning classes in `components/map/__tests__/floating-search-area-button.test.tsx` (TDD Red phase)\n  - Add test asserting that the rendered button contains both `top-14` and `sm:top-4` classes.\n  - Commit: `test(map): assert responsive mobile offset classes on floating search button`\n\n### Phase 2: Green Phase (TDD)\n- **Task**: Implement responsive mobile offset on `FloatingSearchAreaButton` (TDD Green phase)\n  - Update `components/map/floating-search-area-button.tsx` to apply `top-14 sm:top-4` in its root button class list.\n  - Ensure custom `className` props can still be merged safely via `cn()`.\n  - Commit: `feat(map): offset floating search area button on mobile viewports`\n\n### Phase 3: Verification & Blast Radius\n- Run unit test suite: `npm run test:container -- components/map/__tests__/floating-search-area-button.test.tsx`\n- Verify no regressions in related map test suites (`components/map/__tests__/MapView.test.tsx`).\n- Run type check: `npm run type-check`.",
+  "target_test_files": [
+    "components/map/__tests__/floating-search-area-button.test.tsx"
+  ],
+  "target_src_files": [
+    "components/map/floating-search-area-button.tsx"
+  ],
+  "blast_radius_test_files": [
+    "components/map/__tests__/MapView.test.tsx",
+    "components/map/__tests__/map-controls.test.tsx"
+  ],
+  "red_phase_commit_sha": "b1c31fa5b8f605891d2c5353874ce434dbb611e3",
+  "failed_phase": "stage_3_green",
+  "attempt_count": 1,
+  "last_failure_timestamp": "2026-10-23T14:35:06.453548+00:00",
+  "error_summary": "API call to model gemini-3.8-flash failed. Last error: Server disconnected without sending a response."
+}
