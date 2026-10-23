@@ -30,6 +30,21 @@ NON_SHARED_EDGE_FUNCTION_REGEX: re.Pattern[str] = re.compile(
     r"supabase/functions/(?!_shared(?:/|$|\.))[\w.-]+"
 )
 
+GESTURE_INTERACTION_KEYWORDS: Tuple[str, ...] = (
+    "gesture",
+    "touch-action",
+    "touch event",
+    "touchstart",
+    "touchmove",
+    "touchend",
+    "swipe",
+    "pinch",
+    "safe-area-inset",
+    "pull-to-refresh",
+    "safari popup",
+    "virtual keyboard",
+)
+
 
 def _compute_ancestor_proximity(sf: str, tf: str) -> int:
     """Computes directory proximity score as length of common ancestor path between source and test file."""
@@ -234,7 +249,7 @@ def is_issue_suitable_for_headless_agent(issue_title: str, issue_body: str) -> T
     reasons: List[str] = []
     if any(k in text for k in ["dropdownmenu", "dialog", "popover", "accordion", "sheet", "radix"]):
         reasons.append("composite Radix UI / dropdown component redesign")
-    if any(k in text for k in ["ios pwa", "standalone pwa", "webkit", "gesture", "safari popup"]):
+    if any(k in text for k in GESTURE_INTERACTION_KEYWORDS):
         reasons.append("mobile WebKit / PWA runtime gesture semantics")
     if any(k in text for k in ["maps://", "waze://", "https://maps.apple.com", "deep link"]):
         reasons.append("external vendor deep-linking scheme")
@@ -281,6 +296,7 @@ __all__: list[str] = [
     "EDGE_FUNCTION_PATH_REGEX",
     "EDGE_FUNCTION_UNSUITABLE_REASON",
     "GENERIC_STEMS",
+    "GESTURE_INTERACTION_KEYWORDS",
     "JEST_EXTENSIONS",
     "JEST_PATHSPECS",
     "NON_SHARED_EDGE_FUNCTION_REGEX",

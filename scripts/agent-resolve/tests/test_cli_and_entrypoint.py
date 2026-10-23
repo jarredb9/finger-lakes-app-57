@@ -47,7 +47,7 @@ class TestPyprojectConsoleScriptMetadata(unittest.TestCase):
     def test_pyproject_project_metadata(self) -> None:
         data = self._load_pyproject()
         self.assertEqual(data["project"]["name"], "agent-resolve")
-        self.assertEqual(data["project"]["version"], "0.1.0")
+        self.assertEqual(data["project"]["version"], "0.2.0")
         self.assertEqual(data["project"]["requires-python"], ">=3.12")
         self.assertEqual(data["build-system"]["build-backend"], "setuptools.build_meta")
 

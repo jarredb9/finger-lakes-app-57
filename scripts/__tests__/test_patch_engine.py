@@ -541,7 +541,7 @@ Exploration tools needed for Stage 0.
         # UI/composite component issue should be flagged
         suitable, reason = agent_resolve.is_issue_suitable_for_headless_agent(
             "Add DropdownMenu for trip navigation",
-            "Replace buttons with dropdownmenu trigger on iOS PWA"
+            "Replace buttons with dropdownmenu trigger swipe gesture on iOS PWA"
         )
         self.assertFalse(suitable)
         self.assertIn("Radix UI", reason)
