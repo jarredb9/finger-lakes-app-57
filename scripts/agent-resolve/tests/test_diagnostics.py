@@ -324,21 +324,107 @@ class TestTruncateErrorContext(unittest.TestCase):
         self.assertEqual(truncate_error_context(text), text)
 
     def test_truncate_error_context_strips_ansi_before_measuring_length(self) -> None:
-        # 7,900 clean chars + ANSI escapes = over 8,000 chars raw, but clean is <= 8000
-        clean_part = "A" * 7900
-        raw = f"\x1b[31m{clean_part}\x1b[0m"
+        # 3,900 clean chars + ANSI escapes = over 4,000 chars raw, but clean is <= 4000
+        clean_part = "A" * 3900
+        raw = f"\x1b[31m" * 30 + clean_part + "\x1b[0m" * 30
         self.assertEqual(truncate_error_context(raw), clean_part)
 
     def test_truncate_error_context_splits_head_and_tail_with_marker(self) -> None:
-        head = "H" * 4000
+        head = "H" * 2000
         middle = "M" * 2000
-        tail = "T" * 4000
-        text = f"{head}{middle}{tail}"  # 10,000 chars -> 2000 truncated
+        tail = "T" * 2000
+        text = f"{head}{middle}{tail}"  # 6,000 chars -> 2000 truncated
         expected = f"{head}\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n{tail}"
         self.assertEqual(truncate_error_context(text), expected)
 
     def test_truncate_error_context_handles_empty_string(self) -> None:
         self.assertEqual(truncate_error_context(""), "")
+
+    def test_truncate_error_context_strips_node_modules_and_internal_stack_frames(self) -> None:
+        raw_output = (
+            "Error: expect(received).toBe(expected)\n\n"
+            "    at Object.<anonymous> (/workspace/lib/utils.ts:42:15)\n"
+            "    at processAction (/workspace/lib/services/winery.ts:108:7)\n"
+            "    at Promise.then.completed (/app/node_modules/jest-circus/build/utils.js:391:28)\n"
+            "    at callAsyncCircusFn (node_modules/jest-circus/build/utils.js:316:10)\n"
+            "    at _callCircusTest (/app/node_modules/jest-circus/build/run.js:218:40)\n"
+            "    at async runTestInternal (/workspace/node_modules/jest-runner/build/runTest.js:389:16)\n"
+            "    at processTicksAndRejections (node:internal/process/task_queues:95:5)\n"
+            "    at runNextTicks (node:internal/process/task_queues:65:3)\n"
+            "    at internal/main/run_main_module.js:17:47\n"
+            "    at Module._compile (internal/modules/cjs/loader.js:1063:30)\n"
+        )
+        result = truncate_error_context(raw_output)
+
+        # Assert user-space frames and error descriptions are preserved
+        self.assertIn("Error: expect(received).toBe(expected)", result)
+        self.assertIn("at Object.<anonymous> (/workspace/lib/utils.ts:42:15)", result)
+        self.assertIn("at processAction (/workspace/lib/services/winery.ts:108:7)", result)
+
+        # Assert internal framework and runtime frames are stripped
+        self.assertNotIn("node_modules/jest-circus", result)
+        self.assertNotIn("node_modules/jest-runner", result)
+        self.assertNotIn("node:internal/process/task_queues", result)
+        self.assertNotIn("internal/main/run_main_module.js", result)
+        self.assertNotIn("internal/modules/cjs/loader.js", result)
+
+    def test_truncate_error_context_preserves_typescript_eslint_and_jest_diffs(self) -> None:
+        raw_output = (
+            "lib/services/wineryService.ts:42:15 - error TS2322: Type 'string' is not assignable to type 'number'.\n"
+            "lib/stores/useWineryStore.ts(18,5): error TS2304: Cannot find name 'WineryFilter'.\n\n"
+            "/workspace/lib/utils/format.ts:14:3: Unexpected ternary operator in conditional expression [Error/no-nested-ternary]\n\n"
+            "  ● WineryStore › updates search query state\n\n"
+            "    expect(received).toEqual(expected)\n\n"
+            "    - Expected  - 1\n"
+            "    + Received  + 1\n\n"
+            "      Object {\n"
+            "    -   \"query\": \"Finger Lakes\",\n"
+            "    +   \"query\": \"Seneca Lake\",\n"
+            "        \"filters\": Array [\n"
+            "    +     \"node_modules/package\",\n"
+            "        ],\n"
+            "      }\n\n"
+            "      24 |     store.setQuery(\"Seneca Lake\");\n"
+            "    > 25 |     expect(store.query).toEqual(\"Finger Lakes\");\n"
+            "         |                         ^\n"
+            "      26 |   });\n"
+        )
+        result = truncate_error_context(raw_output)
+
+        self.assertIn("error TS2322: Type 'string' is not assignable to type 'number'.", result)
+        self.assertIn("error TS2304: Cannot find name 'WineryFilter'.", result)
+        self.assertIn("[Error/no-nested-ternary]", result)
+        self.assertIn("● WineryStore › updates search query state", result)
+        self.assertIn('-   "query": "Finger Lakes"', result)
+        self.assertIn('+   "query": "Seneca Lake"', result)
+        self.assertIn('+     "node_modules/package"', result)
+        self.assertIn('> 25 |     expect(store.query).toEqual("Finger Lakes");', result)
+
+    def test_truncate_error_context_collapses_consecutive_blank_lines(self) -> None:
+        text = "Line 1\n\n\nLine 2\n\n\n\nLine 3\n\n\n\n\nLine 4"
+        expected = "Line 1\n\nLine 2\n\nLine 3\n\nLine 4"
+        self.assertEqual(truncate_error_context(text), expected)
+
+    def test_truncate_error_context_enforces_4000_char_ceiling_default_with_split_marker(self) -> None:
+        # String <= 4,000 chars returned untruncated
+        exact_text = "E" * 4000
+        self.assertEqual(truncate_error_context(exact_text), exact_text)
+
+        # String of 6,000 chars truncated to 4,000 chars total (2,000 head, 2,000 tail)
+        head = "A" * 2000
+        middle = "B" * 2000
+        tail = "C" * 2000
+        text = f"{head}{middle}{tail}"
+        expected = f"{head}\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n{tail}"
+        self.assertEqual(truncate_error_context(text), expected)
+
+    def test_truncate_error_context_allows_custom_max_chars_override(self) -> None:
+        head = "H" * 4000
+        middle = "M" * 2000
+        tail = "T" * 4000
+        text = f"{head}{middle}{tail}"  # 10,000 chars
+        expected = f"{head}\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n{tail}"
+        self.assertEqual(truncate_error_context(text, max_chars=8000), expected)
 
 
 if __name__ == "__main__":
