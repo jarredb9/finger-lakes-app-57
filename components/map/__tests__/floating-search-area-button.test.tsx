@@ -62,6 +62,18 @@ describe("FloatingSearchAreaButton", () => {
       const button = screen.getByRole("button", { name: /search this area/i });
       expect(button).toBeInTheDocument();
     });
+
+    it("applies responsive top offset classes to avoid overlapping map controls on mobile", () => {
+      render(
+        <FloatingSearchAreaButton
+          autoSearch={false}
+          lastSearchedBounds={sampleSearchedBounds}
+          currentCenter={{ lat: 42.80, lng: -76.90 }}
+        />
+      );
+      const button = screen.getByRole("button", { name: /search this area/i });
+      expect(button).toHaveClass("top-14", "sm:top-4");
+    });
   });
 
   describe("User Interactions & Loading State", () => {
