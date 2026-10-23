@@ -117,9 +117,11 @@
     * Authored 243 modular unit and integration tests across 14 dedicated test suites in `scripts/agent-resolve/tests/`.
     * Maintained 100% backward compatibility with all 27 legacy test cases in `scripts/__tests__/test_patch_engine.py` (270 total tests passing cleanly via `npm run test:agent:all`).
 
-## [Unreleased] - v3.7.0
+## [3.7.0] - 2026-10-23
 
-### 📱 Automated iOS PWA Standalone Testing Matrix & Domain Refactoring ([ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
+**Milestone v3.7.0: Bug Fixes, Incomplete Implementations, and PWA Testing Updates**
+
+### 📱 Automated iOS PWA Standalone Testing Matrix & Domain Refactoring ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71) / [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72) / [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
 * **Containerized iOS Standalone Mode Emulation & Playwright Test Fixtures**:
     * Implemented `enableStandaloneMode(page)` in `e2e/fixtures/shims/browser.shim.ts`, injecting WebKit `window.navigator.standalone = true` and standard W3C `matchMedia` proxy returning `matches: true` for `(display-mode: standalone)` and `matches: false` for `(display-mode: browser)`.
     * Implemented `standalonePage` test fixture in `e2e/fixtures/index.ts` (re-exported via `e2e/utils.ts`) that applies standalone emulation via `page.addInitScript` prior to page navigation, allowing end-to-end PWA verification on rootless Linux containers without physical iOS hardware or macOS simulator licensing.
