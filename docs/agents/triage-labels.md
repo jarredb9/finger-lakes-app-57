@@ -60,10 +60,10 @@ While composite UI redesigns belong strictly in `ready-for-agent` (interactive C
 1. **Isolated Blast Radius ($\le 2$ files):** Exactly 1 presentation leaf component + 1 test file (e.g. `floating-search-area-button.tsx` + `floating-search-area-button.test.tsx`). No container components, store mutations, or multi-component coordination.
 2. **Purely Declarative Styling:** The change consists strictly of static CSS/Tailwind utility classes, ARIA attributes, or static prop bindings. Zero DOM event listener changes, zero gesture handlers, zero state reducers.
 3. **Existing Jest Harness:** The component already has an existing Jest/RTL unit test suite where the rendered element can be asserted via `@testing-library/jest-dom` (`toHaveClass`, `toHaveAttribute`).
-4. **Deterministic Seam Translation in Brief:** The visual symptom is explicitly translated into concrete Tailwind class tokens (e.g. `top-14 sm:top-4`). The Agent Brief **must explicitly direct Stage 2 to assert class tokens in Jest** and forbid attempting DOM bounding box or collision geometry math in JSDOM (which evaluates to zero).
+4. **Deterministic Seam Translation in Brief:** The visual symptom is explicitly translated into concrete Tailwind class tokens (e.g. `top-14 sm:top-4`). The Agent Brief **must explicitly direct Stage 2 to assert strictly the delta class tokens in Jest** and forbid attempting DOM bounding box or collision geometry math in JSDOM (which evaluates to zero), while warning against asserting static baseline tokens (e.g., centering or flexbox utilities) to ensure test durability.
 
 > [!CAUTION]
-> **Prohibited UI Candidates:** Never force composite Radix primitives (`DropdownMenu`, `Dialog`, `Popover`, `Accordion`, `Sheet`), WebKit touch/PWA gestures, or multi-element stacking contexts into `agent:resolve`. Such tickets will fail Stage 2/3 TDD loops and waste overnight token quotas.
+> **Prohibited UI Candidates:** Never force composite Radix primitives (`DropdownMenu`, `Dialog`, `Popover`, `Accordion`, `Sheet`), WebKit touch/PWA gestures, multi-element stacking contexts, or open-ended visual collision issues requiring geometric discovery into `agent:resolve`. Without maintainer-prescribed delta class tokens, headless agents cannot discover visual layout fixes in JSDOM; such tickets belong strictly in `ready-for-agent` (interactive Antigravity CLI) or require Playwright E2E visual regression suites.
 
 ---
 
