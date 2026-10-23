@@ -74,9 +74,9 @@
     - [x] Assert retention of TypeScript compiler output (`error TS...`), ESLint diagnostics, and Jest multi-line assertion diffs.
     - [x] Assert collapse of consecutive blank lines and verify the 4,000 character ceiling with split head/tail marker.
     - [x] Execute `npm run test:agent` and confirm expected test failures.
-- [ ] Task: Implement semantic diagnostic filtering and update ADR-0005 to pass tests (TDD Green phase)
-    - [ ] Update `truncate_error_context` in `scripts/agent-resolve/agent_resolve/diagnostics.py` with regex-based negative line filtering and newline collapsing.
-    - [ ] Lower `max_chars` parameter default to 4000.
-    - [ ] Update Section 7 of `docs/adr/0005-autonomous-nightly-agent-workflow.md` to document the 4,000-character cap and diagnostic sanitization.
-    - [ ] Run `npm run test:agent` and `npm run test:agent:all` to verify all tests pass.
+- [x] Task: Implement semantic diagnostic filtering and update ADR-0005 to pass tests (TDD Green phase) [commit: d44e61b]
+    - [x] Update `truncate_error_context` in `scripts/agent-resolve/agent_resolve/diagnostics.py` with regex-based negative line filtering and newline collapsing.
+    - [x] Lower `max_chars` parameter default to 4000.
+    - [x] Update Section 7 of `docs/adr/0005-autonomous-nightly-agent-workflow.md` to document the 4,000-character cap and diagnostic sanitization.
+    - [x] Run `npm run test:agent` and `npm run test:agent:all` to verify all tests pass.
 - [ ] Task: Conductor - User Manual Verification 'Semantic Diagnostic Filtering & Stack Trace Pruning' (Protocol in workflow.md)
