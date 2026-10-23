@@ -143,6 +143,20 @@ def parse_issue_diagnostics(issue_body: str) -> Tuple[List[str], str]:
     return suspected_files, root_cause
 
 
+# Stack frame detection: lines beginning with optional leading whitespace followed by 'at '
+STACK_FRAME_PATTERN: Final[Pattern[str]] = re.compile(r"^\s*at\s+")
+
+# Internal framework path indicators within stack frames:
+# - node_modules/ (including /app/node_modules/ and Windows \ paths)
+# - node:internal/
+# - internal/ (following parenthesis, slash, backslash, or directly after 'at ')
+INTERNAL_FRAME_INDICATOR_PATTERN: Final[Pattern[str]] = re.compile(
+    r"(?:node_modules[/\\]|node:internal[/\\]|(?:\(|^|\s|[/\\])internal[/\\])"
+)
+
+# Consecutive newline collapsing pattern: matches 3 or more newlines
+CONSECUTIVE_NEWLINES_PATTERN: Final[Pattern[str]] = re.compile(r"\n{3,}")
+
 ANSI_ESCAPE_PATTERN: Final[Pattern[str]] = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
 
@@ -153,20 +167,47 @@ def strip_ansi(text: str) -> str:
     return ANSI_ESCAPE_PATTERN.sub("", text)
 
 
-def truncate_error_context(text: str, max_chars: int = 8000) -> str:
+def truncate_error_context(text: str, max_chars: int = 4000) -> str:
     """
-    Strips ANSI codes and enforces an 8,000 character maximum cap on verification error context.
-    If stripped text exceeds max_chars, retains the first 4,000 characters and last 4,000 characters,
-    joined by '\\n\\n... [TRUNCATED {chars} CHARS OF VERIFICATION OUTPUT] ...\\n\\n'.
-    Texts <= max_chars are returned intact after ANSI stripping.
+    Sanitizes and bounds verification error output for LLM prompts:
+    1. Strips ANSI escape sequences.
+    2. Prunes internal framework stack frames (matching node_modules/, node:internal/, internal/)
+       while strictly preserving user-space frames, code snippets, TypeScript compiler errors,
+       ESLint diagnostics, and multi-line assertion diffs.
+    3. Collapses 3+ consecutive newlines down to 2 (\\n\\n).
+    4. Enforces a maximum character cap (default 4,000 chars: 2,000 head / 2,000 tail)
+       joined by '\\n\\n... [TRUNCATED {truncated_count} CHARS OF VERIFICATION OUTPUT] ...\\n\\n'.
+
+    Parameters:
+        text: Raw compiler or test runner standard output/error.
+        max_chars: Character ceiling for truncated context. Defaults to 4000.
+
+    Returns:
+        str: Sanitized, pruned, and bounded error context.
     """
     clean = strip_ansi(text)
-    total = len(clean)
+    if not clean:
+        return ""
+
+    lines = clean.splitlines()
+    surviving_lines: list[str] = []
+    for line in lines:
+        is_stack_frame = bool(STACK_FRAME_PATTERN.match(line))
+        is_internal = bool(INTERNAL_FRAME_INDICATOR_PATTERN.search(line))
+        if is_stack_frame and is_internal:
+            continue
+        surviving_lines.append(line)
+
+    filtered_text = "\n".join(surviving_lines)
+    normalized = CONSECUTIVE_NEWLINES_PATTERN.sub("\n\n", filtered_text)
+
+    total = len(normalized)
     if total <= max_chars:
-        return clean
+        return normalized
+
     half = max_chars // 2
-    head = clean[:half]
-    tail = clean[-half:]
+    head = normalized[:half]
+    tail = normalized[-half:]
     truncated_count = total - (half * 2)
     marker = f"\n\n... [TRUNCATED {truncated_count} CHARS OF VERIFICATION OUTPUT] ...\n\n"
     return f"{head}{marker}{tail}"
