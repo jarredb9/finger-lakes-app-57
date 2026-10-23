@@ -109,4 +109,19 @@ describe("FloatingSearchAreaButton", () => {
       expect(screen.getByRole("button", { name: /search this area/i })).toBeInTheDocument();
     });
   });
+
+  describe("Responsive Layout & Positioning", () => {
+    it("renders with responsive top positioning classes to avoid overlap with map controls on mobile", () => {
+      render(
+        <FloatingSearchAreaButton
+          autoSearch={false}
+          lastSearchedBounds={sampleSearchedBounds}
+          currentCenter={{ lat: 42.80, lng: -76.90 }}
+        />
+      );
+
+      const button = screen.getByRole("button", { name: /search this area/i });
+      expect(button).toHaveClass("top-14", "sm:top-4", "left-1/2", "-translate-x-1/2");
+    });
+  });
 });
