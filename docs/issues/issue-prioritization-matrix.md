@@ -8,7 +8,7 @@
 - `v3.8.0 - Component Decomposition & UI Modernization` (10 open issues: #52, #41, #31, #50, #92, #89, #47, #74, #61, #55)
 - `v3.9.0 - Platform Feature Expansions` (3 open issues: #34, #32, #13)
 - `v3.10.0 - Social Discovery & Recommendation Platform` (Backlog / 3 open issues: #46, #45, #48)
-- `Tooling: agent-resolve Engine & Developer Experience` (Developer Infrastructure / 4 open issues: #77, #84, #85, #86)
+- `Tooling: agent-resolve Engine & Developer Experience` (Developer Infrastructure / 5 issues: #77, #84, #100, #85, #86)
 - `v3.7.0 - Bug Fixes, Incomplete Implementations, and PWA Testing Updates` (Complete / Ready for Release Tag: 0 open, 9 closed)
 
 ---
@@ -80,6 +80,7 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 | **25** | [#48: Feature: Community Discovery & Global Activity Feed](https://github.com/jarredb9/finger-lakes-app-57/issues/48) | Feature | `v3.10.0` | Interactive CLI | **Broad Surface Area:** Realtime global activity feed. Lowest urgency until core community density reaches critical mass. |
 | **—** | [#77: fix prompt token blowout from blast-radius test injection](https://github.com/jarredb9/finger-lakes-app-57/issues/77) | Infra / Bug | `Tooling` | `agent:resolve` | **Merged via PR #79:** Fixed prompt token blowout and hardened verification limits. Ready for maintainer closure. |
 | **—** | [#84: Quality hardening via patch-based Red phase](https://github.com/jarredb9/finger-lakes-app-57/issues/84) | Infra / Refactor | `Tooling` | `ready-for-agent` | **Merged via PR #90:** Implemented patch-based Red phase, test deduplication, and linter gates. Ready for maintainer closure. |
+| **—** | [#100: Architectural guardrails, semantic UI contracts, and morning review observability](https://github.com/jarredb9/finger-lakes-app-57/issues/100) | Infra / Architecture | `Tooling` | `ready-for-agent` | **Pipeline Hardening (Prerequisite to #85):** Establishes Zero Coordinate Coupling invariant in Stage 1 planning, replaces Directive 10 class assertions with Semantic UI Contracts in Stage 2, bounds triage briefs to boundaries/acceptance criteria, and formats high-signal PR Architectural Scorecards for morning review. |
 | **—** | [#85: Extract agent-resolve into standalone engine repo](https://github.com/jarredb9/finger-lakes-app-57/issues/85) | Infra / Feature | `Tooling` | `ready-for-agent` | **Engine Decoupling:** Extract `scripts/agent-resolve` into an independent engine package with contract configuration. |
 | **—** | [#86: Author setup-agent-resolve onboarding skill](https://github.com/jarredb9/finger-lakes-app-57/issues/86) | Infra / Skill | `Tooling` | `ready-for-agent` | **Skill Authoring:** Create interactive agent skill to bootstrap `agent-resolve` in target repositories. |
 
@@ -354,6 +355,16 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 
 #### [#84: Quality hardening via patch-based Red phase](https://github.com/jarredb9/finger-lakes-app-57/issues/84)
 - **Status:** **Merged via PR #90.** Ready for maintainer closure.
+- **Milestone:** Assigned to `Tooling: agent-resolve Engine & Developer Experience`.
+
+#### [#100: feat(agent-resolve): Architectural guardrails, semantic UI contracts, and morning review observability](https://github.com/jarredb9/finger-lakes-app-57/issues/100)
+- **Scope & Architectural Motivation:** Hardens the autonomous issue resolver against shallow local monkey-patches, magic-number coordinate coupling, and fragile JSDOM class-token assertions (as identified during the PR #99 post-mortem).
+  1. *Maintainer Altitude:* Standardizes maintainer briefs on Acceptance Criteria and Invariants; strictly prohibits generating code blocks or class tokens in AI triage.
+  2. *Stage 1 Planning Guard:* Adds `alternatives_considered` to `BlueprintPlan` and injects the Zero Coordinate Coupling Invariant into Stage 1 planning.
+  3. *Stage 2 Semantic UI Contracts:* Replaces Directive 10 in `stage_2_red.py` with a ban on raw layout coordinate utilities (`top-*`, `left-*`, `z-*`), directing tests to assert semantic DOM attributes (`data-slot`, `data-layout`) and container hierarchy.
+  4. *Morning Review Observability:* Formats an automated Architectural Scorecard and Maintainer Attention Items in Draft PR bodies for rapid morning evaluation.
+  5. *Sandbox Boundary:* Preserves the fast, lightweight TypeScript + Jest inner loop in `node:24-slim` with `--network none`, isolating Playwright to downstream PR CI.
+- **Prerequisite Role:** Serves as the essential internal hardening step prior to extracting the engine into a standalone repository in #85.
 - **Milestone:** Assigned to `Tooling: agent-resolve Engine & Developer Experience`.
 
 #### [#85: feat(infra): Extract agent-resolve into standalone engine repo](https://github.com/jarredb9/finger-lakes-app-57/issues/85)
