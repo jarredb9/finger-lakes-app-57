@@ -1794,11 +1794,11 @@ class TestStage3Green(unittest.TestCase):
         )
         manifest = PatchManifest(patches=[])
 
-        # 12,000 characters of clean compiler errors with ANSI escape sequences
-        head_clean = "HEAD_COMPILER_ERROR_" + ("A" * 3980)  # 4,000 chars
-        middle_clean = "MIDDLE_COMPILER_ERROR_" + ("M" * 3978) # 4,000 chars
-        tail_clean = "TAIL_COMPILER_ERROR_" + ("Z" * 3980)  # 4,000 chars
-        # Total clean = 12,000 chars
+        # 6,000 characters of clean compiler errors with ANSI escape sequences
+        head_clean = "HEAD_COMPILER_ERROR_" + ("A" * 1980)  # 2,000 chars
+        middle_clean = "MIDDLE_COMPILER_ERROR_" + ("M" * 1978) # 2,000 chars
+        tail_clean = ("Z" * 1980) + "TAIL_COMPILER_ERROR_"  # 2,000 chars
+        # Total clean = 6,000 chars (truncated = 6,000 - 4,000 = 2,000 chars)
         ansi_error_output = f"\x1b[31;1m{head_clean}\x1b[0m\x1b[33m{middle_clean}\x1b[0m\x1b[34m{tail_clean}\x1b[0m"
 
         attempt_count = 0
@@ -1829,8 +1829,8 @@ class TestStage3Green(unittest.TestCase):
         prompt_2 = mock_gemini.call_args_list[1][0][1]
         # Must strip all ANSI escape sequences
         self.assertNotIn("\x1b[", prompt_2)
-        # Must truncate to head (4k) and tail (4k) with exact marker
-        expected_marker = "\n\n... [TRUNCATED 4000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
+        # Must truncate to head (2k) and tail (2k) with exact marker
+        expected_marker = "\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
         self.assertIn(expected_marker, prompt_2)
         self.assertIn("HEAD_COMPILER_ERROR_", prompt_2)
         self.assertIn("TAIL_COMPILER_ERROR_", prompt_2)
@@ -1853,11 +1853,11 @@ class TestStage3Green(unittest.TestCase):
         )
         manifest = PatchManifest(patches=[])
 
-        # 15,000 characters of clean error output with ANSI escape sequences
-        head_clean = "REG_HEAD_ERROR_" + ("H" * 3985)   # 4,000 chars
-        middle_clean = "REG_MID_ERROR_" + ("M" * 6986)   # 7,000 chars
-        tail_clean = "REG_TAIL_ERROR_" + ("T" * 3985)   # 4,000 chars
-        # Total clean = 15,000 chars. Truncated count = 15000 - 8000 = 7000.
+        # 6,000 characters of clean error output with ANSI escape sequences
+        head_clean = "REG_HEAD_ERROR_" + ("H" * 1985)   # 2,000 chars
+        middle_clean = "REG_MID_ERROR_" + ("M" * 1986)   # 2,000 chars
+        tail_clean = ("T" * 1985) + "REG_TAIL_ERROR_"   # 2,000 chars
+        # Total clean = 6,000 chars. Truncated count = 6000 - 4000 = 2000.
         ansi_error_output = f"\x1b[35m{head_clean}\x1b[0m\x1b[36m{middle_clean}\x1b[0m\x1b[31m{tail_clean}\x1b[0m"
 
         attempt_count = 0
@@ -1892,7 +1892,7 @@ class TestStage3Green(unittest.TestCase):
 
         prompt_2 = mock_gemini.call_args_list[1][0][1]
         self.assertNotIn("\x1b[", prompt_2)
-        expected_marker = "\n\n... [TRUNCATED 7000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
+        expected_marker = "\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
         self.assertIn(expected_marker, prompt_2)
         self.assertIn("REG_HEAD_ERROR_", prompt_2)
         self.assertIn("REG_TAIL_ERROR_", prompt_2)
@@ -2163,10 +2163,10 @@ class TestStage3Green(unittest.TestCase):
         )
         manifest = PatchManifest(patches=[])
 
-        # 12,000 characters of clean eslint errors with ANSI escape sequences
-        head_clean = "HEAD_ESLINT_ERROR_" + ("A" * 3982)  # 4,000 chars
-        middle_clean = "MIDDLE_ESLINT_ERROR_" + ("M" * 3980)  # 4,000 chars
-        tail_clean = "TAIL_ESLINT_ERROR_" + ("Z" * 3982)  # 4,000 chars
+        # 6,000 characters of clean eslint errors with ANSI escape sequences
+        head_clean = "HEAD_ESLINT_ERROR_" + ("A" * 1982)  # 2,000 chars
+        middle_clean = "MIDDLE_ESLINT_ERROR_" + ("M" * 1980)  # 2,000 chars
+        tail_clean = ("Z" * 1982) + "TAIL_ESLINT_ERROR_"  # 2,000 chars
         ansi_error_output = f"\x1b[31;1m{head_clean}\x1b[0m\x1b[33m{middle_clean}\x1b[0m\x1b[34m{tail_clean}\x1b[0m"
 
         attempt_count = 0
@@ -2201,7 +2201,7 @@ class TestStage3Green(unittest.TestCase):
         )
         prompt_2 = mock_gemini.call_args_list[1][0][1]
         self.assertNotIn("\x1b[", prompt_2)
-        expected_marker = "\n\n... [TRUNCATED 4000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
+        expected_marker = "\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
         self.assertIn(expected_marker, prompt_2)
         self.assertIn("HEAD_ESLINT_ERROR_", prompt_2)
         self.assertIn("TAIL_ESLINT_ERROR_", prompt_2)
