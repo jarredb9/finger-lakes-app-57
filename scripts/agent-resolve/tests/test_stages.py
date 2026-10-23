@@ -4,6 +4,7 @@ Unit tests for `agent_resolve.stages` (TDD Red Phase).
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Any
 import unittest
 from unittest.mock import MagicMock, call, patch
 
@@ -20,6 +21,15 @@ from agent_resolve.models import (
     TestFileEntry,
     TestFileManifest,
 )
+
+try:
+    from agent_resolve.models import TestPatchManifest
+except ImportError:
+    from pydantic import BaseModel
+
+    class TestPatchManifest(BaseModel):  # type: ignore[no-redef]
+        patches: list[PatchChunk] = []
+        source_stubs: list[SourceStubEntry] = []
 from agent_resolve.tracker import TokenTracker
 
 # Modular imports under test (TDD Red Phase: raises ModuleNotFoundError until Phase 5 Task 2)
@@ -409,11 +419,11 @@ class TestStage1Plan(unittest.TestCase):
             f"Expected error message mentioning supabase/ or e2e/, got: {ctx.exception}",
         )
 
-    def test_stage_1_prompt_includes_shared_edge_function_jest_directives(self) -> None:
+    def test_stage_1_prompt_omits_deprecated_edge_function_directives(self) -> None:
         mock_blueprint = BlueprintPlan(
             scope="winery",
             target_test_files=["lib/utils/__tests__/geo.test.ts"],
-            target_src_files=["supabase/functions/_shared/geo.ts"],
+            target_src_files=["lib/utils/geo.ts"],
             plan_markdown="# Plan",
         )
 
@@ -424,12 +434,10 @@ class TestStage1Plan(unittest.TestCase):
         ), patch.object(
             agent_resolve, "call_gemini_with_fallback", return_value=mock_blueprint
         ) as mock_gemini:
-            stage_1_plan(self.client, 42, "Refactor geo shared", "Body", self.tracker)
+            stage_1_plan(self.client, 42, "Refactor geo", "Body", self.tracker)
 
         prompt_text = mock_gemini.call_args[0][1]
-        self.assertIn("supabase/functions/_shared", prompt_text)
-        self.assertIn("@/supabase/functions/_shared", prompt_text)
-        self.assertIn("lib/", prompt_text)
+        self.assertNotIn("EDGE FUNCTION SHARED MODULE TESTING INVARIANT", prompt_text)
 
     def test_stage_1_prompt_contains_schema_and_contract_evolution_invariant(self) -> None:
         bp = BlueprintPlan(
@@ -509,6 +517,147 @@ class TestStage1Plan(unittest.TestCase):
         self.assertNotIn("supabase/functions/_shared/__tests__/bad.test.ts", result_bp.blast_radius_test_files)
         self.assertNotIn("e2e/flow.spec.ts", result_bp.blast_radius_test_files)
 
+    def test_stage_1_deduplicates_target_tests_and_routes_demoted_to_blast_radius(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=[
+                "lib/stores/__tests__/wineryStore.persist.test.ts",
+                "lib/stores/__tests__/wineryStore.test.ts",
+            ],
+            target_src_files=["lib/stores/wineryStore.ts"],
+            plan_markdown="# Plan",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ):
+            result_bp = stage_1_plan(self.client, 42, "Deduplicate tests", "Body", self.tracker)
+
+        self.assertEqual(
+            result_bp.target_test_files,
+            ["lib/stores/__tests__/wineryStore.persist.test.ts"],
+        )
+        self.assertIn(
+            "lib/stores/__tests__/wineryStore.test.ts",
+            result_bp.blast_radius_test_files,
+        )
+
+    def test_stage_1_demoted_test_files_deduplicated_and_capped_at_max_blast_radius(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=[
+                "lib/stores/__tests__/wineryStore.persist.test.ts",
+                "lib/stores/__tests__/wineryStore.test.ts",
+            ],
+            target_src_files=["lib/stores/wineryStore.ts"],
+            blast_radius_test_files=[
+                "lib/stores/__tests__/wineryStore.test.ts",
+                "lib/__tests__/extra1.test.ts",
+                "lib/__tests__/extra2.test.ts",
+                "lib/__tests__/extra3.test.ts",
+                "lib/__tests__/extra4.test.ts",
+            ],
+            plan_markdown="# Plan",
+        )
+
+        discovered_related = [
+            "lib/__tests__/extra5.test.ts",
+            "lib/__tests__/extra6.test.ts",
+            "lib/__tests__/extra7.test.ts",
+            "lib/__tests__/extra8.test.ts",
+            "lib/__tests__/extra9.test.ts",
+        ]
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=discovered_related
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ):
+            result_bp = stage_1_plan(self.client, 42, "Capping test", "Body", self.tracker)
+
+        self.assertEqual(
+            result_bp.target_test_files,
+            ["lib/stores/__tests__/wineryStore.persist.test.ts"],
+        )
+        self.assertEqual(len(result_bp.blast_radius_test_files), 8)
+        self.assertNotIn(
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            result_bp.blast_radius_test_files,
+        )
+        self.assertIn(
+            "lib/stores/__tests__/wineryStore.test.ts",
+            result_bp.blast_radius_test_files,
+        )
+
+    def test_stage_1_prompt_contains_target_test_cohesion_and_deduplication_directive(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/target.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ) as mock_gemini:
+            stage_1_plan(self.client, 42, "Prompt test", "Body", self.tracker)
+
+        prompt_text = mock_gemini.call_args[0][1]
+        self.assertIn(
+            "Select only the single most cohesive test file for each modified source file. "
+            "Do not duplicate identical unit tests across multiple test files.",
+            prompt_text,
+        )
+
+    def test_stage_1_prompt_places_static_guidelines_and_role_header_at_prefix(self) -> None:
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/target.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        fake_context = (
+            "### REPOSITORY DOMAIN MODEL (CONTEXT.md):\nDomain Model Rules\n\n"
+            "### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):\nAgent Standards"
+        )
+        with patch.object(
+            agent_resolve, "get_project_context", return_value=fake_context
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=bp
+        ) as mock_gemini:
+            stage_1_plan(self.client, 42, "Prompt Caching Optimization", "Body", self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        first_line = prompt.splitlines()[0] if prompt.splitlines() else ""
+
+        self.assertTrue(
+            prompt.startswith("You are the Staff Principal Architect generating an authoritative implementation blueprint.")
+        )
+        self.assertNotIn("42", first_line)
+        self.assertNotIn("Prompt Caching Optimization", first_line)
+
+        pos_context = prompt.find("### REPOSITORY DOMAIN MODEL (CONTEXT.md):")
+        pos_agents = prompt.find("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):")
+        pos_issue = prompt.find("Issue #42")
+
+        self.assertNotEqual(pos_context, -1)
+        self.assertNotEqual(pos_agents, -1)
+        self.assertNotEqual(pos_issue, -1)
+        self.assertLess(pos_context, pos_issue)
+        self.assertLess(pos_agents, pos_issue)
+
 
 
 class TestStage2Red(unittest.TestCase):
@@ -546,11 +695,12 @@ class TestStage2Red(unittest.TestCase):
             plan_markdown="# Plan",
         )
 
-        manifest = TestFileManifest(
-            files=[
-                TestFileEntry(
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
                     file_path="lib/__tests__/new.test.ts",
-                    content="describe('new', () => { it('fails', () => { expect(true).toBe(false); }); });",
+                    search_block="",
+                    replace_block="describe('new', () => { it('fails', () => { expect(true).toBe(false); }); });\n",
                 )
             ],
             source_stubs=[
@@ -593,7 +743,7 @@ class TestStage2Red(unittest.TestCase):
             ),
         ])
 
-    def test_retries_when_pre_existing_describe_suite_dropped(self) -> None:
+    def test_stage_2_preserves_unmodified_suites_without_extract_test_suite_names_check(self) -> None:
         (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
         test_file = self.root / "lib" / "__tests__" / "existing.test.ts"
         test_file.parent.mkdir(parents=True, exist_ok=True)
@@ -606,19 +756,12 @@ class TestStage2Red(unittest.TestCase):
             plan_markdown="# Plan",
         )
 
-        manifest_dropped = TestFileManifest(
-            files=[
-                TestFileEntry(
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
                     file_path="lib/__tests__/existing.test.ts",
-                    content="describe('SuiteA', () => {});",
-                )
-            ]
-        )
-        manifest_fixed = TestFileManifest(
-            files=[
-                TestFileEntry(
-                    file_path="lib/__tests__/existing.test.ts",
-                    content="describe('SuiteA', () => {});\ndescribe('SuiteB', () => {});",
+                    search_block="describe('SuiteA', () => {});",
+                    replace_block="describe('SuiteA', () => { it('fails', () => { expect(1).toBe(2); }); });",
                 )
             ]
         )
@@ -626,7 +769,7 @@ class TestStage2Red(unittest.TestCase):
         with patch.object(
             agent_resolve, "get_project_context", return_value="CONTEXT"
         ), patch.object(
-            agent_resolve, "call_gemini_with_fallback", side_effect=[manifest_dropped, manifest_fixed]
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
         ) as mock_gemini, patch.object(
             agent_resolve,
             "run_isolated_test",
@@ -637,11 +780,11 @@ class TestStage2Red(unittest.TestCase):
             agent_resolve, "run_cmd", return_value=(0, "", "")
         ):
             stage_2_red(self.client, 42, "Update test", bp, self.tracker)
-            self.assertEqual(mock_gemini.call_count, 2)
+            self.assertEqual(mock_gemini.call_count, 1)
 
-        prompt_2 = mock_gemini.call_args_list[1][0][1]
-        self.assertIn("PREVIOUS ATTEMPT DROPPED PRE-EXISTING TEST SUITES", prompt_2)
-        self.assertIn("SuiteB", prompt_2)
+        updated_content = test_file.read_text(encoding="utf-8")
+        self.assertIn("SuiteB", updated_content)
+        self.assertIn("expect(1).toBe(2)", updated_content)
 
     def test_self_corrects_on_compiler_failure_then_succeeds(self) -> None:
         (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
@@ -783,13 +926,13 @@ class TestStage2Red(unittest.TestCase):
             self.assertNotIn("components/__tests__/blast.test.tsx", call_args[0][0])
         self.assertEqual(bp.blast_radius_test_files, ["components/__tests__/blast.test.tsx"])
 
-    def test_stage_2_prompt_includes_shared_edge_function_jest_directives(self) -> None:
+    def test_stage_2_prompt_omits_deprecated_edge_function_directives(self) -> None:
         (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
 
         bp = BlueprintPlan(
             scope="winery",
             target_test_files=["lib/utils/__tests__/winery.test.ts"],
-            target_src_files=["supabase/functions/_shared/winery.ts"],
+            target_src_files=["lib/utils/winery.ts"],
             plan_markdown="# Plan",
         )
 
@@ -818,9 +961,324 @@ class TestStage2Red(unittest.TestCase):
             stage_2_red(self.client, 42, "Shared winery test", bp, self.tracker)
 
         prompt_text = mock_gemini.call_args[0][1]
-        self.assertIn("@/supabase/functions/_shared", prompt_text)
-        self.assertIn("supabase/", prompt_text)
-        self.assertIn("e2e/", prompt_text)
+        self.assertNotIn("EDGE FUNCTION SHARED MODULE TESTING INVARIANT", prompt_text)
+
+    def test_stage_2_requests_test_patch_manifest_and_applies_via_patch_engine(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/feature.test.ts"],
+            target_src_files=["lib/feature.ts"],
+            plan_markdown="# Plan",
+        )
+
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/feature.test.ts",
+                    search_block="",
+                    replace_block="describe('feature', () => { it('fails', () => { expect(true).toBe(false); }); });\n",
+                )
+            ],
+            source_stubs=[
+                SourceStubEntry(
+                    file_path="lib/feature.ts",
+                    content="export const feature = () => { throw new Error('Not implemented'); };",
+                )
+            ],
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Valid assertion failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ) as mock_cmd:
+            stage_2_red(self.client, 42, "Feature test", bp, self.tracker)
+
+        self.assertIn("schema_cls", mock_gemini.call_args[1])
+        self.assertTrue(
+            hasattr(agent_resolve.models, "TestPatchManifest")
+            and mock_gemini.call_args[1]["schema_cls"] is getattr(agent_resolve.models, "TestPatchManifest", None),
+            f"Expected schema_cls to be TestPatchManifest from agent_resolve.models, got {mock_gemini.call_args[1].get('schema_cls')}",
+        )
+
+        self.assertTrue((self.root / "lib" / "feature.ts").exists())
+        self.assertTrue((self.root / "lib" / "__tests__" / "feature.test.ts").exists())
+        mock_cmd.assert_has_calls([
+            call(
+                ["git", "add", "lib/__tests__/feature.test.ts", "lib/feature.ts"],
+                check=True,
+            ),
+            call(
+                ["git", "commit", "-m", "test(winery): Add failing tests for Issue #42"],
+                check=True,
+            ),
+        ])
+
+    def test_stage_2_passes_allowed_files_to_prevent_source_tampering(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "utils" / "winery.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const keepMe = true;\n", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/tamper.test.ts"],
+            target_src_files=["lib/utils/winery.ts"],
+            plan_markdown="# Plan",
+        )
+
+        tampering_manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/utils/winery.ts",
+                    search_block="export const keepMe = true;\n",
+                    replace_block="export const keepMe = false;\n",
+                ),
+                PatchChunk(
+                    file_path="lib/__tests__/tamper.test.ts",
+                    search_block="",
+                    replace_block="describe('tamper', () => {});\n",
+                ),
+            ]
+        )
+        valid_manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/tamper.test.ts",
+                    search_block="",
+                    replace_block="describe('tamper', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ]
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", side_effect=[tampering_manifest, valid_manifest]
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Valid assertion failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Tamper test", bp, self.tracker)
+            self.assertEqual(mock_gemini.call_count, 2)
+
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn("rejected", prompt_2)
+        self.assertIn("lib/utils/winery.ts", prompt_2)
+        self.assertEqual(src_file.read_text(encoding="utf-8"), "export const keepMe = true;\n")
+
+    def test_stage_2_reverts_target_tests_and_cleans_staged_stubs_before_retry(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "revert.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('baseline', () => {});\n", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/revert.test.ts"],
+            target_src_files=["lib/new_stub.ts"],
+            plan_markdown="# Plan",
+        )
+
+        bad_manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/revert.test.ts",
+                    search_block="describe('baseline', () => {});\n",
+                    replace_block="describe('corrupt', () => { syntax error here\n",
+                )
+            ],
+            source_stubs=[
+                SourceStubEntry(
+                    file_path="lib/new_stub.ts",
+                    content="export const bad = 1;",
+                )
+            ],
+        )
+        good_manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/revert.test.ts",
+                    search_block="describe('baseline', () => {});\n",
+                    replace_block="describe('baseline', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ]
+        )
+
+        cmd_calls: list[list[str]] = []
+
+        def fake_run_cmd(cmd: list[str], **kwargs: Any) -> tuple[int, str, str]:
+            cmd_calls.append(cmd)
+            if len(cmd) >= 4 and cmd[:3] == ["git", "checkout", "HEAD"]:
+                for target_file in cmd[4:]:
+                    p = self.root / target_file
+                    if p.name == "revert.test.ts":
+                        p.write_text("describe('baseline', () => {});\n", encoding="utf-8")
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", side_effect=[bad_manifest, good_manifest]
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(1, "TypeScript compilation error", ""), (0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Clean failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", side_effect=fake_run_cmd
+        ):
+            stage_2_red(self.client, 42, "Revert test", bp, self.tracker)
+
+        checkout_calls = [c for c in cmd_calls if len(c) >= 3 and c[:3] == ["git", "checkout", "HEAD"]]
+        self.assertTrue(len(checkout_calls) >= 1, f"Expected git checkout HEAD call, got: {cmd_calls}")
+
+    def test_stage_2_supports_empty_search_blocks_for_new_test_files(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/brand_new_authored.test.ts"],
+            target_src_files=["lib/brand_new.ts"],
+            plan_markdown="# Plan",
+        )
+
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/brand_new_authored.test.ts",
+                    search_block="",
+                    replace_block="describe('brand new', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ]
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Clean failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Brand new test authoring", bp, self.tracker)
+
+        created = self.root / "lib" / "__tests__" / "brand_new_authored.test.ts"
+        self.assertTrue(created.exists())
+        self.assertIn("describe('brand new'", created.read_text(encoding="utf-8"))
+
+    def test_stage_2_prompt_omits_repository_tree(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/sample.test.ts"],
+            target_src_files=["lib/sample.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/sample.test.ts",
+                    search_block="",
+                    replace_block="describe('sample', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ],
+            source_stubs=[],
+        )
+        with patch(
+            "agent_resolve.context.get_repository_tree",
+            return_value="### EXISTING REPOSITORY SOURCE FILES:\n- lib/unrelated.ts",
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Clean failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Context tree omission", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        self.assertNotIn("### EXISTING REPOSITORY SOURCE FILES:", prompt)
+
+    def test_stage_2_prompt_places_static_guidelines_and_role_header_at_prefix(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        (self.root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+        (self.root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/sample.test.ts"],
+            target_src_files=["lib/sample.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = TestPatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/__tests__/sample.test.ts",
+                    search_block="",
+                    replace_block="describe('sample', () => { it('fails', () => { expect(1).toBe(2); }); });\n",
+                )
+            ],
+            source_stubs=[],
+        )
+        with patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[(0, "", ""), (1, '{"numFailedTests": 1}', "")],
+        ), patch.object(
+            agent_resolve, "validate_jest_red_phase", return_value=(True, "Clean failure")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_2_red(self.client, 42, "Prompt caching prefix", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        first_line = prompt.splitlines()[0] if prompt.splitlines() else ""
+
+        self.assertTrue(
+            prompt.startswith("You are the Red Phase Executor Agent authoring failing tests.")
+        )
+        self.assertNotIn("42", first_line)
+        self.assertNotIn("Prompt caching prefix", first_line)
+
+        pos_context = prompt.find("### REPOSITORY DOMAIN MODEL (CONTEXT.md):")
+        pos_agents = prompt.find("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):")
+        pos_issue = prompt.find("Issue #42")
+        pos_blueprint = prompt.find("ARCHITECTURAL BLUEPRINT")
+
+        self.assertNotEqual(pos_context, -1)
+        self.assertNotEqual(pos_agents, -1)
+        self.assertNotEqual(pos_issue, -1)
+        self.assertNotEqual(pos_blueprint, -1)
+
+        self.assertLess(pos_context, pos_issue)
+        self.assertLess(pos_context, pos_blueprint)
+        self.assertLess(pos_agents, pos_issue)
+        self.assertLess(pos_agents, pos_blueprint)
 
 
 
@@ -888,6 +1346,7 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
                 (0, "", ""),  # targeted jest
                 (0, "", ""),  # full regression type-check
                 (0, "", ""),  # full regression jest
@@ -898,9 +1357,10 @@ class TestStage3Green(unittest.TestCase):
             stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
 
         mock_reset.assert_called_once_with(["lib/foo.ts"], baseline_ref="HEAD")
-        self.assertEqual(mock_test.call_count, 4)
+        self.assertEqual(mock_test.call_count, 5)
         mock_test.assert_has_calls([
             call(["npm", "run", "type-check"]),
+            call(["npx", "eslint", "--no-warn-ignored", "lib/foo.ts"]),
             call(["npx", "jest", "--no-color", "--silent", "lib/__tests__/foo.test.ts"]),
             call(["npm", "run", "type-check"]),
             call(["npx", "jest", "--no-color", "--silent"]),
@@ -938,7 +1398,7 @@ class TestStage3Green(unittest.TestCase):
         ), patch.object(
             agent_resolve,
             "run_isolated_test",
-            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
         ), patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")
         ):
@@ -977,10 +1437,12 @@ class TestStage3Green(unittest.TestCase):
             agent_resolve,
             "run_isolated_test",
             side_effect=[
-                # Attempt 1: targeted type-check exits 0, targeted jest exits 1
+                # Attempt 1: targeted type-check exits 0, targeted eslint exits 0, targeted jest exits 1
+                (0, "", ""),
                 (0, "", ""),
                 (1, "Targeted jest failed", ""),
-                # Attempt 2: targeted type-check exits 0, targeted jest exits 0, full reg type-check exits 0, full reg jest exits 1
+                # Attempt 2: targeted type-check exits 0, targeted eslint exits 0, targeted jest exits 0, full reg type-check exits 0, full reg jest exits 1
+                (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
@@ -1021,7 +1483,7 @@ class TestStage3Green(unittest.TestCase):
         ), patch.object(
             agent_resolve,
             "run_isolated_test",
-            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
         ), patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")
         ) as mock_cmd:
@@ -1053,7 +1515,7 @@ class TestStage3Green(unittest.TestCase):
         ) as mock_apply, patch.object(
             agent_resolve,
             "run_isolated_test",
-            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
         ), patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")
         ):
@@ -1099,7 +1561,7 @@ class TestStage3Green(unittest.TestCase):
         ), patch.object(
             agent_resolve,
             "run_isolated_test",
-            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
+            side_effect=[(0, "", ""), (0, "", ""), (0, "", ""), (0, "", ""), (0, "", "")],
         ), patch.object(
             agent_resolve, "run_cmd", side_effect=fake_run_cmd
         ) as mock_cmd:
@@ -1172,6 +1634,7 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
                 (0, "", ""),  # targeted jest
                 (0, "", ""),  # full regression type-check
                 (0, "", ""),  # full regression jest
@@ -1267,13 +1730,15 @@ class TestStage3Green(unittest.TestCase):
         test_calls = []
         def fake_run_isolated_test(cmd: list) -> tuple:
             test_calls.append(list(cmd))
-            # Attempt 1: targeted type-check passes, targeted jest passes
+            # Attempt 1: targeted type-check passes, targeted eslint passes, targeted jest passes
             if len(test_calls) == 1 and cmd == ["npm", "run", "type-check"]:
                 return (0, "", "")
-            if len(test_calls) == 2 and cmd[:2] == ["npx", "jest"]:
+            if len(test_calls) == 2 and len(cmd) >= 3 and cmd[:3] == ["npx", "eslint", "--no-warn-ignored"]:
+                return (0, "", "")
+            if len(test_calls) == 3 and cmd[:2] == ["npx", "jest"]:
                 return (0, "", "")
             # Attempt 1 regression gate: type-check fails with TS2345
-            if cmd == ["npm", "run", "type-check"] and len(test_calls) == 3:
+            if cmd == ["npm", "run", "type-check"] and len(test_calls) == 4:
                 return (2, "TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.", "")
             # If npm test is called in attempt 1 (current unadapted behavior) or subsequent calls
             return (0, "", "")
@@ -1295,15 +1760,17 @@ class TestStage3Green(unittest.TestCase):
 
         # In attempt 1:
         # Call 1: targeted type-check
-        # Call 2: targeted jest
-        # Call 3: regression type-check MUST run before regression jest
+        # Call 2: targeted eslint
+        # Call 3: targeted jest
+        # Call 4: regression type-check MUST run before regression jest
         self.assertEqual(test_calls[0], ["npm", "run", "type-check"])
-        self.assertEqual(test_calls[1][:2], ["npx", "jest"])
-        self.assertEqual(test_calls[2], ["npm", "run", "type-check"], "Regression type-check must run before full Jest suite")
+        self.assertEqual(test_calls[1][:3], ["npx", "eslint", "--no-warn-ignored"])
+        self.assertEqual(test_calls[2][:2], ["npx", "jest"])
+        self.assertEqual(test_calls[3], ["npm", "run", "type-check"], "Regression type-check must run before full Jest suite")
 
         # Regression jest must NOT be invoked when regression type-check fails on attempt 1
-        # Therefore, call 4 must be the start of attempt 2 (targeted type-check), not npm test
-        self.assertEqual(test_calls[3], ["npm", "run", "type-check"], "Full Jest suite must be skipped on regression compilation failure")
+        # Therefore, call 5 must be the start of attempt 2 (targeted type-check), not npm test
+        self.assertEqual(test_calls[4], ["npm", "run", "type-check"], "Full Jest suite must be skipped on regression compilation failure")
 
         # Prompt for attempt 2 must reflect regression TypeScript failure
         prompt_2 = mock_gemini.call_args_list[1][0][1]
@@ -1327,11 +1794,11 @@ class TestStage3Green(unittest.TestCase):
         )
         manifest = PatchManifest(patches=[])
 
-        # 12,000 characters of clean compiler errors with ANSI escape sequences
-        head_clean = "HEAD_COMPILER_ERROR_" + ("A" * 3980)  # 4,000 chars
-        middle_clean = "MIDDLE_COMPILER_ERROR_" + ("M" * 3978) # 4,000 chars
-        tail_clean = "TAIL_COMPILER_ERROR_" + ("Z" * 3980)  # 4,000 chars
-        # Total clean = 12,000 chars
+        # 6,000 characters of clean compiler errors with ANSI escape sequences
+        head_clean = "HEAD_COMPILER_ERROR_" + ("A" * 1980)  # 2,000 chars
+        middle_clean = "MIDDLE_COMPILER_ERROR_" + ("M" * 1978) # 2,000 chars
+        tail_clean = ("Z" * 1980) + "TAIL_COMPILER_ERROR_"  # 2,000 chars
+        # Total clean = 6,000 chars (truncated = 6,000 - 4,000 = 2,000 chars)
         ansi_error_output = f"\x1b[31;1m{head_clean}\x1b[0m\x1b[33m{middle_clean}\x1b[0m\x1b[34m{tail_clean}\x1b[0m"
 
         attempt_count = 0
@@ -1362,8 +1829,8 @@ class TestStage3Green(unittest.TestCase):
         prompt_2 = mock_gemini.call_args_list[1][0][1]
         # Must strip all ANSI escape sequences
         self.assertNotIn("\x1b[", prompt_2)
-        # Must truncate to head (4k) and tail (4k) with exact marker
-        expected_marker = "\n\n... [TRUNCATED 4000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
+        # Must truncate to head (2k) and tail (2k) with exact marker
+        expected_marker = "\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
         self.assertIn(expected_marker, prompt_2)
         self.assertIn("HEAD_COMPILER_ERROR_", prompt_2)
         self.assertIn("TAIL_COMPILER_ERROR_", prompt_2)
@@ -1386,11 +1853,11 @@ class TestStage3Green(unittest.TestCase):
         )
         manifest = PatchManifest(patches=[])
 
-        # 15,000 characters of clean error output with ANSI escape sequences
-        head_clean = "REG_HEAD_ERROR_" + ("H" * 3985)   # 4,000 chars
-        middle_clean = "REG_MID_ERROR_" + ("M" * 6986)   # 7,000 chars
-        tail_clean = "REG_TAIL_ERROR_" + ("T" * 3985)   # 4,000 chars
-        # Total clean = 15,000 chars. Truncated count = 15000 - 8000 = 7000.
+        # 6,000 characters of clean error output with ANSI escape sequences
+        head_clean = "REG_HEAD_ERROR_" + ("H" * 1985)   # 2,000 chars
+        middle_clean = "REG_MID_ERROR_" + ("M" * 1986)   # 2,000 chars
+        tail_clean = ("T" * 1985) + "REG_TAIL_ERROR_"   # 2,000 chars
+        # Total clean = 6,000 chars. Truncated count = 6000 - 4000 = 2000.
         ansi_error_output = f"\x1b[35m{head_clean}\x1b[0m\x1b[36m{middle_clean}\x1b[0m\x1b[31m{tail_clean}\x1b[0m"
 
         attempt_count = 0
@@ -1425,7 +1892,7 @@ class TestStage3Green(unittest.TestCase):
 
         prompt_2 = mock_gemini.call_args_list[1][0][1]
         self.assertNotIn("\x1b[", prompt_2)
-        expected_marker = "\n\n... [TRUNCATED 7000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
+        expected_marker = "\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
         self.assertIn(expected_marker, prompt_2)
         self.assertIn("REG_HEAD_ERROR_", prompt_2)
         self.assertIn("REG_TAIL_ERROR_", prompt_2)
@@ -1466,6 +1933,7 @@ class TestStage3Green(unittest.TestCase):
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
+                (0, "", ""),
             ],
         ), patch.object(
             agent_resolve, "run_cmd", return_value=(0, "", "")
@@ -1489,7 +1957,9 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted tc passes
+                (0, "", ""),  # targeted eslint passes
                 (1, "STDOUT_JEST_ERR_MSG", "STDERR_JEST_WARN_NOTICE"),  # targeted jest fails
+                (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
@@ -1517,8 +1987,10 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted tc passes
+                (0, "", ""),  # targeted eslint passes
                 (0, "", ""),  # targeted jest passes
                 (2, "STDOUT_REG_TC_ERR_MSG", "STDERR_REG_TC_WARN_NOTICE"),  # reg tc fails
+                (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
@@ -1546,9 +2018,11 @@ class TestStage3Green(unittest.TestCase):
             "run_isolated_test",
             side_effect=[
                 (0, "", ""),  # targeted tc passes
+                (0, "", ""),  # targeted eslint passes
                 (0, "", ""),  # targeted jest passes
                 (0, "", ""),  # reg tc passes
                 (1, "STDOUT_REG_JEST_ERR_MSG", "STDERR_REG_JEST_WARN_NOTICE"),  # reg jest fails
+                (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
                 (0, "", ""),
@@ -1562,6 +2036,393 @@ class TestStage3Green(unittest.TestCase):
             self.assertIn("STDOUT_REG_JEST_ERR_MSG", prompt_2)
             self.assertIn("STDERR_REG_JEST_WARN_NOTICE", prompt_2)
             self.assertIn(call(["npx", "jest", "--no-color", "--silent"]), mock_test.call_args_list)
+
+    def test_stage_3_executes_targeted_eslint_after_type_check_and_proceeds_to_jest_on_success(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src1 = self.root / "lib" / "foo.ts"
+        src1.parent.mkdir(parents=True, exist_ok=True)
+        src1.write_text("export const foo = () => true;", encoding="utf-8")
+        src2 = self.root / "lib" / "bar.ts"
+        src2.write_text("export const bar = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts", "lib/bar.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ), patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[
+                (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
+                (0, "", ""),  # targeted jest
+                (0, "", ""),  # full regression type-check
+                (0, "", ""),  # full regression jest
+            ],
+        ) as mock_test, patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        eslint_cmd = ["npx", "eslint", "--no-warn-ignored", "lib/foo.ts", "lib/bar.ts"]
+        self.assertIn(call(eslint_cmd), mock_test.call_args_list)
+
+        calls = [c[0][0] for c in mock_test.call_args_list]
+        tc_idx = calls.index(["npm", "run", "type-check"])
+        eslint_idx = calls.index(eslint_cmd)
+        jest_idx = calls.index(["npx", "jest", "--no-color", "--silent", "lib/__tests__/foo.test.ts"])
+        self.assertLess(tc_idx, eslint_idx)
+        self.assertLess(eslint_idx, jest_idx)
+
+    def test_stage_3_skips_jest_when_targeted_eslint_fails_and_triggers_retry_loop(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        test_calls = []
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            test_calls.append(list(cmd))
+            # Attempt 1: targeted type-check passes, targeted eslint fails
+            if len(test_calls) == 1 and cmd == ["npm", "run", "type-check"]:
+                return (0, "", "")
+            if len(test_calls) == 2 and len(cmd) >= 3 and cmd[:3] == ["npx", "eslint", "--no-warn-ignored"]:
+                return (1, "lib/foo.ts:10:5: error: Do not nest ternary expressions no-nested-ternary", "")
+            # Subsequent verification calls pass
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ) as mock_reset, patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        # In Attempt 1, Jest must NEVER be called
+        attempt_1_calls = test_calls[:2]
+        self.assertFalse(any("jest" in arg for c in attempt_1_calls for arg in c))
+
+        # Reset should be called twice (before Attempt 1 and Attempt 2)
+        self.assertEqual(mock_reset.call_count, 2)
+
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn("TypeScript Check Exit Code: 0", prompt_2)
+        self.assertIn("ESLint Exit Code: 1", prompt_2)
+        self.assertIn("Do not nest ternary expressions no-nested-ternary", prompt_2)
+        self.assertNotIn("Jest Test Exit Code", prompt_2)
+        self.assertNotIn("Jest Errors", prompt_2)
+
+    def test_stage_3_sanitizes_and_truncates_large_eslint_error_output_in_last_error_context(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        # 6,000 characters of clean eslint errors with ANSI escape sequences
+        head_clean = "HEAD_ESLINT_ERROR_" + ("A" * 1982)  # 2,000 chars
+        middle_clean = "MIDDLE_ESLINT_ERROR_" + ("M" * 1980)  # 2,000 chars
+        tail_clean = ("Z" * 1982) + "TAIL_ESLINT_ERROR_"  # 2,000 chars
+        ansi_error_output = f"\x1b[31;1m{head_clean}\x1b[0m\x1b[33m{middle_clean}\x1b[0m\x1b[34m{tail_clean}\x1b[0m"
+
+        attempt_count = 0
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            nonlocal attempt_count
+            if len(cmd) >= 3 and cmd[:3] == ["npx", "eslint", "--no-warn-ignored"]:
+                attempt_count += 1
+                if attempt_count == 1:
+                    return (1, ansi_error_output, "")
+                return (0, "", "")
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        self.assertGreaterEqual(
+            len(mock_gemini.call_args_list),
+            2,
+            "ESLint failure must trigger a retry attempt with error context",
+        )
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertNotIn("\x1b[", prompt_2)
+        expected_marker = "\n\n... [TRUNCATED 2000 CHARS OF VERIFICATION OUTPUT] ...\n\n"
+        self.assertIn(expected_marker, prompt_2)
+        self.assertIn("HEAD_ESLINT_ERROR_", prompt_2)
+        self.assertIn("TAIL_ESLINT_ERROR_", prompt_2)
+        self.assertNotIn("MIDDLE_ESLINT_ERROR_", prompt_2)
+
+    def test_stage_3_combines_stdout_and_stderr_on_eslint_failure(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        attempt_count = 0
+        def fake_run_isolated_test(cmd: list) -> tuple:
+            nonlocal attempt_count
+            if len(cmd) >= 3 and cmd[:3] == ["npx", "eslint", "--no-warn-ignored"]:
+                attempt_count += 1
+                if attempt_count == 1:
+                    return (1, "LINT_STDOUT_ERROR_MSG", "LINT_STDERR_WARN_NOTICE")
+                return (0, "", "")
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", side_effect=fake_run_isolated_test
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        self.assertGreaterEqual(
+            len(mock_gemini.call_args_list),
+            2,
+            "ESLint failure must trigger a retry attempt with error context",
+        )
+        prompt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn("LINT_STDOUT_ERROR_MSG", prompt_2)
+        self.assertIn("LINT_STDERR_WARN_NOTICE", prompt_2)
+
+    def test_stage_3_prompt_contains_code_hygiene_and_nested_ternary_directive(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        src_file = self.root / "lib" / "foo.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const foo = () => true;", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "foo.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('foo', () => {});", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/foo.test.ts"],
+            target_src_files=["lib/foo.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(patches=[])
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve, "run_isolated_test", return_value=(0, "", "")
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        self.assertIn(
+            "Avoid nested ternary operators (>1 level). When resolving conditional state with multiple fallbacks, extract the logic into a pure, well-named helper function.",
+            prompt,
+        )
+
+    def test_eslint_config_enforces_no_nested_ternary(self) -> None:
+        eslint_config_path = self.orig_root / "eslint.config.mjs"
+        self.assertTrue(eslint_config_path.exists(), f"{eslint_config_path} must exist")
+        config_content = eslint_config_path.read_text(encoding="utf-8")
+        self.assertIn('"no-nested-ternary": "error"', config_content)
+
+    def test_stage_3_prompt_omits_repository_tree(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "sample.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('sample', () => {});", encoding="utf-8")
+        src_file = self.root / "lib" / "sample.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const sample = () => false;", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/sample.test.ts"],
+            target_src_files=["lib/sample.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/sample.ts",
+                    search_block="export const sample = () => false;",
+                    replace_block="export const sample = () => true;",
+                )
+            ]
+        )
+        with patch(
+            "agent_resolve.context.get_repository_tree",
+            return_value="### EXISTING REPOSITORY SOURCE FILES:\n- lib/unrelated.ts",
+        ), patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[
+                (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
+                (0, "", ""),  # targeted jest
+                (0, "", ""),  # full regression type-check
+                (0, "", ""),  # full regression jest
+            ],
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Context tree omission", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        self.assertNotIn("### EXISTING REPOSITORY SOURCE FILES:", prompt)
+
+    def test_stage_3_prompt_places_static_guidelines_and_role_header_at_prefix(self) -> None:
+        (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+        (self.root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+        (self.root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+        test_file = self.root / "lib" / "__tests__" / "sample.test.ts"
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+        test_file.write_text("describe('sample', () => {});", encoding="utf-8")
+        src_file = self.root / "lib" / "sample.ts"
+        src_file.parent.mkdir(parents=True, exist_ok=True)
+        src_file.write_text("export const sample = () => false;", encoding="utf-8")
+
+        bp = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/sample.test.ts"],
+            target_src_files=["lib/sample.ts"],
+            plan_markdown="# Plan",
+        )
+        manifest = PatchManifest(
+            patches=[
+                PatchChunk(
+                    file_path="lib/sample.ts",
+                    search_block="export const sample = () => false;",
+                    replace_block="export const sample = () => true;",
+                )
+            ]
+        )
+        with patch.object(
+            agent_resolve, "reset_target_sources"
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=manifest
+        ) as mock_gemini, patch.object(
+            agent_resolve, "apply_patch_manifest", return_value=(True, [])
+        ), patch.object(
+            agent_resolve,
+            "run_isolated_test",
+            side_effect=[
+                (0, "", ""),  # targeted type-check
+                (0, "", ""),  # targeted eslint
+                (0, "", ""),  # targeted jest
+                (0, "", ""),  # full regression type-check
+                (0, "", ""),  # full regression jest
+            ],
+        ), patch.object(
+            agent_resolve, "run_cmd", return_value=(0, "", "")
+        ):
+            stage_3_green(self.client, 42, "Prompt caching prefix", bp, self.tracker)
+
+        prompt = mock_gemini.call_args[0][1]
+        first_line = prompt.splitlines()[0] if prompt.splitlines() else ""
+
+        self.assertTrue(
+            prompt.startswith("You are the Green Phase Executor Agent implementing code to satisfy the requirements.")
+        )
+        self.assertNotIn("42", first_line)
+        self.assertNotIn("Prompt caching prefix", first_line)
+
+        pos_context = prompt.find("### REPOSITORY DOMAIN MODEL (CONTEXT.md):")
+        pos_agents = prompt.find("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):")
+        pos_issue = prompt.find("Issue #42")
+        pos_blueprint = prompt.find("ARCHITECTURAL BLUEPRINT")
+
+        self.assertNotEqual(pos_context, -1)
+        self.assertNotEqual(pos_agents, -1)
+        self.assertNotEqual(pos_issue, -1)
+        self.assertNotEqual(pos_blueprint, -1)
+
+        self.assertLess(pos_context, pos_issue)
+        self.assertLess(pos_context, pos_blueprint)
+        self.assertLess(pos_agents, pos_issue)
+        self.assertLess(pos_agents, pos_blueprint)
 
 
 if __name__ == "__main__":

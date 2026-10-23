@@ -9,7 +9,12 @@ from typing import Any, List, Optional, Tuple
 
 from agent_resolve import config
 from agent_resolve.config import DEFAULT_PLANNER_MODELS
-from agent_resolve.context import find_related_test_files, get_project_context
+from agent_resolve.context import (
+    deduplicate_target_test_files,
+    find_related_test_files,
+    get_project_context,
+    get_repository_tree,
+)
 from agent_resolve.environment import log
 from agent_resolve.llm import call_gemini_with_fallback
 from agent_resolve.models import BlueprintPlan, DiagnosticResult
@@ -64,6 +69,8 @@ def stage_1_plan(
     """Generates task-plan.md and structured file manifest using Planner model."""
     log(f"\n--- [Stage 1] Architectural Planning for Issue #{issue_number} ---")
     project_context = get_project_context()
+    repo_tree = get_repository_tree()
+    repo_tree_section = f"\n{repo_tree}\n" if repo_tree else ""
 
     diagnostic_section = ""
     if diagnostic_result:
@@ -88,6 +95,7 @@ Investigation Summary:
     max_planner_attempts = 2
     feedback_to_inject = negative_feedback
     blueprint: Optional[BlueprintPlan] = None
+    latest_demoted_tests: list[str] = []
 
     for attempt in range(1, max_planner_attempts + 1):
         feedback_section = ""
@@ -97,10 +105,9 @@ Investigation Summary:
 Revise your architectural blueprint to resolve these failures. Do not re-attempt an incompatible design.
 """
 
-        prompt = f"""You are the Staff Principal Architect generating an authoritative implementation blueprint for Issue #{issue_number}: {issue_title}.
+        prompt = f"""You are the Staff Principal Architect generating an authoritative implementation blueprint.
 
-{project_context}
-
+{project_context}{repo_tree_section}
 ISSUE CONTEXT:
 Issue #{issue_number}: {issue_title}
 
@@ -114,11 +121,10 @@ INSTRUCTIONS & ARCHITECTURAL INVARIANTS:
 4. REACT 19 & NEXT.JS 16 JSX TRANSFORM: React automatic JSX runtime is active. Do not plan or author tests/components with unnecessary `import React from 'react'` unless React namespace methods are directly referenced, to avoid TS6133 (`noUnusedLocals`).
 5. TEST HARNESS MOCKING INVARIANT: In Jest/JSDOM, `window.location` is locked and non-configurable. Never plan or author tests that attempt to overwrite locked browser globals; mock helper functions or use dependency injection instead.
 6. Formulate full TypeScript interfaces, prop types, and behavioral logic (edge cases, fallbacks).
-7. Identify explicit target test files (e.g. `lib/utils/__tests__/foo.test.ts` or `components/__tests__/Bar.test.tsx`).
+7. Identify explicit target test files (e.g. `lib/utils/__tests__/foo.test.ts` or `components/__tests__/Bar.test.tsx`). Select only the single most cohesive test file for each modified source file. Do not duplicate identical unit tests across multiple test files.
 8. Identify explicit target application source files (e.g. `lib/utils/foo.ts` or `components/Bar.tsx`).
 9. Determine a clean conventional commit scope (e.g. `winery`, `trip`, `geo`, `ui`).
-10. EDGE FUNCTION SHARED MODULE TESTING INVARIANT: When target source files include pure-TypeScript shared modules under `supabase/functions/_shared/*.ts`, their unit tests MUST be authored as Jest test files under `lib/` (e.g. `lib/utils/__tests__/<name>.test.ts`) importing from `@/supabase/functions/_shared/<module>`. Never plan tests under `supabase/` or `e2e/`.
-11. SCHEMA & CONTRACT EVOLUTION INVARIANT: When modifying existing stores, schemas, or APIs with breaking changes (e.g., bumping Zustand persist store version, modifying DB schema, changing API signatures), inspect existing test suites and explicitly include all tests with affected assertions in target_test_files. Never leave contract-invalidated tests in blast radius, as blast radius suites are immutable regression guards.
+10. SCHEMA & CONTRACT EVOLUTION INVARIANT: When modifying existing stores, schemas, or APIs with breaking changes (e.g., bumping Zustand persist store version, modifying DB schema, changing API signatures), inspect existing test suites and explicitly include all tests with affected assertions in target_test_files. Never leave contract-invalidated tests in blast radius, as blast radius suites are immutable regression guards.
 
 Respond strictly in valid JSON matching the BlueprintPlan schema.
 """
@@ -133,7 +139,9 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
         )
 
         valid_tests, _invalid_tests = sanitize_target_test_files(blueprint.target_test_files)
-        blueprint.target_test_files = valid_tests
+        primary_tests, demoted_tests = deduplicate_target_test_files(valid_tests)
+        blueprint.target_test_files = primary_tests
+        latest_demoted_tests = demoted_tests
 
         if blueprint.target_test_files:
             break
@@ -152,10 +160,12 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
     for sf in blueprint.target_src_files:
         safe_resolve_repo_path(sf)
 
-    # Blast radius discovery: merge model-planned suites with automatically discovered dependent test files,
+    # Blast radius discovery: merge model-planned suites with demoted test suites and automatically discovered dependent test files,
     # sanitize, deduplicate, exclude target test files, and cap at a maximum of 8 suites.
-    raw_blast_candidates = list(blueprint.blast_radius_test_files or []) + find_related_test_files(
-        blueprint.target_src_files
+    raw_blast_candidates = (
+        list(blueprint.blast_radius_test_files or [])
+        + latest_demoted_tests
+        + find_related_test_files(blueprint.target_src_files)
     )
     target_tests_set = set(blueprint.target_test_files)
     sanitized_blast: list[str] = []

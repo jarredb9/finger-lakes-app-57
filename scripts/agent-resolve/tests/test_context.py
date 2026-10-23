@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 from agent_resolve import config
 from agent_resolve.context import (
     JEST_PATHSPECS,
+    deduplicate_target_test_files,
     extract_agent_brief,
     extract_test_suite_names,
     find_related_test_files,
@@ -89,7 +90,7 @@ class TestGetProjectContext(unittest.TestCase):
             (tmp_root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
             config.set_project_root(tmp_root)
 
-            context = get_project_context()
+            context = get_project_context(include_tree=True)
 
             self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):", context)
             self.assertIn("# Domain Context\nFinger Lakes Winery Planner", context)
@@ -106,7 +107,7 @@ class TestGetProjectContext(unittest.TestCase):
             tmp_root = Path(tmp_dir)
             config.set_project_root(tmp_root)
 
-            context = get_project_context()
+            context = get_project_context(include_tree=True)
 
             self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):\n\n", context)
             self.assertIn("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):\n\n", context)
@@ -128,6 +129,62 @@ class TestGetProjectContext(unittest.TestCase):
 
             config.set_project_root(root2)
             self.assertIn("Context Root 2", get_project_context())
+
+    @patch("agent_resolve.context.get_repository_tree")
+    def test_get_project_context_defaults_to_omitting_repository_tree(
+        self, mock_get_tree: MagicMock
+    ) -> None:
+        mock_get_tree.return_value = "### EXISTING REPOSITORY SOURCE FILES:\n- lib/app.ts"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            (tmp_root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+            (tmp_root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+            config.set_project_root(tmp_root)
+
+            context = get_project_context()
+
+            self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):", context)
+            self.assertIn("# Domain Context\nFinger Lakes Winery Planner", context)
+            self.assertIn("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):", context)
+            self.assertIn("# Agent Rules\nRule 1: Always test", context)
+            self.assertNotIn("### EXISTING REPOSITORY SOURCE FILES:", context)
+            mock_get_tree.assert_not_called()
+
+    @patch("agent_resolve.context.get_repository_tree")
+    def test_get_project_context_with_include_tree_false_omits_repository_tree(
+        self, mock_get_tree: MagicMock
+    ) -> None:
+        mock_get_tree.return_value = "### EXISTING REPOSITORY SOURCE FILES:\n- lib/app.ts"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            (tmp_root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+            (tmp_root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+            config.set_project_root(tmp_root)
+
+            context = get_project_context(include_tree=False)
+
+            mock_get_tree.assert_not_called()
+            self.assertNotIn("### EXISTING REPOSITORY SOURCE FILES:", context)
+            self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):", context)
+            self.assertIn("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):", context)
+
+    @patch("agent_resolve.context.get_repository_tree")
+    def test_get_project_context_with_include_tree_true_includes_repository_tree(
+        self, mock_get_tree: MagicMock
+    ) -> None:
+        mock_get_tree.return_value = "### EXISTING REPOSITORY SOURCE FILES:\n- lib/app.ts"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_root = Path(tmp_dir)
+            (tmp_root / "CONTEXT.md").write_text("# Domain Context\nFinger Lakes Winery Planner", encoding="utf-8")
+            (tmp_root / "AGENTS.md").write_text("# Agent Rules\nRule 1: Always test", encoding="utf-8")
+            config.set_project_root(tmp_root)
+
+            context = get_project_context(include_tree=True)
+
+            mock_get_tree.assert_called_once()
+            self.assertIn("### EXISTING REPOSITORY SOURCE FILES:\n- lib/app.ts", context)
+            self.assertIn("### REPOSITORY DOMAIN MODEL (CONTEXT.md):", context)
+            self.assertIn("### ARCHITECTURAL RULES & STANDARDS (AGENTS.md):", context)
 
 
 class TestFindRelatedTestFiles(unittest.TestCase):
@@ -416,19 +473,38 @@ class TestIsIssueSuitableForHeadlessAgent(unittest.TestCase):
                 suitable, reason = is_issue_suitable_for_headless_agent(title, body)
                 self.assertFalse(suitable)
                 self.assertTrue(
-                    "non-shared Edge Function" in reason or "Deno runtime entrypoint" in reason,
+                    "Edge Function modification (supabase/functions/) requires Deno runtime" in reason
+                    or "non-shared Edge Function" in reason
+                    or "Deno runtime entrypoint" in reason,
                     f"Unexpected reason: {reason}",
                 )
 
-    def test_permits_pure_typescript_shared_edge_function_modules(self) -> None:
+    def test_flags_shared_edge_function_paths_as_unsuitable(self) -> None:
         suitable, reason = is_issue_suitable_for_headless_agent(
             "Refactor coordinate standardizer in supabase/functions/_shared/winery.ts",
-            "Add altitude clamp to winery normalization in supabase/functions/_shared/winery.ts without modifying Deno runtime entrypoints.",
+            "Add altitude clamp to winery normalization in supabase/functions/_shared/winery.ts",
         )
-        self.assertTrue(suitable)
-        self.assertEqual(reason, "")
+        self.assertFalse(suitable)
+        self.assertIn("Edge Function modification (supabase/functions/) requires Deno runtime", reason)
 
-    def test_flags_deno_runtime_even_if_shared_edge_function_present(self) -> None:
+    def test_flags_all_edge_function_modifications_including_shared(self) -> None:
+        cases = [
+            ("Fix places function", "Modifies supabase/functions/places/index.ts"),
+            ("Update shared utils", "Touches supabase/functions/_shared/utils.ts"),
+            ("Update shared cors", "Changes in supabase/functions/_shared/cors.ts"),
+            ("Add new edge function", "Create supabase/functions/new-fn/index.ts"),
+            ("Update root config", "Edit supabase/functions/deno.json"),
+        ]
+        for title, body in cases:
+            with self.subTest(title=title):
+                suitable, reason = is_issue_suitable_for_headless_agent(title, body)
+                self.assertFalse(suitable)
+                self.assertIn(
+                    "Edge Function modification (supabase/functions/) requires Deno runtime",
+                    reason,
+                )
+
+    def test_flags_deno_runtime_and_edge_function_paths_with_combined_reasons(self) -> None:
         mixed_cases = [
             (
                 "Refactor shared utils and handler",
@@ -443,9 +519,9 @@ class TestIsIssueSuitableForHeadlessAgent(unittest.TestCase):
             with self.subTest(title=title):
                 suitable, reason = is_issue_suitable_for_headless_agent(title, body)
                 self.assertFalse(suitable)
-                self.assertTrue(
-                    "Deno runtime entrypoint" in reason or "non-shared Edge Function" in reason,
-                    f"Unexpected reason: {reason}",
+                self.assertIn(
+                    "Edge Function modification (supabase/functions/) requires Deno runtime",
+                    reason,
                 )
 
 
@@ -530,6 +606,99 @@ class TestExtractAgentBrief(unittest.TestCase):
             ]
         }
         self.assertIsNone(extract_agent_brief(issue_data))
+
+
+
+
+class TestDeduplicateTargetTestFiles(unittest.TestCase):
+    def test_deduplicate_separates_specialized_from_generic_stem(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            "lib/stores/__tests__/wineryStore.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/stores/__tests__/wineryStore.persist.test.ts"])
+        self.assertEqual(demoted, ["lib/stores/__tests__/wineryStore.test.ts"])
+
+    def test_deduplicate_prioritizes_specialized_regardless_of_input_order(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.test.ts",
+            "lib/stores/__tests__/wineryStore.enrichment.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/stores/__tests__/wineryStore.enrichment.test.ts"])
+        self.assertEqual(demoted, ["lib/stores/__tests__/wineryStore.test.ts"])
+
+    def test_deduplicate_retains_generic_when_no_specialized_suite_exists(self) -> None:
+        inputs = ["lib/utils/__tests__/winery.test.ts"]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/utils/__tests__/winery.test.ts"])
+        self.assertEqual(demoted, [])
+
+    def test_deduplicate_handles_multiple_independent_component_stems(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            "lib/stores/__tests__/wineryStore.test.ts",
+            "lib/stores/__tests__/tripStore.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(
+            primary,
+            [
+                "lib/stores/__tests__/wineryStore.persist.test.ts",
+                "lib/stores/__tests__/tripStore.test.ts",
+            ],
+        )
+        self.assertEqual(demoted, ["lib/stores/__tests__/wineryStore.test.ts"])
+
+    def test_deduplicate_handles_multiple_specialized_suites_for_same_stem(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            "lib/stores/__tests__/wineryStore.enrichment.test.ts",
+            "lib/stores/__tests__/wineryStore.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/stores/__tests__/wineryStore.persist.test.ts"])
+        self.assertEqual(
+            demoted,
+            [
+                "lib/stores/__tests__/wineryStore.enrichment.test.ts",
+                "lib/stores/__tests__/wineryStore.test.ts",
+            ],
+        )
+
+    def test_deduplicate_preserves_distinct_directories_with_same_base_filename(self) -> None:
+        inputs = [
+            "lib/utils/__tests__/format.test.ts",
+            "components/__tests__/format.test.tsx",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(
+            primary,
+            [
+                "lib/utils/__tests__/format.test.ts",
+                "components/__tests__/format.test.tsx",
+            ],
+        )
+        self.assertEqual(demoted, [])
+
+    def test_deduplicate_supports_tsx_and_spec_extensions(self) -> None:
+        inputs = [
+            "components/__tests__/TripCard.variant.spec.tsx",
+            "components/__tests__/TripCard.spec.tsx",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["components/__tests__/TripCard.variant.spec.tsx"])
+        self.assertEqual(demoted, ["components/__tests__/TripCard.spec.tsx"])
+
+    def test_deduplicate_deduplicates_exact_duplicate_paths(self) -> None:
+        inputs = [
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+            "lib/stores/__tests__/wineryStore.persist.test.ts",
+        ]
+        primary, demoted = deduplicate_target_test_files(inputs)
+        self.assertEqual(primary, ["lib/stores/__tests__/wineryStore.persist.test.ts"])
+        self.assertEqual(demoted, [])
 
 
 

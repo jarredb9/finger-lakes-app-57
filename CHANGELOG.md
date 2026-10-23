@@ -1,5 +1,37 @@
 # Changelog
 
+## [agent-resolve] - v0.2.0 (2026-10-23)
+
+### 🛡️ Quality Hardening, Patch-Based Red Phase, Test Deduplication & Prompt Token Optimization ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
+* **Patch-Based Test Authoring & Unified Patch Engine (Phase 1)**:
+    * Replaced full-file test overwriting with surgical search/replace patch application via `TestPatchManifest` (`patches` and `source_stubs`) in `agent_resolve.models` and `agent_resolve.stages.stage_2_red`.
+    * Enforced strict patch file whitelisting (`allowed_files=target_tests`) to prevent accidental source file tampering during the Red phase.
+    * Added empty search-block (`search_block=""`) support to `apply_patch_manifest` (`agent_resolve.patch_engine`) to cleanly author brand new test files.
+    * Guaranteed deterministic retry cycles by reverting target test files to git baseline and purging uncommitted source stubs before each attempt.
+* **Target Test Deduplication & Architectural Cohesion (Phase 2)**:
+    * Implemented `deduplicate_target_test_files` in `agent_resolve.context`, grouping test files by architectural component stem (`<stem>.*.test.ts*` vs `<stem>.test.ts*`).
+    * Retained the most specialized suite (`*.persist.test.ts`, `*.enrichment.test.ts`) in `target_test_files` while demoting broader suites into `blast_radius_test_files`, capped at 8 suites.
+    * Added Stage 1 architectural planning prompt directive enforcing a single primary test suite per component to avoid redundant authoring and test execution overlap.
+* **Targeted ESLint Verification Gate & Code Hygiene Directives (Phase 3)**:
+    * Integrated targeted ESLint execution (`npx eslint --no-warn-ignored <target_src_files>`) in Stage 3 Green phase verification (`agent_resolve.stages.stage_3_green`), executing after TypeScript compilation and before Jest.
+    * Wired ESLint diagnostic failures directly into the self-correction retry loop via `last_error_context`.
+    * Added `"no-nested-ternary": "error"` rule to `eslint.config.mjs` and refactored nested ternaries across core utilities and components (`lib/utils/adapters/google-v1.ts`, `components/TripCardSimplePresentational.tsx`).
+    * Added explicit code hygiene prompt directives prohibiting nested ternaries (>1 level) and mandating pure helper extraction.
+* **Edge Function Runtime Boundary Hard Gating (Phase 4)**:
+    * Hardened `is_issue_suitable_for_headless_agent` in `agent_resolve.context` to reject all issues attempting to modify `supabase/functions/` (including `_shared/`).
+    * Enforced hard gates upfront in `agent_resolve.pipeline` and after Stage 0 diagnostic exploration, posting maintainer advisory comments via GitHub CLI and cleanly terminating without burning tokens.
+    * Removed Edge Function authoring instructions (Directive 10) from Stage 1 and Stage 2 prompts to align with runtime boundaries.
+* **Context Pruning & Static Prefix Prompt Caching Layout (Phase 5)**:
+    * Updated `get_project_context(include_tree: bool = False)` in `agent_resolve.context` with a `False` default, omitting repository source file trees from Stage 2 and Stage 3 prompts.
+    * Explicitly isolated repository tree retrieval to Stage 1 Planner prompts via `get_repository_tree()`.
+    * Restructured prompt formatting across Stages 1, 2, and 3: placed immutable role headers and static domain guidelines (`CONTEXT.md`, `AGENTS.md`) at byte 0 ahead of dynamic issue context, maximizing Gemini prompt prefix caching efficiency.
+* **Semantic Diagnostic Filtering & Stack Trace Pruning (Phase 6)**:
+    * Updated `truncate_error_context` in `agent_resolve.diagnostics`: pruned internal framework and runtime stack frames matching `node_modules/`, `node:internal/`, and `internal/`, while strictly preserving user-space frames.
+    * Preserved TypeScript compiler output (`error TS...`), ESLint diagnostics, and Jest multi-line assertion diffs (`- Expected`, `+ Received`, code frames, and caret markers).
+    * Added regex-based normalization collapsing consecutive blank lines (`\n{3,}`) down to `\n\n`.
+    * Lowered the default truncation ceiling to 4,000 characters (2,000 head / 2,000 tail with split marker) to prevent context blowout while retaining high diagnostic signal.
+    * Updated Section 7 of [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md) formally documenting diagnostic sanitization invariants.
+
 ## [agent-resolve] - v0.1.1 (2026-10-21)
 
 ### 🔒 Sandbox Hardening, Patch Whitelisting & Diagnostic Unmasking ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
