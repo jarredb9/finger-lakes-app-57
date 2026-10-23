@@ -69,7 +69,7 @@ A chronological feed of visits, ratings, or favorites shared by a user's Friends
 _Avoid_: Follower feed, timeline, wall
 
 **Visibility Level**:
-The audience permitted to view a user's profile, visits, or lists: Public, Friends Only, or Private.
+The audience of signed-in users permitted to view a user's profile, visits, or lists: Public (any signed-in user), Friends Only (accepted Friends), or Private (only the owner). Unauthenticated visitors have no visibility into any user or catalog data.
 _Avoid_: Permission, ACL, scope
 
 ## Catalog & Wine Profile
