@@ -102,6 +102,7 @@ DIRECTIVES (STRICT TDD RED PHASE):
 7. Output search/replace patches for each target test file. For existing files, specify the exact search_block to replace; for brand new test files, leave search_block empty.
 8. JSDOM & BROWSER MOCKING INVARIANT: In Jest/JSDOM, `window.location` is locked and non-configurable. DO NOT attempt to redefine or overwrite it via `Object.defineProperty(window, 'location', ...)`. Instead, test navigation by mocking helper functions, using dependency injection, or utilizing jest.spyOn. Ensure test setup hooks (`beforeEach`/`afterEach`) execute cleanly without throwing unhandled exceptions.
 9. PRESERVATION OF EXISTING TESTS: By using surgical search/replace patches, existing unrelated test suites are naturally preserved. When modifying existing test files, include sufficient surrounding context in search_block so each hunk matches uniquely.
+10. DECLARATIVE STYLING & ATTRIBUTE ASSERTIONS: When authoring tests for visual or presentation issues (such as leaf-component styling), assert strictly the specific delta class tokens or attributes required by task-plan.md (e.g. `expect(el).toHaveClass("top-14", "sm:top-4")`). DO NOT assert unrelated static baseline classes (such as centering, flexbox layout, or width utilities) unless explicitly mandated, as this creates brittle tests that break on benign layout refactors.
 
 Respond strictly in valid JSON matching the TestPatchManifest schema.
 """

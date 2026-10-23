@@ -51,7 +51,7 @@ To maximize first-pass success and eliminate hallucinations, maintainers should 
 2. **Suspected Root Cause & Reproduction Seam**:
    - The concrete runtime mechanism responsible for the bug (e.g., iOS WebKit transient user gesture expiration in async callbacks, race conditions, state desync).
    - Guides Stage 0 snippet reads and directs the Stage 2 Red Phase executor to author accurate, empirical failing tests targeting the exact failure seam.
-   - **Leaf-Component Styling Exception:** For localized visual or presentation bugs on a single leaf component, translate visual collision/offset symptoms into exact Tailwind class tokens (e.g., `top-14 sm:top-4`). Instruct Stage 2 Red Phase test authoring to assert those tokens via `toHaveClass(...)` in Jest rather than attempting JSDOM layout or bounding box simulation (which evaluates to zero).
+   - **Leaf-Component Styling Exception:** For localized visual or presentation bugs on a single leaf component, translate visual collision/offset symptoms into exact Tailwind class tokens (e.g., `top-14 sm:top-4`). Instruct Stage 2 Red Phase test authoring to assert strictly those delta tokens via `toHaveClass(...)` in Jest rather than repeating unrelated static layout tokens (e.g., centering or flex utilities) or attempting JSDOM layout/bounding box simulation (which evaluates to zero).
 3. **Architectural Constraints & Invariants**:
    - Boundaries and non-negotiables for the agent:
      - Component refactoring boundaries (e.g., refactor existing handlers in place rather than creating redundant parallel components).
