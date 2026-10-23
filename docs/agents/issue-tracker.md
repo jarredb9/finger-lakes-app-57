@@ -51,6 +51,7 @@ To maximize first-pass success and eliminate hallucinations, maintainers should 
 2. **Suspected Root Cause & Reproduction Seam**:
    - The concrete runtime mechanism responsible for the bug (e.g., iOS WebKit transient user gesture expiration in async callbacks, race conditions, state desync).
    - Guides Stage 0 snippet reads and directs the Stage 2 Red Phase executor to author accurate, empirical failing tests targeting the exact failure seam.
+   - **Leaf-Component Styling Exception:** For localized visual or presentation bugs on a single leaf component, translate visual collision/offset symptoms into exact Tailwind class tokens (e.g., `top-14 sm:top-4`). Instruct Stage 2 Red Phase test authoring to assert those tokens via `toHaveClass(...)` in Jest rather than attempting JSDOM layout or bounding box simulation (which evaluates to zero).
 3. **Architectural Constraints & Invariants**:
    - Boundaries and non-negotiables for the agent:
      - Component refactoring boundaries (e.g., refactor existing handlers in place rather than creating redundant parallel components).
@@ -75,10 +76,10 @@ gh issue edit <number> --add-label "ready-for-agent,agent:resolve" --remove-labe
 When running the `/triage` skill to refine submissions and assign labels, use these prompt templates to automatically apply the [Execution Routing Matrix](triage-labels.md#execution-routing-matrix-agentresolve-vs-ready-for-agent):
 
 - **Targeted Single-Issue Triage & Qualification:**
-  > `/triage let's look at #<number>. Check the Execution Routing Matrix in docs/agents/triage-labels.md. If it involves pure data/logic refactoring and deterministic unit tests, brief it and add agent:resolve. If it touches UI components, Radix dropdowns, or mobile gestures, brief it for ready-for-agent only for Antigravity CLI.`
+  > `/triage let's look at #<number>. Check the Execution Routing Matrix in docs/agents/triage-labels.md. If it involves pure data/logic or leaf-component declarative styling with deterministic Jest assertions, brief it and add agent:resolve. If it touches composite Radix UI, layout collisions, or mobile gestures, brief it for ready-for-agent only for Antigravity CLI.`
 
 - **Batch Overnight Queue Qualification:**
-  > `/triage qualify all open ready-for-agent issues against the overnight checklist in docs/agents/triage-labels.md. Promote pure-logic tickets to agent:resolve and flag why UI tickets remain ready-for-agent.`
+  > `/triage qualify all open ready-for-agent issues against the overnight checklist in docs/agents/triage-labels.md. Promote pure-logic and leaf-component declarative styling tickets to agent:resolve and flag why composite UI tickets remain ready-for-agent.`
 
 
 ## Wayfinding operations

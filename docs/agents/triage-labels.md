@@ -34,9 +34,9 @@ Not all agent-eligible issues are suited for headless overnight execution. Durin
 | **Execution Mode** | Headless AFK overnight runner (`scripts/agent-resolve/agent-resolve.py`). | Interactive pair programming via Antigravity CLI (`agy`). |
 | **Blast Radius** | Low: $\le 2$ tightly-coupled files (e.g. 1 util + 1 test). | Wide: $> 2$ files spanning components, containers, stores, or hooks. |
 | **Domain Scope** | Pure algorithmic logic, data formatters, coordinate math, store reducers, database RPCs. | Interactive UI components, modal flows, navigation trees, Radix primitives. |
-| **UI & Interactions** | Headless / data-only (no button, menu, gesture, or layout changes). | Component redesigns, event handlers, dropdowns, dialogs, gestures. |
+| **UI & Interactions** | Headless / data-only **OR** leaf-component declarative styling (isolated to 1 component + 1 test asserting static Tailwind tokens/props in Jest). | Component redesigns, event handlers, dropdowns, dialogs, gestures. |
 | **External Dependencies**| Standard Node.js / TypeScript libraries; zero third-party URL schemes. | Third-party URL schemes (`maps://`, `waze://`), OAuth, Places APIs, WebKit PWA quirks. |
-| **Verification Seam** | Deterministic unit tests with existing mock fixtures; pure function tests. | E2E Playwright tests, DOM event interactions, responsive layouts, user gestures. |
+| **Verification Seam** | Deterministic unit tests with existing mock fixtures; pure function tests; DOM class/attribute assertions (`toHaveClass`). | E2E Playwright tests, dynamic layout collision/geometry math, user gestures. |
 
 ---
 
@@ -53,13 +53,27 @@ Before tagging an issue with `agent:resolve`, maintainers should audit the issue
 
 ---
 
+### The Leaf-Component Presentation Exception & Seam Translation Protocol
+
+While composite UI redesigns belong strictly in `ready-for-agent` (interactive CLI), minor presentation or styling bugs may be qualified for `agent:resolve` if and only if **all 4 conditions** are satisfied:
+
+1. **Isolated Blast Radius ($\le 2$ files):** Exactly 1 presentation leaf component + 1 test file (e.g. `floating-search-area-button.tsx` + `floating-search-area-button.test.tsx`). No container components, store mutations, or multi-component coordination.
+2. **Purely Declarative Styling:** The change consists strictly of static CSS/Tailwind utility classes, ARIA attributes, or static prop bindings. Zero DOM event listener changes, zero gesture handlers, zero state reducers.
+3. **Existing Jest Harness:** The component already has an existing Jest/RTL unit test suite where the rendered element can be asserted via `@testing-library/jest-dom` (`toHaveClass`, `toHaveAttribute`).
+4. **Deterministic Seam Translation in Brief:** The visual symptom is explicitly translated into concrete Tailwind class tokens (e.g. `top-14 sm:top-4`). The Agent Brief **must explicitly direct Stage 2 to assert class tokens in Jest** and forbid attempting DOM bounding box or collision geometry math in JSDOM (which evaluates to zero).
+
+> [!CAUTION]
+> **Prohibited UI Candidates:** Never force composite Radix primitives (`DropdownMenu`, `Dialog`, `Popover`, `Accordion`, `Sheet`), WebKit touch/PWA gestures, or multi-element stacking contexts into `agent:resolve`. Such tickets will fail Stage 2/3 TDD loops and waste overnight token quotas.
+
+---
+
 ### How to use `/triage` to Classify Issues
 
 When running the `/triage` skill on incoming tickets or refining user bug reports, provide these explicit directives in your prompt:
 
 - **For individual issue triage:**
-  > `/triage let's look at #<number>. Check the Execution Routing Matrix in docs/agents/triage-labels.md. If it involves pure data/logic refactoring and deterministic unit tests, brief it and add agent:resolve. If it touches UI components, Radix dropdowns, or mobile gestures, brief it for ready-for-agent only for Antigravity CLI.`
+  > `/triage let's look at #<number>. Check the Execution Routing Matrix in docs/agents/triage-labels.md. If it involves pure data/logic or leaf-component declarative styling with deterministic Jest assertions, brief it and add agent:resolve. If it touches composite Radix UI, layout collisions, or mobile gestures, brief it for ready-for-agent only for Antigravity CLI.`
 
 - **For batch qualification:**
-  > `/triage qualify all open ready-for-agent issues against the overnight checklist in docs/agents/triage-labels.md. Promote pure-logic tickets to agent:resolve and flag why UI tickets remain ready-for-agent.`
+  > `/triage qualify all open ready-for-agent issues against the overnight checklist in docs/agents/triage-labels.md. Promote pure-logic and leaf-component declarative styling tickets to agent:resolve and flag why composite UI tickets remain ready-for-agent.`
 
