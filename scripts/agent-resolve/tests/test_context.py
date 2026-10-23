@@ -409,12 +409,44 @@ class TestIsIssueSuitableForHeadlessAgent(unittest.TestCase):
             self.assertIn("composite Radix UI / dropdown component redesign", reason)
 
     def test_flags_mobile_webkit_and_pwa_gesture_keywords(self) -> None:
-        for kw in ["ios pwa", "standalone pwa", "webkit", "gesture", "safari popup"]:
-            suitable, reason = is_issue_suitable_for_headless_agent(
-                "Touch bug", f"Encountered on {kw} runtime"
-            )
-            self.assertFalse(suitable, f"Expected {kw} to be marked unsuitable")
-            self.assertIn("mobile WebKit / PWA runtime gesture semantics", reason)
+        gesture_kws = [
+            "gesture",
+            "touch-action",
+            "touch event",
+            "touchstart",
+            "touchmove",
+            "touchend",
+            "swipe",
+            "pinch",
+            "safe-area-inset",
+            "pull-to-refresh",
+            "safari popup",
+            "virtual keyboard",
+        ]
+        for kw in gesture_kws:
+            with self.subTest(kw=kw):
+                suitable, reason = is_issue_suitable_for_headless_agent(
+                    "Interaction defect", f"Encountered defect involving {kw} behavior"
+                )
+                self.assertFalse(suitable, f"Expected '{kw}' to be marked unsuitable")
+                self.assertIn("mobile WebKit / PWA runtime gesture semantics", reason)
+
+    def test_permits_pwa_and_mobile_environment_descriptors_without_gesture_semantics(self) -> None:
+        environment_cases = [
+            ("Bug observed on iOS PWA", "Winery list amenity icons not showing in iOS PWA (Standalone Mode)"),
+            ("Reproduction on standalone PWA", "State resets unexpectedly when reopened in standalone PWA"),
+            ("Mobile safari rendering issue", "Winery name truncated on mobile safari screen"),
+            ("Tested in iOS PWA environment", "Occurs on iPhone iOS PWA environment"),
+            ("WebKit engine data parsing", "Coordinates not parsed properly in WebKit browser engine"),
+        ]
+        for title, body in environment_cases:
+            with self.subTest(title=title):
+                suitable, reason = is_issue_suitable_for_headless_agent(title, body)
+                self.assertTrue(
+                    suitable,
+                    f"Expected environment description '{title}' to be suitable, but was rejected with: {reason}",
+                )
+                self.assertEqual(reason, "")
 
     def test_flags_external_deep_linking_schemes(self) -> None:
         for kw in ["maps://", "waze://", "https://maps.apple.com", "deep link"]:
