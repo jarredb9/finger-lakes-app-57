@@ -49,12 +49,17 @@ ORIG_NEXT_PUBLIC_GOOGLE_MAPS_API_KEY="$NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"
 
 if [ "$USE_LIVE" = true ]; then
     echo "🌍 Using LIVE database..."
-    if [ -f .env.local.production ]; then
+    PROD_ENV_FILE="${PRODUCTION_ENV_FILE:-$HOME/.config/finger-lakes-app/.env.production}"
+    if [ -f "$PROD_ENV_FILE" ]; then
+        set -a
+        source "$PROD_ENV_FILE"
+        set +a
+    elif [ -f .env.local.production ]; then
         set -a
         source .env.local.production
         set +a
     else
-        echo "⚠️  No .env.local.production file found. Relying on host environment variables."
+        echo "⚠️  No production env file found ($PROD_ENV_FILE or .env.local.production). Relying on host environment variables."
     fi
     E2E_REAL_DATA="true"
 else
@@ -111,20 +116,16 @@ fi
 
 TEST_ARGS=("$@")
 
+PLAYWRIGHT_CMD=("npx" "playwright" "test")
 if [ "$USE_PROJECT_FLAG" = true ]; then
     echo "🌐 Project: $PROJECT"
-    if [ ${#TEST_ARGS[@]} -gt 0 ]; then
-        TEST_CMD="npx playwright test --project=\"$PROJECT\" ${TEST_ARGS[*]}"
-    else
-        TEST_CMD="npx playwright test --project=\"$PROJECT\""
-    fi
+    PLAYWRIGHT_CMD+=("--project=$PROJECT")
 else
     echo "🌐 Project: ALL (Running full suite)"
-    if [ ${#TEST_ARGS[@]} -gt 0 ]; then
-        TEST_CMD="npx playwright test ${TEST_ARGS[*]}"
-    else
-        TEST_CMD="npx playwright test"
-    fi
+fi
+
+if [ ${#TEST_ARGS[@]} -gt 0 ]; then
+    PLAYWRIGHT_CMD+=("${TEST_ARGS[@]}")
 fi
 
 # 2. Ensure we have the image
@@ -168,7 +169,6 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e E2E_REAL_DATA="$E2E_REAL_DATA" \
     -e VERBOSE="$VERBOSE" \
     -e DEBUG_E2E="$DEBUG_E2E" \
-    -e TEST_CMD="$TEST_CMD" \
     -e TEST_USER_EMAIL="$TEST_USER_EMAIL" \
     -e TEST_USER_PASSWORD="$TEST_USER_PASSWORD" \
     -e BASE_URL="$BASE_URL" \
@@ -184,8 +184,8 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
             fi
         fi
 
-        echo "🎬 Running inside container: $TEST_CMD"
-        eval "$TEST_CMD"
-    '
+        echo "🎬 Running inside container: $*"
+        exec "$@"
+    ' bash "${PLAYWRIGHT_CMD[@]}"
 
 echo "✅ Tests completed."
