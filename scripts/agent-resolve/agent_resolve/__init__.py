@@ -35,10 +35,14 @@ from agent_resolve.vcs import (
     update_or_create_pr,
 )
 from agent_resolve.patch_engine import (
+    ALLOWED_SRC_DIRECTORIES,
+    ALLOWED_SRC_EXTENSIONS,
     PROTECTED_PATHS,
     apply_patch_manifest,
+    is_valid_target_src_file,
     reset_target_sources,
     safe_resolve_repo_path,
+    sanitize_target_src_files,
 )
 from agent_resolve.config import (
     BATCH_PACING_SECONDS,
@@ -196,10 +200,14 @@ __all__: list[str] = [
     "Stage2CompilationError",
     "validate_jest_red_phase",
     "patch_engine",
+    "ALLOWED_SRC_DIRECTORIES",
+    "ALLOWED_SRC_EXTENSIONS",
     "PROTECTED_PATHS",
     "apply_patch_manifest",
+    "is_valid_target_src_file",
     "reset_target_sources",
     "safe_resolve_repo_path",
+    "sanitize_target_src_files",
     "vcs",
     "cleanup_feature_branch",
     "fetch_maintainer_hints",

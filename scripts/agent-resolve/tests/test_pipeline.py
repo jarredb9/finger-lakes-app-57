@@ -433,8 +433,8 @@ class TestResolveIssueFreshExecutionAndDryRun(unittest.TestCase):
 
         mock_diagnostic = DiagnosticResult(
             target_files=["lib/winery.ts"],
-            root_cause_explanation="Need sorting",
-            file_snippets={"lib/winery.ts": "content"},
+            root_cause="Need sorting",
+            code_snippets={"lib/winery.ts": "content"},
             investigation_summary="Summary",
         )
         mock_blueprint = BlueprintPlan(

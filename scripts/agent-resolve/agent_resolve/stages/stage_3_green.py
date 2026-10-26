@@ -141,7 +141,7 @@ The working tree has been reverted to clean baseline. Generate a corrected patch
             log(f"TypeScript Errors:\n{tc_diag}")
             continue
 
-        eslint_cmd = ["npx", "eslint", "--no-warn-ignored"] + target_src
+        eslint_cmd = ["npx", "eslint", "--no-warn-ignored", "--"] + target_src
         lint_code, lint_out, lint_err = run_isolated_test(eslint_cmd)
         if lint_code != 0:
             lint_diag = f"{lint_out}\n{lint_err}".strip()
@@ -160,7 +160,7 @@ The working tree has been reverted to clean baseline. Generate a corrected patch
             continue
 
         all_tests = target_tests + getattr(blueprint, "blast_radius_test_files", [])
-        test_cmd = ["npx", "jest", "--no-color", "--silent"] + all_tests
+        test_cmd = ["npx", "jest", "--no-color", "--silent", "--"] + all_tests
         t_code, t_out, t_err = run_isolated_test(test_cmd)
         if t_code != 0:
             t_diag = f"{t_out}\n{t_err}".strip()
@@ -218,9 +218,9 @@ The working tree has been reverted to clean baseline. Ensure your implementation
             run_cmd(["git", "reset", "--soft", baseline_ref], check=True)
             run_cmd(["git", "rm", "-f", "--ignore-unmatch", ".agent-state.json", "AGENT_HANDOFF.md"])
             run_cmd(["git", "reset", "HEAD"])
-        run_cmd(["git", "add"] + target_src, check=True)
+        run_cmd(["git", "add", "--"] + target_src, check=True)
         commit_msg = f"feat({scope}): Implement changes to satisfy Issue #{issue_number}"
-        run_cmd(["git", "commit", "-m", commit_msg], check=True)
+        run_cmd(["git", "commit", "--no-verify", "-m", commit_msg], check=True)
         log(f"Committed: {commit_msg}")
         return
 

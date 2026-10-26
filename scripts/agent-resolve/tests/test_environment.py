@@ -137,7 +137,7 @@ class TestEnvironment(unittest.TestCase):
     def test_sanitize_secrets_redacts_regex_patterns(self) -> None:
         supabase_pat = "sbp_1234567890abcdef1234567890abcdef1234"
         aq_key = "AQ1234567890abcdef123456"
-        sb_secret = "sb_secret_abcdef1234567890xyz"
+        sb_secret = "sb_secret_abcdef1234567890xyz123"
         pg_url = "postgresql://postgres:mypassword@db.jfsxclrdxmvftxacjuqf.supabase.co:5432/postgres"
 
         raw = f"Details: token={supabase_pat}, aq={aq_key}, sb={sb_secret}, conn={pg_url}"

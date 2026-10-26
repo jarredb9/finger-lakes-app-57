@@ -435,9 +435,8 @@ FAIL lib/utils/__tests__/map-navigation.test.ts
             self.assertIn("scripts/agent-resolve/agent-resolve.py", res_grep)
 
             # 3. read_file_snippet
-            res_snippet = agent_resolve.read_file_snippet("package.json", 1, 10)
-            self.assertIn("=== File: package.json (Lines 1-10", res_snippet)
-            self.assertIn("1: {", res_snippet)
+            res_snippet = agent_resolve.read_file_snippet("lib/utils.ts", 1, 10)
+            self.assertIn("=== File: lib/utils.ts (Lines 1-10", res_snippet)
         finally:
             agent_resolve.PROJECT_ROOT = self.root
 
@@ -465,7 +464,7 @@ The route coordinates are not being normalized before being passed to Directions
         try:
             issue_body = """
 ### Target Files & Suspected Components
-- `package.json`
+- `lib/utils.ts`
 
 ### Root Cause
 Exploration tools needed for Stage 0.
@@ -477,9 +476,9 @@ Exploration tools needed for Stage 0.
                 issue_body=issue_body,
                 token_tracker=token_tracker,
             )
-            self.assertIn("package.json", result.target_files)
-            self.assertIn("package.json", result.code_snippets)
-            self.assertIn("=== File: package.json", result.code_snippets["package.json"])
+            self.assertIn("lib/utils.ts", result.target_files)
+            self.assertIn("lib/utils.ts", result.code_snippets)
+            self.assertIn("=== File: lib/utils.ts", result.code_snippets["lib/utils.ts"])
         finally:
             agent_resolve.PROJECT_ROOT = self.root
 
@@ -489,21 +488,21 @@ Exploration tools needed for Stage 0.
 
         step1 = agent_resolve.DiagnosticAction(
             action="find_files",
-            pattern="package.json",
-            reasoning="Locate package definition",
+            pattern="utils.ts",
+            reasoning="Locate utils definition",
         )
         step2 = agent_resolve.DiagnosticAction(
             action="read_file_snippet",
-            file_path="package.json",
+            file_path="lib/utils.ts",
             start_line=1,
             end_line=10,
-            discovered_target_files=["package.json"],
-            reasoning="Read dependencies",
+            discovered_target_files=["lib/utils.ts"],
+            reasoning="Read utilities",
         )
         step3 = agent_resolve.DiagnosticAction(
             action="conclude",
             reasoning="Diagnosis complete",
-            discovered_target_files=["package.json"],
+            discovered_target_files=["lib/utils.ts"],
         )
 
         mock_responses = [step1, step2, step3]
@@ -514,12 +513,12 @@ Exploration tools needed for Stage 0.
                 token_tracker = agent_resolve.TokenTracker()
                 result = agent_resolve.stage_0_diagnose(
                     client=object(),
-                    issue_title="Bug with package version",
+                    issue_title="Bug with utils",
                     issue_body="No files specified in body.",
                     token_tracker=token_tracker,
                 )
-                self.assertIn("package.json", result.target_files)
-                self.assertIn("package.json", result.code_snippets)
+                self.assertIn("lib/utils.ts", result.target_files)
+                self.assertIn("lib/utils.ts", result.code_snippets)
                 self.assertIn("Concluded diagnosis at step 3", result.investigation_summary)
         finally:
             agent_resolve.PROJECT_ROOT = self.root

@@ -14,11 +14,58 @@ from agent_resolve.models import PatchManifest, TestPatchManifest
 
 PROTECTED_PATHS: tuple[str, ...] = (
     ".git",
-    ".github/workflows",
-    "scripts/agent-resolve.py",
-    "scripts/agent-resolve",
+    ".github",
+    ".husky",
+    "scripts",
     "supabase/migrations",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    "eslint.config.mjs",
+    "playwright.config.ts",
+    "jest.config.js",
+    "jest.config.ts",
+    "next.config.ts",
+    "next.config.mjs",
+    "next.config.js",
+    "postcss.config.mjs",
+    "requirements-agent.txt",
+    ".env",
+    ".env.local",
+    ".env.local.production",
+    ".env.local.example",
 )
+
+ALLOWED_SRC_DIRECTORIES: tuple[str, ...] = ("app/", "components/", "hooks/", "lib/", "utils/")
+ALLOWED_SRC_EXTENSIONS: tuple[str, ...] = (".ts", ".tsx", ".js", ".jsx", ".css")
+
+
+def is_valid_target_src_file(path: str) -> bool:
+    norm_path = path.replace("\\", "/").lstrip("./")
+    if not any(norm_path.startswith(d) for d in ALLOWED_SRC_DIRECTORIES):
+        return False
+    for prot in PROTECTED_PATHS:
+        if norm_path == prot or norm_path.startswith(prot + "/"):
+            return False
+    if not any(norm_path.endswith(ext) for ext in ALLOWED_SRC_EXTENSIONS):
+        return False
+    try:
+        safe_resolve_repo_path(path)
+    except ValueError:
+        return False
+    return True
+
+
+def sanitize_target_src_files(target_src_files: Sequence[str]) -> tuple[list[str], list[str]]:
+    valid: list[str] = []
+    invalid: list[str] = []
+    for sf in target_src_files:
+        if is_valid_target_src_file(sf):
+            valid.append(sf)
+        else:
+            invalid.append(sf)
+            log(f"Warning: Removed invalid target source file: {sf}")
+    return valid, invalid
 
 
 def safe_resolve_repo_path(rel_path_str: str) -> Path:
@@ -41,6 +88,9 @@ def safe_resolve_repo_path(rel_path_str: str) -> Path:
     for prot in PROTECTED_PATHS:
         if rel_posix == prot or rel_posix.startswith(prot + "/"):
             raise ValueError(f"Modification of protected file blocked: {rel_path_str}")
+
+    if rel_posix.startswith(".env") or Path(rel_posix).name.startswith(".env"):
+        raise ValueError(f"Modification of protected file blocked: {rel_path_str}")
 
     return target
 
@@ -217,8 +267,12 @@ def apply_patch_manifest(
 
 
 __all__: list[str] = [
+    "ALLOWED_SRC_DIRECTORIES",
+    "ALLOWED_SRC_EXTENSIONS",
     "PROTECTED_PATHS",
     "apply_patch_manifest",
+    "is_valid_target_src_file",
     "reset_target_sources",
     "safe_resolve_repo_path",
+    "sanitize_target_src_files",
 ]
