@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+* Closed Docker sandbox escape by passing `--no-verify` to automated Git commits and adding `--ignore-scripts` to workflow dependencies ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Enforced positive directory and extension allowlists for target source files and expanded protected configuration paths ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Hardened subprocess execution to fail closed in CI without Docker, scrubbed default environment credentials while preserving `GH_TOKEN` for `gh` CLI commands, and added `--` argument delimiters ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Expanded secret redaction to cover `postgres://` and `postgresql://` connection strings and service tokens ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+
 ## [0.2.0] - 2026-10-23
 
 ### Added

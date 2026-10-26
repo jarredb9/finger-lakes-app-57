@@ -8,7 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > [!NOTE]
 > Tooling release notes for `agent-resolve` are maintained separately in [scripts/agent-resolve/CHANGELOG.md](scripts/agent-resolve/CHANGELOG.md).
 
-## [Unreleased]
+## [Unreleased] (v3.7.1)
+
+### Security
+* Restricted production secrets (`SUPABASE_DB_URL`, `SUPABASE_ACCESS_TOKEN`, `VERCEL_TOKEN`) strictly to GitHub Actions `Production` deployment environments, removing exposure to pull request builds ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Added localhost hostname verification to database administration scripts to prevent execution against remote environments without `--allow-remote` ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Relocated production environment files outside mounted container runner trees and enforced `0600` permissions on local secrets ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Hardened Playwright container runner by replacing shell `eval` with positional array forwarding ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Parameterized GitHub Actions workflow inputs with regex validation to prevent expression injection ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
 
 ## [3.7.0] - 2026-10-23
 
