@@ -1,1337 +1,224 @@
 # Changelog
 
-## [agent-resolve] - v0.2.0 (2026-10-23)
+All notable changes to the Winery Visit Planner and Tracker are documented in this file.
 
-### 🛡️ Quality Hardening, Patch-Based Red Phase, Test Deduplication & Prompt Token Optimization ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
-* **Patch-Based Test Authoring & Unified Patch Engine (Phase 1)**:
-    * Replaced full-file test overwriting with surgical search/replace patch application via `TestPatchManifest` (`patches` and `source_stubs`) in `agent_resolve.models` and `agent_resolve.stages.stage_2_red`.
-    * Enforced strict patch file whitelisting (`allowed_files=target_tests`) to prevent accidental source file tampering during the Red phase.
-    * Added empty search-block (`search_block=""`) support to `apply_patch_manifest` (`agent_resolve.patch_engine`) to cleanly author brand new test files.
-    * Guaranteed deterministic retry cycles by reverting target test files to git baseline and purging uncommitted source stubs before each attempt.
-* **Target Test Deduplication & Architectural Cohesion (Phase 2)**:
-    * Implemented `deduplicate_target_test_files` in `agent_resolve.context`, grouping test files by architectural component stem (`<stem>.*.test.ts*` vs `<stem>.test.ts*`).
-    * Retained the most specialized suite (`*.persist.test.ts`, `*.enrichment.test.ts`) in `target_test_files` while demoting broader suites into `blast_radius_test_files`, capped at 8 suites.
-    * Added Stage 1 architectural planning prompt directive enforcing a single primary test suite per component to avoid redundant authoring and test execution overlap.
-* **Targeted ESLint Verification Gate & Code Hygiene Directives (Phase 3)**:
-    * Integrated targeted ESLint execution (`npx eslint --no-warn-ignored <target_src_files>`) in Stage 3 Green phase verification (`agent_resolve.stages.stage_3_green`), executing after TypeScript compilation and before Jest.
-    * Wired ESLint diagnostic failures directly into the self-correction retry loop via `last_error_context`.
-    * Added `"no-nested-ternary": "error"` rule to `eslint.config.mjs` and refactored nested ternaries across core utilities and components (`lib/utils/adapters/google-v1.ts`, `components/TripCardSimplePresentational.tsx`).
-    * Added explicit code hygiene prompt directives prohibiting nested ternaries (>1 level) and mandating pure helper extraction.
-* **Edge Function Runtime Boundary Hard Gating (Phase 4)**:
-    * Hardened `is_issue_suitable_for_headless_agent` in `agent_resolve.context` to reject all issues attempting to modify `supabase/functions/` (including `_shared/`).
-    * Enforced hard gates upfront in `agent_resolve.pipeline` and after Stage 0 diagnostic exploration, posting maintainer advisory comments via GitHub CLI and cleanly terminating without burning tokens.
-    * Removed Edge Function authoring instructions (Directive 10) from Stage 1 and Stage 2 prompts to align with runtime boundaries.
-* **Context Pruning & Static Prefix Prompt Caching Layout (Phase 5)**:
-    * Updated `get_project_context(include_tree: bool = False)` in `agent_resolve.context` with a `False` default, omitting repository source file trees from Stage 2 and Stage 3 prompts.
-    * Explicitly isolated repository tree retrieval to Stage 1 Planner prompts via `get_repository_tree()`.
-    * Restructured prompt formatting across Stages 1, 2, and 3: placed immutable role headers and static domain guidelines (`CONTEXT.md`, `AGENTS.md`) at byte 0 ahead of dynamic issue context, maximizing Gemini prompt prefix caching efficiency.
-* **Semantic Diagnostic Filtering & Stack Trace Pruning (Phase 6)**:
-    * Updated `truncate_error_context` in `agent_resolve.diagnostics`: pruned internal framework and runtime stack frames matching `node_modules/`, `node:internal/`, and `internal/`, while strictly preserving user-space frames.
-    * Preserved TypeScript compiler output (`error TS...`), ESLint diagnostics, and Jest multi-line assertion diffs (`- Expected`, `+ Received`, code frames, and caret markers).
-    * Added regex-based normalization collapsing consecutive blank lines (`\n{3,}`) down to `\n\n`.
-    * Lowered the default truncation ceiling to 4,000 characters (2,000 head / 2,000 tail with split marker) to prevent context blowout while retaining high diagnostic signal.
-    * Updated Section 7 of [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md) formally documenting diagnostic sanitization invariants.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [agent-resolve] - v0.1.1 (2026-10-21)
+> [!NOTE]
+> Tooling release notes for `agent-resolve` are maintained separately in [scripts/agent-resolve/CHANGELOG.md](scripts/agent-resolve/CHANGELOG.md).
 
-### 🔒 Sandbox Hardening, Patch Whitelisting & Diagnostic Unmasking ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
-* **Comprehensive Supabase Fallback Variables & Environment Consolidation**:
-    * Defined `DEFAULT_SUPABASE_TEST_ENV` in `agent_resolve.environment` with canonical dummy values (`NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`, `NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key`, and `SUPABASE_SERVICE_ROLE_KEY=test-service-role-key`).
-    * Injected fallback environment variables into Docker container test execution (`--network none`) and scrubbed subprocess fallback execution, preventing runtime failures during Supabase client initialization in test sandboxes.
-    * Added fallback defaults to `jest.setup.ts` via `process.env.* ||=` to protect direct Jest invocations.
-* **Patch Whitelisting, Path Normalization & Pre-Attempt Working Tree Reset**:
-    * Enforced strict patch target whitelisting (`allowed_files=target_src`) in `apply_patch_manifest` (`agent_resolve.patch_engine`), rejecting patches targeting un-targeted files.
-    * Normalized file paths (`safe_resolve_repo_path` targets) for both `allowed_files` and `new_src_files` to eliminate path format mismatches (`./path` vs `path`).
-    * Enforced clean working tree resets before each Stage 3 attempt (`git checkout baseline_ref -- .` and `git clean -fd`) in `agent_resolve.stages.stage_3_green`, preventing dirty state accumulation across retry attempts.
-    * Preserved `blast_radius_test_files` immutability, ensuring regression test suites remain execution-only guards.
-* **Diagnostic Unmasking & Mandatory Full Regression Gate**:
-    * Merged stdout and stderr (`f"{out}\n{err}".strip()`) before passing failure output to `truncate_error_context` in `agent_resolve.stages.stage_3_green`, preventing non-fatal stderr messages (deprecation warnings, bundler notices) from shadowing Jest assertion failures.
-    * Enforced `npm run type-check` before full test suite execution in the mandatory full regression gate.
-* **Resumption Git Index Hygiene & ADR Documentation**:
-    * Explicitly purged checkpoint metadata files (`.agent-state.json`, `AGENT_HANDOFF.md`) from the git index (`git rm -f --ignore-unmatch` and `git reset HEAD`) prior to staging target sources on checkpoint resumption in `agent_resolve.vcs`.
-    * Updated [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md) documenting Supabase sandbox fallback injection and blast radius isolation invariants.
-* **Maintainer Agent Brief Triage Ingestion ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))**:
-    * Expanded GitHub CLI issue queries (`gh issue view` and `gh issue list`) in `agent_resolve.cli` to retrieve issue comments (`--json number,title,body,author,labels,comments`).
-    * Implemented `extract_agent_brief` in `agent_resolve.context` to parse issue comments and extract authoritative maintainer `## Agent Brief` specifications authored strictly by `@jarredb9` (per `.agents/skills/triage/AGENT-BRIEF.md`).
-    * Injected authoritative triage specifications (`### AUTHORITATIVE TRIAGE SPECIFICATION:\n<brief>`) into `issue_body` across `resolve_issue` (`agent_resolve.pipeline`), anchoring complexity suitability evaluation, Stage 0 diagnostic exploration, and Stage 1 blueprint planning directly to maintainer acceptance criteria.
+## [Unreleased] (v3.7.1)
 
-## [agent-resolve] - v0.1.0 (2026-10-19)
-
-### 🛡️ Prompt Token Blowout Prevention, Blast-Radius Test Isolation & Cached Token Accounting ([#77](https://github.com/jarredb9/finger-lakes-app-57/issues/77) / [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
-* **Blast-Radius Test Isolation & Ancestor Proximity Ranking**:
-    * Added `blast_radius_test_files` to `BlueprintPlan` (`agent_resolve.models`), serializing to `.agent-state.json` and reporting in the PR body (`agent_resolve.vcs`) to separate regression verification suites from LLM prompt context.
-    * Hardened test discovery in `agent_resolve.context` (`find_related_test_files`): restricted pathspecs strictly to Jest test extensions (`**/*.test.ts(x)`, `**/*.spec.ts(x)`), excluded `supabase/` and `e2e/`, qualified generic module stems (`index`, `types`, `constants`, `utils`, `helpers`) with directory paths to avoid cross-module collisions, matched import boundaries via POSIX ERE-compatible regex (`/(?:{pattern})(?:\.[a-zA-Z]+)?['\"]` and `from.*{pattern}`), sorted candidate suites by common ancestor directory depth descending, and capped discovered suites at 8 files.
-    * Enforced prompt isolation in `stage_1_plan`, `stage_2_red`, and `stage_3_green`: only `target_test_files` are authored in Stage 2 and injected into the `TESTS TO PASS` section of Stage 3 prompts, while blast-radius suites execute strictly as immutable regression guards in Stage 3.
-* **Fail-Fast TypeScript Compilation, Silent Jest & Error Output Truncation**:
-    * Implemented fail-fast compiler check in `agent_resolve.stages.stage_3_green`: runs `npm run type-check` before targeted Jest verification; if compilation fails (`tc_code != 0`), skips running Jest on that attempt and populates `last_error_context` solely with TypeScript errors.
-    * Configured targeted Jest verification with `["npx", "jest", "--no-color", "--silent"] + target_tests + blast_radius_tests` to suppress ANSI escape sequences and console noise from passing suites.
-    * Sequenced `npm run type-check` ahead of `npm test` in the Mandatory Full Regression Gate to fail fast on compilation errors prior to running the full test suite.
-    * Implemented ANSI escape sequence stripping and head/tail error truncation capping `last_error_context` at 8,000 characters (retaining 4,000 head and 4,000 tail characters with `... [TRUNCATED {chars} CHARS OF VERIFICATION OUTPUT] ...`), preventing context blowout from large stack traces.
-* **Discounted Cached Token Budgeting (25%), Pre-Call Guard & Boundary Regex**:
-    * Implemented `effective_tokens` in `TokenTracker` (`agent_resolve.tracker`) applying a 25% discount weight to cached prompt tokens (`effective_call_tokens = max(0, total - cached) + int(0.25 * cached)`), preventing premature halting on repeated context queries while maintaining the 500,000-token issue budget limit.
-    * Added pre-flight `check_budget()` guard in `agent_resolve.llm` before issuing Gemini API calls and exponential backoff retries to fail fast when budget is exhausted.
-    * Isolated `token_tracker.record_usage()` outside the transient retry handler, eliminating false-positive budget error retries.
-    * Hardened transient error detection with status-boundary regex `r"(?<![0-9,])(?:429|500|502|503|504)(?![0-9,])"` to prevent false-positive retries on formatted token amounts (`500,000`) or line numbers.
-    * Formatted dual metrics in `summary()`, PR bodies, and logs (`<effective> effective tokens / <raw> raw total (<prompt> prompt [<cached> cached @ 25%], <candidates> candidates)`).
-* **Shared Edge Function (`supabase/functions/_shared/*.ts`) Verification Invariant & Planner Self-Correction**:
-    * Implemented target test file validation guard in `stage_1_plan.py` filtering out `supabase/**`, `e2e/**`, and non-Jest paths, backed by an internal 2-attempt self-correction loop when target test suites become empty.
-    * Added explicit Planner and Red Phase prompt instructions requiring unit tests for pure-TypeScript shared Edge Functions (`supabase/functions/_shared/*.ts`) to be authored under `lib/**/__tests__/*.test.ts` importing via `@/supabase/functions/_shared/<module>`.
-    * Updated `is_issue_suitable_for_headless_agent` in `agent_resolve.context` to permit pure-TypeScript shared modules while flagging Deno runtime entrypoints (`Deno.serve`, `jsr:`, `https://deno.land`, `deno.json`) and non-shared functions.
-* **Stateful Resumption Checkpoint Self-Healing & VCS State Persistence**:
-    * Implemented checkpoint sanitization in `agent_resolve.pipeline` (`resolve_issue`): queries files modified in `red_phase_commit_sha` via `git diff-tree`, demoting extra valid Jest suites from dirty checkpoints to `blast_radius_test_files`, deduplicating, stripping non-Jest files, and capping at 8 suites (with fallback to first 3 valid Jest suites if diff is unavailable).
-    * Guaranteed `BlueprintPlan` instantiations preserve `blast_radius_test_files` across both clean resumption and Tier 3 checkpoint invalidation rollback.
-    * Serialized `blast_radius_test_files` into `.agent-state.json` via `preserve_failed_work` and draft PR summaries in `agent_resolve.vcs`.
-* **ADR Documentation & Comprehensive Test Verification**:
-    * Updated [ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md) to formally document blast-radius isolation, 25% cached token budgeting, fail-fast compiler gates, 8k error context truncation, and shared Edge Function testing rules.
-    * Authored extensive unit tests across `scripts/agent-resolve/tests/` (test suites for models, context, stages, tracker, llm, and pipeline), verifying 100% pass rate alongside legacy test suites via `npm run test:agent:all`.
-
-### 🤖 Autonomous Issue Resolver Decomposition & Modular Architecture ([ADR-0005](docs/adr/0005-autonomous-nightly-agent-workflow.md))
-* **Modular Package Architecture & PEP 621 Packaging Metadata**:
-    * Decomposed the monolithic 2,200-line autonomous resolver script `scripts/agent-resolve/agent-resolve.py` into a modular Python package located at `scripts/agent-resolve/agent_resolve/` with clean domain boundaries (`config`, `models`, `tracker`, `exceptions`, `environment`, `verification`, `patch_engine`, `vcs`, `llm`, `context`, `diagnostics`, `stages`, `pipeline`, and `cli`).
-    * Configured standard PEP 621 packaging metadata in `scripts/agent-resolve/pyproject.toml` with build backend `setuptools.build_meta`, dependencies (`google-genai>=0.1.0`, `pydantic>=2.0.0`, `tenacity>=8.2.0`), Python `>=3.12`, and console entrypoint `agent-resolve = agent_resolve.cli:main`.
-    * Added developer npm test scripts `"test:agent"` and `"test:agent:all"` in `package.json` with `sys.path` fallback bootstrapping in `scripts/agent-resolve/tests/__init__.py` to run modular tests without requiring editable package installation (`pip install -e`).
-* **Centralized Configuration & Dynamic Monkeypatch Propagation (`_AgentResolveModule`)**:
-    * Centralized global parameters in `agent_resolve.config` with depth-3 ancestor-walk `PROJECT_ROOT` resolution detecting repository root via `package.json`/`.git` markers (with `parents[3]` fallback) and runtime accessors `get_project_root()` and `set_project_root()`.
-    * Standardized all package submodules to dynamically evaluate `config.PROJECT_ROOT` at call time to prevent stale path bindings.
-    * Implemented `_AgentResolveModule` (`types.ModuleType` proxy) in `scripts/agent-resolve/agent_resolve/__init__.py` to intercept `__setattr__`, synchronizing `PROJECT_ROOT` mutations and dynamically propagating monkeypatched collaborators (`patch.object(agent_resolve, "gh_cli", ...)`, `call_gemini_with_fallback`, etc.) across all loaded `agent_resolve.*` submodules.
-* **Execution Environment, Secret Scrubbing & Verification Engine**:
-    * Extracted process execution and container isolation helpers in `agent_resolve.environment`, executing test runners inside rootless containers (`--network none`, matching host UID/GID, and tmpfs directories) to eliminate secret exfiltration risks and file ownership mismatches.
-    * Enforced SEC-02 secret scrubbing (`sanitize_secrets`) redacting GitHub tokens, PATs, AIza keys, and Bearer tokens across logging and error reporting.
-    * Isolated test failure parsing in `agent_resolve.verification` (`validate_jest_red_phase`), validating structured assertion failures, rejecting runtime crashes, and breaking circular dependencies between pipeline resumption gates and Stage 2 test authoring.
-* **Two-Tier Fuzzy Patch Engine & VCS Operations**:
-    * Implemented two-tier fuzzy patch engine in `agent_resolve.patch_engine` (`apply_patch_manifest`) supporting Tier 1 strict exact matching, Tier 2 whitespace-trimmed line matching, CRLF normalization, and transactional rollback (`reset_target_sources`).
-    * Enforced SEC-04 protected path blocking (`safe_resolve_repo_path`), barring modifications to database migrations (`supabase/migrations`), `.git/`, GitHub workflows, and agent scripts.
-    * Centralized Git and GitHub CLI operations in `agent_resolve.vcs` (`gh_cli`), supporting branch management, PR lifecycle mutations, maintainer guidance ingestion (`fetch_maintainer_hints`), and stateful WIP checkpointing (`preserve_failed_work`).
-* **LLM Client Standardization & Diagnostic Exploration Tools**:
-    * Implemented `agent_resolve.llm` standardizing strictly on `gemini-3.8-flash` with zero model downgrades, randomized jitter exponential backoff on HTTP 429/5xx, and socket/transport drops.
-    * Extracted read-only exploration tools in `agent_resolve.diagnostics` (`grep_search`, `find_files`, `read_file_snippet`) to power Stage 0 exploration.
-* **Complete 4-Stage TDD Pipeline & Backward-Compatible Executable Shim**:
-    * Decomposed the autonomous resolution workflow into 4 discrete pipeline stages under `agent_resolve.stages`:
-        * **Stage 0 (`stage_0_diagnose`)**: Iterative tool-equipped diagnostic loop bounding target files and reproduction seams.
-        * **Stage 1 (`stage_1_plan`)**: Grounded architectural blueprint generation authoring `task-plan.md`.
-        * **Stage 2 (`stage_2_red`)**: Compiling stubs and failing test generation with **Tier 3 Blueprint Invalidation** fallback on unrecoverable architectural dead ends.
-        * **Stage 3 (`stage_3_green`)**: Precision fuzzy patching, iterative test feedback, and mandatory full regression gate.
-    * Modularized CLI argument parsing and batch orchestration loop into `agent_resolve.cli` and `agent_resolve.pipeline`.
-    * Replaced monolithic `scripts/agent-resolve/agent-resolve.py` with an 80-line executable CLI shim featuring automated `sys.path` bootstrapping, `importlib.util.spec_from_file_location` loader self-healing, complete `__all__` symbol parity, and `_ShimModuleProxy` delegation.
-* **Comprehensive Multi-Tier Test Suites & Verification**:
-    * Authored 243 modular unit and integration tests across 14 dedicated test suites in `scripts/agent-resolve/tests/`.
-    * Maintained 100% backward compatibility with all 27 legacy test cases in `scripts/__tests__/test_patch_engine.py` (270 total tests passing cleanly via `npm run test:agent:all`).
+### Security
+* Patched high-severity denial-of-service memory exhaustion vulnerability (CVE-2023-54404 / GHSA-mrhx-c7xc-m3w5) by upgrading Zod and Serwist toolchains to v4.6.7 ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Restricted production secrets (`SUPABASE_DB_URL`, `SUPABASE_ACCESS_TOKEN`, `VERCEL_TOKEN`) strictly to GitHub Actions `Production` deployment environments, removing exposure to pull request builds ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Added localhost hostname verification to database administration scripts to prevent execution against remote environments without `--allow-remote` ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Relocated production environment files outside mounted container runner trees and enforced `0600` permissions on local secrets ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Hardened Playwright container runner by replacing shell `eval` with positional array forwarding ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Parameterized GitHub Actions workflow inputs with regex validation to prevent expression injection ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Enforced high- and critical-severity dependency audit gate in the CI/CD pipeline and configured automated weekly Dependabot version updates ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
 
 ## [3.7.0] - 2026-10-23
 
-**Milestone v3.7.0: Bug Fixes, Incomplete Implementations, and PWA Testing Updates**
+### Added
+* Multi-provider trip navigation scheme supporting Apple Maps, Google Maps, and Waze with accessible Radix dropdown selection ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63), [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70), [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md)).
+* Containerized iOS PWA standalone mode emulation and Playwright WebKit test fixtures ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71), [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72), [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md)).
+* Client-side full visit history evaluation with on-demand complete dataset fetching, multi-column sorting (Date, Rating, Winery Name), in-memory filtering, and responsive pagination in `VisitHistoryModal` ([ADR-0003](docs/adr/0003-client-side-visit-history-evaluation.md)).
+* Haversine distance calculation and dynamic `FloatingSearchAreaButton` rendered when viewport center shifts >5 km from last searched bounds ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44), [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md)).
+* Tri-state operational status model (`Open Now`, `Closed`, and `Hours Unavailable`) with animated skeleton loading pills during pending enrichment ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* On-demand Places API enrichment triggered when opening details for database-persisted wineries lacking operational hours ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Dismissible selected wineries badge list (`SelectedWineriesList`) in `TripForm` ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
+* Formally established global winery discovery scope and unrestricted user geolocation policy ([ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md)).
 
-### 📱 Automated iOS PWA Standalone Testing Matrix & Domain Refactoring ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71) / [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72) / [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
-* **Containerized iOS Standalone Mode Emulation & Playwright Test Fixtures**:
-    * Implemented `enableStandaloneMode(page)` in `e2e/fixtures/shims/browser.shim.ts`, injecting WebKit `window.navigator.standalone = true` and standard W3C `matchMedia` proxy returning `matches: true` for `(display-mode: standalone)` and `matches: false` for `(display-mode: browser)`.
-    * Implemented `standalonePage` test fixture in `e2e/fixtures/index.ts` (re-exported via `e2e/utils.ts`) that applies standalone emulation via `page.addInitScript` prior to page navigation, allowing end-to-end PWA verification on rootless Linux containers without physical iOS hardware or macOS simulator licensing.
-    * Authored Playwright WebKit / Mobile Safari end-to-end test suite `e2e/trip-navigation-pwa.spec.ts` under containerized execution:
-        * Intercepted external navigation providers (`maps.apple.com`, `google.com/maps/dir`, `waze.com/ul`) via `setupExternalNavigationRouteInterceptors` to eliminate DNS timeouts in isolated container environments.
-        * Verified transient user gesture preservation on popup dispatch (`page.waitForEvent('popup')`) across Apple Maps, Google Maps, and Waze without WebKit security popup blocking.
-        * Validated navigation URL pathname and query parameter generation (`mode=driving`, `destination`, `waypoints`, `ll`) and confirmed 0-stop trips disable navigation triggers.
-    * Hardened `e2e/pwa-install-layout.spec.ts` with standalone assertions verifying complete suppression of mobile install bars and desktop install cards even when `beforeinstallprompt` is dispatched.
-* **Canonical Domain Method & Seam Refactoring (`useTripActions` & `TripCard`)**:
-    * Refactored `hooks/use-trip-actions.ts` to export canonical `handleTripNavigation(provider: NavigationProvider = 'google')` conforming to `CONTEXT.md` domain modeling.
-    * Maintained backwards compatibility by exporting `@deprecated handleExportToMaps` as a direct alias to `handleTripNavigation`.
-    * Updated container components `components/trip-card.tsx` and `components/trip-card-simple.tsx` to bind both `onNavigateTrip={handleTripNavigation || handleExportToMaps}` and `onExportToMaps={handleExportToMaps || handleTripNavigation}`.
-    * Updated presentational components `components/TripCardPresentational.tsx` and `components/TripCardSimplePresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps` (`const onNavigate = onNavigateTrip || onExportToMaps`).
-    * Preserved 100% synchronous call stack from touch interaction to `launchTripNavigation`, preventing WebKit popup blocker activation.
-* **PWA Standalone Detection Hardening & Install UI Invariant Enforcement**:
-    * Hardened `hooks/use-pwa.ts` to enforce boolean casting for `isStandalone` across iOS WebClip signal (`window.navigator.standalone`), W3C standard `matchMedia('(display-mode: standalone)')`, and Android referrer (`android-app://`).
-    * Enforced standalone installability invariant: `isInstallable: !isStandalone && !!installPrompt`, guaranteeing install prompts are never active when running in standalone mode.
-    * Added defense-in-depth guard in `components/pwa-handler.tsx` (`if (!isInstallable || isStandalone || isDismissed) return null;`) and verified `"Install App"` menu item suppression in `components/nav/user-nav.tsx`.
-    * Added WCAG 4.1.2 accessible name `aria-label="Dismiss"` to desktop install card close button in `components/pwa-handler.tsx`, and wrapped `installPrompt.prompt()` in `try...catch` to handle rejected promises safely.
-* **Comprehensive Multi-Tier Test Suites & Strict TDD Red/Green Execution**:
-    * Implemented unit test matrix in `hooks/__tests__/use-pwa.test.ts` covering standard browser mode, iOS WebClip signals, W3C matchMedia signals, Android referrer signals, prompt acceptance, dismissal, lifecycle unmount cleanup, and standalone `installApp` early termination.
-    * Added component tests in `components/__tests__/PwaHandler.test.tsx` and `components/nav/__tests__/user-nav.test.tsx` asserting complete banner and menu item suppression in standalone mode.
-    * Authored unit tests in `hooks/__tests__/use-trip-actions.test.ts` asserting canonical `handleTripNavigation` and `@deprecated handleExportToMaps` synchronous dispatches.
-    * Added container and presentational component test suites in `components/__tests__/trip-card-simple.test.tsx`, `components/__tests__/TripCardPresentational.test.tsx`, and `components/__tests__/TripCardSimplePresentational.test.tsx`.
-    * Executed all features strictly following the repository TDD Task Granularity Invariant with sequential Red (`test(...)`) and Green (`feat(...)`) commits.
+### Changed
+* Standardized trip navigation actions in `useTripActions` to canonical `handleTripNavigation(provider)` ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71), [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72)).
+* Switched trip navigation launching to synchronous window opening within the user gesture event loop to eliminate WebKit popup blocker suppression on iOS PWAs ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63), [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70)).
+* Refactored `use-winery-filter` to derive sidebar lists from the unified map winery collection filtered by active viewport bounds and category filters ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44)).
+* Decoupled top-level layout loading from winery detail enrichment, permitting cached data to render immediately with field-level loading indicators ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Upgraded Zustand persistence schema to version 2 with selective migration purging stale enriched records while preserving map markers ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Expanded `public.get_map_markers` RPC and Places API field masks to ingest ratings, review counts, and amenities under Places Basic SKU ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44)).
+* Refactored `TripForm` winery selection to declarative React Hook Form field bindings ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
+* Preserved session-backed modal state (`_PWA_ACTIVE_WINERY_ID`) across PWA updates to restore active modals seamlessly ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Delegated offline `'create_trip'` sync queue actions directly to `TripService.createTrip` for online/offline parity ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
 
-### 🧭 Multi-Provider Trip Navigation & iOS PWA WebKit Gesture Preservation ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63) / [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70) / [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
-* **WebKit Transient User Gesture Preservation & Synchronous Launch Architecture**:
-    * Eliminated asynchronous `navigator.geolocation.getCurrentPosition` callback hops in `useTripActions` (`hooks/use-trip-actions.ts`), resolving WebKit popup blocker suppression that prevented navigation dispatch on standalone iOS PWAs and Mobile Safari.
-    * Extracted synchronous navigation URL construction and execution into a dedicated, SSR-safe utility `launchTripNavigation` (`lib/utils/trip-navigation.ts`), ensuring `window.open` executes strictly within the synchronous event turn of user gesture activation with `'noopener,noreferrer'`.
-    * Omitted explicit origin parameters across navigation providers, allowing native client applications to automatically default the route origin to the user's real-time device GPS coordinates without requiring explicit browser location permission prompts.
-* **Multi-Provider Navigation Routing Schemes (Apple Maps, Google Maps, Waze)**:
-    * Implemented `buildTripNavigationUrl` supporting `'google'`, `'apple'`, and `'waze'` providers via `NavigationProvider` interface.
-    * **Google Maps**: Formatted URL using `https://www.google.com/maps/dir/?api=1&destination=<destination>`, appending intermediate stops as pipe-delimited (`|`) `waypoints` without an explicit `origin` parameter.
-    * **Apple Maps**: Implemented official Apple MapKit directions protocol `https://maps.apple.com/directions?mode=driving&destination=<last_stop>`, chaining intermediate waypoints via repeating `waypoint=<stop_n>` parameters while omitting `saddr`.
-    * **Waze**: Implemented coordinate deep linking via `https://waze.com/ul?ll=<lat>,<lng>&navigate=yes`, supporting both flat coordinates and nested `location` objects (`stop.location.latitude`/`longitude`), with query fallback (`q=<formatted_query>`) when coordinates are absent.
-    * Added defensive stop query formatting (`formatStopQuery`) trimming whitespace and cleanly concatenating winery name and address.
-* **Radix Dropdown Menu Event Decoupling & Accessible Presentational UI**:
-    * Refactored navigation actions in `TripCardPresentational.tsx` and `TripCardSimplePresentational.tsx` from single-destination buttons into Radix UI `<DropdownMenu>` components providing user selection for Apple Maps, Google Maps, and Waze.
-    * Decoupled trigger click from direct export execution by removing inline `onClick={() => onExportToMaps('google')}` from trigger buttons, eliminating the double-firing defect where Google Maps launched simultaneously upon opening the dropdown menu.
-    * Standardized accessible button labeling and tooltip text to `"Trip Navigation"`.
-    * Hardened trigger button disabled states against empty stop lists (`!tripWineries || tripWineries.length === 0`) and pending sync states (`isPending || count === 0`).
-* **Multi-Tier Unit, Container, and End-to-End Test Verification**:
-    * Authored 15 unit tests in `lib/utils/__tests__/trip-navigation.test.ts` validating whitespace trimming, single-stop and multi-stop URL generation across Google Maps and Apple Maps MapKit schemes, Waze coordinate/query fallbacks, empty stop guards, and window opening.
-    * Added comprehensive unit test coverage in `hooks/__tests__/use-trip-actions.test.ts` verifying synchronous window launching, absence of `navigator.geolocation` calls, provider branching, and restored member persistence (`saveTripMembers`) with success and error toast handling.
-    * Added dropdown menu interaction test suites in `components/__tests__/TripCardPresentational.test.tsx` and `components/__tests__/TripCardSimplePresentational.test.tsx` testing provider selection for Apple Maps, Google Maps, and Waze.
-    * Adapted container test `components/__tests__/trip-card-simple.test.tsx` to simulate menu item clicks through the Radix dropdown menu.
-    * Aligned Playwright E2E assertion selector in `e2e/trip-flow.spec.ts` with the new `"Trip Navigation"` accessible button label.
-* **Domain Modeling & Containerized PWA Emulation Strategy ([ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))**:
-    * Formulated and recorded [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md) establishing containerized WebKit and JSDOM `navigator.standalone` emulation on Linux without requiring physical iOS hardware or macOS simulator licensing.
-    * Standardized canonical domain terms in `CONTEXT.md` for "Navigation Provider", "Standalone Mode", and "Browser Mode".
+### Deprecated
+* `handleExportToMaps` in `useTripActions` and trip card components in favor of `handleTripNavigation` ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71), [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72)).
 
-### 🍇 ExploreTabContent Data Pipeline Desynchronization & Missing Winery Enrichment ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44) / [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md))
-* **Database Map Markers RPC Expansion & Safe Schema Migration**:
-    * Expanded PostgreSQL `public.get_map_markers` RPC via transaction migration (`supabase/migrations/20261007090000_enrich_map_markers_rpc.sql`) executing `DROP FUNCTION IF EXISTS public.get_map_markers(uuid)` and `CREATE OR REPLACE FUNCTION` with expanded `RETURNS TABLE` including `google_rating`, `user_rating_count`, `allows_dogs`, `good_for_children`, `outdoor_seating`, `has_ev_charging`, and `enrichment_tier`.
-    * Enforced strict security definer execution with `search_path = public, pg_temp` and caller authorization check (`p_user_id IS NULL OR p_user_id != auth.uid()`).
-    * Updated `MapMarkerRpc` interface in `lib/types.ts` and generated TypeScript database types (`lib/database.types.ts`).
-* **Places API v1 Essentials Field Mask & Rating Ingestion**:
-    * Expanded `ESSENTIALS_FIELD_MASK` in `supabase/functions/_shared/google-maps.ts` to include `places.rating` and `places.userRatingCount` under Google Places Basic SKU, preventing unexpected billing tier escalation.
-    * Updated `normalizeGooglePlaceV1` in `supabase/functions/_shared/normalization.ts` and `supabase/functions/search-wineries/index.ts` to ingest ratings and review counts while replacing `any` casts with strict TypeScript interfaces (`GooglePlaceInput`, `NormalizedWinery`, `NormalizedReview`).
-    * Standardized ratings and review counts in `standardizeWineryData` (`lib/utils/winery.ts`) across basic search payloads and RPC payloads.
-* **Authoritative Store Caching & Reactive User Action Synchronization**:
-    * Unified search results ingestion in `wineryStore` / `useWinerySearch` via `bulkUpsertWineries`, merging incoming search results into `persistentWineries` while preserving user state flags (`isFavorite`, `onWishlist`, `userVisited`, custom notes) via `{ preserveUserFlags: true }`.
-    * Ensured `ensureWineryDetails` updates `persistentWineries` seamlessly upon background lazy enrichment completion.
-    * Wired reactive instant UI state propagation across user actions (`toggleFavorite`, `toggleWishlist`, `toggleFavoritePrivacy`, `toggleWishlistPrivacy`, `addVisitToWinery`, `optimisticallyDeleteVisit`), updating both `persistentWineries` and `mapStore.searchResults` without requiring network re-fetches.
-* **Tri-State Vibe Tag Preservation & Ghost Visit Prevention**:
-    * Implemented `parseTriStateBoolean` in `lib/utils/winery.ts` to preserve strict tri-state `boolean | null` (`true` = confirmed amenity present, `false` = confirmed absent, `null` = un-enriched/unknown), eliminating false coercion of un-enriched amenities to `false`.
-    * Enforced ghost visit prevention invariant in `standardizeWineryData`: if a data source reports `user_visited: false` (or falsy without `preserveUserFlags`), cached `visits` arrays are cleared immediately.
-    * Updated mock fixtures and network handlers (`lib/test-utils/fixtures.ts`, `e2e/fixtures/utils/mock-wineries.ts`, `e2e/fixtures/handlers/favorites.handler.ts`) to align with the expanded marker contract.
-* **Unified Viewport-Authoritative Sidebar List & Vibe Tag Filtering**:
-    * Refactored `hooks/use-winery-filter.ts` to eliminate diverging `searchResults.length > 0` branching, computing `listResultsInView` from the unified winery collection (`mapWineries`) filtered strictly by active map `bounds` and active category filters.
-    * Enforced strict conjunction (`=== true`) for Vibe Tag filters (`allowsDogs`, `goodForChildren`, `outdoorSeating`, `hasEvCharging`), excluding un-enriched records (`null`) and confirmed negatives (`false`).
-    * Synchronized Vibe Tag filtering across both map pins (`MapView.tsx`, `google-map-fallback.tsx`) and sidebar list cards on initial load.
-    * Enhanced `WineryCardThumbnail` (`components/winery-card-thumbnail.tsx`) to display star ratings and review counts `(userRatingCount)`.
-* **Viewport Search UX, Haversine Distance & Map Event Synchronization**:
-    * Implemented Haversine great-circle distance utility `calculateDistanceKm` in `lib/utils/map-utils.ts` supporting both `{ latitude, longitude }` and `{ lat, lng }` coordinates.
-    * Created `FloatingSearchAreaButton` (`components/map/floating-search-area-button.tsx`) rendered at top-center of the map canvas in `components/WineryMap.tsx`.
-    * Configured visibility logic: button dynamically appears when `autoSearch` is `false` and viewport center distance from `lastSearchedBounds` exceeds 5 km, and dismisses upon clicking to trigger manual search area execution.
-    * Seeded `lastSearchedBounds` on initial map mount in `hooks/use-winery-map.ts`.
-    * Added map `resize` listener and `ResizeObserver` on `MapView` container to synchronize viewport bounds when sidebar collapses or expands.
-    * Documented global discovery scope and unrestricted user geolocation in [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md) and `CONTEXT.md`.
-* **Multi-Tier Regression Test Suites & End-to-End Browser Verification**:
-    * Added unit test suites for tri-state Vibe Tag parsing, rating mapping, and ghost visit clearing (`lib/utils/__tests__/winery.test.ts`).
-    * Added unit test suites for Haversine distance calculation and `FloatingSearchAreaButton` rendering/suppression (`lib/utils/__tests__/map-utils.test.ts`, `components/map/__tests__/floating-search-area-button.test.tsx`).
-    * Added unit test suites for persistent search merging, cache hydration, and reactive user state synchronization (`lib/stores/__tests__/wineryStore.enrichment.test.ts`).
-    * Added unit test suites for unified viewport filtering and strict Vibe Tag conjunction (`hooks/__tests__/use-winery-filter.test.ts`, `components/__tests__/winery-card-thumbnail.test.tsx`, `components/__tests__/vibe-tag-filtering.test.tsx`).
-    * Added database RPC integration tests in `lib/services/__tests__/db-optimization.integration.test.ts`.
-    * Added Edge Function tests in `supabase/functions/search-wineries/index.test.ts`.
-    * Authored real browser Playwright WebKit E2E test suite `e2e/map-viewport.spec.ts` verifying floating search button suppression, distance threshold triggering (>5 km), canvas drag panning, and area search execution.
+### Fixed
+* Fixed false-closed winery status badges and runtime crashes caused by partial weekday hours arrays ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Fixed automatic wishlist entry clearing when logging a visit, and repaired boolean precedence in `standardizeWineryData` ([#54](https://github.com/jarredb9/finger-lakes-app-57/issues/54), [ADR-0001](docs/adr/0001-wishlist-cleared-on-visit.md)).
+* Fixed null coordinate persistence during multi-stop trip creation by coalescing latitude and longitude keys across RPCs and client services ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
+* Fixed navigation popup blocking in WebKit standalone mode by eliminating asynchronous geolocation callback hops ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63), [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70)).
+* Fixed mobile install banner display leaks when running in standalone mode ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71), [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72)).
+* Fixed trip count desynchronization and flickering to "0 Wineries" on newly created trip cards ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
+* Fixed ghost visit persistence when data sources report unvisited status ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44)).
+* Fixed double-firing navigation export defect when clicking the navigation dropdown trigger button ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63), [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70)).
 
-
-### 📜 Client-Side Full Visit History Evaluation & Multi-Column Sorting ([ADR-0003](docs/adr/0003-client-side-visit-history-evaluation.md))
-* **Client-Side Full Dataset Evaluation & On-Demand Hydration**:
-    * Implemented on-demand complete lifetime visit history fetching (`fetchAllVisits` in `useVisitStore` / `visitDataSlice.ts`) when opening the Full Visit History modal (`VisitHistoryModal`), querying `get_paginated_visits_with_winery_and_friends` with a single high-limit batch (`p_page_size: 1000`) to evaluate the full historical visit catalog in-memory without altering database DDL.
-    * Added `allVisitsLoaded` state flag in `visitStore` and wired cache invalidation to reset `allVisitsLoaded: false` whenever paginated `fetchVisits(1, true)` refreshes the chronological feed.
-    * Guarded `fetchAllVisitsHelper` against redundant in-flight network requests (`if (get().isLoading) return;`).
-* **Multi-Column Sorting & In-Memory Filtering**:
-    * Integrated client-side sorting across Date (comparing timestamps), Rating (numeric star ranking with unrated fallback), and Winery Name (`localeCompare`) in `components/visits-table-columns.tsx`.
-    * Standardized table column headers and search placeholders to align with canonical domain terminology ("Visit Note", "Filter by winery or notes...").
-    * Ensured strict column typing (`ColumnDef<VisitWithWinery>[]`) eliminating unsafe `as any` type assertions.
-* **Responsive Client-Side Pagination**:
-    * Integrated TanStack Table `getPaginationRowModel` into `components/ui/data-table.tsx` with a default page size of 25, interactive page size selector (10, 25, 50 rows per page), and page boundary controls.
-    * Added mobile pagination (10 cards per page) with defensive bounds clamping (`Math.min(mobilePage, totalMobilePages)`) and immediate page resets on search filter or sort changes, eliminating React 19 cascading re-render warnings (`react-hooks/set-state-in-effect`).
-* **Regression Testing & Style Guide Compliance**:
-    * Added comprehensive unit test suite in `components/__tests__/visit-history-sorting.test.tsx` verifying full dataset hydration, ascending/descending multi-column sorting, text search filtering, page size switches, and mobile pagination boundary clamping.
-    * Added store test coverage in `lib/stores/__tests__/visitStore.test.ts` verifying `fetchAllVisits` batch fetching, reset handling, and `fetchVisits(1, true)` cache invalidation.
-    * Ensured full compliance with the Google TypeScript Style Guide (elimination of `any`, explicit typing from database RPC return types, single quotes, terminal semicolons).
-
-### 🗺️ Initial Trip Creation Winery Persistence & Store Synchronization ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57))
-* **PostgreSQL RPC Coordinate Standardization & Dual-Key Serialization**:
-    * Updated `public.add_winery_to_trip` RPC migration (`supabase/migrations/20261002120000_standardize_add_winery_to_trip_coordinates.sql`) to coalesce `COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat')::numeric` and `COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng')::numeric`, eliminating `NULL` coordinate persistence for chained winery stops while preserving 100% backward compatibility via the expand-and-contract pattern.
-    * Enhanced `WineryService.getRpcData` in `lib/services/wineryService.ts` with dual-key coordinate serialization emitting both `latitude`/`longitude` and `lat`/`lng` for defense-in-depth safety across legacy and updated RPC callers.
-* **Controlled Form Field Binding & Autocomplete UX in `TripForm`**:
-    * Refactored `components/trip-form.tsx` to bind winery search and selection inside a formal React Hook Form `<FormField control={form.control} name="wineries" render={({ field }) => ...} />`, replacing imperative `handleWineryToggle`, `ensureInDb`, and `form.setValue` calls with declarative `field.onChange` state management.
-    * Replaced untyped `z.any()` in schema with `z.array(z.custom<Winery>())`.
-    * Extracted presentational `SelectedWineriesList` component rendering selected wineries as dismissible badges with accessible removal buttons and test IDs (`data-testid="selected-wineries-list"`, `data-testid="selected-winery-${winery.id}"`).
-    * Implemented `clearOnSelect` prop and programmatic update guard ref in `components/PlaceAutocomplete.tsx` to immediately clear search inputs upon suggestion selection, keeping the dropdown closed and suppressing debounced re-queries while retaining typed queries on resolution failures.
-    * Added full WAI-ARIA combobox accessibility attributes across `PlaceAutocomplete` and `PlaceAutocompleteSuggestionsList` (`role="combobox"`, `role="listbox"`, `role="option"`, `aria-activedescendant`, `aria-controls`, `aria-expanded`).
-* **Polymorphic Chaining & Strict Rollback in `TripService`**:
-    * Extended `TripService.addWineryToExistingTrip` in `lib/services/tripService.ts` to accept polymorphic `wineryOrId: number | Winery`, allowing newly selected Google Places wineries without prior Postgres database IDs to be persisted directly via `WineryService.getRpcData`.
-    * Updated `TripService.createTrip` to loop through additional wineries (`trip.wineries.slice(1)`), passing full winery objects and notes.
-    * Enforced strict atomic rollback: if chained addition fails, `createTrip` invokes `deleteTrip`, tags the error with `preventOfflineEnqueue = true`, and rethrows to avoid leaving partial orphan trips in Postgres.
-* **Offline Sync Parity & Store Count Invariants**:
-    * Refactored `SyncService` (`lib/services/syncService.ts`) `'create_trip'` queue handler to delegate directly to `TripService.createTrip`, ensuring identical multi-stop creation logic online and offline while setting accurate `wineries_count` and triggering background store re-fetching.
-    * Updated `createTripHelper` in `lib/stores/slices/tripMutationHelpers.ts` to populate optimistic `wineries_count: validWineries.length` on `tempTrip` and synced `wineries_count` on `syncedTrip`, eliminating flickering to "0 Wineries" on newly created trip cards.
-    * Added `isPreventOfflineEnqueueError` guard in `createTripHelper` to immediately roll back optimistic state and bypass offline queueing when chained stop creation fails.
-    * Dispatched non-blocking background cache re-fetches (`fetchUpcomingTrips()`, `fetchTripsForDate()`, `fetchTrips(1, 'upcoming', true)`).
-* **Trip Stop Hydration & UI Presentational Enhancements**:
-    * Updated `TripService.getTrips` to query nested `trip_wineries` stops with standardized wineries and ordering by `visit_order`, eagerly populating `wineries: Winery[]` on returned trips.
-    * Standardized badge pluralization in `components/TripCardSimplePresentational.tsx`: `{count} {count === 1 ? 'Winery' : 'Wineries'}`.
-    * Hardened "Export to Google Maps" button in `TripCardSimplePresentational.tsx` to guard against pending sync states (`isPending`) or empty winery lists (`count === 0 || !trip.wineries || trip.wineries.length === 0`).
-    * Defaulted `wineries_count` in `createMockTrip` fixture (`lib/test-utils/fixtures.ts`) to maintain store count invariants across tests.
-* **Test Suite Modularization & Regression Coverage**:
-    * Modularized legacy `components/__tests__/react19-form-actions.test.tsx` by splitting into `components/__tests__/auth-forms.test.tsx` and dedicated `components/__tests__/trip-form.test.tsx`.
-    * Added comprehensive unit and integration test coverage across `components/__tests__/trip-form.test.tsx`, `components/__tests__/PlaceAutocomplete.test.tsx`, `lib/services/__tests__/tripService.mutations.test.ts`, `lib/services/__tests__/tripService.test.ts`, `lib/stores/slices/__tests__/tripMutationHelpers.test.ts`, `lib/stores/__tests__/tripStore.syncStore.test.ts`, `components/__tests__/TripCardSimplePresentational.test.tsx`, `components/__tests__/trip-card-simple.test.tsx`, `hooks/__tests__/use-trip-actions.test.ts`, and `lib/services/__tests__/supabase-rpc.integration.test.ts`.
-    * Replaced placeholder stub in `e2e/trip-flow.spec.ts` with Playwright WebKit E2E test verifying sidebar dialog trip creation with multiple stops, input clearing, badge deduplication and removal, card count display, and enabled Google Maps export.
-
-### 🕒 Winery Operational Hours Resilience & PWA Hydration ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56))
-* **Tri-State Operational Status & UI Presentation**:
-    * Eliminated false-closed defects across all presentational surfaces by introducing an explicit tri-state status model (`Open Now`, `Closed`, and `Hours Unavailable`).
-    * Implemented animated skeleton loading pills (`animate-pulse`) in `WineryInfoCard` and `MobileWineryDrawer` peek status badges when operational hours are indeterminate while Places API enrichment is in-flight.
-    * Updated `WineryCardThumbnail` to cleanly omit operational status badges when hours are `null`, avoiding list clutter while never falsely displaying "Closed".
-    * Added schedule subtext fallbacks with direct website links ("Visit website for hours →") in `WineryInfoCard` when hours are missing and a website URL is present.
-* **Decoupled Layout-Level Hydration**:
-    * Decoupled top-level layout loading from detail enrichment across `DesktopWineryLayout`, `MobileWineryLayout`, and `TabletWineryLayout`.
-    * Guarded full-screen skeleton loaders exclusively on `!winery` (uncached records), enabling cached wineries to render immediately with field-level loading states while Places API enrichment resolves in the background.
-* **On-Demand Places Enrichment & Numeric ID Resolution Hardening**:
-    * Hardened `ensureWineryDetails` in `lib/stores/wineryStore.ts` to inspect `dbData.google_place_id` when queried with a numeric database ID and trigger Edge Function (`get-winery-details`) enrichment when Postgres records lack opening hours.
-    * Maintained `loadingWineryId` active throughout pending on-demand enrichment, ensuring safe cleanup to `null` on completion or failure.
-    * Added resilient error handling for missing `google_place_id` or Edge Function failures (4xx/5xx/network timeouts), returning standardized database data with `openingHours: null` without throwing or stalling `inFlightRevalidations`.
-    * Updated `revalidateInBackground` to resolve canonical `google_place_id` from cached numeric IDs and cleanly release in-flight revalidation locks on failure.
-* **PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore**:
-    * Upgraded Zustand persistence schema to `version: 2` with a selective `migrate` callback in `lib/stores/wineryStore.ts` that purges corrupt or stale enriched records lacking `openingHours` while strictly preserving basic map markers and coordinate geometries for offline map availability.
-    * Updated `hooks/use-pwa-update.ts` to persist `_PWA_JUST_UPDATED` timestamp and active modal ID `_PWA_ACTIVE_WINERY_ID` to `sessionStorage` upon `applyUpdate()`, maintaining complete decoupling from domain data stores.
-    * Added a mount effect in `components/modals/authenticated-modal-host.tsx` to detect `_PWA_ACTIVE_WINERY_ID`, automatically reopen the active modal via `openWineryModal`, trigger `ensureWineryDetails`, and immediately cleanse session storage to prevent reopen loops.
-* **Standardizer Merging & Synthetic Test Fixture Interception**:
-    * Enhanced `standardizeWineryData` in `lib/utils/winery.ts` to allow explicit incoming `opening_hours: null` values to clear or merge accurately and fallback to existing coordinates when missing from partial payloads.
-    * Implemented synthetic test fixture interception in `hooks/use-places-autocomplete-session.ts` and `components/PlaceAutocomplete.tsx` for dev and E2E testing environments.
-    * Seeded deterministic test winery fixture ("Silent Valley Cellars (Test Winery)" with null website and null hours) in `scripts/populate-wineries.ts`.
-* **Permanent Unit & E2E Regression Test Suites**:
-    * Added comprehensive unit test coverage across 10 test suites covering tri-state badge rendering, loading skeletons, decoupled layouts, numeric ID resolution, Zustand v2 selective migration, and session-backed modal restoration.
-    * Implemented containerized Playwright E2E test suite `e2e/winery-hours-resilience.spec.ts` asserting tri-state hours rendering, mobile peek badges, schedule website fallbacks, and dynamic enrichment transitions.
-
-### 🍷 Auto-clear Wishlist Entry on Visit Logging ([#54](https://github.com/jarredb9/finger-lakes-app-57/issues/54) / [ADR-0001](docs/adr/0001-wishlist-cleared-on-visit.md))
-* **Database Migration & RPC Hardening**:
-    * Updated PostgreSQL `public.log_visit` RPC to atomically delete existing `public.wishlist` entries for `(user_id, winery_id)` in the initial insert transaction (`supabase/migrations/20260929111500_autoclear_wishlist_on_visit.sql`).
-    * Retained backward-compatible return signature `jsonb` (`{ visit_id, winery_id }`) and safe idempotency key replays.
-    * Executed one-time retrospective data migration cleanup removing wishlisted wineries that had already been visited.
-* **Standardizer Boolean Precedence Fix**:
-    * Fixed boolean precedence evaluation bug in `lib/utils/winery.ts` (`standardizeWineryData`) where `rawBoolean || existing` prevented explicit `false` values from overwriting existing `true` values.
-    * Evaluated explicit booleans cleanly (`rawBoolean !== undefined ? rawBoolean : (existing ?? false)`) across `onWishlist`, `wishlistIsPrivate`, `isFavorite`, and `favoriteIsPrivate`.
-* **Client Store State Reactivity & Optimistic Error Rollback**:
-    * Enhanced `addVisitToWinery` in `lib/stores/wineryStore.ts` to match wineries by both Place ID (`w.id === wineryId`) and DB ID (`w.dbId && String(w.dbId) === String(wineryId)`), updating `userVisited: true`, `onWishlist: false`, and `wishlistIsPrivate: false` immediately upon optimistic visit creation.
-    * Hardened `saveVisitHelper` in `lib/stores/slices/visitMutationHelpers.ts` to capture pre-mutation snapshots (`{ userVisited, onWishlist, wishlistIsPrivate }`) and roll them back via `updateWinery` on fatal, unrecoverable persistence failures.
-* **UI Presentation & Return-Visit Planning Support**:
-    * Updated `components/winery-card-thumbnail.tsx` to permit concurrent rendering of both "Visited" and "Want to Go" badges when a visited winery has been re-wishlisted, while keeping the primary status dot prioritized to emerald (`userVisited`).
-    * Removed disabled lock (`disabled={winery.userVisited}`) and opacity styling on the Wishlist button in `components/WineryActionsPresentational.tsx`, allowing users to manually re-add visited wineries to their Wishlist for return-visit planning.
-* **Opening Hours Crash Prevention & Safe Schedule Parsing**:
-    * Implemented `getDailyHoursForDate` in `lib/utils/opening-hours.ts` supporting full day names, 3-letter abbreviations, alternate spellings, and day ranges, with positional fallback strictly restricted to complete 7-day schedules to eliminate false hours assignment.
-    * Fixed an uncaught `TypeError` in `components/winery/winery-info-card.tsx` and `components/DailyHours.tsx` when rendering partial `weekday_text` schedules (fewer than 7 days), resolving intermittent failures in `e2e/winery-modal.spec.ts` on non-Mondays.
-    * Hardened weekly hours accordion parsing in `WineryInfoCard` against splitting on time colons, and aligned `isToday` highlighting with day names rather than raw array indices.
-* **Offline Sync Queue Replay & Store Revalidation**:
-    * Updated `SyncService.sync()` in `lib/services/syncService.ts` to trigger `useWineryStore.getState().fetchWineryData(user.id)` upon successfully replaying `log_visit` mutations.
-    * Deferred store revalidation and queue pruning until mutations are successfully processed and confirmed.
-* **Invariant & Integration Test Coverage**:
-    * Added comprehensive database RPC integration tests in `lib/services/__tests__/supabase-rpc.integration.test.ts` verifying atomic wishlist auto-deletion on first visit, safety on second visits, and non-restoration of wishlist rows upon visit deletion.
-    * Added unit test coverage for standardizer boolean precedence (`lib/utils/__tests__/winery.test.ts`), dual-ID store matching (`lib/stores/__tests__/wineryStore.test.ts`), targeted optimistic error rollback (`lib/stores/__tests__/visitStore.domainInvariants.test.ts`), concurrent card badges and return-visit action enablement (`components/__tests__/`), offline sync replay revalidation (`lib/services/__tests__/syncService.test.ts`), and partial opening hours extraction (`lib/utils/__tests__/opening-hours.test.ts`, `components/__tests__/DailyHours.test.tsx`).
+### Security
+* Enforced `search_path = public, pg_temp` and caller authorization check (`p_user_id = auth.uid()`) on `public.get_map_markers` RPC ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44)).
 
 ## [3.6.0] - 2026-09-28
 
-**Milestone v3.6.0: Architectural Recovery & Test Reliability**
+### Added
+* Nominal branded types (`GooglePlaceId`, `WineryDbId`) and runtime constructors (`toGooglePlaceId`, `toWineryDbId`) with development warnings and non-throwing fallbacks ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Zero-assertion structural boundary parsers for opening hours, parking options, and accessibility attributes in `winery.ts` ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Offline photo reconstitution, preview URLs, and AES-GCM sync queue payload encryption in `visitStore` ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Rootless Podman container runner scripts (`run-jest-container.sh`, `run-e2e-container.sh`) for isolated execution on RHEL 8 hosts ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* `AuthenticatedModalHost` with dynamic code-splitting and idle prefetching for heavy modal component trees ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* App Router error boundary (`app/error.tsx`) and typed Server Actions (`app/actions/auth.ts`) consuming React 19 `useActionState` ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* IndexedDB Dead Letter Queue (DLQ) with 7-day retention for unrecoverable sync payloads ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43)).
+* Covering btree indexes across relational tables (`visits`, `trip_wineries`, `trip_members`, `wineries`) and composite index on `activity_ledger` ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
 
-### 🛡️ Sprint 6: Runtime Invariant Protection & Branded ID Ergonomics ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53))
-* **Nominal Branded ID Constructors & Type Guards**:
-    * Implemented nominal branded types `GooglePlaceId` and `WineryDbId` with runtime type guards `isGooglePlaceId` and `isWineryDbId` in `lib/types.ts`.
-    * Implemented single-signature nullable constructors `toGooglePlaceId` and `toWineryDbId` with development-mode validation warnings and non-throwing fallbacks, guaranteeing zero runtime exceptions in production.
-    * Replaced all untyped `as any` and raw `as GooglePlaceId` / `as WineryDbId` assertions across standardizer and service ingestion boundaries.
-* **Core Standardizer Invariants & Gold-Standard Boundary Parsers**:
-    * Implemented array-excluding `isRecord(val: unknown): val is Record<string, unknown>` in `lib/utils/winery.ts` to harden object checks across external ingestion layers.
-    * Tightened RPC and external type guards (`isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, `isRawDbWinery`) to enforce non-empty string names, non-empty IDs, and valid coordinate geometries.
-    * Implemented zero-`as`-assertion structural boundary parsers in `lib/utils/winery.ts`:
-        * `parseOpeningHoursJson`: Resilient period filtering dropping corrupt objects, validating day ranges (0–6), and filtering valid weekday descriptions.
-        * `parseParkingOptionsJson`: Strongly types and extracts boolean flags into closed domain interface `ParkingOptions`, synthesizing convenience `freeParking` attribute.
-        * `parseAccessibilityOptionsJson`: Validates and extracts known accessibility attributes into closed domain interface `AccessibilityOptions`.
-    * Refactored over 20 `(source as any)` assertions in `standardizeWineryData` to use structured narrowing, typed property lookups, and merge guards.
-    * Enforced place ID validation in `standardizeWineryData`, rejecting whitespace-only or invalid place IDs (`return null`) to prevent store cache pollution.
-    * Guarded review timestamp parsing in `parseReviewsJson` against `NaN` from invalid `publishTime` inputs.
-* **Safe Opening Hours Navigation & Test Schema Alignment**:
-    * Updated `OpeningHoursPoint` and exported `OpeningHoursPeriod` in `lib/types.ts` supporting both Google Places `{ day, time }` and numeric `{ day, hour, minute }` schemas.
-    * Hardened `parseTime` in `lib/utils/opening-hours.ts` to return `NaN` safely on nullish, primitive, or malformed points without throwing `TypeError`.
-    * Hardened `isOpenNow` to safely evaluate 24/7 periods lacking close points and skip malformed periods missing `open` or `close`.
-    * Removed all 7 `// @ts-ignore` comments in `lib/utils/__tests__/opening-hours.test.ts`.
-* **Zustand Store Mutation Hardening & Runtime Allowlisting**:
-    * Defined strict input interfaces `TripUpdateInput` (`name?: string; trip_date?: string`) conforming to PostgreSQL `trips` schema and `TripCreateInput` in `lib/types.ts`.
-    * Implemented runtime key allowlisting (`ALLOWED_TRIP_UPDATE_KEYS`, `ALLOWED_CREATE_TRIP_KEYS`) in `lib/stores/slices/tripMutationHelpers.ts` for `updateTripHelper` and `createTripHelper`.
-    * Stripped unpermitted or injected fields (e.g. `id`, `user_id`, `created_at`, `notes`) with dev-mode warnings and validated date strings before committing optimistic store updates or dispatching sync payloads.
-    * Updated `TripDataSlice.updateTrip` method signature in `lib/stores/slices/tripDataSlice.ts` to accept `TripUpdateInput`.
-* **Offline Sync Service Resiliency & Dead Letter Queue (DLQ) Routing**:
-    * Replaced winery ID `as any` casts with `toGooglePlaceId` and `toWineryDbId` in `log_visit`, `toggle_favorite`, and `toggle_wishlist` RPC payloads in `lib/services/syncService.ts`.
-    * Unified error routing for privacy mutations (`toggle_favorite_privacy`, `toggle_wishlist_privacy`): invalid or missing `wineryDbId` payloads route immediately to the Dead Letter Queue (DLQ) as permanent 400 validation failures and are pruned from the queue, preventing silent drops or blocking retries.
-    * Removed redundant `(item as any)` casts accessing `nextRetryAt` and `createdAt` on `SyncItem`.
-* **Map Pan Crash Resiliency & Container Runner Automation**:
-    * Permanently mounted `<MapView>` in `components/WineryMap.tsx`, rendering transient errors as non-destructive floating overlays rather than unmounting the map canvas.
-    * Added auto-dismissal of stale search errors on user pan/navigation in `hooks/use-winery-map.ts`.
-    * Implemented graceful fallback to viewport-cached wineries in `hooks/use-winery-search.ts` when search services are unreachable.
-    * Centralized container runner logic into `scripts/container-common.sh` with automated SELinux context restoration (`restore_supabase_selinux`) to eliminate Edge Runtime 503 boot errors after container volume mounts.
-* **Adversarial Regression Test Suite**:
-    * Added comprehensive adversarial unit test suites across `lib/__tests__/types.test.ts`, `lib/utils/__tests__/winery.test.ts`, `lib/utils/__tests__/opening-hours.test.ts`, `lib/services/__tests__/syncService.test.ts`, `lib/stores/__tests__/tripStore.test.ts`, `components/__tests__/WineryMap.test.tsx`, `hooks/__tests__/use-winery-map.test.ts`, and `hooks/__tests__/use-winery-search.test.ts`.
-    * Certified 100% clean passes across the full test suite (130 suites, 810 unit tests) and static type checking (`tsc --noEmit`).
+### Changed
+* Decomposed monolithic `tripStore` and `visitStore` into modular Zustand 5 slices under 300 LOC each ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43)).
+* Consolidated winery caching into canonical `wineryStore`, normalizing visit relationships to 3NF in `visitStore` ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43)).
+* Migrated winery search endpoint (`/api/wineries`) to Google Places API (New) V1 with field masking ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Inlined `is_visible_to_viewer` RLS policy function into the PostgreSQL query planner (`LANGUAGE sql STABLE`) ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Rewrote `get_map_markers` RPC to set-based hash joins, eliminating N+1 scalar subqueries ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Gated `@serwist/next` to production builds to unblock Turbopack development ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* Extracted Mapbox GL stylesheet from root layout directly into `MapView` ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* Upgraded `@playwright/test` to 1.63 and container base images to Ubuntu 24.04 noble ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Configured Jest worker memory limits (`workerIdleMemoryLimit: 512MB`) and eliminated `jest.resetModules()` anti-patterns ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Decomposed E2E test helpers and mock route managers into domain-specific modules under `e2e/fixtures/` and `e2e/helpers/` ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Parameterized activity ledger webhook notifications using Supabase Vault without hardcoded secrets ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
 
-### 🧪 Sprint 5: Test Automation Infrastructure Modernization & E2E Test Suite Stabilization ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#38](https://github.com/jarredb9/finger-lakes-app-57/issues/38), [#25](https://github.com/jarredb9/finger-lakes-app-57/issues/25))
-* **Jest 30 Infrastructure, Memory Management & Module Reset Remediation**:
-    * Resolved Node 24 JSDOM worker heap exhaustion by configuring `workerIdleMemoryLimit: '512MB'` and enabling global mock clearing (`clearMocks: true`) in `jest.config.mjs`.
-    * Polyfilled `URL.createObjectURL` and `URL.revokeObjectURL` in `jest.setup.ts` to support JSDOM testing of binary serialization and preview URLs.
-    * Audited and eliminated all 34 occurrences of `jest.resetModules()` across 22 test files (including `wineryStore.test.ts`, `tripStore.slices.test.ts`, `visitStore.slices.test.ts`, and `realtimeChannelCleanup.test.ts`), hoisting `@/utils/supabase/client` mocks to file-level scope and leveraging explicit store/service resets.
-    * Developed rootless containerized Jest runner `scripts/run-jest-container.sh` with Node 24 and Ubuntu 24.04 glibc 2.39 compatibility on RHEL 8 hosts.
-* **Store Domain Invariants & Offline Photo Reconstitution**:
-    * Created comprehensive domain invariant test suite `lib/stores/__tests__/visitStore.domainInvariants.test.ts` verifying Base64 photo reconstitution, preview URLs, AES-GCM queue payload encryption, and optimistic deletion rollback.
-    * Hardened `lib/stores/slices/visitInitHelpers.ts` to normalize relational IDs (`Number(winery.dbId)`), enforce mutex deduplication against React 19 concurrent double-mounts, and properly serialize binary photos into offline sync queues.
-    * Added comprehensive mutation test suites for `lib/services/socialService.ts` and `lib/services/tripService.ts`, enforcing input sanitization, multi-winery RPC rollback on chaining failure, trip deletion guards, and `.neq('role', 'owner')` owner protection assertions.
-* **Production Store Window Detachment & Runner Script Modernization**:
-    * Decoupled cross-store window access in `lib/stores/uiStore.ts`, replacing `(window as any).useTripStore` with direct store invocation.
-    * Strictly gated `(window as any).use*Store` attachments and `<E2EStoreExposer />` behind `process.env.NEXT_PUBLIC_IS_E2E === 'true'`, preventing store exposure on `window` in standard production builds.
-    * Augmented global `Window` and `globalThis` declarations in `lib/shims.d.ts`, eliminating over 100 `(window as any)` and `(globalThis as any)` type casts across stores, components, utilities, and test suites.
-    * Modernized container runner scripts (`run-e2e-container.sh`, `run-jest-container.sh`, `run-dev-container.sh`, `run-build-container.sh`) to include container volume isolation (`-v /work/node_modules`) preventing host pollution, safe positional argument parsing (defaulting to `webkit`), array-based argument passthrough, and rootless Podman `--userns=keep-id` with SELinux `:Z` mounts.
-* **Playwright 1.63 Container & NPM Package Upgrade**:
-    * Upgraded `@playwright/test` to 1.63.0 and updated all container runners to `mcr.microsoft.com/playwright:v1.63.0-noble`.
-    * Certified rootless containerized browser execution on RHEL 8 across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`.
-    * Remediated Playwright 1.63 breaking changes and deprecations in network route handling and generic serialization.
-* **Modular Route Fixtures & Store-Poking Decoupling**:
-    * Decomposed monolithic `MockMapsManager` into granular, single-responsibility domain handlers, browser shims, and shared utilities under `e2e/fixtures/`:
-        * `e2e/fixtures/shims/browser.shim.ts`: WebGL/Canvas mocks, service worker interception, and map bounds injection.
-        * `e2e/fixtures/shims/google-maps-sdk.shim.ts`: Maps JavaScript SDK stubs.
-        * `e2e/fixtures/handlers/places.handler.ts`: Places API v1 REST, legacy endpoints, and Edge Function mocks.
-        * `e2e/fixtures/handlers/assets.handler.ts`: Vector tiles, fonts, and Mapbox assets.
-        * `e2e/fixtures/handlers/trips.handler.ts`: Trips RPCs and `/rest/v1/trips` endpoints.
-        * `e2e/fixtures/handlers/visits.handler.ts`: Visits RPCs and idempotency tracking.
-        * `e2e/fixtures/handlers/social.handler.ts`: Social graph RPCs, friend feeds, and profile stats.
-        * `e2e/fixtures/handlers/favorites.handler.ts`: Favorites, wishlists, and dynamic map markers.
-    * Implemented `CompositeMockMapsManager` in `e2e/fixtures/index.ts` and refactored `e2e/utils.ts` into a 100% backward-compatible delegation façade.
-    * Decoupled E2E test helpers from store-poking in assertion retries, replacing store hydration polling with DOM readiness signals (`data-state="ready"`).
-* **E2E Helper Domain Modularization**:
-    * Decomposed monolithic 1,013-line `e2e/helpers.ts` into granular modules under `e2e/helpers/`: `core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, and barrel export `index.ts`.
-    * Enforced 100% export interface parity via `e2e/__tests__/helper-contracts.test.ts` and removed redundant facade file in favor of standard directory resolution.
-* **Playwright ESLint Guardrails, Snapshot Calibration & Flakiness Elimination**:
-    * Configured `eslint-plugin-playwright` in `eslint.config.mjs` (ESLint 9 Flat Config) with `'playwright/no-wait-for-timeout': 'error'` and `'playwright/no-force-option': 'warn'`.
-    * Calibrated visual regression snapshot tolerance in `playwright.config.ts` to `maxDiffPixelRatio: 0.01` (1%) and stripped coarse inline overrides in `e2e/visual.spec.ts`.
-    * Eliminated all 12 arbitrary `page.waitForTimeout()` sleeps across the E2E suite, replacing with deterministic auto-retrying assertions (`waitForResponse`, `toBeVisible`, `toPass`, `expect.poll`).
-    * Audited and eliminated all 24 `{ force: true }` clicks across 8 spec files and helpers, resolving underlying CSS z-index, animation timing, and drawer snap point actionability barriers.
-* **High-Value Feature Coverage & Final Certification**:
-    * Implemented full E2E coverage for drag-and-drop itinerary reordering using `@hello-pangea/dnd` accessible keyboard sensors in `e2e/trip-management.spec.ts`, asserting transient DOM reordering, RPC payload integrity, and persistence across reloads.
-    * Implemented full E2E coverage for PWA offline reconnection queue drainage (`context.setOffline(false)`), asserting queue drainage to zero and store cache invalidation in `e2e/pwa-offline.spec.ts`.
-    * Audited and eliminated all `any` types across route handlers, fixtures, and specs, replacing with canonical domain models (`RpcVisitWithWinery`, `Profile`, `SyncItem`, `Winery`, `Trip`).
-    * Pruned ephemeral post-TDD scaffolding while preserving permanent behavioral contracts (`handler-contracts.test.ts`, `helper-contracts.test.ts`, `mock-wineries.test.ts`).
-    * Certified 100% clean passes across the full cross-browser container matrix (`chromium`, `webkit`, `mobile-safari`, `mobile-chrome`) and complete Jest unit test suite (128 suites, 693 tests).
+### Removed
+* Redundant `wineryDataStore.ts` in favor of consolidated `wineryStore` ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43)).
+* Unused dependencies (`@dnd-kit/core`, `@dnd-kit/sortable`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`) and unreferenced Radix UI primitives ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* Orphaned `update-gemini-summary` Edge Function and `tr_visits_gemini_summary` database trigger ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Legacy CommonJS `node-fetch@2` polyfill, standardizing on Node 24 native Fetch ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
 
-### 🚀 Sprint 4: Frontend Modernization, React 19 / App Router Architecture & Bundle Optimization ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36))
-* **Dependency Pruning & Turbopack Dev Unblocking**:
-    * Pruned 7 dead dependencies (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, and `sonner`) and 10 unreferenced Radix UI primitives, safely retaining `@radix-ui/react-accordion`.
-    * Cleaned brittle overrides (`minimatch`, `glob`, `brace-expansion`, `uuid`) in `package.json`.
-    * Gated `@serwist/next` to production-only builds in `next.config.mjs`, unblocking high-performance local development with Turbopack (`next dev --turbo`).
-* **Map Engine Bundle Isolation, Error Boundary & Dynamic Fallback**:
-    * Extracted Mapbox GL stylesheet (`mapbox-gl/dist/mapbox-gl.css`) from root `layout.tsx` into `components/map/MapView.tsx`, eliminating Mapbox CSS loading on non-map pages.
-    * Dynamically loaded `GoogleMapFallback` via `next/dynamic` (`ssr: false`) with kebab-case module resolution (`./google-map-fallback`).
-    * Implemented `MapErrorBoundary` and `<Map onError>` fallback triggers to automatically recover from runtime WebGL context initialization failures or Mapbox style load timeouts.
-    * Extracted isolated `<MapStyleSwitcher />` component and sanitized winery coordinates (`Number.isFinite`) in GeoJSON features to prevent Mapbox parser crashes on invalid data.
-    * Added DOM container and listener cleanup in `GoogleMapFallback` effect teardown, eliminating StrictMode memory leaks.
-* **Root Layout Decoupling & Authenticated Modal Host**:
-    * Decoupled heavy modal component trees (`VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, `GlobalModalRenderer`, `WineryModal`, `VisitHistoryModal`) from root `app/layout.tsx`.
-    * Created `AuthenticatedModalHost` with `ssr: false` dynamic imports and idle prefetching via `requestIdleCallback`, mounting it within `components/app-shell.tsx` and standalone authenticated routes (`/trips/[id]`, `/friends/[id]`, `/settings`).
-    * Added route navigation listeners and unmount cleanup in `AuthenticatedModalHost` to dismiss active modals and clear lingering `document.body` pointer-event and overflow locks.
-    * Preserved `<ModalHost />` (`#modal-root`) in root `app/layout.tsx` for portal stability, restoring standard `DialogPrimitive.Portal` behavior to eliminate stacking context traps.
-* **Server Component Boundaries, Route Metadata & SSR Date Determinism**:
-    * Converted `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into Next.js Server Components exporting static `Metadata` and enforcing server-side auth redirects (`getUser()`), delegating interactive form logic to client components.
-    * Added global `app/error.tsx` App Router error boundary to gracefully handle server exceptions while preserving navigation shell.
-    * Whitelisted `/manual-confirm` in `proxy.ts`, preserved URL query parameters across unauthenticated `redirectTo` query strings, normalized trailing slashes on deep links, and returned 401 JSON responses for unauthorized Server Action POST requests.
-    * Fixed session cookie forwarding in `utils/supabase/auth-helper.ts` via `NextResponse.next({ request })` so downstream Server Components receive refreshed auth tokens.
-    * Replaced non-deterministic `new Date().toLocaleDateString()` with static constants in `/privacy` and `/terms`, and migrated `components/VisitForm.tsx` to `getTodayLocal()`, preserving raw `visit_date` strings without UTC shifts.
-* **React 19 State Derivation, Compiler Adherence & Layout Decomposition**:
-    * Eliminated render-phase `setState` calls in `use-winery-modal-state.ts`, resetting modal state via React reconciliation using `<WineryModalContent key={activeWineryId} />` while maintaining stable outer drawer/dialog instances.
-    * Decomposed winery modal layouts across desktop, tablet, and mobile into shared subcomponents (`winery-modal-tabs.tsx`, `winery-trip-badge.tsx`, `winery-vibe-scroller.tsx`), eliminating duplicated JSX and establishing discrete React 19 compiler boundaries.
-    * Extracted `<WineryQuestionReviewCard key={activeQuestionId} />` in `components/WineryQnA.tsx`, eliminating `useEffect` review index resets and out-of-bounds flashes.
-    * Replaced local mount effects with shared `useMounted()` hook in `components/trip-planner.tsx` and derived `currentMembers` directly in `hooks/use-trip-actions.ts`.
-    * Completely eliminated all `eslint-disable-next-line react-hooks/set-state-in-effect` comments across the entire codebase.
-* **React 19 Form Actions & Offline Resilience**:
-    * Created typed Server Actions in `app/actions/auth.ts` (`loginAction`, `forgotPasswordAction`, `manualConfirmAction`) with plain serializable `ActionState` contracts, refactoring auth forms to consume React 19 `useActionState`.
-    * Implemented Controlled Hybrid Client `useActionState` in `components/trip-form.tsx`, preserving `react-hook-form` / Zod validation and surfacing action errors through form fields.
-    * Allowed offline winery additions in `trip-form.tsx` using temporary negative ephemeral IDs when `ensureInDb` is offline.
-    * Implemented true optimistic rollback on permanent failure in `createTripHelper` and added atomic `replaceTripTempId` in `syncService.ts` and `tripDataSlice.ts` to prevent ghost trip duplication during offline replay.
-* **Service Worker Auth Hygiene & Session Resilience**:
-    * Restricted Supabase Auth routes (`/auth/v1/*`) strictly to `NetworkOnly` in `app/sw.ts` and excluded auth pages from Serwist `pages` cache.
-    * Added `PURGE_AUTH_CACHE` message handler in `app/sw.ts` to purge `supabase-auth` and `pages` CacheStorage upon logout.
-    * Hardened `userStore.logout()` with defensive `signOut()` error handling, CacheStorage deletion, and safe null-controller Service Worker messaging.
-    * Added offline session fallback via `supabase.auth.getSession()` in `userStore.fetchUser()` and `TripService.getTrips()` to preserve user identity and trip accessibility when offline.
+### Fixed
+* Eliminated runtime exceptions from malformed opening hours, invalid place IDs, and NaN review dates ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Enforced input key allowlisting on trip mutations to prevent unpermitted fields from polluting stores or sync payloads ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Fixed sync queue stalls by routing unrecoverable privacy mutations directly to the Dead Letter Queue ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Prevented MapView unmounting during pan/search errors, using non-destructive floating overlays ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Eliminated flaky test timeouts and `{ force: true }` clicks across the Playwright E2E suite ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Fixed session cookie forwarding in Server Component auth helpers ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* Prevented optimistic store corruption and sync payload empty object enqueueing during network failures ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Preserved session cookies across `/login` redirects in `proxy.ts` ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Fixed StrictMode memory leaks by properly cleaning up Google Maps fallback listeners on teardown ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
 
-### ⚙ Sprint 3: Zustand 5 State Consolidation, Domain Invariants & Sync Integrity ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43))
-* **Store Slice Decomposition (`tripStore`, `visitStore`)**:
-    * Decomposed monolithic `tripStore.ts` (1,225 lines) into focused, composable slices: `createTripDataSlice`, `createTripUISlice`, and `createTripRealtimeSlice` with dedicated helper modules (`tripFetchHelpers`, `tripMutationHelpers`, `tripPlanningHelpers`, etc.), each strictly under 300 lines of code.
-    * Decomposed `visitStore.ts` (656 lines) into modular slices: `createVisitDataSlice`, `createVisitUISlice`, and `createVisitRealtimeSlice` under 300 lines each.
-    * Maintained temporary `(window as any).useTripStore` backwards compatibility stubs for E2E testing.
-* **Canonical Winery Store Consolidation & 3NF Visit Normalization**:
-    * Deprecated and deleted redundant `wineryDataStore.ts`, consolidating all persistent caching, filtering, and selection logic into `wineryStore.ts`.
-    * Stripped duplicate `visits` arrays and child pointers from `Winery` entities, establishing `visitStore.ts` as the single source of truth for visits.
-    * Implemented on-demand visit hydration (`fetchVisitsForWinery`) in `visitStore` and wired modal state in `use-winery-modal-state.ts`.
-* **Domain Invariants, Coordinate Safety & Ghost Visit Purging**:
-    * Coerced all relational IDs (`trip_id`, `winery_id`, `user_id`) to `Number(id)` across store ingress, utility helpers, and TypeScript interfaces.
-    * Routed map click handlers in `use-winery-map.ts` through `standardizeWineryData`, eliminating legacy `.lat()` and `.lng()` calls in favor of `location.latitude` and `location.longitude`.
-    * Hardened `standardizeWineryData` to purge `visits` to `[]` when receiving either `user_visited: false` or camelCase `userVisited: false`.
-* **Offline Sync Resilience, Backoff, DLQ & Concurrency Control**:
-    * Replaced tight retry loops in `syncService.ts` with exponential backoff and jitter (1s to 60s max) on 5xx network errors.
-    * Implemented an IndexedDB Dead Letter Queue (DLQ) with 7-day automatic retention to route unrecoverable 4xx client errors without blocking the sync queue.
-    * Added optimistic concurrency control (OCC) comparing remote vs local `updated_at` timestamps on offline replay (server-wins conflict resolution).
-    * Wrapped multi-key persistence writes in single `readwrite` IndexedDB transactions (`setMany`) in `idb-persist-storage.ts`.
-    * Excluded `lastActionTimestamps` from IndexedDB `partialize` configuration to prevent stale locks from surviving hydration.
-* **Store Serializability & Realtime Teardown**:
-    * Removed Google Maps Map SDK DOM instances from `mapStore.ts` (sanitizing bounds to plain numbers `{ north, south, east, west }`) and `ReactNode` JSX elements from `uiStore.ts` in favor of serializable modal IDs.
-    * Added explicit WebSocket unsubscription teardown in `store.reset()` across `tripStore`, `visitStore`, and `socialStore` to prevent connection leaks on logout.
-* **Component Selector Hygiene & Re-Render Prevention**:
-    * Migrated whole-store subscriptions across `components/map/map-controls.tsx`, `components/trip-card.tsx`, and `components/winery/use-winery-modal-state.ts` to atomic selectors and `useShallow`.
-    * Added regression test suite `components/__tests__/selectorHygiene.test.tsx` verifying re-render isolation on unrelated store mutations.
-
-### ⚡ Sprint 2: Database Performance Optimization, RPC Hardening & Schema Integrity ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42))
-* **Covering Relational & Lookup Indexes**:
-    * Added covering btree indexes in `20260902100000_indexes_and_query_optimization.sql` across `visits`, `trip_wineries`, `trip_members`, `follows`, and `wineries` to eliminate sequential table scans.
-    * Added composite index on `activity_ledger(activity_type, object_id)` to optimize activity ledger filtering.
-* **RPC Query Plan Optimization & Search Path Defense**:
-    * Rewrote `get_map_markers(p_user_id)` to set-based `LEFT JOIN` hash joins against pre-filtered subqueries, eliminating N+1 correlated scalar subqueries.
-    * Pinned `search_path = public, pg_temp` and enforced strict `p_user_id = auth.uid()` authorization checks to prevent schema poisoning and unauthorized marker access.
-* **RLS Function Inlining**:
-    * Refactored `is_visible_to_viewer` to `LANGUAGE sql STABLE SECURITY DEFINER`, allowing the PostgreSQL query planner to inline security predicates directly into query plans.
-* **Single-Roundtrip Composite RPCs**:
-    * Updated `toggle_favorite` and `toggle_wishlist` to return composite `jsonb` payloads (`{ "is_favorite": boolean, "winery_id": integer }` / `{ "on_wishlist": boolean, "winery_id": integer }`), eliminating redundant secondary `ensureInDb` upserts.
-    * Added strict JSON payload validation (`jsonb_typeof(p_winery_data) = 'object'`).
-* **Places API (New) V1 Migration & Awaited Cache Upsert**:
-    * Migrated `app/api/wineries/route.ts` to Places API (New) V1 (`https://places.googleapis.com/v1/places:searchText`) using POST requests and `X-Goog-FieldMask`.
-    * Replaced unawaited floating IIFE with a properly awaited Supabase admin upsert into the local winery cache.
-* **Dynamic Webhook Parameterization & Edge Function Cleanup**:
-    * Parameterized `handle_activity_ledger_notification` using `current_setting('app.settings.supabase_url', true)` and Supabase Vault, falling back to local Kong (`http://kong:8000`) without hardcoding project secrets.
-    * Deleted orphaned Edge Function `update-gemini-summary/` and dropped legacy `tr_visits_gemini_summary` trigger.
-
-### 🛡️ Sprint 1: P0 Security Hotfixes, Production Safety & Test Runner Stabilization ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40))
-* **Database Security & Privilege Hardening**:
-    * Removed overly permissive RLS update policy (`"Authenticated users can update wineries"`) on `public.wineries` and revoked direct table `UPDATE` privileges from `anon` and `authenticated` roles.
-    * Revoked execution privileges on `public.bulk_upsert_wineries(jsonb[])` from `PUBLIC`, `anon`, and `authenticated`, restricting execution strictly to `service_role`.
-    * Set explicit `search_path = public, vault, extensions, pg_temp` on `handle_activity_ledger_notification`.
-* **Middleware & Route Protection**:
-    * Updated `proxy.ts` to preserve updated session cookies during `/login` redirects, preventing session token loss.
-    * Added `/privacy`, `/terms`, `/workbox-*`, and `/worker-*` route whitelists to unauthenticated bypass checks in `proxy.ts`.
-    * Restricted `app/api/auth/confirm-user/route.ts` to development/test environments with required secret headers, returning 404 in production.
-* **State Sync & Offline Queue Bugfix**:
-    * Removed corrupting `handleSyncError(..., {})` catch block in `lib/stores/tripStore.ts` that enqueued empty objects into IndexedDB during sync failures.
-* **Test Runner Stabilization & Decoupling**:
-    * Segregated live-database integration tests into `*.integration.test.ts` and excluded them from standard `npm test`, adding a dedicated `npm run test:integration` script.
-    * Refactored `e2e/utils.ts` to lazily resolve Supabase admin clients via dynamic proxy, eliminating crashes when optional environment variables are unset.
-    * Removed legacy CommonJS `node-fetch@2` polyfill, standardizing on Node 24 native Fetch and Web Streams in JSDOM.
+### Security
+* Revoked direct table `UPDATE` privileges on `public.wineries` from `anon` and `authenticated` roles, removing overly permissive RLS policies ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Restricted `public.bulk_upsert_wineries` RPC execution strictly to `service_role` ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Pinned `search_path = public, pg_temp` on `get_map_markers` RPC and enforced caller authorization ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Enforced secret scrubbing for API keys, PATs, and Bearer tokens across logging and error reporting ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Restricted internal auth confirmation endpoints (`app/api/auth/confirm-user`) to non-production environments with required secret headers ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Restricted Supabase Auth routes to `NetworkOnly` in Service Worker and purged auth caches on logout ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
 
 ## [3.5.0] - 2026-08-28
 
-**Map Core, Search Autocomplete & Controls Decoupling Refactor**
+### Added
+* Universal Google Maps Street View launcher using native Universal URLs for mobile app deep-linking and browser tabs.
+* Accessible combobox keyboard navigation (ArrowDown/ArrowUp, Enter, Escape) in winery and place search inputs.
+* Unified user profile dropdown menu (`UserNav`) across desktop sidebar and mobile header with direct navigation to Settings, Terms, Privacy, and PWA controls.
+* Reusable combobox keyboard hook (`useComboboxKeyboard`) and presentational `PlaceAutocompleteSuggestionsList`.
+* Presentational `MapSearchBar`, `MapFilterToggles`, and `MapLegendPopover` components.
+* Dedicated `ExploreTabContent` and `HistoryTabContent` components to prevent full sidebar re-renders on map camera movement.
+* `MobileNavBar` component isolating social badge subscriptions.
 
-### 🚀 Features
-* **Universal Google Maps Street View Launcher**:
-    * Updated Street View trigger to launch native Google Maps Universal URLs (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={lat},{lng}`) directly in external browser tabs on desktop or deep-link to the native Google Maps app on mobile/tablet devices, providing zero API rate-limiting/charges and full hardware-accelerated 360° panoramas.
-* **Accessible Autocomplete Keyboard Navigation**:
-    * Enabled standard combobox keyboard controls in winery/place search inputs (ArrowDown/ArrowUp navigation, Enter selection, Escape dismissal, and click-outside closing).
-* **Unified User Profile & Navigation Menu (`UserNav`)**:
-    * Integrated a unified user profile dropdown menu for both desktop sidebar and mobile floating user avatar, providing direct navigation to Settings, Terms of Service, Privacy Policy, and PWA Install / Update actions.
+### Changed
+* Decomposed `PlaceAutocomplete` to compose pure Places SDK normalizers and presentation components.
+* Refactored `MapControls` into a container consuming `useWineryMapContext` and `useTripStore`, eliminating prop drilling.
+* Streamlined `AppSidebar` into a lightweight layout orchestrator (<80 LOC).
+* Extracted Mapbox layer configurations into `mapbox-layers.ts` and encapsulated fallback logic in `GoogleMapAdapter` and `GoogleMapFallback`.
+* Updated Playwright test scripts and selectors for Mobile Safari and Mobile Chrome execution targets.
 
-### ⚙ Refactoring & Architecture
-* **Search Autocomplete Decoupling & Pure Mappers**:
-    * Extracted pure Places SDK normalizer `mapSdkPlaceToV1Place(place, text)` with defensive coordinate extractors (`extractLatitude`, `extractLongitude`) in [`lib/utils/places-mapper.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/places-mapper.ts) supporting both SDK `lat()` methods and property-based coordinates (`place.location.latitude`).
-    * Created reusable keyboard navigation hook [`useComboboxKeyboard`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-combobox-keyboard.ts) to manage combobox interactions independently from UI rendering.
-    * Extracted pure presentational [`PlaceAutocompleteSuggestionsList`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/PlaceAutocompleteSuggestionsList.tsx) component.
-    * Refactored [`PlaceAutocomplete.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/PlaceAutocomplete.tsx) to compose the pure normalizer, keyboard hook, and suggestion list.
-* **Map Controls & Search Bar Decomposition**:
-    * Extracted pure presentational [`MapSearchBar`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-search-bar.tsx) (search input, debouncing, clear action, auto/manual search toggles, and API warning banners).
-    * Extracted pure presentational [`MapFilterToggles`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-filter-toggles.tsx) (category chips, attribute toggles, and trip overlay selector).
-    * Refactored [`MapControls`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-controls.tsx) into a container consuming `useWineryMapContext` and `useTripStore`, eliminating 11-prop drilling from `app-sidebar.tsx`.
-* **Map Symbology, Sidebar Tabs & Navigation Modularization**:
-    * Extracted [`MapLegendPopover`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-legend-popover.tsx) rendering map pin symbology definitions in an isolated popover.
-    * Extracted [`ExploreTabContent`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/explore-tab-content.tsx) and [`HistoryTabContent`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/history-tab-content.tsx), colocating map and UI store subscriptions to eliminate full sidebar re-renders during map camera/viewport updates.
-    * Streamlined [`AppSidebar.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-sidebar.tsx) into a lightweight layout and tab orchestrator (<80 LOC).
-* **Mobile Navigation Bar Decomposition**:
-    * Extracted [`MobileNavBar`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/layout/MobileNavBar.tsx) for mobile bottom navigation, colocating `useFriendStore` badge count subscriptions to prevent root `AppShell` re-renders on social updates.
-* **Map Core, Layer Configuration & Fallback Adapters**:
-    * Extracted Mapbox layer definitions (`clusterLayer`, `clusterCountLayer`, `unclusteredPointLayer`, `MAP_STYLES`, `PIN_COLORS`) into [`lib/maps/mapbox-layers.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/maps/mapbox-layers.ts).
-    * Extracted [`GoogleMapAdapter`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/maps/google-map-adapter.ts) providing a Mapbox-compatible interface for fallback maps.
-    * Extracted [`GoogleMapFallback`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/google-map-fallback.tsx) with isolated marker lifecycle and bounds management.
-    * Implemented [`useStreetViewPanorama`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-street-view-panorama.ts) hook managing Street View state and actions.
-    * Refactored [`MapView.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/MapView.tsx) into a lightweight container component preserving strict DOM stability (`data-state="ready|loading"`).
-
-### 🐛 Bug Fixes & Stabilization
-* **Defensive Pointer Capture Patch**:
-    * Implemented [`initPointerCaptureDefensivePatch`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/pointer-capture-patch.ts) guarding against `releasePointerCapture` DOM exceptions during synthetic touch event simulation.
-* **Date & Calendar Interaction Polish**:
-    * Resolved DOM removeChild errors in DatePicker during calendar date selections and trip creation.
-    * Standardized date formatting with `formatDateLocal` across map filter toggles and trip select dropdowns.
-* **Q&A Word Boundary Matcher**:
-    * Enforced regex word boundaries (`\bkeyword\b`) in `WineryQnA` to prevent false positive review snippet matching.
-
-### 🧪 Testing & Verification
-* **Unit & Component Testing**:
-    * Added comprehensive unit test suites across all new utilities, hooks, and presentational components (108 test suites, 493 tests passing, 100% pass rate).
-* **Playwright E2E Alignment**:
-    * Updated Playwright E2E helper selectors and container test scripts (`scripts/run-e2e-container.sh`) to support Mobile Safari and Mobile Chrome execution targets.
+### Fixed
+* Fixed `releasePointerCapture` DOM exceptions during synthetic touch event simulation.
+* Fixed DOM `removeChild` errors in DatePicker during calendar selections and trip creation.
+* Standardized date formatting with `formatDateLocal` across map filter toggles and trip selectors.
+* Fixed false-positive review keyword matches in `WineryQnA` using strict regex word boundaries.
 
 ## [3.4.0] - 2026-08-25
 
-**Adaptive 3-Tier Layout Architecture (Mobile, Tablet, Desktop)**
+### Added
+* Reactive `useLayoutTier` hook classifying viewports into mobile (<768px), tablet (768px–1023px), and desktop (≥1024px).
+* Tablet floating overlay drawer (`TabletFloatingDrawer`) preserving full-screen map canvas with collapsible pill mode.
+* `TabletWinerySheet` responsive winery detail presentation for tablet viewports.
+* Multi-viewport Playwright E2E test suite (`e2e/responsive-layout.spec.ts`) validating layout shifts across mobile, tablet, and desktop.
 
-### 🚀 Features
-* **Unified Layout Tier Hook (`useLayoutTier`)**:
-    * Implemented reactive breakpoint resolver in [`hooks/use-layout-tier.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-layout-tier.ts) establishing dynamic tier classifications: `mobile` (< 768px), `tablet` (768px – 1023px), and `desktop` (≥ 1024px).
-    * Exported configurable breakpoint constants (`DEFAULT_TABLET_BREAKPOINT = 768`, `DEFAULT_DESKTOP_BREAKPOINT = 1024`, `LAYOUT_BREAKPOINTS`).
-    * Added touch-capability detection (`isTouch`) and SSR hydration safety guarantees to eliminate layout shift and client-side mismatch warnings.
-* **Tablet Floating Drawer (`TabletFloatingDrawer`)**:
-    * Built elevated glassmorphic floating overlay card in [`components/layout/TabletFloatingDrawer.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/layout/TabletFloatingDrawer.tsx) (`absolute top-4 left-4 bottom-4 w-[380px] z-20`) preserving 100% full-screen map canvas.
-    * Implemented dual-state ergonomics: an expanded card containing search results, filter controls, and trip planner tabs, and a collapsible floating pill bar (`h-12`) with search query indicators, active filter badge counters, and expand triggers.
-* **Responsive Winery Details & 3-Tier Presentation**:
-    * Created [`TabletWinerySheet`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/tablet-winery-sheet.tsx) providing a non-blocking floating overlay card on tablet viewports that preserves full map context.
-    * Updated [`use-winery-modal-state.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/use-winery-modal-state.ts) and [`winery-modal.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery-modal.tsx) to route presentation seamlessly across all 3 tiers: `MobileWineryDrawer` (mobile bottom drawer with multi-snap points), `TabletWinerySheet` (tablet floating card), and `DesktopWineryModal` (desktop centered dialog).
-* **Touch Target Standardization (WCAG 2.5.5 & Apple HIG)**:
-    * Standardized all interactive map controls in [`components/map/map-controls.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-controls.tsx) (search inputs, submit buttons, filter toggles, attribute chips, trip selects) to enforce minimum 44×44px touch targets (`min-h-[44px] min-w-[44px]`) and standardized padding (`px-3 py-2`) on mobile and tablet touch tiers.
-* **3-Tier App Shell Orchestration**:
-    * Updated [`components/app-shell.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-shell.tsx) to orchestrate layout rendering per tier while maintaining strict DOM stability and `data-state` contracts (`ready | loading | error`).
-    * Replaced dynamic SSR import with direct import for `WineryModal` to prevent React 19 Suspense instrumentation errors.
-
-### 🧪 Testing & Verification
-* **Unit & Component Test Suites**:
-    * Added comprehensive unit test suites in [`hooks/__tests__/use-layout-tier.test.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/__tests__/use-layout-tier.test.ts), [`components/__tests__/TabletFloatingDrawer.test.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/__tests__/TabletFloatingDrawer.test.tsx), [`components/__tests__/map-controls.test.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/__tests__/map-controls.test.tsx), and [`components/__tests__/app-shell.test.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/__tests__/app-shell.test.tsx).
-* **Playwright E2E Verification**:
-    * Created [`e2e/responsive-layout.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/responsive-layout.spec.ts) verifying layout contracts, drawer toggling, non-blocking map canvas interactions, and modal presentation across Mobile (390px), Tablet Portrait (810×1080 iPad), Desktop (1280px), and dynamic viewport resize transitions.
+### Changed
+* Standardized interactive touch targets across map controls to meet WCAG 2.5.5 minimum 44×44px sizing.
+* Orchestrated `AppShell` rendering per layout tier with strict `data-state` contracts.
 
 ## [3.3.0] - 2026-08-24
 
-**Node.js 24 LTS Migration & Testing Infrastructure Modernization**
-
-### ⚙ Infrastructure & Tooling
-* **Node.js 24 LTS Runtime Migration**:
-    * Upgraded runtime engine constraint in [`package.json`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/package.json) to `"engines": { "node": "24.x" }`.
-    * Upgraded `@types/node` devDependency to `^24.13.3`.
-    * Updated `.nvmrc` to `24`.
-    * Updated `.github/workflows/ci.yml` and `.github/workflows/debug-pwa.yml` to use `node-version: '24'` across all jobs (`build`, `e2e-tests`, `merge-reports`, `deploy`).
-    * Updated `conductor/tech-stack.md` and testing stability guidelines to document Node.js 24 LTS.
-
-### 🧪 Testing & Reliability
-* **Jest Unit Suite Stabilization**:
-    * Standardized [`hooks/__tests__/use-places-autocomplete-session.test.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/__tests__/use-places-autocomplete-session.test.ts) to handle asynchronous session token resolution deterministically under Node.js 24 microtask scheduling.
-* **Playwright E2E Hardening**:
-    * **Visual Regression Tests**: Enhanced [`e2e/visual.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/visual.spec.ts) with pre-navigation animation/transition suppression and deterministic font-loading readiness (`document.fonts.ready`).
-    * **Trip Sharing & Collaboration**: Refactored [`e2e/trip-sharing.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/trip-sharing.spec.ts) to adhere to atomic state injection and collaboration verification standards.
-    * **Deep Linking & Sync Flow**: Upgraded [`e2e/deep-linking.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/deep-linking.spec.ts) and [`e2e/sync-infrastructure.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/sync-infrastructure.spec.ts) with proper CORS preflight handling and robust navigation commit wait patterns.
+### Changed
+* Upgraded runtime environment and CI workflows to Node.js 24 LTS.
+* Hardened asynchronous session token resolution tests under Node 24 microtask scheduling.
+* Enhanced Playwright visual tests with animation suppression and font-loading readiness guards.
+* Refactored trip sharing, deep linking, and sync E2E test flows with atomic state injection and CORS preflight handling.
 
 ## [3.2.0] - 2026-07-30
 
-**Winery Modal & Details Architecture Refactoring**
+### Added
+* Dedicated presentational components for winery details: `DesktopWineryModal`, `MobileWineryDrawer`, `WineryImage`, `AttributeStatus`, `WineryInfoCard`, `WineryAmenitiesList`, `WineryAiInsightsCard`, `HeroPhotoCarousel`, and `PhotoLightboxModal`.
 
-### ⚙ Refactoring & Architecture
-* **Modularization of WineryModal & WineryDetails**:
-    * Decomposed monolithic `winery-modal.tsx` (~990 lines) and `WineryDetails.tsx` (~743 lines) into modular sub-components and hooks located in [`components/winery/`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/).
-    * **State Extraction**: Decoupled 6 Zustand store subscriptions, visit merging/sorting, and tab navigation state into the dedicated [`use-winery-modal-state.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/use-winery-modal-state.ts) custom hook.
-    * **Responsive Layout Split**: Created dedicated presentational layout components: [`DesktopWineryModal`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/desktop-winery-modal.tsx) (desktop `Dialog` grid layout) and [`MobileWineryDrawer`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/mobile-winery-drawer.tsx) (mobile `Drawer` with multi-snap points).
-    * **Lightweight Containers**: Streamlined [`winery-modal.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery-modal.tsx) (~115 lines) into an orchestrating container and [`WineryDetails.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/WineryDetails.tsx) (~60 lines) into a view-mode switcher.
-    * **Extracted Presentational Components**:
-        * [`winery-image.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-image.tsx): Lazy image rendering component with photo caching.
-        * [`attribute-status.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/attribute-status.tsx): Status indicator badges (check/cross/help icons).
-        * [`winery-info-card.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-info-card.tsx): Operating hours, open status, and contact/directions action buttons.
-        * [`winery-amenities-list.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-amenities-list.tsx): Amenities checklist and Radix logistics accordions with Q&A triggers.
-        * [`winery-ai-insights-card.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-ai-insights-card.tsx): Gemini AI summary and neighborhood highlights block.
-        * [`hero-photo-carousel.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/hero-photo-carousel.tsx): Embla photo carousel with swipe gesture handling and indicators.
-        * [`photo-lightbox-modal.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/photo-lightbox-modal.tsx): Portal-rendered full-screen photo zoom modal.
+### Changed
+* Decomposed monolithic `winery-modal.tsx` and `WineryDetails.tsx` into modular subcomponents and the `use-winery-modal-state` hook.
+* Streamlined `winery-modal.tsx` into a lightweight container and `WineryDetails.tsx` into a view-mode switcher.
 
-### 🐛 Bug Fixes & Improvements
-* **Carousel & Lightbox Stability**:
-    * Eliminated photo caching store mutation loop and stabilized Embla carousel initialization.
-    * Prevented photo carousel index reset on caching updates and active slide transitions.
-    * Fixed ghost click bleed-through when dismissing photo lightbox in full mobile drawer view.
-* **UI & Style Polish**:
-    * Styled range slider thumb consistently for mobile WebKit and Firefox.
-    * Improved mobile responsive width and hid redundant scrollbars in `WineryInfoCard`.
-    * Removed redundant AI tasting notes banner from varietals tab when AI features are active.
-
-### 🧪 Testing & Verification
-* Preserved 100% test ID contracts and DOM stability attributes (`data-state="loading|ready|error"`).
-* Full container verification against Playwright E2E test suite across desktop and mobile viewports.
+### Fixed
+* Fixed photo caching store mutation loop and stabilized Embla photo carousel initialization.
+* Prevented photo carousel index reset during active slide transitions.
+* Fixed ghost click bleed-through when dismissing photo lightbox in mobile drawer view.
+* Fixed range slider thumb styling across WebKit and Firefox.
+* Hid redundant scrollbars in `WineryInfoCard` on mobile viewports.
+* Removed duplicate AI tasting notes banner from varietals tab when AI features are enabled.
 
 ## [3.1.0] - 2026-07-29
 
-**Winery Modal Redesign, Opt-In AI Settings & AI Varietal Extraction**
+### Added
+* Apple Maps-style multi-snap mobile drawer (`Peek`, `Half`, `Full`) with live operational status badges and gesture dismissal.
+* Hero photo carousel with full-screen lightbox preview in winery modal.
+* Real-time weather and outdoor tasting conditions widget (`WineryWeatherWidget`).
+* Varietals and tasting profile tab with interactive flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body).
+* Vibe and specialty badges horizontal scroller (e.g., Dog Friendly, EV Charging).
+* User preference toggle in `/settings` to enable or disable AI features (defaulted to OFF).
+* Varietal data extraction from review summaries in `update-gemini-summary` Edge Function.
+* Database migrations adding `varietals` and `vibe_tags` to `wineries` and `ai_enabled` to `profiles`.
 
-### 🚀 Features
-* **Redesign Winery Modal UX/UI**:
-    * **3-Tier Multi-Snap Drawer (Mobile)**: Implemented Apple Maps-style drawer snapping (`Peek ~300px`, `Half ~520px`, `Full 1.0`) with translucent title card, drag handle, and gesture dismissal.
-    * **Peek Snap Directives**: Added mandatory `🟢 OPEN NOW` / `🔴 CLOSED` status badge and swapped `Add to Trip` button with `Log Visit` CTA.
-    * **Hero Photo Carousel & Lightbox**: Added swipeable hero image preview with pagination indicators and full-screen lightbox modal.
-    * **Outdoor Weather Widget**: Integrated `WineryWeatherWidget` fetching real-time weather and tasting conditions (`weatherService`).
-    * **Vibe & Specialty Badges**: Added horizontal scroller with AI-enriched vibe and specialty badges (e.g., Riesling Specialist, Dog Friendly, EV Charging).
-    * **Varietals & Tasting Profile Tab**: Added dedicated tab with interactive flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body) and structured varietal notes.
-    * **Interactive Amenities & Reviews Side-Sheet**: Added sub-drawer/side-sheet overlay (`WineryQnA`) for review keyword search and amenity details.
-* **AI Features Toggle & User Preference (Opt-In / Default OFF)**:
-    * **Database Migration**: Added `ai_enabled` (boolean, default `false`) column to `public.profiles` table with backwards-compatible migration.
-    * **State & Store Integration**: Extended `userStore` and `User` model with `ai_enabled` property and `updateAIEnabled` offline-friendly sync action.
-    * **Settings UI**: Built `AISettings` section in `/settings` with opt-in switch toggle and clear disclosure copy.
-    * **Conditional Rendering & Global Hook**: Created `useAIFeaturesEnabled()` hook to conditionally hide "AI Insights" tab in `WineryModal` and AI notes in `WineryVarietalsTab` when disabled (falling back cleanly to "Community" tab).
-* **Gemini Edge Function Varietal Extraction**:
-    * Updated `update-gemini-summary` Supabase Edge Function to extract structured varietals data directly from winery review summaries and store them in the `wineries` table (`feat(ai)`).
+### Changed
+* Refactored `winery-modal` and test suites to support multi-snap drawer states and AI toggle preferences.
 
-### ⚙ Database Schema & Migrations
-* Added migration `20260717000000_add_varietals_and_vibe_tags.sql` adding `varietals` (JSONB) and `vibe_tags` (text[]) columns to `public.wineries`.
-* Added migration `20260728000000_add_ai_enabled_to_profiles.sql` adding `ai_enabled` column to `public.profiles`.
-
-### 🛡 Security & Dependabot
-* Resolved `npm audit` findings and updated vulnerable sub-dependencies.
-
-### 🧪 Testing & E2E Verification
-* Overhauled `winery-modal.spec.ts`, `visual.spec.ts`, `pwa-offline.spec.ts`, and `privacy-flow.spec.ts` for multi-snap drawer states and AI toggle preferences.
-* Added Jest unit test suites for `AISettings`, `useAIFeaturesEnabled`, `WineryWeatherWidget`, and store updates.
+### Security
+* Updated dependencies and resolved `npm audit` security vulnerabilities.
 
 ## [3.0.0] - 2026-07-16
 
-**Mapbox GL JS Migration — Hybrid Map Architecture**
-
-Version 3.0.0 is a major release that migrates the map rendering engine from Google Maps JavaScript API (`@vis.gl/react-google-maps`) to **Mapbox GL JS** (`react-map-gl` / `mapbox-gl`). This reduces Map Load API costs, enables offline tile caching, and modernizes the map canvas with vector-based rendering. Google Places API (v1 SDK) is retained as the single source of truth for search, autocomplete, winery details, reviews, and Street View.
-
-### 💥 Breaking Changes
-*   **Map Engine Replacement:** The `@vis.gl/react-google-maps` and `@googlemaps/markerclusterer` packages have been removed. All map rendering is now handled by Mapbox GL JS via `react-map-gl` v8.
-*   **Environment Variable:** A new `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` environment variable is required. Add it to `.env.local` and all deployment environments.
-
-### 🚀 Features
-*   **Mapbox GL JS Rendering**:
-    *   Replaced the Google Maps canvas in [WineryMap.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/WineryMap.tsx) and [MapView.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/MapView.tsx) with `react-map-gl`'s `<Map>` component backed by Mapbox GL JS.
-    *   Implemented built-in Mapbox source clustering with custom, high-fidelity cluster markers styled to match shadcn/ui (circular count badges, color-coded by density).
-    *   Added coordinate translation helpers in [map-utils.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/map-utils.ts) converting `{ latitude, longitude }` objects to Mapbox `[longitude, latitude]` arrays at the rendering boundary.
-*   **Map Style Switcher**:
-    *   Added a floating style toggle control allowing users to switch between **Outdoors** (`mapbox://styles/mapbox/outdoors-v12`, optimized for rural/scenic terrain) and **Streets** (`mapbox://styles/mapbox/streets-v12`, optimized for navigation).
-*   **Google Street View Integration**:
-    *   Implemented an immersive, full-screen Google Street View experience accessible from the Winery Modal via `@googlemaps/js-api-loader`, with overlay hiding and state preservation.
-*   **Google Attribution Compliance**:
-    *   Added a floating "Powered by Google" badge in the bottom-left corner of the map canvas to comply with Google Places Terms of Service, with responsive mobile positioning.
-*   **Offline Map Caching (PWA)**:
-    *   Updated the Service Worker (`app/sw.ts`) with runtime caching rules for Mapbox assets: styles (`/styles/v1`), sprites (`/sprites/`), glyphs/fonts (`/fonts/v1`), and vector/raster tiles (`/v4/`, `/tiles/`).
-    *   Implemented Cache-First and Stale-While-Revalidate strategies with `ExpirationPlugin` (100 max entries, 30-day max age).
-    *   Registered Mapbox cache namespaces in [quota.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/quota.ts) for resilient eviction under storage pressure.
-
-### ⚙ Refactoring & Architecture
-*   **Context & Hook Migration**:
-    *   Refactored [mapStore.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/mapStore.ts) to store Mapbox map instances and serializable bounding boxes.
-    *   Rewrote [use-winery-map.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-winery-map.ts) to manage Mapbox camera states, viewport bounding boxes, and zoom configurations.
-    *   Updated [use-winery-filter.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-winery-filter.ts) to use generic bounding box containment checks instead of `google.maps.LatLngBounds.contains()`.
-    *   Updated [winery-map-context.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery-map-context.tsx) to expose Mapbox-compatible event handlers, refs, and bounds calculations.
-*   **Legacy Cleanup**:
-    *   Deleted `components/google-maps-provider.tsx` and `components/generic-marker-clusterer.tsx`.
-    *   Removed all `GoogleMapsProvider` references from [app-shell.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-shell.tsx).
-    *   Active category filters now correctly apply to Mapbox markers and any Google Map fallback views.
-
-### 🧪 Testing & Verification
-*   **Jest Unit Tests**:
-    *   Added global mocks for `react-map-gl` and `mapbox-gl` in Jest setup files.
-    *   Refactored unit test mock hooks (e.g., `use-winery-search.test.ts`, `use-places-autocomplete-session.test.ts`) to remove legacy `@vis.gl/react-google-maps` mocks.
-    *   Added unit tests for coordinate translation helpers and Mapbox cache quota eviction.
-*   **Playwright E2E Tests**:
-    *   Updated [helpers.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/helpers.ts) and [utils.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/utils.ts) to intercept Mapbox API requests (styles, glyphs, sprites, tiles) and mock WebGL canvas context for headless environments.
-    *   Updated `waitForMapReady` helper and all store bounds mock injectors (`setBounds`) to match the new Mapbox serializable bounds schema.
-    *   Verified offline E2E flow stability (`pwa-offline.spec.ts`) with Mapbox tile caching.
-*   **Visual Regression**:
-    *   Regenerated all baseline visual snapshots inside the Podman container to match the new Mapbox GL JS layout.
-
-## [2.13.3] - 2026-07-15
-
-**Mobile Bottom Navigation and Drawer Enhancement**
-
-### 🚀 Features
-*   **Floating Navigation Pill**:
-    *   Transitioned the full-width mobile navigation bar to a horizontally-centered floating pill container in [app-shell.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-shell.tsx).
-    *   Added modern glassmorphism styling (`backdrop-blur-md bg-background/80 border shadow-lg`) and safe area bottom margin alignment.
-    *   Implemented active tab micro-interactions: added active background highlight pill (`bg-primary/10`) and subtle icon scaling (`scale-110`) with smooth transitions.
-*   **Bottom Sheet Docking Integration**:
-    *   Adjusted the bottom docking calculation of the interactive bottom sheet in [interactive-bottom-sheet.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/ui/interactive-bottom-sheet.tsx) to sit cleanly above the new floating pill position at `bottom-24`.
-    *   Rescaled bottom sheet height bounds (`h-[calc(100vh-7rem)]`) and mini-mode translate bounds to avoid overlapping the navigation container.
-*   **Testing & E2E Validation**:
-    *   Created [mobile-nav-drawer.spec.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/mobile-nav-drawer.spec.ts) viewport layout test suite to verify floating boundaries, active states, scaling classes, and non-overlapping sheet docking.
-    *   Updated existing smoke test selector mappings in [smoke.spec.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/smoke.spec.ts) to be layout-agnostic and use the `mobile-nav-bar` test ID.
-
-## [2.13.2] - 2026-07-14
-
-**Mobile Winery Modal Layout & Search UX Fixes**
-
-### ⚙ Bug Fixes
-*   **Mobile Winery Modal Layout**:
-    *   Anchored details modal to `top-4` with `translate-y-0` on mobile viewports.
-    *   Set modal width to `w-[95vw]` to keep responsive gutters on narrow screens.
-    *   Prevented horizontal panning/sliding by applying `overflow-x-hidden` on both `DialogContent` and the inner scroll wrapper.
-    *   Made the logistics grid columns stack on mobile viewports (`grid-cols-1 sm:grid-cols-2`) and added `flex-wrap` to actions and attribute status labels to avoid text clipping.
-*   **Search Input & Virtual Keyboard (Mobile)**:
-    *   Increased search input font size to `text-base` on mobile to prevent iOS Safari auto-zooming, reverting to `sm:text-sm` on larger viewports.
-    *   Dismisses the virtual keyboard immediately upon selecting a suggestion by blurring `document.activeElement`.
-    *   Introduced a 150ms delay before opening the details modal to allow the virtual keyboard to collapse and the mobile visual viewport to stabilize.
-*   **Edge Function Connection Utility**:
-    *   Configured `invokeFunction` to pass an empty `Authorization` header when no session exists, preventing local Supabase Edge Runtime crash.
-*   **Testing**:
-    *   Added Jest unit tests for PlaceAutocomplete text size classes and keyboard blur behavior.
-    *   Added Playwright visual layout tests for mobile viewport top anchoring.
-
-## [2.13.1] - 2026-07-14
-
-**Winery Details Cache Pollution and Review Count Fixes**
-
-### ⚙ Bug Fixes
-*   **Winery Details Cache Pollution**:
-    *   Added merge guards in `standardizeWineryData` to prevent basic map marker updates and null fields from overwriting enriched winery details (phone, website, opening hours, reviews, rating, user rating count).
-    *   Preserved `enrichment_tier` state and prevented downgrade from `'enriched'`/`'full'` to `'basic'`.
-    *   Explicitly cleared `visits` array when the source payload reports `user_visited: false` to prevent "ghost visits".
-    *   Updated `upsertWinery` and `bulkUpsertWineries` in `wineryDataStore` to utilize `standardizeWineryData` instead of object spreading.
-*   **Edge Function Integration**:
-    *   Updated the `get-winery-details` Edge Function to fetch `userRatingCount` in the field mask and map it correctly using `normalizeGooglePlaceV1`.
-*   **Testing**:
-    *   Added Jest unit tests for `wineryDataStore` verifying detailed field preservation.
-    *   Added Playwright E2E coverage for cache pollution prevention under panning/map updates.
-
-## [2.13.0] - 2026-07-10
-
-**PWA Client Resilience, Write Idempotency, AI Summaries & Social Webhooks**
-
-### 🚀 Features
-*   **Write Idempotency & Conflict Resolution**:
-    *   **Schema Hardening**: Added unique `idempotency_key` (UUID) columns to `public.visits` and `public.trips` schemas.
-    *   **Idempotent Write RPCs**: Upgraded `log_visit`, `update_visit`, `create_trip`, and `create_trip_with_winery` Database RPCs to accept an optional `p_idempotency_key` and handle uniqueness conflicts gracefully by returning the existing record's details.
-    *   **Client Idempotency**: Automatically generate client-side UUID `idempotencyKey` on save, update, and create actions, passing them to direct online calls and storing them in the offline sync queue.
-*   **Asynchronous Edge Functions & Webhooks**:
-    *   **Gemini-Powered AI Summaries**: Created the `update-gemini-summary` Edge Function triggered by a database webhook on `public.visits` (when reviews are >100 characters). Performs 30-day cache checks and fetches detailed reviews before invoking Gemini API.
-    *   **Resilient Social Notifications**: Implemented `send-social-notification` Edge Function triggered by `public.activity_ledger` webhook inserts to verify social privacy policies and notify friends.
-*   **PWA Resilience & Offline Enhancements**:
-    *   **Client-Side Image Compression**: Added automated client-side canvas-based image resizing and compression (max 2048px on long edge) prior to Base64 conversion and network transmission.
-    *   **IndexedDB Quota Safeguards**: Implemented proactive storage quota monitoring and single-retry write logic in IndexedDB storage, throwing a decoupled custom warning event (`quota-exceeded-warning`) if storage fails.
-    *   **Decoupled Quota Toasts**: Listens to quota warning events in PWA handler and alerts users via user-friendly Shadcn toast notifications.
-    *   **Secure Logout State Purge**: Hardened authentication state cleanup to await IndexedDB/offline queue reset before synchronously purging remaining Zustand state stores, preventing data leakage between sessions.
-
-### ⚙ Infrastructure, Testing & Bug Fixes
-*   **E2E Test Stability**:
-    *   **Real Sync E2E Fixes**: Addressed an E2E test timeout in `item-privacy.spec.ts` under `useRealFavorites()` by forcing `WineryService.ensureInDb` to resolve the real Database ID instead of trusting pre-assigned client-side mock IDs.
-    *   **Smoke Test Fallbacks**: Configured `e2e/smoke.spec.ts` to fallback to the seeded local user (`tester@mail.com` / `password`) if environment variables are missing.
-    *   **RPC Mocks Update**: Aligned Playwright mock handlers with the updated idempotency parameters.
-
-## [2.12.0] - 2026-06-08
-
-**Places API v1 SDK, Edge Function Orchestration & AI Enrichment**
-
-### 🚀 Features
-*   **Places API v1 Migration**:
-    *   **Edge Function Orchestration**: Replaced client-side search logic with the `search-wineries` Supabase Edge Function.
-    *   **Dynamic Field Masking**: Implemented cost-optimized field masking, upgrading from "Essentials" to "Enterprise/Atmosphere" only when specific filters are active.
-    *   **Place Autocomplete v1**: Migrated to the new Google Places Autocomplete v1 with session token management and field mask optimization.
-    *   **Review Persistence**: Added backend support for saving Google Maps reviews and `user_rating_count` synchronization to the local database.
-*   **AI Enrichment & Logistics**:
-    *   **Intelligent Logistics Status**: Implemented a three-state UI (Yes/No/Unknown) for logistics and accessibility flags, featuring an automated Q&A fallback that scans reviews when AI summaries are unavailable.
-    *   **Gemini-Powered Summaries**: Integrated AI-generated winery summaries with "Summarized with Gemini" disclosure.
-    *   **Map Navigation Interface**: Integrated a new `MapNavigation` component across winery views for one-tap access to directions and external navigation apps.
-    *   **Review Discovery**: Enhanced the `WineryQnA` component with whole-word keyword matching and dedicated review navigation filters.
-*   **Resilience & Offline Performance**:
-    *   **Lazy Enrichment Pattern**: Implemented a 30-day freshness policy; checking local database cache before fetching from Google API.
-    *   **Opening Hours Restoration**: Re-implemented business hours UI with robust fallbacks and verified accuracy via new E2E test coverage.
-    *   **Base64 Photo Persistence**: Ensured photo reliability in WebKit/Safari by storing hero images as Base64 strings in the offline queue.
-    *   **Quota Resilience**: Added "Service Limited" UI states to handle API quota exhaustion gracefully.
-
-### 🛡 Security & DevSecOps
-*   **Edge Function Hardening**:
-    *   **CORS Preflight Validation**: Implemented strict CORS preflight unit tests and added `x-skip-sw-interception` to allowed headers to prevent Service Worker interference with backend requests.
-    *   Strict `SECURITY DEFINER` and `SET search_path = public, auth` enforcement on all new RPCs.
-*   **"Gold Standard" Migrations**: Implemented `db:audit` and CI-level `db diff --linked` verification to ensure zero-drift between local and production schemas.
-*   **CI/CD Optimization**: Resolved Playwright installation hangs and optimized sharded E2E test runs with localized caching for v20+ Node environments.
-
-### ⚙ Refactoring & Testing
-*   **Integration Testing**: Hardened Supabase RPC integration tests and resolved UI regressions in Jest suites for winery stores.
-*   **Coordinate Standardization**: Finalized the move to property-based `latitude`/`longitude` access, stripping all legacy `lat`/`lng` keys from the data layer.
-*   **Hybrid Implementation**: Combined Edge Function orchestration with atomic Database RPCs (`bulk_upsert_wineries`) for optimized performance.
-
-## [2.11.0] - 2026-05-18
-
-**PWA Resilience, Offline Integrity & Cryptographic Hardening**
-
-Version 2.11.0 is a landmark release for mobile reliability, introducing a robust **Offline Mutation Queue** and a **WebKit-compliant Binary Reconstitution** engine. This release ensures the application remains fully functional and data-consistent even in zero-connectivity environments, with hardened security for offline data.
-
-### 🚀 Features
-*   **Encrypted Offline Mutation Queue:**
-    *   **AES-GCM Encryption:** Implemented an encrypted queue using IndexedDB (`idb-keyval`) to store offline actions (Visits, Trips, Social).
-    *   **Cryptographic Hardening:** Payloads are encrypted at rest using keys derived via **PBKDF2** from the `user.id`, ensuring offline data is protected.
-    *   **Upload-First Sync:** Introduced a centralized `SyncService` that prioritizes replaying local mutations before refreshing server state.
-*   **The Reconstitution Rule (WebKit Compatibility):**
-    *   **Binary Stabilization:** Solved the "Detached Blob" issue in Safari/WebKit by storing offline photos as **Base64 strings**.
-    *   **Automatic Reconstitution:** Implemented `stabilizePhotos` and `base64ToFile` utilities to reconstitute binary assets into standard `File` objects immediately before network transmission.
-*   **Proactive Quota Resilience:**
-    *   Implemented the **Quota Resilience Rule**, which monitors browser storage and automatically purges non-essential caches (Map tiles, static assets) if usage exceeds 80% to protect the database.
-*   **Offline Data Availability (Read-Only Mode):**
-    *   **Master Cache:** Persists the user's recent visits, trips, favorite wineries, and friend activity to IndexedDB.
-    *   **Zero-Flash Hydration:** The application now displays cached data immediately during offline starts, eliminating the "white screen" and ensuring history is always browseable.
-*   **Refined Update UX:**
-    *   **Non-Intrusive Updates:** Replaced forced page reloads with a non-intrusive toast notification for new Service Worker versions.
-    *   **Update Loop Protection:** Implemented `globalThis._PWA_UPDATING` guards and `controllerchange` validation to prevent infinite reload loops.
-
-### ⚙ Infrastructure & Testing
-*   **E2E & CI Optimization:** Re-architected Playwright configuration to run with sharding, resolved Safari/WebKit network bypass issues, and cleaned up Jest/E2E test suite headers.
-*   **Coordinate Standardization:** Enforced a system-wide move to `latitude` and `longitude` naming conventions across all DB types, RPCs, and UI mappers, eliminating `NaN` errors on map pins.
-*   **DOM Stability Pattern:** Refactored core UI containers (`TripList`, `FriendActivity`, `VisitHistory`) to ensure primary containers remain in the DOM during loading/error states, preventing layout shifts.
-*   **Sync Infrastructure E2E:** Introduced a high-fidelity sync testing suite that verifies encrypted persistence, photo reconstitution, and non-blocking queue recovery.
-
-### 🛡 Security & Type Safety
-*   **Database Hardening & Zero-Anon Policy:** Revoked unauthenticated RPC access, standardized parameter naming conventions with a `p_` prefix, and resolved overloading conflicts to ensure schema stability.
-*   **DB Type Alignment:** Synchronized `database.types.ts` with new RPC signatures for standardized coordinate retrieval.
-*   **ID Normalization:** Enforced strict `Number()` conversion for all Entity IDs in the service layer to prevent type mismatches during offline hydration.
-
-## [2.10.0] - 2026-04-20
-
-**Pattern Isolation, Sync Lock & Zero-Mock Testing**
-
-Version 2.10.0 is a major architectural milestone that completes the decoupling of UI components from global state and introduces a robust synchronization framework. By enforcing the **Container/Presentational pattern** and implementing a database-backed **Sync Lock**, we have achieved 100% deterministic UI state and eliminated Realtime synchronization flickers.
-
-### 🚀 Features
-*   **Container/Presentational Architecture:** Fully refactored core UI components (`TripCard`, `TripList`, `WineryActions`) into pure "Presentational" components. All store dependencies have been hoisted into "Container" wrappers, enabling 100% isolated unit testing and clear data flow.
-*   **Sync Lock & Revision Control:** Introduced `lastActionTimestamp` and `updated_at` tracking across the State layer. The application now implements a **Sync Lock** that intelligently ignores stale Realtime payloads if they are older than the user's last local interaction, solving the "Three-Way Sync" paradox.
-*   **Signal-Based Synchronization:** Implemented `data-state="ready"` signals across all main feature containers. E2E tests now synchronize with these lifecycle signals, eliminating the need for fragile timeouts and "magic number" waits.
-*   **Zero-Mock Unit Testing:** Established the `dataFactory` pattern and transitioned unit tests to a "Zero-Mock" model. UI components are now verified by passing raw JSON factories directly to props, removing the maintenance overhead of complex Zustand mocks.
-
-### 🛡 Security & Privacy
-*   **Privacy-Aware RPCs:** Updated `get_map_markers` and `get_winery_details_by_id` to include granular privacy columns (`is_favorite_private`, `on_wishlist_private`), ensuring items are only visible to authorized viewers.
-*   **Friend Profile Privacy:** Hardened `get_friend_profile_with_visits` to allow users to see their own private items in counts while strictly enforcing social privacy for external viewers.
-
-### ⚙ Infrastructure & Testing
-*   **Concurrency Scaling:** Optimized the E2E infrastructure to support parallel execution with 2+ workers in containerized environments.
-    *   **Worker Isolation:** Implemented unique storage partitions and isolated Service Worker registration per worker.
-    *   **Network Optimization:** Refactored `MockMapsManager` to use targeted regex/glob routing, reducing CPU saturation during high-concurrency test runs.
-*   **Migration-First Schema:** Deployed a series of migrations to add `updated_at` triggers and privacy fields to `trips`, `trip_wineries`, and `visits` tables.
-
-### 📝 Documentation
-*   **Standardized Mandates:** Updated `GEMINI.md` and the project testing skill to strictly mandate the Container/Presentational pattern, Sync Lock requirements, and Signal-Based Synchronization.
-
-## [2.9.0] - 2026-04-01
-
-**Atomic Architecture, Hydration Mastery & Portal Decoupling**
-
-Version 2.9.0 is a foundational release focused on architectural purity and performance. We have eliminated critical hydration bottlenecks by pruning store persistence, decoupled feature logic through a modern Portal-based modal system, and established the "Atomic Verification" standard for near-instant, reliable E2E testing.
-
-### 🚀 Features
-*   **Portal-Based Modal Architecture:** Decoupled the global `GlobalModalRenderer` in favor of **Feature-Owned Portals**. Modals for `VisitForm`, `WineryNoteEditor`, and `TripShareDialog` are now managed within their respective feature domains and rendered via React Portals into a root-level `ModalHost`.
-*   **Hydration Mastery:** Pruned Zustand store persistence to exclude large data arrays (`trips`, `visits`, `wineries`). This reduces `localStorage` overhead by 95% and eliminates 15s+ hydration delays in high-latency environments.
-*   **Atomic Verification Standard:** Transitioned the entire E2E suite to a **State-Injected** model. Tests now use `page.evaluate` to inject precise store states, bypassing fragile multi-step navigation and reducing suite execution time by 80%.
-
-### 🛡 Security & Type Safety
-*   **Type-Safe Mocking:** Refactored `MockMapsManager` to enforce `database.types.ts` schemas on all RPC mock responses, eliminating the "ID Paradox" (numeric vs string mismatches) in testing.
-*   **Data Layer Hardening:** Centralized `ensureInDb` logic in `WineryService` to guarantee consistent ID resolution across all relational features (Trips, Visits, Favorites).
-*   **Schema Integrity Gate:** Added a mandatory CI check to verify that local `database.types.ts` remains in perfect sync with the Supabase production schema.
-
-### ⚙ Refactoring & Cleanup
-*   **Standardized Interactions:** Completely removed `robustClick` and manual event dispatching in favor of standard Playwright `.click()` supported by `data-testid` and `useRef` synchronous guards.
-*   **Store Resilience:** Updated `closeModal` and feature-specific "close" handlers to explicitly reset all stateful content pointers, preventing stale UI flashes.
-*   **E2E Helper Expansion:** Added `injectTripState` and `injectVisitState` atomic helpers to `e2e/helpers.ts` for rapid feature verification.
-
-## [2.8.0] - 2026-03-12
-
-**Real-time Collaborative Planning & Architectural Hardening**
-
-Version 2.8.0 introduces full-scale collaborative trip planning, powered by real-time synchronization and a hardened security model. This release also features a significant UI refactor to a Singleton Modal architecture, improving hydration stability and cross-platform performance.
-
-### 🚀 Features
-*   **Collaborative Trip Sharing:** Introduced the `TripShareDialog` and `TripMembersList`, enabling users to invite friends by email and manage participants with granular roles (Owner/Member).
-*   **Real-time Synchronization:** Implemented multi-user state synchronization using Supabase Realtime. Itinerary changes, winery notes, and member additions now reflect instantly across all participant devices.
-*   **Singleton Modal Architecture:** Refactored the UI to use a centralized `GlobalModalRenderer` for core forms (`VisitForm`, `WineryNoteEditor`, `TripShareDialog`). This eliminates DOM bloat, prevents unmounting during hydration flashes, and ensures consistent state management.
-*   **Optimistic Itinerary Updates:** Added optimistic UI updates for trip modifications, ensuring a zero-latency feel during collaborative planning.
-
-### 🛡 Security
-*   **RPC & RLS Hardening:** Audited and patched all trip-related PostgreSQL functions and Row Level Security (RLS) policies to enforce explicit `public.` schema prefixing and strict `search_path` security.
-*   **Access Control:** Verified permission boundaries ensuring only authorized members can edit shared trips, with owner-only privileges for deletions and member management.
-
-### ⚙ Refactoring & Cleanup
-*   **Data Model Finalization:** Completed the migration to the structured `TripMember` type, fully deprecating and removing legacy string-based member arrays.
-*   **Persistence Optimization:** Refined Zustand store persistence to exclude transient UI visibility flags, preventing "stuck" modals after page reloads.
-*   **Layout Decoupling:** Moved global UI singletons in `app/layout.tsx` outside the `AuthProvider`'s loading boundary to ensure UI stability during initial authentication flashes.
-
-### ⚙ Infrastructure & Testing
-*   **Collaborative E2E Suite:** Developed `e2e/trip-sharing.spec.ts` to verify complex multi-user interaction flows, including real-time sync and cross-context permission checks.
-*   **Hydration Hardening:** Updated E2E hydration guards to include `useTripStore`, ensuring tests wait for full data readiness before executing assertions.
-*   **Unit Verification:** Added comprehensive Jest tests for the new sharing components and store persistence logic.
-
-## [2.7.0] - 2026-03-05
-
-**Social Infrastructure Refactor & Asymmetric Social Model**
-
-Version 2.7.0 is a major architectural milestone that transitions the application to a fully normalized social schema and introduces an asymmetric "Followers/Following" social model. This release also implements a robust, centralized privacy engine and establishes formal documentation for the core architecture and API contracts.
-
-### 🚀 Features
-*   **Asymmetric Social Model:** Introduced support for following and follower relationships, supplementing the existing symmetric friendship model.
-*   **Normalized Social Schema:** Migrated from denormalized arrays to dedicated join tables (`trip_members`, `visit_participants`) for improved scalability and data integrity.
-*   **Centralized Activity Ledger:** Implemented a unified `activity_ledger` table with automated triggers to power real-time social feeds across all interaction types (Visits, Favorites, Wishlist).
-*   **Granular Privacy Engine:** Optimized the `is_visible_to_viewer` PostgreSQL helper to enforce Public, Friends Only, and Private visibility across the entire social stack.
-*   **Performance Optimizations:** 
-    *   Refactored Row Level Security (RLS) policies to use cached subquery patterns for 5-10x faster visibility checks.
-    *   Added targeted performance indexes for the new social relationship tables.
-
-### 🛡 Security
-*   **RPC Hardening:** Applied atomic transaction patterns and strict `search_path` security to all new and refactored database functions.
-*   **Access Control:** Replaced legacy array-based access checks with robust, table-driven authorization in `trip_members`.
-
-### ⚙ Refactoring & Cleanup
-*   **Database Hygiene:** Successfully deprecated and removed the legacy `members` column from the `trips` table.
-*   **Service Layer Alignment:** Updated `TripService` and Zustand stores to utilize the new atomic RPCs, eliminating complex client-side merging logic.
-
-### 📝 Documentation
-*   **Architecture Docs:** Created a formal Entity Relationship Diagram (ERD) detailing the new social infrastructure.
-*   **API Contracts:** Established a comprehensive guide for Supabase RPC contracts to guide future frontend development.
-
-### ⚙ Infrastructure & Testing
-*   **E2E Validation:** Verified the complete social lifecycle and privacy enforcement with the `item-privacy` and `social-feed` test suites.
-*   **Stability Fixes:** Resolved edge cases in state hydration and mock winery identification to ensure consistent testing results.
-
-## [2.6.1] - 2026-03-03
-
-**Supabase Native Authentication & Codebase Cleanup**
-
-Version 2.6.1 completes the transition to a fully "Supabase Native" authentication architecture. We have refactored the login flow to use the client-side SDK directly, eliminated legacy server actions, and enforced a critical synchronization sequence to ensure seamless session management with our middleware.
-
-### 🚀 Features
-*   **Supabase Native Login:** Refactored the `LoginForm` to utilize the client-side Supabase SDK for authentication, removing dependency on server actions.
-*   **Synchronized Navigation:** Implemented a mandatory `router.refresh()` before `router.push()` sequence in both login and signup flows to ensure the middleware recognizes new session cookies immediately.
-
-### ⚙ Refactoring & Cleanup
-*   **Legacy Code Removal:** Deleted `app/actions.ts` and removed all references to legacy "wrapper" server actions.
-*   **Standardized Auth Flow:** Unified the authentication pattern across login and signup components for better maintainability and mobile-readiness.
-
-### ⚙ Infrastructure & Testing
-*   **E2E Auth Verification:** Validated the new authentication lifecycle with the `smoke` and `runtime-audit` test suites across supported browser engines.
-
-## [2.6.0] - 2026-03-03
-
-**Granular Privacy Controls & Centralized Settings Hub**
-
-Version 2.6.0 introduces a comprehensive privacy framework, allowing users to control the visibility of their profiles, visits, favorites, and wishlists across three distinct levels (Public, Friends Only, Private). This release also debuts a dedicated settings hub and individual friend profile pages, significantly maturing the application's social and personalization features.
-
-### 🚀 Features
-*   **Granular Privacy Tiers:** Implemented Public, Friends Only, and Private visibility levels for user profiles and activity.
-*   **Item-Level Privacy:** Users can now toggle privacy on individual favorite wineries and wishlist items.
-*   **Centralized Settings Hub:** Introduced a new `/settings` page, moving configuration out of the social tab into a dedicated management area.
-*   **Friend Profile Discovery:** Created rich profile pages for friends, displaying social statistics and permitted visit history based on privacy settings.
-*   **Privacy-Aware Social Feed:** Refactored the activity feed to strictly enforce visibility rules at the database level.
-
-### 🐛 Bug Fixes
-*   **ID Resolution Hardening:** Updated the winery store to force identity resolution before relational operations, preventing 404 errors during metadata updates.
-*   **Mobile Navigation Guard:** Implemented a centralized hydration guard for the mobile bottom bar to ensure interactions are stable during initial load.
-
-### 🛡 Security
-*   **Centralized Visibility Logic:** Introduced the `is_visible_to_viewer` PostgreSQL helper to unify privacy enforcement across all Row Level Security (RLS) policies.
-*   **Search Path Hardening:** Applied strict `search_path` security to all new and refactored RPC functions.
-
-### ⚙ Infrastructure & Testing
-*   **E2E Privacy Suite:** Developed a comprehensive `privacy-flow` test suite to verify visibility across multiple authenticated contexts.
-*   **RPC Unit Testing:** Added a dedicated integration suite for verifying complex privacy logic directly against the Supabase backend.
-
-
-## [2.5.0] - 2026-02-24
-
-**Dockerized CI & Infrastructure Stabilization**
-
-Version 2.5.0 is a milestone release focused on infrastructure reliability and high-fidelity testing. We have migrated our entire CI pipeline to a Dockerized environment, stabilized cross-browser social interactions, and implemented a suite of resiliency patterns to ensure the app remains robust in offline and "lie-fi" conditions.
-
-### 🚀 Features
-*   **Real-time Social Infrastructure:** Enabled Supabase Realtime for `friends` and `visits` tables, providing instant UI updates and synchronized state across user devices.
-*   **Edge Function Resiliency:** Implemented a new `invokeFunction` utility to wrap backend calls with offline detection and graceful error handling, preventing fatal crashes during intermittent connectivity.
-*   **Double DOM Resolution:** Refactored `AppShell` to use conditional React rendering for responsive components, eliminating duplicate sidebar instances and resolving persistent ARIA hidden conflicts.
-
-### 🐛 Bug Fixes
-*   **WebKit Binary Persistence:** Resolved a critical `NotReadableError` in Safari by cloning temporary file handles into stable, persistent `Blob` objects.
-*   **Social Feed Optimization:** Refactored the `get_friend_activity_feed` RPC to resolve function overloading issues and improve join performance across profiles and visits.
-*   **Animation Interaction Guard:** Added state tracking to the mobile bottom sheet to ensure UI elements are only interactable after transition animations have fully stabilized.
-*   **Test Session Stability:** Fixed a bug where `localStorage.clear()` in test initialization was unintentionally wiping sessions on every navigation, leading to flaky authentication tests.
-
-### ⚙ Infrastructure & Testing
-*   **Dockerized Playwright CI:** Migrated all E2E tests to the official Playwright Docker container (`mcr.microsoft.com/playwright`), ensuring 100% environment parity between local development and CI runners.
-*   **Cross-Browser Stabilization:** Hardened the `friends-flow` and `social-feed` test suites with `robustClick()` and `expect(...).toPass()` retry logic to resolve flakiness in WebKit and Firefox.
-*   **Visual Regression Sync:** Regenerated all baseline snapshots inside the Docker container to account for sub-pixel rendering differences and ensure deterministic visual verification.
-*   **Offline Robustness:** Implemented a robust LocalStorage fallback for the mutation queue to preserve offline data even in environments with restricted IndexedDB access.
-
-## [2.4.0] - 2026-02-06
-
-**Core Library Refresh & Supabase SSR Migration**
-
-Version 2.4.0 is a significant technical refresh that upgrades core dependencies to their latest major versions, including **React Day Picker v9** and **Date-fns v4**. It also implements a critical refactor of our **Supabase SSR** logic to align with modern authentication patterns and resolves high-priority security findings.
-
-### 🚀 Features
-*   **Major Library Migrations:**
-    *   **React Day Picker v9:** Upgraded to the latest version of `react-day-picker`, involving a complete refactor of the `Calendar` component to support the new v9 API and component structure.
-    *   **Date-fns v4:** Upgraded to the latest major version of `date-fns` for improved performance and modern ESM support.
-    *   **Supabase SSR v0.8.0:** Migrated to the latest `@supabase/ssr` package, refactoring cookie management to use the new `setAll` pattern for better reliability across different environments.
-*   **Dependency Modernization:** Updated critical dependencies including `lucide-react`, `zustand`, `tailwind-merge`, and `@vis.gl/react-google-maps` to their latest stable versions.
-
-### 🐛 Bug Fixes
-*   **E2E Selector Compatibility:** Resolved failures in Playwright tests caused by breaking changes in `react-day-picker` v9's DOM structure. Updated selectors to accurately target the "Today" marker and active states.
-*   **Supabase Type Safety:** Fixed implicit `any` type errors in server-side Supabase utilities by providing explicit types for cookie store operations.
-*   **Mobile Interaction:** Fixed a race condition in mobile E2E tests by ensuring the interactive bottom sheet is fully expanded before attempting to click nested elements.
-
-### 🛡 Security
-*   **Audit Resolution:** Resolved a high-severity vulnerability in the `tar` dependency by implementing a version override in `package.json`.
-
-### ⚙ Infrastructure & Testing
-*   **PWA Cache Refinement:** Updated the Service Worker configuration to optimize resource caching and improve offline startup reliability.
-*   **Test Environment Hardening:** Enhanced the Playwright helper suite with more robust mobile navigation guards and updated visual regression targets.
-
-## [2.3.0] - 2026-01-23
-
-**Tailwind CSS v4 Migration & PWA Refinement**
-
-Version 2.3.0 is a major technical milestone that migrates the entire styling engine to **Tailwind CSS v4** and delivers a polished, "Always-On" **PWA installation experience**. This release significantly improves UI performance, reduces technical debt, and enhances mobile accessibility.
-
-### 🚀 Features
-*   **Tailwind CSS v4 Migration:**
-    *   **CSS-Native Architecture:** Fully migrated from Tailwind v3 to v4, replacing the JavaScript-based `tailwind.config.ts` with a modern, CSS-native `@theme` configuration in `globals.css`.
-    *   **Container Queries:** Refactored the `responsive-table` utility to use modern CSS Container Queries (`@container`), ensuring tables adapt perfectly to their parent container's width regardless of the viewport.
-    *   **Native Field Sizing:** Implemented `field-sizing-content` in the `Textarea` component, enabling automatic, jump-free height adjustment using native browser capabilities.
-    *   **Optimized Engine:** Leveraged the v4 lightning-fast build process and reduced the overall CSS bundle size.
-*   **PWA User Experience Refactor:**
-    *   **User Menu Integration:** PWA installation and update controls are now integrated directly into the user avatar dropdown menu, providing a clean and consistent way to manage the app on all platforms.
-    *   **Smart "Add to Home Screen":** Implemented dynamic logic that switches between "Install App" (native) and "Add to Home Screen" (manual instructions) based on browser capabilities.
-    *   **Layout Polish:** Refined the PWA install prompts and Cookie Consent banners to be slimmer and less intrusive on mobile devices, ensuring they don't obstruct critical navigation.
-    *   **Standalone Detection:** Enhanced the `usePwa` hook to detect existing installations and automatically hide redundant controls.
-
-### 🐛 Bug Fixes
-*   **Mobile Accessibility:** Fixed a critical issue where large banners could obstruct login links on smaller mobile viewports.
-*   **UI Consistency:** Updated all shadcn/ui components to use Tailwind v4 compatible utility classes (e.g., `backdrop-blur-xs`, `shadow-xs`, `outline-hidden`).
-*   **Navigation Logic:** Resolved responsive state mismatches in `AppShell` that occasionally caused the sidebar and map controls to overlap.
-
-### ⚙ Infrastructure & Testing
-*   **PWA Layout Testing:** Introduced `e2e/pwa-install-layout.spec.ts` to ensure PWA and Cookie banners maintain perfect layout across Desktop, Tablet, and Mobile viewports.
-*   **Visual Baseline:** Updated all E2E visual regression snapshots to align with the refined rendering and spacing of the Tailwind v4 engine.
-*   **Dependency Cleanup:** Removed legacy PostCSS configuration and `tailwind.config.ts`, streamlining the project structure.
-
-## [2.2.8] - 2026-01-22
-
-**Social Activity Feed, PWA 2.0 & Security Hardening**
-
-Version 2.2.8 is a feature-rich release that introduces the **Social Activity Feed**, upgrades the app to a "Rich Install" PWA experience, and hardens security. We have also significantly stabilized the CI/CD pipeline with robust mobile-first E2E testing.
-
-### 🚀 Features
-*   **Social Activity Feed:**
-    *   **Activity Stream:** Users can now see a real-time feed of their friends' recent visits, wishlist additions, and favorites.
-    *   **Signed Photos:** Implemented secure URL signing for private activity feed photos.
-    *   **Empty State:** Added a helpful empty state prompt for users with no friend activity.
-*   **PWA 2.0 (Rich Install):**
-    *   **Rich Manifest:** Added mobile and desktop screenshots, categories, and "Explore" / "Trips" shortcuts to the web manifest for a native App Store-like install card.
-    *   **Custom Install UI:** Implemented a non-intrusive "Install App" prompt (Bottom Card on Desktop, Slim Banner on Mobile) that reacts to the `beforeinstallprompt` event.
-    *   **Reliable Offline Start:** Switched the Service Worker strategy to `StaleWhileRevalidate` for the document shell, resolving iOS "White Screen" issues during cold starts in poor network conditions.
-    *   **Infinite Loop Fix:** Resolved a toast notification loop in the PWA handler.
-
-### 🛡 Security
-*   **Dependency Hardening:** Resolved high-severity vulnerabilities in the dependency tree via `npm audit fix`, ensuring a secure baseline for production deployments.
-
-### ⚙ Infrastructure & Testing
-*   **Mobile PWA Testing:**
-    *   **Offline Verification:** Restored and enhanced End-to-End (E2E) tests for PWA offline functionality, optimizing for mobile touch interactions and bottom sheet navigation.
-    *   **Store Exposure:** Implemented `E2EStoreExposer` to safely inject state during tests without polluting production code.
-*   **CI Stabilization:**
-    *   **Error Overlays:** Implemented forceful CSS injection to hide Next.js development error overlays that were intercepting clicks in CI.
-    *   **Login Reliability:** Simplified the login helper logic to be unconditional and robust against high-latency environments.
-
-## [2.2.7] - 2026-01-09
-
-**Offline Reliability & Data Consistency**
-
-Version 2.2.7 hardens the application's offline-first capabilities and resolves critical data consistency edge cases. We have implemented a robust mutation queue for offline interactions and added self-healing logic to prevent "Ghost Visits" where local cache could drift from the server state.
-
-### 🚀 Features
-*   **Offline Mutation Queue:**
-    *   **Full CRUD Support:** Users can now create, edit, and delete visits while offline. Actions are queued locally in IndexedDB and automatically synchronized when the connection is restored.
-    *   **Background Sync:** The `visitStore` now actively monitors network status to replay queued mutations without user intervention.
-*   **Offline Map Experience:**
-    *   **Tile Fallbacks:** Improved map rendering during offline sessions to gracefully handle missing tiles.
-    *   **Local Search:** Enhanced the ability to search and interact with previously cached wineries without a network connection.
-*   **Debug Tools:**
-    *   **Cache Management:** Added a user-facing "Clear Cache" tool in the debug menu, allowing for manual resolution of stuck data states if necessary.
-
-### 🐛 Bug Fixes
-*   **Data Consistency (Ghost Visits):**
-    *   **Stale Cache Recovery:** Fixed an issue where wineries marked as "Visited" on the server but missing visit details locally would remain in a broken state. The app now forces a fresh fetch to resolve this discrepancy.
-    *   **Visit Reversion:** Fixed a bug where clearing all visits for a winery failed to revert its status to "Unvisited" locally. `standardizeWineryData` now explicitly clears the visits array when the server reports `user_visited: false`.
-*   **Type Safety:**
-    *   **RPC Compatibility:** Relaxed `isWineryDetailsRpc` type guards to correctly handle optional `trip_info` fields, ensuring consistent data merging across different API response shapes.
-
-## [2.2.6] - 2026-01-07
-
-**Supabase Native Architecture Completion & UX Polish**
-
-Version 2.2.6 represents a major architectural milestone, completing the transition to a fully "Supabase Native" backend. We have replaced legacy API routes with high-performance RPCs and Edge Functions, enforced strict database typing across the application, and significantly improved the social and planning user experience.
-
-### 🚀 Features
-*   **Supabase Edge Functions:**
-    *   **Mobile-Ready Backend:** Replaced the legacy `/api/wineries/details` route with a new `get-winery-details` Edge Function. This ensures full compatibility with Bearer Token authentication used by native mobile apps.
-    *   **Direct Invocation:** Updated client-side stores to invoke Supabase Functions directly, bypassing the Next.js server layer for faster response times.
-*   **Social & Friends:**
-    *   **Sent Requests:** Added a new "Sent Requests" section in the Friends Manager, allowing users to view and cancel pending outgoing requests.
-    *   **Notification Badges:** Implemented visual notification badges on the Friends tab for incoming requests.
-    *   **Real-time Updates:** Updated `AuthProvider` to fetch friend data immediately on mount, ensuring badges are accurate the moment the user logs in.
-*   **Trip Planning:**
-    *   **Hydration Stability:** Fixed a critical hydration mismatch in `TripPlanner` date rendering that caused navigation instability on mobile devices.
-
-### 🛡 Security & Type Safety
-*   **Strict Database Typing:** Created a manual `database.types.ts` definition to enforce strict schema alignment across the entire codebase, resolving the "Maintenance Nightmare" of loose typing.
-*   **Middleware Security:** Fixed a critical logic gap in `proxy.ts` where API routes were inadvertently excluded from the authentication matcher. All `/api/*` endpoints are now properly protected.
-*   **RPC Types:** Defined strict return types for `MapMarkerRpc` and `WineryDetailsRpc` to eliminate `any` usage in critical data paths.
-
-### ⚙ Refactoring
-*   **Store Architecture:**
-    *   **Split Stores:** Refactored the monolithic `wineryStore.ts` into `wineryDataStore.ts` (Data/Caching) and `wineryStore.ts` (UI State). This separation of concerns improves maintainability and performance.
-    *   **Standardized Data:** Created `lib/utils/winery.ts` to centralize data standardization logic using the new strict types.
-*   **Trip Service Migration:** Refactored `TripService` to use the Supabase JS client directly, allowing for the deletion of the entire `app/api/trips` directory.
-*   **Legacy Code Removal:** Completely deleted the obsolete `app/api/wineries` directory and associated routing logic.
-*   **Test Infrastructure:** Updated E2E test mocks to intercept Edge Function calls, ensuring zero-cost testing persists with the new architecture.
-
-## [2.2.5] - 2025-12-31
-
-**PWA Support, Search Caching & Exploration Stability**
-
-Version 2.2.5 transforms the application into an installable **Progressive Web App (PWA)** and significantly optimizes the winery discovery experience. We have implemented a robust database caching layer for searches, reducing API costs while improving speed, and refined the map behavior to ensure seamless exploration.
-
-### 🚀 Features
-*   **Progressive Web App (PWA):**
-    *   **Installability:** The app is now fully installable on mobile and desktop devices via Serwist.
-    *   **Smart Caching:** Implemented a precise Service Worker strategy to cache static assets while avoiding `QuotaExceededError` on constrained devices.
-    *   **Offline Capability:** Core app shell and static resources are now available offline.
-*   **Search Caching & Optimization:**
-    *   **Database Caching:** Search results are now cached in Supabase, reducing Google Maps API calls and speeding up repeat searches.
-    *   **Smart Zoom:** The map now intelligently forces a new search when zooming into clusters, revealing wineries that Google hides at lower zoom levels.
-    *   **Stable UX:** Eliminated UI "blinking" by seamlessly merging cached data with live API results in the background.
-*   **Winery Details:**
-    *   **Dynamic Hours:** Implemented real-time "Open/Closed" status calculation based on current winery hours.
-
-### 🐛 Bug Fixes
-*   **Data Persistence:** Resolved a critical issue where searching would temporarily overwrite local user data (Favorites/Visited status) with raw API data.
-*   **Map Interaction:**
-    *   Fixed the "Results in View" list failing to update when panning.
-    *   Fixed map middleware blocking PWA static assets (manifest, icons).
-*   **Test Data Pollution:** Implemented automatic cleanup for integration tests to prevent mock wineries from persisting in the live database and appearing on the map.
-*   **Global Branding:** Removed regional specific branding to support a broader global scope.
-
-## [2.2.4] - 2025-12-29
-
-**Industrial-Strength Testing & Mobile UX Stability**
-
-Version 2.2.4 introduces a professional-grade testing infrastructure and resolves critical mobile interaction issues. We have implemented comprehensive logical, functional, visual, and accessibility safeguards while streamlining the mobile user experience.
-
-### 🚀 Features
-*   **Comprehensive Testing Suite:**
-    *   **Visual Regression Testing:** Established baseline snapshots for core views with "Ghost Tiles" mocking for deterministic map backgrounds.
-    *   **Automated Accessibility (A11y):** Integrated `@axe-core/playwright` to automatically catch accessibility violations in CI.
-    *   **RPC Integration Tests:** New suite verifying core PostgreSQL business logic using authenticated clients against live data.
-    *   **Unhappy Path Testing:** Verified UI resilience and error surfacing for network failures and server errors.
-    *   **Standardized Fixtures:** Centralized all mock data factory functions, ensuring type safety and maintainability across all test types.
-*   **Mobile UX Improvements:**
-    *   Implemented conditional rendering for the **Interactive Bottom Sheet**, ensuring it is fully unmounted when closed to prevent invisible click-blocking.
-    *   Optimized **Toast notifications** by moving the viewport to the top on mobile and enabling click-through on the container.
-    *   Automated the "Create Trip" modal closure upon successful submission.
-
-### 🛡 Security & Reliability
-*   **State Isolation:** Enforced global Zustand store resets between every unit test to eliminate state bleed and ensure deterministic results.
-*   **Robust Synchronization:** Replaced fragile timeouts in E2E tests with high-fidelity network-bound synchronization (`waitForResponse`) and logical state transitions.
-*   **Automated Pre-commit Checks:** Re-enabled Husky and `lint-staged` to enforce linting and type-checking before every commit.
-
-### 🐛 Bug Fixes
-*   **Accessibility:** Resolved critical violations including missing `aria-labels` on buttons, missing `alt` text on images, and landmark nesting issues.
-*   **CI/CD:** Fixed pipeline failures by correctly mapping repository secrets to the integration test environment.
-*   **UI Stability:** Resolved a "detached from DOM" race condition in the visit history list on mobile.
-
-## [2.2.3] - 2025-12-23
-
-**Supabase Native Architecture & Enhanced Security**
-
-Version 2.2.3 marks the completion of our "Supabase Native" transition. We have eliminated almost all internal API routes in favor of high-performance, atomic PostgreSQL functions (RPCs). This release also significantly hardens database security, streamlines the CI/CD pipeline with automated schema linting, and stabilizes our end-to-end testing suite.
-
-### 🚀 Features
-*   **Supabase Native Refactor:**
-    *   Migrated **Friends** management (requests/responses) to atomic RPCs, removing the `/api/friends` route.
-    *   Migrated **Trip Management** (creation, sharing by email, reordering, and deletion) to a consolidated RPC layer, eliminating complex client-side merging logic.
-    *   Migrated **Visit Mutations** (updates and deletions) to secure RPCs, ensuring transactional integrity.
-    *   Migrated **Wishlist & Favorites** toggles to atomic RPCs.
-    *   Migrated **Winery Browsing** to a rich RPC that includes user-specific state (favorites/wishlist) directly in the list fetch.
-*   **Direct SDK Integration:** Refactored Auth flows (Sign-up, Logout, Session retrieval) to use the Supabase SDK directly on the client, removing redundant intermediary API "wrapper" routes.
-
-### 🛡 Security & Reliability
-*   **Database Hardening:** Implemented a security patch across all `SECURITY DEFINER` functions to enforce `search_path = public`, resolving "Function Search Path Mutable" vulnerabilities.
-*   **Automated Linting:** Integrated `supabase db lint` into the CI/CD pipeline to catch security and performance issues automatically.
-*   **Test Suite Stabilization:** 
-    *   Introduced a dedicated **Wishlist Flow** E2E test.
-    *   Refactored E2E mocks to support the new RPC-based architecture.
-    *   Implemented robust response waiting and auto-retrying assertions to eliminate flakiness in high-latency CI environments.
-
-### ⚙ Refactoring & Cleanup
-*   **API Deletion:** Removed 7+ redundant API routes (`/api/auth/me`, `/api/auth/logout`, `/api/auth/signup`, `/api/wishlist`, `/api/friends`, etc.), significantly reducing technical debt.
-*   **Service Layer Cleanup:** Streamlined `TripService.ts` and Zustand stores by removing obsolete data transformation logic.
-
-## [2.2.2] - 2025-12-22
-
-**Streamlined Trips & Unified Visit Management**
-
-Version 2.2.2 focuses on UX refinement and data consistency. We have completely refactored the Trips tab to prioritize immediate relevance, centralized the visit management system for real-time synchronization across all views, and squashed a suite of persistent UI bugs to provide a smoother, more reliable experience.
-
-### 🚀 Features
-*   **Trips Tab Overhaul:**
-    *   Consolidated the "Plan a Trip" and "My Trips" views into a unified, high-performance interface.
-    *   Introduced a **"Happening Today"** section at the top of the Trips tab for immediate relevance.
-    *   Simplified navigation by removing the legacy calendar view in favor of a chronological "Upcoming" list.
-    *   Optimized the mobile layout by moving secondary actions (like "View Past Trips") to the bottom of the drawer.
-*   **Centralized Visit Management:**
-    *   Implemented a global visit store to ensure 100% data consistency across the Map, History tab, and full table views.
-    *   Added comprehensive **Optimistic UI updates** for visit creation, editing, and deletion, ensuring the UI feels instantaneous.
-    *   Refactored visit data structures to a unified `VisitWithWinery` type, improving reliability and type safety.
-
-### 🐛 Bug Fixes
-*   **UI/UX Stability:**
-    *   Resolved multiple race conditions in the **Winery Modal scrolling**; the modal now consistently opens at the top regardless of previous interactions.
-    *   Fixed a bug where the winery modal opened as a blank skeleton when accessed from the History table.
-    *   Fixed the "Edit Visit" feature in the winery modal which previously failed to populate existing review data.
-    *   Corrected an issue where the winery counter on trip cards incorrectly displayed "0".
-*   **Data Integrity:**
-    *   Fixed a critical bug where deleted visits persisted on map pins and in history lists due to ID type mismatches.
-    *   Resolved an issue where selecting a future date in the "New Trip" form would accidentally clobber the current "Happening Today" view.
-*   **Accessibility & Technical Debt:**
-    *   Eliminated "aria-hidden" console warnings by resolving duplicate modal rendering on mobile devices.
-    *   Removed redundant "X" buttons and aligned focus management across all dialogs.
-    *   Fixed several TypeScript and Lint errors, including "setState in render" patterns in the history views.
-    *   Cleaned up the codebase by removing the legacy `TripPlanner` calendar component.
-
-### ⚙ Refactoring
-*   **Architecture:** Completed the transition to "Supabase Native" for all Visit and Trip operations, communicating directly with the database for better performance.
-*   **Testing:** Enhanced the Playwright E2E suite with robust zero-cost mocking for Google Maps API and Supabase RPCs.
-
-## [2.2.1] - 2025-12-17
-
-### 🚀 Features
-*   **Testing Infrastructure:**
-    *   Introduced comprehensive **Playwright E2E Testing** suite covering Auth, Friends, and Trip planning flows.
-    *   Implemented **Dynamic Test User** isolation, allowing tests to run in parallel without race conditions.
-    *   Added GitHub Actions workflow for automated Playwright testing in CI.
-    *   Enabled `.env.local` support for Playwright.
-
-### 🐛 Bug Fixes
-*   **Database & Security:**
-    *   Refactored `toggleFavorite` and `toggleWishlist` to use the `ensure_winery` RPC, successfully bypassing RLS `UPDATE` restrictions for wineries not yet in the database.
-    *   Fixed data fetching in `app/api/friends` to support sent requests and improve reliability.
-    *   Fixed `get_friends` RPC to correctly handle friend request statuses.
-*   **UI/UX:**
-    *   Improved login reliability for Mobile Safari (WebKit) by prioritizing `Enter` key submission and robust UI assertions.
-    *   Fixed TypeScript interface error in `InteractiveBottomSheet`.
-    *   Resolved responsive layout logic issues in `AppShell` for better mobile navigation.
-*   **State Management:**
-    *   Cleaned up unused `createClient` imports to resolve type-check errors.
-
-## [2.0.0] - 2025-12-02
-
-### ⚠ BREAKING CHANGES
-*   **Framework Upgrade:** Upgraded core framework to **Next.js 16** and **React 19**, incorporating modern React Server Components and async request handling patterns.
-*   **Architecture Overhaul:** Shifted data fetching strategy from standard REST API routes to high-performance **Supabase RPCs** (Remote Procedure Calls). This includes `get_user_dashboard` and `get_user_winery_data_aggregated` which consolidate multiple queries into single database calls.
-*   **Database Schema:** Consolidated database schema and migrations, enforcing stricter RLS (Row Level Security) policies.
-
-### 🚀 Features
-*   **Trip Planning:**
-    *   Implemented live winery search directly within the trip details page.
-    *   Added optimistic UI updates for creating and deleting trips to improve perceived performance.
-    *   Added Skeleton loaders for better loading states.
-*   **Winery Details:**
-    *   Added **Q&A Section** for user-driven winery questions.
-    *   Integrated **Business Hours** display in winery modals.
-    *   Added reservation app links.
-*   **Photo Management:**
-    *   Complete overhaul of the photo upload flow.
-    *   Added ability to delete photos and stage deletions before saving.
-*   **Social:**
-    *   New `FriendActivity` and improved friend management interface.
-    *   Optimized friend request fetching via RPC.
-
-### 🐛 Bug Fixes
-*   **Realtime/Websockets:** Fixed persistent issues with Supabase Realtime connections causing crashes and websocket errors on the Trip Card and Details pages.
-*   **Performance:**
-    *   Resolved N+1 query issues in winery fetching.
-    *   Added missing database indexes on foreign keys.
-    *   Fixed Supabase Performance Advisor warnings regarding RLS policies.
-*   **Map & UI:**
-    *   Fixed map clustering and marker rendering issues.
-    *   Resolved scrolling issues in the Winery Modal.
-    *   Fixed "Create Trip" button selectability issues.
-
-### ⚙ Refactoring
-*   **Codebase:**
-    *   Extracted trip logic into a dedicated `TripService` class.
-    *   Decomposed monolithic stores into `visitStore`, `wineryStore`, and `tripStore`.
-    *   Modularized map logic into `useWineryMap`, `WineryMapContainer`, and related sub-components.
-*   **Testing:**
-    *   Added comprehensive unit and integration tests for stores and hooks.
-    *   Configured Jest with React Testing Library for the new React 19 environment.
+### Added
+* Mapbox GL JS vector map rendering via `react-map-gl` with custom marker clustering.
+* Floating map style switcher toggling between Outdoors and Streets basemaps.
+* Immersive full-screen Google Street View integration accessible from winery details.
+* "Powered by Google" floating attribution badge for Places API compliance.
+* Offline vector tile and asset caching rules in Service Worker with storage quota management.
+
+### Changed
+* **Breaking Change:** Migrated primary map rendering engine from Google Maps JavaScript API (`@vis.gl/react-google-maps`) to Mapbox GL JS.
+* **Breaking Change:** Required `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` environment variable for map rendering.
+* Refactored `mapStore`, `use-winery-map`, and `use-winery-filter` to consume Mapbox camera states and serializable bounding boxes.
+
+### Removed
+* Removed `@vis.gl/react-google-maps` and `@googlemaps/markerclusterer` packages.
+* Deleted legacy `GoogleMapsProvider` and `generic-marker-clusterer` components.
+
+---
+
+## Archive
+
+For earlier releases, see the archived changelogs:
+* [Version 2.x Releases (v2.0.0 – v2.13.3)](docs/changelogs/CHANGELOG-v2.md)
+* [agent-resolve Tooling Releases](scripts/agent-resolve/CHANGELOG.md)
+
+[Unreleased]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.7.0...HEAD
+[3.7.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.6.0...v3.7.0
+[3.6.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.5.0...v3.6.0
+[3.5.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.4.0...v3.5.0
+[3.4.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.3.0...v3.4.0
+[3.3.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.2.0...v3.3.0
+[3.2.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.1.0...v3.2.0
+[3.1.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.0.0...v3.1.0
+[3.0.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.13.3...v3.0.0

@@ -179,8 +179,8 @@ def preserve_failed_work(
     if status_out.strip():
         staged_targets = [f for f in target_tests + target_src if (project_root / f).exists()]
         if staged_targets:
-            run_cmd(["git", "add"] + staged_targets)
-            run_cmd(["git", "commit", "-m", f"wip({scope}): Incomplete implementation for Issue #{issue_number} [skip ci]"])
+            run_cmd(["git", "add", "--"] + staged_targets)
+            run_cmd(["git", "commit", "--no-verify", "-m", f"wip({scope}): Incomplete implementation for Issue #{issue_number} [skip ci]"])
 
     run_cmd(["git", "checkout", "--", "."])
     run_cmd(["git", "clean", "-fd"])
@@ -247,8 +247,8 @@ npx jest {" ".join(target_tests)}
     handoff_path = project_root / "AGENT_HANDOFF.md"
     handoff_path.write_text(handoff_md, encoding="utf-8")
 
-    run_cmd(["git", "add", ".agent-state.json", "AGENT_HANDOFF.md"])
-    run_cmd(["git", "commit", "-m", f"docs(agent): Checkpoint state for Issue #{issue_number} [skip ci]"])
+    run_cmd(["git", "add", "--", ".agent-state.json", "AGENT_HANDOFF.md"])
+    run_cmd(["git", "commit", "--no-verify", "-m", f"docs(agent): Checkpoint state for Issue #{issue_number} [skip ci]"])
 
     if dry_run:
         log(f"[Dry Run] Checkpoint state written for Issue #{issue_number}.")

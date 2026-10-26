@@ -182,7 +182,7 @@ Prefix any unused stub parameters with '_' to avoid TS6133 errors.
 
         # Red Verification Gate: jest test must fail with clean assertion failures, NOT runtime harness crashes
         log("Verifying test failure against current production code...")
-        test_cmd = ["npx", "jest", "--json"] + target_tests
+        test_cmd = ["npx", "jest", "--json", "--"] + target_tests
         t_code, t_out, t_err = run_isolated_test(test_cmd)
 
         is_valid_red, red_diagnostics = validate_jest_red_phase(t_code, t_out, t_err)
@@ -204,8 +204,8 @@ Ensure test setup hooks (beforeEach/afterEach) and mocks are completely valid in
         log(f"Red phase verified successfully: tests failed with valid assertions (exit code {t_code}).")
 
         # Commit Red phase tests and initial source stubs
-        run_cmd(["git", "add"] + target_tests + staged_stubs, check=True)
+        run_cmd(["git", "add", "--"] + target_tests + staged_stubs, check=True)
         commit_msg = f"test({scope}): Add failing tests for Issue #{issue_number}"
-        run_cmd(["git", "commit", "-m", commit_msg], check=True)
+        run_cmd(["git", "commit", "--no-verify", "-m", commit_msg], check=True)
         log(f"Committed: {commit_msg}")
         return

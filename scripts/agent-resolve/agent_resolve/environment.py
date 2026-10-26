@@ -23,6 +23,20 @@ SENSITIVE_ENV_KEYS: tuple[str, ...] = (
     "SUPABASE_SERVICE_ROLE_KEY",
     "NEXT_PUBLIC_SUPABASE_ANON_KEY",
     "GOOGLE_MAPS_API_KEY",
+    "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+    "SUPABASE_DB_URL",
+    "POSTGRES_PASSWORD",
+    "JWT_SECRET",
+    "VERCEL_TOKEN",
+    "SUPABASE_ACCESS_TOKEN",
+)
+
+DOCKER_HOST_ENV_KEYS: tuple[str, ...] = (
+    "PATH",
+    "HOME",
+    "USER",
+    "DOCKER_HOST",
+    "XDG_RUNTIME_DIR",
 )
 
 DEFAULT_SUPABASE_TEST_ENV: dict[str, str] = {
@@ -46,21 +60,30 @@ def sanitize_secrets(text: str) -> str:
     """
     if not text:
         return ""
-    # GitHub personal access and installation tokens (ghp_, gho_, ghu_, ghs_, ghr_, github_pat_)
-    redacted = re.sub(
-        r"(?:gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{22,})",
-        "[REDACTED_GH_TOKEN]",
-        text,
-    )
-    # Google API Keys (AIza...)
-    redacted = re.sub(r"AIza[0-9A-Za-z\-_]{35}", "[REDACTED_AIZA_KEY]", redacted)
-    # Bearer authorization headers/tokens
-    redacted = re.sub(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer [REDACTED_TOKEN]", redacted)
-    # Redact sensitive environment variables if present
+    # Redact sensitive environment variables if present first
+    redacted = text
     for key in SENSITIVE_ENV_KEYS:
         val = os.environ.get(key)
         if val and len(val) >= 6:
             redacted = redacted.replace(val, f"[REDACTED_{key}]")
+    # GitHub personal access and installation tokens (ghp_, gho_, ghu_, ghs_, ghr_, github_pat_)
+    redacted = re.sub(
+        r"(?:gh[pousr]_[A-Za-z0-9_]{16,}|github_pat_[A-Za-z0-9_]{22,})",
+        "[REDACTED_GH_TOKEN]",
+        redacted,
+    )
+    # Google API Keys (AIza...)
+    redacted = re.sub(r"AIza[0-9A-Za-z\-_]{35}", "[REDACTED_AIZA_KEY]", redacted)
+    # Supabase access tokens (sbp_...)
+    redacted = re.sub(r"sbp_[A-Za-z0-9_]{30,}", "[REDACTED_SUPABASE_TOKEN]", redacted)
+    # Supabase secrets (sb_secret_...)
+    redacted = re.sub(r"sb_secret_[A-Za-z0-9_\-]{20,}", "[REDACTED_SECRET]", redacted)
+    # App Quality / Antigravity keys (AQ...)
+    redacted = re.sub(r"AQ[A-Za-z0-9_\-]{20,}", "[REDACTED_AQ_KEY]", redacted)
+    # PostgreSQL connection strings
+    redacted = re.sub(r"postgres(?:ql)?://[^\s\"']+", "[REDACTED_DB_URL]", redacted)
+    # Bearer authorization headers/tokens
+    redacted = re.sub(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer [REDACTED_TOKEN]", redacted)
     return redacted
 
 
@@ -73,10 +96,22 @@ def run_cmd(
 ) -> tuple[int, str, str]:
     """Runs a subprocess command with timeout and returns (exit_code, stdout, stderr)."""
     target_cwd = cwd if cwd is not None else config.get_project_root()
+    if env is not None:
+        exec_env = env
+    else:
+        exec_env = os.environ.copy()
+        for k in SENSITIVE_ENV_KEYS:
+            if k in ("GH_TOKEN", "GITHUB_TOKEN") and cmd and cmd[0] == "gh":
+                continue
+            exec_env.pop(k, None)
+        for k in list(exec_env.keys()):
+            if k.startswith("AQ") or k.startswith("sb_secret_"):
+                exec_env.pop(k, None)
+
     p = subprocess.Popen(
         list(cmd),
         cwd=str(target_cwd),
-        env=env if env is not None else os.environ.copy(),
+        env=exec_env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -149,17 +184,26 @@ def run_isolated_test(
             "-e", "PATH=/app/node_modules/.bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
             "node:24-slim",
         ] + list(cmd)
-        return run_cmd(docker_cmd, cwd=target_cwd, env={}, check=False, timeout=timeout)
+        docker_host_env = {k: os.environ[k] for k in DOCKER_HOST_ENV_KEYS if k in os.environ}
+        return run_cmd(docker_cmd, cwd=target_cwd, env=docker_host_env, check=False, timeout=timeout)
+
+    if os.environ.get("CI") == "true":
+        raise RuntimeError("Docker daemon is unavailable in CI. Un-sandboxed host test execution is forbidden.")
+    log("Warning: Docker daemon is unavailable. Falling back to host subprocess execution with scrubbed environment.")
 
     isolated_env = os.environ.copy()
     for key in SENSITIVE_ENV_KEYS:
         isolated_env.pop(key, None)
+    for k in list(isolated_env.keys()):
+        if k.startswith("AQ") or k.startswith("sb_secret_"):
+            isolated_env.pop(k, None)
     isolated_env.update(DEFAULT_SUPABASE_TEST_ENV)
     return run_cmd(list(cmd), cwd=target_cwd, env=isolated_env, check=False, timeout=timeout)
 
 
 __all__: list[str] = [
     "DEFAULT_SUPABASE_TEST_ENV",
+    "DOCKER_HOST_ENV_KEYS",
     "SENSITIVE_ENV_KEYS",
     "log",
     "sanitize_secrets",

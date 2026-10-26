@@ -7,12 +7,20 @@ import { defineConfig, devices } from '@playwright/test';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 
+const externalProdEnv = process.env.PRODUCTION_ENV_FILE || path.join(os.homedir(), '.config/finger-lakes-app/.env.production');
 const isLive = process.env.E2E_REAL_DATA === 'true' || !!process.env.BASE_URL;
-const envFile = isLive && fs.existsSync(path.resolve(__dirname, '.env.local.production'))
-  ? '.env.local.production'
-  : '.env.local';
-dotenv.config({ path: path.resolve(__dirname, envFile) });
+
+let envFile = path.resolve(__dirname, '.env.local');
+if (isLive) {
+  if (fs.existsSync(externalProdEnv)) {
+    envFile = externalProdEnv;
+  } else if (fs.existsSync(path.resolve(__dirname, '.env.local.production'))) {
+    envFile = path.resolve(__dirname, '.env.local.production');
+  }
+}
+dotenv.config({ path: envFile });
 
 /**
  * See https://playwright.dev/docs/test-configuration.

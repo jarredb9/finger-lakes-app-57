@@ -216,7 +216,7 @@ def resolve_issue(client: Any, issue_data: Dict[str, Any], dry_run: bool = False
                         log(f"Running deterministic Red Gate verification for checkpoint {red_sha[:8]}...")
                         reset_target_sources(t_src, baseline_ref=red_sha)
                         tc_code, tc_out, tc_err = run_isolated_test(["npm", "run", "type-check"])
-                        t_code, t_out, t_err = run_isolated_test(["npx", "jest", "--json"] + t_tests)
+                        t_code, t_out, t_err = run_isolated_test(["npx", "jest", "--json", "--"] + t_tests)
 
                         is_valid_red, red_diagnostics = validate_jest_red_phase(t_code, t_out, t_err)
 
@@ -412,7 +412,7 @@ Do not attempt to modify incompatible existing components; design clean, isolate
         code_tp, _, _ = run_cmd(["git", "ls-files", "--error-unmatch", "task-plan.md"])
         if code_tp == 0:
             run_cmd(["git", "rm", "-f", "task-plan.md"])
-            run_cmd(["git", "commit", "-m", "chore: remove task-plan.md from branch"])
+            run_cmd(["git", "commit", "--no-verify", "-m", "chore: remove task-plan.md from branch"])
         plan_p = config.get_project_root() / "task-plan.md"
         if plan_p.exists():
             plan_p.unlink()

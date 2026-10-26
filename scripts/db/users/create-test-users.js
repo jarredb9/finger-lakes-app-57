@@ -33,6 +33,17 @@ if (!rawUrl || !rawKey) {
 const supabaseUrl = rawUrl.trim().replace(/^["']|["']$/g, '');
 const supabaseServiceKey = rawKey.trim().replace(/^["']|["']$/g, '');
 
+const parsedUrl = new URL(supabaseUrl);
+const isLocalhost = ['localhost', '127.0.0.1', '0.0.0.0'].includes(parsedUrl.hostname);
+const allowRemote = process.argv.includes('--allow-remote') || process.env.ALLOW_REMOTE_DB_MUTATION === 'true';
+
+if (!isLocalhost && !allowRemote) {
+  console.error(`🚨 GUARD TRIGGERED: Execution against non-local database (${parsedUrl.hostname}) is prohibited.`);
+  console.error('   This script alters authentication credentials and is restricted to local environments.');
+  console.error('   To explicitly bypass, pass --allow-remote or set ALLOW_REMOTE_DB_MUTATION=true.');
+  process.exit(1);
+}
+
 const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   auth: {
     autoRefreshToken: false,

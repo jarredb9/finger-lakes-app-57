@@ -422,6 +422,55 @@ class TestResolveIssueFreshExecutionAndDryRun(unittest.TestCase):
         mock_pr.assert_called_once()
         self.assertFalse(mock_pr.call_args.kwargs.get("is_resumption"))
 
+    def test_pipeline_removes_tracked_task_plan_with_no_verify_commit(self) -> None:
+        issue_data = {
+            "number": 55,
+            "title": "Add winery sorting",
+            "body": "Sort by distance",
+            "author": {"login": "jarredb9"},
+            "labels": [{"name": "agent:resolve"}],
+        }
+
+        mock_diagnostic = DiagnosticResult(
+            target_files=["lib/winery.ts"],
+            root_cause="Need sorting",
+            code_snippets={"lib/winery.ts": "content"},
+            investigation_summary="Summary",
+        )
+        mock_blueprint = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/__tests__/winery.test.ts"],
+            target_src_files=["lib/winery.ts"],
+            plan_markdown="# Plan Markdown",
+        )
+
+        def mock_cmd_handler(cmd, *args, **kwargs):
+            if cmd == ["git", "ls-files", "--error-unmatch", "task-plan.md"]:
+                return (0, "task-plan.md", "")
+            return (0, "", "")
+
+        with patch.object(
+            agent_resolve, "gh_cli", return_value=(0, "[]", "")
+        ), patch.object(
+            agent_resolve, "run_cmd", side_effect=mock_cmd_handler
+        ) as mock_cmd, patch.object(
+            agent_resolve, "stage_0_diagnose", return_value=mock_diagnostic
+        ), patch.object(
+            agent_resolve, "stage_1_plan", return_value=mock_blueprint
+        ), patch.object(
+            agent_resolve, "stage_2_red"
+        ), patch.object(
+            agent_resolve, "stage_3_green"
+        ), patch.object(
+            agent_resolve, "update_or_create_pr"
+        ):
+            (self.root / "task-plan.md").write_text("# Plan", encoding="utf-8")
+            result = resolve_issue(self.client, issue_data, dry_run=False)
+
+        self.assertTrue(result)
+        mock_cmd.assert_any_call(["git", "commit", "--no-verify", "-m", "chore: remove task-plan.md from branch"])
+        self.assertFalse((self.root / "task-plan.md").exists())
+
     def test_dry_run_deletes_local_branch_and_skips_push_and_pr(self) -> None:
         issue_data = {
             "number": 55,
@@ -888,7 +937,7 @@ class TestResolveIssueResumptionSelfHealing(unittest.TestCase):
 
         self.assertTrue(result)
         mock_cmd.assert_any_call(["git", "diff-tree", "--no-commit-id", "--name-only", "-r", "redsha123456"])
-        mock_test.assert_any_call(["npx", "jest", "--json", "lib/__tests__/winery-red1.test.ts", "lib/__tests__/winery-red2.test.ts"])
+        mock_test.assert_any_call(["npx", "jest", "--json", "--", "lib/__tests__/winery-red1.test.ts", "lib/__tests__/winery-red2.test.ts"])
         mock_s3.assert_called_once()
         bp = self._extract_blueprint(mock_s3)
         self.assertEqual(

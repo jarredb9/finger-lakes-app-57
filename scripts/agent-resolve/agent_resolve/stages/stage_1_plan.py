@@ -18,7 +18,7 @@ from agent_resolve.context import (
 from agent_resolve.environment import log
 from agent_resolve.llm import call_gemini_with_fallback
 from agent_resolve.models import BlueprintPlan, DiagnosticResult
-from agent_resolve.patch_engine import safe_resolve_repo_path
+from agent_resolve.patch_engine import safe_resolve_repo_path, sanitize_target_src_files
 from agent_resolve.tracker import TokenTracker
 
 MAX_BLAST_RADIUS_TESTS: int = 8
@@ -143,16 +143,28 @@ Respond strictly in valid JSON matching the BlueprintPlan schema.
         blueprint.target_test_files = primary_tests
         latest_demoted_tests = demoted_tests
 
-        if blueprint.target_test_files:
+        valid_src, _invalid_src = sanitize_target_src_files(blueprint.target_src_files)
+        blueprint.target_src_files = valid_src
+
+        if blueprint.target_test_files and blueprint.target_src_files:
             break
 
         if attempt < max_planner_attempts:
-            correction_msg = "Target test files must be Jest test files under lib/ or components/ and outside supabase/ and e2e/."
+            correction_msgs = []
+            if not blueprint.target_test_files:
+                correction_msgs.append("Target test files must be Jest test files under lib/ or components/ and outside supabase/ and e2e/.")
+            if not blueprint.target_src_files:
+                correction_msgs.append("Target source files must be application source files under app/, components/, hooks/, lib/, or utils/ ending with .ts, .tsx, .js, .jsx, or .css.")
+            correction_msg = " ".join(correction_msgs)
             feedback_to_inject = f"{feedback_to_inject}\n{correction_msg}".strip() if feedback_to_inject else correction_msg
 
     if not blueprint or not blueprint.target_test_files:
         raise ValueError(
             "No valid target test files specified in architectural blueprint after self-correction: all target test files were invalid (under supabase/, e2e/, or non-Jest)."
+        )
+    if not blueprint.target_src_files:
+        raise ValueError(
+            "No valid target source files specified in architectural blueprint after self-correction: all target source files were invalid or outside allowed directories."
         )
 
     for tf in blueprint.target_test_files:

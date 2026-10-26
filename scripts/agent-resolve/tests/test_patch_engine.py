@@ -26,6 +26,15 @@ from agent_resolve.patch_engine import (
     safe_resolve_repo_path,
 )
 
+try:
+    from agent_resolve.patch_engine import (
+        is_valid_target_src_file,
+        sanitize_target_src_files,
+    )
+except ImportError:
+    is_valid_target_src_file = None  # type: ignore[assignment]
+    sanitize_target_src_files = None  # type: ignore[assignment]
+
 
 class TestSafeResolveRepoPath(unittest.TestCase):
     def setUp(self) -> None:
@@ -103,6 +112,38 @@ class TestSafeResolveRepoPath(unittest.TestCase):
             "scripts/agent-resolve/patch_engine.py",
             "./scripts/agent-resolve.py",
             "./scripts/agent-resolve/config.py",
+        ]
+        for p in blocked_paths:
+            with self.subTest(path=p):
+                with self.assertRaises(ValueError) as ctx:
+                    safe_resolve_repo_path(p)
+                self.assertIn("Modification of protected file blocked", str(ctx.exception))
+
+    def test_blocks_husky_scripts_and_config_and_env_files(self) -> None:
+        blocked_paths = [
+            ".husky/pre-commit",
+            ".husky/_/husky.sh",
+            ".github/dependabot.yml",
+            ".github/workflows/agent-resolve.yml",
+            "scripts/containers/run-jest-container.sh",
+            "package.json",
+            "package-lock.json",
+            "tsconfig.json",
+            "eslint.config.mjs",
+            "playwright.config.ts",
+            "jest.config.js",
+            "jest.config.ts",
+            "next.config.ts",
+            "next.config.mjs",
+            "next.config.js",
+            "postcss.config.mjs",
+            "requirements-agent.txt",
+            ".env",
+            ".env.local",
+            ".env.local.production",
+            ".env.local.example",
+            ".env.test",
+            ".env.custom",
         ]
         for p in blocked_paths:
             with self.subTest(path=p):
@@ -612,3 +653,70 @@ class TestApplyPatchManifest(unittest.TestCase):
         success, errors = apply_patch_manifest(manifest, allowed_files=None)
         self.assertTrue(success, f"Failed with errors: {errors}")
         self.assertEqual(target.read_text(encoding="utf-8"), "changed content\n")
+
+
+class TestTargetSrcFileValidation(unittest.TestCase):
+    def test_is_valid_target_src_file_allowlist(self) -> None:
+        self.assertIsNotNone(is_valid_target_src_file, "is_valid_target_src_file must be exported from patch_engine")
+
+        valid_files = [
+            "app/page.tsx",
+            "app/api/wineries/route.ts",
+            "components/WineryCard.tsx",
+            "components/ui/button.jsx",
+            "hooks/useWineries.ts",
+            "lib/utils.ts",
+            "lib/styles/theme.css",
+            "utils/formatting.js",
+            "./app/layout.tsx",
+            "lib/deep/nested/module.ts",
+        ]
+        for f in valid_files:
+            with self.subTest(file=f):
+                self.assertTrue(is_valid_target_src_file(f), f"Expected {f} to be a valid target source file")
+
+        invalid_files = [
+            # Disallowed directories
+            "src/index.ts",
+            "server/index.ts",
+            "scripts/agent-resolve.py",
+            "scripts/containers/run-jest-container.sh",
+            ".husky/pre-commit",
+            ".github/workflows/ci.yml",
+            "supabase/migrations/001_init.sql",
+            "tests/test.ts",
+            "e2e/trip.spec.ts",
+            # Disallowed extensions
+            "app/page.py",
+            "components/Card.md",
+            "lib/data.json",
+            "lib/asset.png",
+            # Protected config files
+            "package.json",
+            "tsconfig.json",
+            "eslint.config.mjs",
+            ".env",
+            ".env.local",
+            # Path traversals
+            "app/../package.json",
+            "lib/../../outside.ts",
+        ]
+        for f in invalid_files:
+            with self.subTest(file=f):
+                self.assertFalse(is_valid_target_src_file(f), f"Expected {f} to be rejected as invalid target source file")
+
+    def test_sanitize_target_src_files(self) -> None:
+        self.assertIsNotNone(sanitize_target_src_files, "sanitize_target_src_files must be exported from patch_engine")
+
+        candidates = [
+            "lib/utils.ts",
+            "package.json",
+            "components/Card.tsx",
+            ".husky/pre-commit",
+            "scripts/run.sh",
+            "hooks/useData.ts",
+        ]
+        valid, invalid = sanitize_target_src_files(candidates)
+        self.assertEqual(valid, ["lib/utils.ts", "components/Card.tsx", "hooks/useData.ts"])
+        self.assertEqual(invalid, ["package.json", ".husky/pre-commit", "scripts/run.sh"])
+

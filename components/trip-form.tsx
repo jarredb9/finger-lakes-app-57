@@ -35,7 +35,7 @@ interface TripFormProps {
 const tripSchema = z.object({
   name: z.string().min(1, "Trip name is required"),
   date: z.date({
-    required_error: "Date is required",
+    message: "Date is required",
   }),
   wineries: z.array(z.custom<Winery>()),
 });
