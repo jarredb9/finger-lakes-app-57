@@ -37,5 +37,11 @@
 | **agent-resolve-decomposition_20261015** | Decompose monolithic agent-resolve.py into a modular Python package | [x] Archived | [Plan](./archive/agent-resolve-decomposition_20261015/plan.md) |
 | **agent-resolve-token-limits_20261019** | Prevent prompt token blowout from blast-radius test injection, unbounded Jest output, and cached token accounting | [x] Archived | [Plan](./archive/agent-resolve-token-limits_20261019/plan.md) |
 | **agent-resolve-quality-hardening_20261021** | Quality hardening via patch-based Red phase, test deduplication, targeted linter gates, and prompt context pruning | [x] Archived | [Plan](./archive/agent-resolve-quality-hardening_20261021/plan.md) |
+| **db-security-hardening_20261026** | Database Security Hardening, RLS Lockdown, and SECURITY INVOKER Conversion (Issue #87) | [ ] New | [Plan](./tracks/db-security-hardening_20261026/plan.md) |
+
+---
+
+- [ ] **Track: Database Security Hardening, RLS Lockdown, and SECURITY INVOKER Conversion (Issue #87)**
+*Link: [./tracks/db-security-hardening_20261026/](./tracks/db-security-hardening_20261026/)*
 
 
