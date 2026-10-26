@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Relocated production environment files outside mounted container runner trees and enforced `0600` permissions on local secrets ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
 * Hardened Playwright container runner by replacing shell `eval` with positional array forwarding ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
 * Parameterized GitHub Actions workflow inputs with regex validation to prevent expression injection ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Enforced high- and critical-severity dependency audit gate in the CI/CD pipeline and configured automated weekly Dependabot version updates ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
 
 ## [3.7.0] - 2026-10-23
 
