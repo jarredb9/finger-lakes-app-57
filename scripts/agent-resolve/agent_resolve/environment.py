@@ -81,7 +81,7 @@ def sanitize_secrets(text: str) -> str:
     # App Quality / Antigravity keys (AQ...)
     redacted = re.sub(r"AQ[A-Za-z0-9_\-]{20,}", "[REDACTED_AQ_KEY]", redacted)
     # PostgreSQL connection strings
-    redacted = re.sub(r"postgresql://[^\s\"']+", "[REDACTED_DB_URL]", redacted)
+    redacted = re.sub(r"postgres(?:ql)?://[^\s\"']+", "[REDACTED_DB_URL]", redacted)
     # Bearer authorization headers/tokens
     redacted = re.sub(r"Bearer\s+[A-Za-z0-9\-._~+/]+=*", "Bearer [REDACTED_TOKEN]", redacted)
     return redacted
@@ -101,6 +101,8 @@ def run_cmd(
     else:
         exec_env = os.environ.copy()
         for k in SENSITIVE_ENV_KEYS:
+            if k in ("GH_TOKEN", "GITHUB_TOKEN") and cmd and cmd[0] == "gh":
+                continue
             exec_env.pop(k, None)
         for k in list(exec_env.keys()):
             if k.startswith("AQ") or k.startswith("sb_secret_"):

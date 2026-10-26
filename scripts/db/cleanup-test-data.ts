@@ -21,7 +21,7 @@ const allowRemote = process.argv.includes('--allow-remote') || process.env.ALLOW
 
 if (!isLocalhost && !allowRemote) {
   console.error(`🚨 GUARD TRIGGERED: Execution against non-local database (${parsedUrl.hostname}) is prohibited.`);
-  console.error('   This script alters authentication credentials and is restricted to local environments.');
+  console.error('   This script deletes database records and is restricted to local environments.');
   console.error('   To explicitly bypass, pass --allow-remote or set ALLOW_REMOTE_DB_MUTATION=true.');
   process.exit(1);
 }

@@ -139,18 +139,20 @@ class TestEnvironment(unittest.TestCase):
         aq_key = "AQ1234567890abcdef123456"
         sb_secret = "sb_secret_abcdef1234567890xyz123"
         pg_url = "postgresql://postgres:mypassword@db.jfsxclrdxmvftxacjuqf.supabase.co:5432/postgres"
+        pg_short_url = "postgres://postgres:otherpassword@localhost:5432/postgres"
 
-        raw = f"Details: token={supabase_pat}, aq={aq_key}, sb={sb_secret}, conn={pg_url}"
+        raw = f"Details: token={supabase_pat}, aq={aq_key}, sb={sb_secret}, conn={pg_url}, conn2={pg_short_url}"
         sanitized = sanitize_secrets(raw)
 
         self.assertNotIn(supabase_pat, sanitized)
         self.assertNotIn(aq_key, sanitized)
         self.assertNotIn(sb_secret, sanitized)
         self.assertNotIn(pg_url, sanitized)
+        self.assertNotIn(pg_short_url, sanitized)
         self.assertIn("[REDACTED_SUPABASE_TOKEN]", sanitized)
         self.assertIn("[REDACTED_AQ_KEY]", sanitized)
         self.assertIn("[REDACTED_SECRET]", sanitized)
-        self.assertIn("[REDACTED_DB_URL]", sanitized)
+        self.assertEqual(sanitized.count("[REDACTED_DB_URL]"), 2)
 
     def test_run_cmd_executes_and_strips_output_using_dynamic_project_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -322,6 +324,27 @@ class TestEnvironment(unittest.TestCase):
                 "sb_secret_val",
             ]:
                 self.assertNotIn(scrubbed, passed_env)
+
+    def test_run_cmd_preserves_gh_tokens_when_invoking_gh_binary(self) -> None:
+        with patch.dict(os.environ, {
+            "GEMINI_API_KEY": "secret_gemini",
+            "GH_TOKEN": "secret_gh",
+            "GITHUB_TOKEN": "secret_github",
+            "SUPABASE_DB_URL": "postgresql://postgres:secret@localhost:5432/db",
+        }, clear=True), patch("subprocess.Popen") as mock_popen:
+            mock_proc = MagicMock()
+            mock_proc.communicate.return_value = ("stdout", "stderr")
+            mock_proc.returncode = 0
+            mock_popen.return_value = mock_proc
+
+            run_cmd(["gh", "issue", "view", "42"], env=None)
+            mock_popen.assert_called_once()
+            passed_env = mock_popen.call_args.kwargs["env"]
+
+            self.assertEqual(passed_env.get("GH_TOKEN"), "secret_gh")
+            self.assertEqual(passed_env.get("GITHUB_TOKEN"), "secret_github")
+            self.assertNotIn("GEMINI_API_KEY", passed_env)
+            self.assertNotIn("SUPABASE_DB_URL", passed_env)
 
     def test_run_isolated_test_fallback_branch_scrubs_sensitive_env_vars(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
