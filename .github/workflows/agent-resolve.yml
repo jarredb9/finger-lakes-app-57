@@ -79,7 +79,7 @@ jobs:
           cache: 'npm'
 
       - name: Install Node dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Pull Docker Node Image for Sandboxed Verification
         run: docker pull node:24-slim || true
@@ -113,13 +113,19 @@ jobs:
           EXECUTOR_MODEL: ${{ vars.EXECUTOR_MODEL || 'gemini-3.8-flash' }}
           MAX_TOKENS_PER_ISSUE: ${{ vars.MAX_TOKENS_PER_ISSUE || '500000' }}
           BATCH_PACING_SECONDS: ${{ vars.BATCH_PACING_SECONDS || '5' }}
+          INPUT_ISSUE_NUMBER: ${{ github.event.inputs.issue_number }}
+          INPUT_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           ARGS=""
-          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+          if [ "$INPUT_DRY_RUN" = "true" ]; then
             ARGS="$ARGS --dry-run"
           fi
-          if [ -n "${{ github.event.inputs.issue_number }}" ]; then
-            python3 -u scripts/agent-resolve/agent-resolve.py --issue "${{ github.event.inputs.issue_number }}" $ARGS
+          if [ -n "$INPUT_ISSUE_NUMBER" ]; then
+            if ! [[ "$INPUT_ISSUE_NUMBER" =~ ^[0-9]+$ ]]; then
+              echo "::error::Invalid issue_number: must be a positive integer"
+              exit 1
+            fi
+            python3 -u scripts/agent-resolve/agent-resolve.py --issue "$INPUT_ISSUE_NUMBER" $ARGS
           else
             python3 -u scripts/agent-resolve/agent-resolve.py --max-issues 3 $ARGS
           fi

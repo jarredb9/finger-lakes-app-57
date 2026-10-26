@@ -84,10 +84,6 @@ jobs:
       - name: Verify Migrations (Fresh Build)
         run: supabase db reset
 
-      - name: "Information Only: Production Schema Diff"
-        if: ${{ github.event_name == 'pull_request' }}
-        run: supabase db diff --db-url "${{ secrets.SUPABASE_DB_URL }}" || true
-
       - name: Run Jest tests
         run: npm run test
 
