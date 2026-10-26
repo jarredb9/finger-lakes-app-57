@@ -2,602 +2,199 @@
 
 All notable changes to the Winery Visit Planner and Tracker are documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 > [!NOTE]
 > Tooling release notes for `agent-resolve` are maintained separately in [scripts/agent-resolve/CHANGELOG.md](scripts/agent-resolve/CHANGELOG.md).
 
+## [Unreleased]
 
 ## [3.7.0] - 2026-10-23
 
-**Milestone v3.7.0: Bug Fixes, Incomplete Implementations, and PWA Testing Updates**
+### Added
+* Multi-provider trip navigation scheme supporting Apple Maps, Google Maps, and Waze with accessible Radix dropdown selection ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63), [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70), [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md)).
+* Containerized iOS PWA standalone mode emulation and Playwright WebKit test fixtures ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71), [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72), [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md)).
+* Client-side full visit history evaluation with on-demand complete dataset fetching, multi-column sorting (Date, Rating, Winery Name), in-memory filtering, and responsive pagination in `VisitHistoryModal` ([ADR-0003](docs/adr/0003-client-side-visit-history-evaluation.md)).
+* Haversine distance calculation and dynamic `FloatingSearchAreaButton` rendered when viewport center shifts >5 km from last searched bounds ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44), [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md)).
+* Tri-state operational status model (`Open Now`, `Closed`, and `Hours Unavailable`) with animated skeleton loading pills during pending enrichment ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* On-demand Places API enrichment triggered when opening details for database-persisted wineries lacking operational hours ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Dismissible selected wineries badge list (`SelectedWineriesList`) in `TripForm` ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
+* Formally established global winery discovery scope and unrestricted user geolocation policy ([ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md)).
 
-### 📱 Automated iOS PWA Standalone Testing Matrix & Domain Refactoring ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71) / [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72) / [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
-* **Containerized iOS Standalone Mode Emulation & Playwright Test Fixtures**:
-    * Implemented `enableStandaloneMode(page)` in `e2e/fixtures/shims/browser.shim.ts`, injecting WebKit `window.navigator.standalone = true` and standard W3C `matchMedia` proxy returning `matches: true` for `(display-mode: standalone)` and `matches: false` for `(display-mode: browser)`.
-    * Implemented `standalonePage` test fixture in `e2e/fixtures/index.ts` (re-exported via `e2e/utils.ts`) that applies standalone emulation via `page.addInitScript` prior to page navigation, allowing end-to-end PWA verification on rootless Linux containers without physical iOS hardware or macOS simulator licensing.
-    * Authored Playwright WebKit / Mobile Safari end-to-end test suite `e2e/trip-navigation-pwa.spec.ts` under containerized execution:
-        * Intercepted external navigation providers (`maps.apple.com`, `google.com/maps/dir`, `waze.com/ul`) via `setupExternalNavigationRouteInterceptors` to eliminate DNS timeouts in isolated container environments.
-        * Verified transient user gesture preservation on popup dispatch (`page.waitForEvent('popup')`) across Apple Maps, Google Maps, and Waze without WebKit security popup blocking.
-        * Validated navigation URL pathname and query parameter generation (`mode=driving`, `destination`, `waypoints`, `ll`) and confirmed 0-stop trips disable navigation triggers.
-    * Hardened `e2e/pwa-install-layout.spec.ts` with standalone assertions verifying complete suppression of mobile install bars and desktop install cards even when `beforeinstallprompt` is dispatched.
-* **Canonical Domain Method & Seam Refactoring (`useTripActions` & `TripCard`)**:
-    * Refactored `hooks/use-trip-actions.ts` to export canonical `handleTripNavigation(provider: NavigationProvider = 'google')` conforming to `CONTEXT.md` domain modeling.
-    * Maintained backwards compatibility by exporting `@deprecated handleExportToMaps` as a direct alias to `handleTripNavigation`.
-    * Updated container components `components/trip-card.tsx` and `components/trip-card-simple.tsx` to bind both `onNavigateTrip={handleTripNavigation || handleExportToMaps}` and `onExportToMaps={handleExportToMaps || handleTripNavigation}`.
-    * Updated presentational components `components/TripCardPresentational.tsx` and `components/TripCardSimplePresentational.tsx` to accept `onNavigateTrip` with fallback to `onExportToMaps` (`const onNavigate = onNavigateTrip || onExportToMaps`).
-    * Preserved 100% synchronous call stack from touch interaction to `launchTripNavigation`, preventing WebKit popup blocker activation.
-* **PWA Standalone Detection Hardening & Install UI Invariant Enforcement**:
-    * Hardened `hooks/use-pwa.ts` to enforce boolean casting for `isStandalone` across iOS WebClip signal (`window.navigator.standalone`), W3C standard `matchMedia('(display-mode: standalone)')`, and Android referrer (`android-app://`).
-    * Enforced standalone installability invariant: `isInstallable: !isStandalone && !!installPrompt`, guaranteeing install prompts are never active when running in standalone mode.
-    * Added defense-in-depth guard in `components/pwa-handler.tsx` (`if (!isInstallable || isStandalone || isDismissed) return null;`) and verified `"Install App"` menu item suppression in `components/nav/user-nav.tsx`.
-    * Added WCAG 4.1.2 accessible name `aria-label="Dismiss"` to desktop install card close button in `components/pwa-handler.tsx`, and wrapped `installPrompt.prompt()` in `try...catch` to handle rejected promises safely.
-* **Comprehensive Multi-Tier Test Suites & Strict TDD Red/Green Execution**:
-    * Implemented unit test matrix in `hooks/__tests__/use-pwa.test.ts` covering standard browser mode, iOS WebClip signals, W3C matchMedia signals, Android referrer signals, prompt acceptance, dismissal, lifecycle unmount cleanup, and standalone `installApp` early termination.
-    * Added component tests in `components/__tests__/PwaHandler.test.tsx` and `components/nav/__tests__/user-nav.test.tsx` asserting complete banner and menu item suppression in standalone mode.
-    * Authored unit tests in `hooks/__tests__/use-trip-actions.test.ts` asserting canonical `handleTripNavigation` and `@deprecated handleExportToMaps` synchronous dispatches.
-    * Added container and presentational component test suites in `components/__tests__/trip-card-simple.test.tsx`, `components/__tests__/TripCardPresentational.test.tsx`, and `components/__tests__/TripCardSimplePresentational.test.tsx`.
-    * Executed all features strictly following the repository TDD Task Granularity Invariant with sequential Red (`test(...)`) and Green (`feat(...)`) commits.
+### Changed
+* Standardized trip navigation actions in `useTripActions` to canonical `handleTripNavigation(provider)` ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71), [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72)).
+* Switched trip navigation launching to synchronous window opening within the user gesture event loop to eliminate WebKit popup blocker suppression on iOS PWAs ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63), [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70)).
+* Refactored `use-winery-filter` to derive sidebar lists from the unified map winery collection filtered by active viewport bounds and category filters ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44)).
+* Decoupled top-level layout loading from winery detail enrichment, permitting cached data to render immediately with field-level loading indicators ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Upgraded Zustand persistence schema to version 2 with selective migration purging stale enriched records while preserving map markers ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Expanded `public.get_map_markers` RPC and Places API field masks to ingest ratings, review counts, and amenities under Places Basic SKU ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44)).
+* Refactored `TripForm` winery selection to declarative React Hook Form field bindings ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
+* Preserved session-backed modal state (`_PWA_ACTIVE_WINERY_ID`) across PWA updates to restore active modals seamlessly ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Delegated offline `'create_trip'` sync queue actions directly to `TripService.createTrip` for online/offline parity ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
 
-### 🧭 Multi-Provider Trip Navigation & iOS PWA WebKit Gesture Preservation ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63) / [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70) / [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))
-* **WebKit Transient User Gesture Preservation & Synchronous Launch Architecture**:
-    * Eliminated asynchronous `navigator.geolocation.getCurrentPosition` callback hops in `useTripActions` (`hooks/use-trip-actions.ts`), resolving WebKit popup blocker suppression that prevented navigation dispatch on standalone iOS PWAs and Mobile Safari.
-    * Extracted synchronous navigation URL construction and execution into a dedicated, SSR-safe utility `launchTripNavigation` (`lib/utils/trip-navigation.ts`), ensuring `window.open` executes strictly within the synchronous event turn of user gesture activation with `'noopener,noreferrer'`.
-    * Omitted explicit origin parameters across navigation providers, allowing native client applications to automatically default the route origin to the user's real-time device GPS coordinates without requiring explicit browser location permission prompts.
-* **Multi-Provider Navigation Routing Schemes (Apple Maps, Google Maps, Waze)**:
-    * Implemented `buildTripNavigationUrl` supporting `'google'`, `'apple'`, and `'waze'` providers via `NavigationProvider` interface.
-    * **Google Maps**: Formatted URL using `https://www.google.com/maps/dir/?api=1&destination=<destination>`, appending intermediate stops as pipe-delimited (`|`) `waypoints` without an explicit `origin` parameter.
-    * **Apple Maps**: Implemented official Apple MapKit directions protocol `https://maps.apple.com/directions?mode=driving&destination=<last_stop>`, chaining intermediate waypoints via repeating `waypoint=<stop_n>` parameters while omitting `saddr`.
-    * **Waze**: Implemented coordinate deep linking via `https://waze.com/ul?ll=<lat>,<lng>&navigate=yes`, supporting both flat coordinates and nested `location` objects (`stop.location.latitude`/`longitude`), with query fallback (`q=<formatted_query>`) when coordinates are absent.
-    * Added defensive stop query formatting (`formatStopQuery`) trimming whitespace and cleanly concatenating winery name and address.
-* **Radix Dropdown Menu Event Decoupling & Accessible Presentational UI**:
-    * Refactored navigation actions in `TripCardPresentational.tsx` and `TripCardSimplePresentational.tsx` from single-destination buttons into Radix UI `<DropdownMenu>` components providing user selection for Apple Maps, Google Maps, and Waze.
-    * Decoupled trigger click from direct export execution by removing inline `onClick={() => onExportToMaps('google')}` from trigger buttons, eliminating the double-firing defect where Google Maps launched simultaneously upon opening the dropdown menu.
-    * Standardized accessible button labeling and tooltip text to `"Trip Navigation"`.
-    * Hardened trigger button disabled states against empty stop lists (`!tripWineries || tripWineries.length === 0`) and pending sync states (`isPending || count === 0`).
-* **Multi-Tier Unit, Container, and End-to-End Test Verification**:
-    * Authored 15 unit tests in `lib/utils/__tests__/trip-navigation.test.ts` validating whitespace trimming, single-stop and multi-stop URL generation across Google Maps and Apple Maps MapKit schemes, Waze coordinate/query fallbacks, empty stop guards, and window opening.
-    * Added comprehensive unit test coverage in `hooks/__tests__/use-trip-actions.test.ts` verifying synchronous window launching, absence of `navigator.geolocation` calls, provider branching, and restored member persistence (`saveTripMembers`) with success and error toast handling.
-    * Added dropdown menu interaction test suites in `components/__tests__/TripCardPresentational.test.tsx` and `components/__tests__/TripCardSimplePresentational.test.tsx` testing provider selection for Apple Maps, Google Maps, and Waze.
-    * Adapted container test `components/__tests__/trip-card-simple.test.tsx` to simulate menu item clicks through the Radix dropdown menu.
-    * Aligned Playwright E2E assertion selector in `e2e/trip-flow.spec.ts` with the new `"Trip Navigation"` accessible button label.
-* **Domain Modeling & Containerized PWA Emulation Strategy ([ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md))**:
-    * Formulated and recorded [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md) establishing containerized WebKit and JSDOM `navigator.standalone` emulation on Linux without requiring physical iOS hardware or macOS simulator licensing.
-    * Standardized canonical domain terms in `CONTEXT.md` for "Navigation Provider", "Standalone Mode", and "Browser Mode".
+### Deprecated
+* `handleExportToMaps` in `useTripActions` and trip card components in favor of `handleTripNavigation` ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71), [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72)).
 
-### 🍇 ExploreTabContent Data Pipeline Desynchronization & Missing Winery Enrichment ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44) / [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md))
-* **Database Map Markers RPC Expansion & Safe Schema Migration**:
-    * Expanded PostgreSQL `public.get_map_markers` RPC via transaction migration (`supabase/migrations/20261007090000_enrich_map_markers_rpc.sql`) executing `DROP FUNCTION IF EXISTS public.get_map_markers(uuid)` and `CREATE OR REPLACE FUNCTION` with expanded `RETURNS TABLE` including `google_rating`, `user_rating_count`, `allows_dogs`, `good_for_children`, `outdoor_seating`, `has_ev_charging`, and `enrichment_tier`.
-    * Enforced strict security definer execution with `search_path = public, pg_temp` and caller authorization check (`p_user_id IS NULL OR p_user_id != auth.uid()`).
-    * Updated `MapMarkerRpc` interface in `lib/types.ts` and generated TypeScript database types (`lib/database.types.ts`).
-* **Places API v1 Essentials Field Mask & Rating Ingestion**:
-    * Expanded `ESSENTIALS_FIELD_MASK` in `supabase/functions/_shared/google-maps.ts` to include `places.rating` and `places.userRatingCount` under Google Places Basic SKU, preventing unexpected billing tier escalation.
-    * Updated `normalizeGooglePlaceV1` in `supabase/functions/_shared/normalization.ts` and `supabase/functions/search-wineries/index.ts` to ingest ratings and review counts while replacing `any` casts with strict TypeScript interfaces (`GooglePlaceInput`, `NormalizedWinery`, `NormalizedReview`).
-    * Standardized ratings and review counts in `standardizeWineryData` (`lib/utils/winery.ts`) across basic search payloads and RPC payloads.
-* **Authoritative Store Caching & Reactive User Action Synchronization**:
-    * Unified search results ingestion in `wineryStore` / `useWinerySearch` via `bulkUpsertWineries`, merging incoming search results into `persistentWineries` while preserving user state flags (`isFavorite`, `onWishlist`, `userVisited`, custom notes) via `{ preserveUserFlags: true }`.
-    * Ensured `ensureWineryDetails` updates `persistentWineries` seamlessly upon background lazy enrichment completion.
-    * Wired reactive instant UI state propagation across user actions (`toggleFavorite`, `toggleWishlist`, `toggleFavoritePrivacy`, `toggleWishlistPrivacy`, `addVisitToWinery`, `optimisticallyDeleteVisit`), updating both `persistentWineries` and `mapStore.searchResults` without requiring network re-fetches.
-* **Tri-State Vibe Tag Preservation & Ghost Visit Prevention**:
-    * Implemented `parseTriStateBoolean` in `lib/utils/winery.ts` to preserve strict tri-state `boolean | null` (`true` = confirmed amenity present, `false` = confirmed absent, `null` = un-enriched/unknown), eliminating false coercion of un-enriched amenities to `false`.
-    * Enforced ghost visit prevention invariant in `standardizeWineryData`: if a data source reports `user_visited: false` (or falsy without `preserveUserFlags`), cached `visits` arrays are cleared immediately.
-    * Updated mock fixtures and network handlers (`lib/test-utils/fixtures.ts`, `e2e/fixtures/utils/mock-wineries.ts`, `e2e/fixtures/handlers/favorites.handler.ts`) to align with the expanded marker contract.
-* **Unified Viewport-Authoritative Sidebar List & Vibe Tag Filtering**:
-    * Refactored `hooks/use-winery-filter.ts` to eliminate diverging `searchResults.length > 0` branching, computing `listResultsInView` from the unified winery collection (`mapWineries`) filtered strictly by active map `bounds` and active category filters.
-    * Enforced strict conjunction (`=== true`) for Vibe Tag filters (`allowsDogs`, `goodForChildren`, `outdoorSeating`, `hasEvCharging`), excluding un-enriched records (`null`) and confirmed negatives (`false`).
-    * Synchronized Vibe Tag filtering across both map pins (`MapView.tsx`, `google-map-fallback.tsx`) and sidebar list cards on initial load.
-    * Enhanced `WineryCardThumbnail` (`components/winery-card-thumbnail.tsx`) to display star ratings and review counts `(userRatingCount)`.
-* **Viewport Search UX, Haversine Distance & Map Event Synchronization**:
-    * Implemented Haversine great-circle distance utility `calculateDistanceKm` in `lib/utils/map-utils.ts` supporting both `{ latitude, longitude }` and `{ lat, lng }` coordinates.
-    * Created `FloatingSearchAreaButton` (`components/map/floating-search-area-button.tsx`) rendered at top-center of the map canvas in `components/WineryMap.tsx`.
-    * Configured visibility logic: button dynamically appears when `autoSearch` is `false` and viewport center distance from `lastSearchedBounds` exceeds 5 km, and dismisses upon clicking to trigger manual search area execution.
-    * Seeded `lastSearchedBounds` on initial map mount in `hooks/use-winery-map.ts`.
-    * Added map `resize` listener and `ResizeObserver` on `MapView` container to synchronize viewport bounds when sidebar collapses or expands.
-    * Documented global discovery scope and unrestricted user geolocation in [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md) and `CONTEXT.md`.
-* **Multi-Tier Regression Test Suites & End-to-End Browser Verification**:
-    * Added unit test suites for tri-state Vibe Tag parsing, rating mapping, and ghost visit clearing (`lib/utils/__tests__/winery.test.ts`).
-    * Added unit test suites for Haversine distance calculation and `FloatingSearchAreaButton` rendering/suppression (`lib/utils/__tests__/map-utils.test.ts`, `components/map/__tests__/floating-search-area-button.test.tsx`).
-    * Added unit test suites for persistent search merging, cache hydration, and reactive user state synchronization (`lib/stores/__tests__/wineryStore.enrichment.test.ts`).
-    * Added unit test suites for unified viewport filtering and strict Vibe Tag conjunction (`hooks/__tests__/use-winery-filter.test.ts`, `components/__tests__/winery-card-thumbnail.test.tsx`, `components/__tests__/vibe-tag-filtering.test.tsx`).
-    * Added database RPC integration tests in `lib/services/__tests__/db-optimization.integration.test.ts`.
-    * Added Edge Function tests in `supabase/functions/search-wineries/index.test.ts`.
-    * Authored real browser Playwright WebKit E2E test suite `e2e/map-viewport.spec.ts` verifying floating search button suppression, distance threshold triggering (>5 km), canvas drag panning, and area search execution.
+### Fixed
+* Fixed false-closed winery status badges and runtime crashes caused by partial weekday hours arrays ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)).
+* Fixed automatic wishlist entry clearing when logging a visit, and repaired boolean precedence in `standardizeWineryData` ([#54](https://github.com/jarredb9/finger-lakes-app-57/issues/54), [ADR-0001](docs/adr/0001-wishlist-cleared-on-visit.md)).
+* Fixed null coordinate persistence during multi-stop trip creation by coalescing latitude and longitude keys across RPCs and client services ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
+* Fixed navigation popup blocking in WebKit standalone mode by eliminating asynchronous geolocation callback hops ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63), [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70)).
+* Fixed mobile install banner display leaks when running in standalone mode ([#71](https://github.com/jarredb9/finger-lakes-app-57/issues/71), [#72](https://github.com/jarredb9/finger-lakes-app-57/pull/72)).
+* Fixed trip count desynchronization and flickering to "0 Wineries" on newly created trip cards ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)).
+* Fixed ghost visit persistence when data sources report unvisited status ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44)).
+* Fixed double-firing navigation export defect when clicking the navigation dropdown trigger button ([#63](https://github.com/jarredb9/finger-lakes-app-57/issues/63), [#70](https://github.com/jarredb9/finger-lakes-app-57/pull/70)).
 
-
-### 📜 Client-Side Full Visit History Evaluation & Multi-Column Sorting ([ADR-0003](docs/adr/0003-client-side-visit-history-evaluation.md))
-* **Client-Side Full Dataset Evaluation & On-Demand Hydration**:
-    * Implemented on-demand complete lifetime visit history fetching (`fetchAllVisits` in `useVisitStore` / `visitDataSlice.ts`) when opening the Full Visit History modal (`VisitHistoryModal`), querying `get_paginated_visits_with_winery_and_friends` with a single high-limit batch (`p_page_size: 1000`) to evaluate the full historical visit catalog in-memory without altering database DDL.
-    * Added `allVisitsLoaded` state flag in `visitStore` and wired cache invalidation to reset `allVisitsLoaded: false` whenever paginated `fetchVisits(1, true)` refreshes the chronological feed.
-    * Guarded `fetchAllVisitsHelper` against redundant in-flight network requests (`if (get().isLoading) return;`).
-* **Multi-Column Sorting & In-Memory Filtering**:
-    * Integrated client-side sorting across Date (comparing timestamps), Rating (numeric star ranking with unrated fallback), and Winery Name (`localeCompare`) in `components/visits-table-columns.tsx`.
-    * Standardized table column headers and search placeholders to align with canonical domain terminology ("Visit Note", "Filter by winery or notes...").
-    * Ensured strict column typing (`ColumnDef<VisitWithWinery>[]`) eliminating unsafe `as any` type assertions.
-* **Responsive Client-Side Pagination**:
-    * Integrated TanStack Table `getPaginationRowModel` into `components/ui/data-table.tsx` with a default page size of 25, interactive page size selector (10, 25, 50 rows per page), and page boundary controls.
-    * Added mobile pagination (10 cards per page) with defensive bounds clamping (`Math.min(mobilePage, totalMobilePages)`) and immediate page resets on search filter or sort changes, eliminating React 19 cascading re-render warnings (`react-hooks/set-state-in-effect`).
-* **Regression Testing & Style Guide Compliance**:
-    * Added comprehensive unit test suite in `components/__tests__/visit-history-sorting.test.tsx` verifying full dataset hydration, ascending/descending multi-column sorting, text search filtering, page size switches, and mobile pagination boundary clamping.
-    * Added store test coverage in `lib/stores/__tests__/visitStore.test.ts` verifying `fetchAllVisits` batch fetching, reset handling, and `fetchVisits(1, true)` cache invalidation.
-    * Ensured full compliance with the Google TypeScript Style Guide (elimination of `any`, explicit typing from database RPC return types, single quotes, terminal semicolons).
-
-### 🗺️ Initial Trip Creation Winery Persistence & Store Synchronization ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57))
-* **PostgreSQL RPC Coordinate Standardization & Dual-Key Serialization**:
-    * Updated `public.add_winery_to_trip` RPC migration (`supabase/migrations/20261002120000_standardize_add_winery_to_trip_coordinates.sql`) to coalesce `COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat')::numeric` and `COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng')::numeric`, eliminating `NULL` coordinate persistence for chained winery stops while preserving 100% backward compatibility via the expand-and-contract pattern.
-    * Enhanced `WineryService.getRpcData` in `lib/services/wineryService.ts` with dual-key coordinate serialization emitting both `latitude`/`longitude` and `lat`/`lng` for defense-in-depth safety across legacy and updated RPC callers.
-* **Controlled Form Field Binding & Autocomplete UX in `TripForm`**:
-    * Refactored `components/trip-form.tsx` to bind winery search and selection inside a formal React Hook Form `<FormField control={form.control} name="wineries" render={({ field }) => ...} />`, replacing imperative `handleWineryToggle`, `ensureInDb`, and `form.setValue` calls with declarative `field.onChange` state management.
-    * Replaced untyped `z.any()` in schema with `z.array(z.custom<Winery>())`.
-    * Extracted presentational `SelectedWineriesList` component rendering selected wineries as dismissible badges with accessible removal buttons and test IDs (`data-testid="selected-wineries-list"`, `data-testid="selected-winery-${winery.id}"`).
-    * Implemented `clearOnSelect` prop and programmatic update guard ref in `components/PlaceAutocomplete.tsx` to immediately clear search inputs upon suggestion selection, keeping the dropdown closed and suppressing debounced re-queries while retaining typed queries on resolution failures.
-    * Added full WAI-ARIA combobox accessibility attributes across `PlaceAutocomplete` and `PlaceAutocompleteSuggestionsList` (`role="combobox"`, `role="listbox"`, `role="option"`, `aria-activedescendant`, `aria-controls`, `aria-expanded`).
-* **Polymorphic Chaining & Strict Rollback in `TripService`**:
-    * Extended `TripService.addWineryToExistingTrip` in `lib/services/tripService.ts` to accept polymorphic `wineryOrId: number | Winery`, allowing newly selected Google Places wineries without prior Postgres database IDs to be persisted directly via `WineryService.getRpcData`.
-    * Updated `TripService.createTrip` to loop through additional wineries (`trip.wineries.slice(1)`), passing full winery objects and notes.
-    * Enforced strict atomic rollback: if chained addition fails, `createTrip` invokes `deleteTrip`, tags the error with `preventOfflineEnqueue = true`, and rethrows to avoid leaving partial orphan trips in Postgres.
-* **Offline Sync Parity & Store Count Invariants**:
-    * Refactored `SyncService` (`lib/services/syncService.ts`) `'create_trip'` queue handler to delegate directly to `TripService.createTrip`, ensuring identical multi-stop creation logic online and offline while setting accurate `wineries_count` and triggering background store re-fetching.
-    * Updated `createTripHelper` in `lib/stores/slices/tripMutationHelpers.ts` to populate optimistic `wineries_count: validWineries.length` on `tempTrip` and synced `wineries_count` on `syncedTrip`, eliminating flickering to "0 Wineries" on newly created trip cards.
-    * Added `isPreventOfflineEnqueueError` guard in `createTripHelper` to immediately roll back optimistic state and bypass offline queueing when chained stop creation fails.
-    * Dispatched non-blocking background cache re-fetches (`fetchUpcomingTrips()`, `fetchTripsForDate()`, `fetchTrips(1, 'upcoming', true)`).
-* **Trip Stop Hydration & UI Presentational Enhancements**:
-    * Updated `TripService.getTrips` to query nested `trip_wineries` stops with standardized wineries and ordering by `visit_order`, eagerly populating `wineries: Winery[]` on returned trips.
-    * Standardized badge pluralization in `components/TripCardSimplePresentational.tsx`: `{count} {count === 1 ? 'Winery' : 'Wineries'}`.
-    * Hardened "Export to Google Maps" button in `TripCardSimplePresentational.tsx` to guard against pending sync states (`isPending`) or empty winery lists (`count === 0 || !trip.wineries || trip.wineries.length === 0`).
-    * Defaulted `wineries_count` in `createMockTrip` fixture (`lib/test-utils/fixtures.ts`) to maintain store count invariants across tests.
-* **Test Suite Modularization & Regression Coverage**:
-    * Modularized legacy `components/__tests__/react19-form-actions.test.tsx` by splitting into `components/__tests__/auth-forms.test.tsx` and dedicated `components/__tests__/trip-form.test.tsx`.
-    * Added comprehensive unit and integration test coverage across `components/__tests__/trip-form.test.tsx`, `components/__tests__/PlaceAutocomplete.test.tsx`, `lib/services/__tests__/tripService.mutations.test.ts`, `lib/services/__tests__/tripService.test.ts`, `lib/stores/slices/__tests__/tripMutationHelpers.test.ts`, `lib/stores/__tests__/tripStore.syncStore.test.ts`, `components/__tests__/TripCardSimplePresentational.test.tsx`, `components/__tests__/trip-card-simple.test.tsx`, `hooks/__tests__/use-trip-actions.test.ts`, and `lib/services/__tests__/supabase-rpc.integration.test.ts`.
-    * Replaced placeholder stub in `e2e/trip-flow.spec.ts` with Playwright WebKit E2E test verifying sidebar dialog trip creation with multiple stops, input clearing, badge deduplication and removal, card count display, and enabled Google Maps export.
-
-### 🕒 Winery Operational Hours Resilience & PWA Hydration ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56))
-* **Tri-State Operational Status & UI Presentation**:
-    * Eliminated false-closed defects across all presentational surfaces by introducing an explicit tri-state status model (`Open Now`, `Closed`, and `Hours Unavailable`).
-    * Implemented animated skeleton loading pills (`animate-pulse`) in `WineryInfoCard` and `MobileWineryDrawer` peek status badges when operational hours are indeterminate while Places API enrichment is in-flight.
-    * Updated `WineryCardThumbnail` to cleanly omit operational status badges when hours are `null`, avoiding list clutter while never falsely displaying "Closed".
-    * Added schedule subtext fallbacks with direct website links ("Visit website for hours →") in `WineryInfoCard` when hours are missing and a website URL is present.
-* **Decoupled Layout-Level Hydration**:
-    * Decoupled top-level layout loading from detail enrichment across `DesktopWineryLayout`, `MobileWineryLayout`, and `TabletWineryLayout`.
-    * Guarded full-screen skeleton loaders exclusively on `!winery` (uncached records), enabling cached wineries to render immediately with field-level loading states while Places API enrichment resolves in the background.
-* **On-Demand Places Enrichment & Numeric ID Resolution Hardening**:
-    * Hardened `ensureWineryDetails` in `lib/stores/wineryStore.ts` to inspect `dbData.google_place_id` when queried with a numeric database ID and trigger Edge Function (`get-winery-details`) enrichment when Postgres records lack opening hours.
-    * Maintained `loadingWineryId` active throughout pending on-demand enrichment, ensuring safe cleanup to `null` on completion or failure.
-    * Added resilient error handling for missing `google_place_id` or Edge Function failures (4xx/5xx/network timeouts), returning standardized database data with `openingHours: null` without throwing or stalling `inFlightRevalidations`.
-    * Updated `revalidateInBackground` to resolve canonical `google_place_id` from cached numeric IDs and cleanly release in-flight revalidation locks on failure.
-* **PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore**:
-    * Upgraded Zustand persistence schema to `version: 2` with a selective `migrate` callback in `lib/stores/wineryStore.ts` that purges corrupt or stale enriched records lacking `openingHours` while strictly preserving basic map markers and coordinate geometries for offline map availability.
-    * Updated `hooks/use-pwa-update.ts` to persist `_PWA_JUST_UPDATED` timestamp and active modal ID `_PWA_ACTIVE_WINERY_ID` to `sessionStorage` upon `applyUpdate()`, maintaining complete decoupling from domain data stores.
-    * Added a mount effect in `components/modals/authenticated-modal-host.tsx` to detect `_PWA_ACTIVE_WINERY_ID`, automatically reopen the active modal via `openWineryModal`, trigger `ensureWineryDetails`, and immediately cleanse session storage to prevent reopen loops.
-* **Standardizer Merging & Synthetic Test Fixture Interception**:
-    * Enhanced `standardizeWineryData` in `lib/utils/winery.ts` to allow explicit incoming `opening_hours: null` values to clear or merge accurately and fallback to existing coordinates when missing from partial payloads.
-    * Implemented synthetic test fixture interception in `hooks/use-places-autocomplete-session.ts` and `components/PlaceAutocomplete.tsx` for dev and E2E testing environments.
-    * Seeded deterministic test winery fixture ("Silent Valley Cellars (Test Winery)" with null website and null hours) in `scripts/populate-wineries.ts`.
-* **Permanent Unit & E2E Regression Test Suites**:
-    * Added comprehensive unit test coverage across 10 test suites covering tri-state badge rendering, loading skeletons, decoupled layouts, numeric ID resolution, Zustand v2 selective migration, and session-backed modal restoration.
-    * Implemented containerized Playwright E2E test suite `e2e/winery-hours-resilience.spec.ts` asserting tri-state hours rendering, mobile peek badges, schedule website fallbacks, and dynamic enrichment transitions.
-
-### 🍷 Auto-clear Wishlist Entry on Visit Logging ([#54](https://github.com/jarredb9/finger-lakes-app-57/issues/54) / [ADR-0001](docs/adr/0001-wishlist-cleared-on-visit.md))
-* **Database Migration & RPC Hardening**:
-    * Updated PostgreSQL `public.log_visit` RPC to atomically delete existing `public.wishlist` entries for `(user_id, winery_id)` in the initial insert transaction (`supabase/migrations/20260929111500_autoclear_wishlist_on_visit.sql`).
-    * Retained backward-compatible return signature `jsonb` (`{ visit_id, winery_id }`) and safe idempotency key replays.
-    * Executed one-time retrospective data migration cleanup removing wishlisted wineries that had already been visited.
-* **Standardizer Boolean Precedence Fix**:
-    * Fixed boolean precedence evaluation bug in `lib/utils/winery.ts` (`standardizeWineryData`) where `rawBoolean || existing` prevented explicit `false` values from overwriting existing `true` values.
-    * Evaluated explicit booleans cleanly (`rawBoolean !== undefined ? rawBoolean : (existing ?? false)`) across `onWishlist`, `wishlistIsPrivate`, `isFavorite`, and `favoriteIsPrivate`.
-* **Client Store State Reactivity & Optimistic Error Rollback**:
-    * Enhanced `addVisitToWinery` in `lib/stores/wineryStore.ts` to match wineries by both Place ID (`w.id === wineryId`) and DB ID (`w.dbId && String(w.dbId) === String(wineryId)`), updating `userVisited: true`, `onWishlist: false`, and `wishlistIsPrivate: false` immediately upon optimistic visit creation.
-    * Hardened `saveVisitHelper` in `lib/stores/slices/visitMutationHelpers.ts` to capture pre-mutation snapshots (`{ userVisited, onWishlist, wishlistIsPrivate }`) and roll them back via `updateWinery` on fatal, unrecoverable persistence failures.
-* **UI Presentation & Return-Visit Planning Support**:
-    * Updated `components/winery-card-thumbnail.tsx` to permit concurrent rendering of both "Visited" and "Want to Go" badges when a visited winery has been re-wishlisted, while keeping the primary status dot prioritized to emerald (`userVisited`).
-    * Removed disabled lock (`disabled={winery.userVisited}`) and opacity styling on the Wishlist button in `components/WineryActionsPresentational.tsx`, allowing users to manually re-add visited wineries to their Wishlist for return-visit planning.
-* **Opening Hours Crash Prevention & Safe Schedule Parsing**:
-    * Implemented `getDailyHoursForDate` in `lib/utils/opening-hours.ts` supporting full day names, 3-letter abbreviations, alternate spellings, and day ranges, with positional fallback strictly restricted to complete 7-day schedules to eliminate false hours assignment.
-    * Fixed an uncaught `TypeError` in `components/winery/winery-info-card.tsx` and `components/DailyHours.tsx` when rendering partial `weekday_text` schedules (fewer than 7 days), resolving intermittent failures in `e2e/winery-modal.spec.ts` on non-Mondays.
-    * Hardened weekly hours accordion parsing in `WineryInfoCard` against splitting on time colons, and aligned `isToday` highlighting with day names rather than raw array indices.
-* **Offline Sync Queue Replay & Store Revalidation**:
-    * Updated `SyncService.sync()` in `lib/services/syncService.ts` to trigger `useWineryStore.getState().fetchWineryData(user.id)` upon successfully replaying `log_visit` mutations.
-    * Deferred store revalidation and queue pruning until mutations are successfully processed and confirmed.
-* **Invariant & Integration Test Coverage**:
-    * Added comprehensive database RPC integration tests in `lib/services/__tests__/supabase-rpc.integration.test.ts` verifying atomic wishlist auto-deletion on first visit, safety on second visits, and non-restoration of wishlist rows upon visit deletion.
-    * Added unit test coverage for standardizer boolean precedence (`lib/utils/__tests__/winery.test.ts`), dual-ID store matching (`lib/stores/__tests__/wineryStore.test.ts`), targeted optimistic error rollback (`lib/stores/__tests__/visitStore.domainInvariants.test.ts`), concurrent card badges and return-visit action enablement (`components/__tests__/`), offline sync replay revalidation (`lib/services/__tests__/syncService.test.ts`), and partial opening hours extraction (`lib/utils/__tests__/opening-hours.test.ts`, `components/__tests__/DailyHours.test.tsx`).
+### Security
+* Enforced `search_path = public, pg_temp` and caller authorization check (`p_user_id = auth.uid()`) on `public.get_map_markers` RPC ([#44](https://github.com/jarredb9/finger-lakes-app-57/issues/44)).
 
 ## [3.6.0] - 2026-09-28
 
-**Milestone v3.6.0: Architectural Recovery & Test Reliability**
+### Added
+* Nominal branded types (`GooglePlaceId`, `WineryDbId`) and runtime constructors (`toGooglePlaceId`, `toWineryDbId`) with development warnings and non-throwing fallbacks ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Zero-assertion structural boundary parsers for opening hours, parking options, and accessibility attributes in `winery.ts` ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Offline photo reconstitution, preview URLs, and AES-GCM sync queue payload encryption in `visitStore` ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Rootless Podman container runner scripts (`run-jest-container.sh`, `run-e2e-container.sh`) for isolated execution on RHEL 8 hosts ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* `AuthenticatedModalHost` with dynamic code-splitting and idle prefetching for heavy modal component trees ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* App Router error boundary (`app/error.tsx`) and typed Server Actions (`app/actions/auth.ts`) consuming React 19 `useActionState` ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* IndexedDB Dead Letter Queue (DLQ) with 7-day retention for unrecoverable sync payloads ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43)).
+* Covering btree indexes across relational tables (`visits`, `trip_wineries`, `trip_members`, `wineries`) and composite index on `activity_ledger` ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
 
-### 🛡️ Sprint 6: Runtime Invariant Protection & Branded ID Ergonomics ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53))
-* **Nominal Branded ID Constructors & Type Guards**:
-    * Implemented nominal branded types `GooglePlaceId` and `WineryDbId` with runtime type guards `isGooglePlaceId` and `isWineryDbId` in `lib/types.ts`.
-    * Implemented single-signature nullable constructors `toGooglePlaceId` and `toWineryDbId` with development-mode validation warnings and non-throwing fallbacks, guaranteeing zero runtime exceptions in production.
-    * Replaced all untyped `as any` and raw `as GooglePlaceId` / `as WineryDbId` assertions across standardizer and service ingestion boundaries.
-* **Core Standardizer Invariants & Gold-Standard Boundary Parsers**:
-    * Implemented array-excluding `isRecord(val: unknown): val is Record<string, unknown>` in `lib/utils/winery.ts` to harden object checks across external ingestion layers.
-    * Tightened RPC and external type guards (`isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, `isRawDbWinery`) to enforce non-empty string names, non-empty IDs, and valid coordinate geometries.
-    * Implemented zero-`as`-assertion structural boundary parsers in `lib/utils/winery.ts`:
-        * `parseOpeningHoursJson`: Resilient period filtering dropping corrupt objects, validating day ranges (0–6), and filtering valid weekday descriptions.
-        * `parseParkingOptionsJson`: Strongly types and extracts boolean flags into closed domain interface `ParkingOptions`, synthesizing convenience `freeParking` attribute.
-        * `parseAccessibilityOptionsJson`: Validates and extracts known accessibility attributes into closed domain interface `AccessibilityOptions`.
-    * Refactored over 20 `(source as any)` assertions in `standardizeWineryData` to use structured narrowing, typed property lookups, and merge guards.
-    * Enforced place ID validation in `standardizeWineryData`, rejecting whitespace-only or invalid place IDs (`return null`) to prevent store cache pollution.
-    * Guarded review timestamp parsing in `parseReviewsJson` against `NaN` from invalid `publishTime` inputs.
-* **Safe Opening Hours Navigation & Test Schema Alignment**:
-    * Updated `OpeningHoursPoint` and exported `OpeningHoursPeriod` in `lib/types.ts` supporting both Google Places `{ day, time }` and numeric `{ day, hour, minute }` schemas.
-    * Hardened `parseTime` in `lib/utils/opening-hours.ts` to return `NaN` safely on nullish, primitive, or malformed points without throwing `TypeError`.
-    * Hardened `isOpenNow` to safely evaluate 24/7 periods lacking close points and skip malformed periods missing `open` or `close`.
-    * Removed all 7 `// @ts-ignore` comments in `lib/utils/__tests__/opening-hours.test.ts`.
-* **Zustand Store Mutation Hardening & Runtime Allowlisting**:
-    * Defined strict input interfaces `TripUpdateInput` (`name?: string; trip_date?: string`) conforming to PostgreSQL `trips` schema and `TripCreateInput` in `lib/types.ts`.
-    * Implemented runtime key allowlisting (`ALLOWED_TRIP_UPDATE_KEYS`, `ALLOWED_CREATE_TRIP_KEYS`) in `lib/stores/slices/tripMutationHelpers.ts` for `updateTripHelper` and `createTripHelper`.
-    * Stripped unpermitted or injected fields (e.g. `id`, `user_id`, `created_at`, `notes`) with dev-mode warnings and validated date strings before committing optimistic store updates or dispatching sync payloads.
-    * Updated `TripDataSlice.updateTrip` method signature in `lib/stores/slices/tripDataSlice.ts` to accept `TripUpdateInput`.
-* **Offline Sync Service Resiliency & Dead Letter Queue (DLQ) Routing**:
-    * Replaced winery ID `as any` casts with `toGooglePlaceId` and `toWineryDbId` in `log_visit`, `toggle_favorite`, and `toggle_wishlist` RPC payloads in `lib/services/syncService.ts`.
-    * Unified error routing for privacy mutations (`toggle_favorite_privacy`, `toggle_wishlist_privacy`): invalid or missing `wineryDbId` payloads route immediately to the Dead Letter Queue (DLQ) as permanent 400 validation failures and are pruned from the queue, preventing silent drops or blocking retries.
-    * Removed redundant `(item as any)` casts accessing `nextRetryAt` and `createdAt` on `SyncItem`.
-* **Map Pan Crash Resiliency & Container Runner Automation**:
-    * Permanently mounted `<MapView>` in `components/WineryMap.tsx`, rendering transient errors as non-destructive floating overlays rather than unmounting the map canvas.
-    * Added auto-dismissal of stale search errors on user pan/navigation in `hooks/use-winery-map.ts`.
-    * Implemented graceful fallback to viewport-cached wineries in `hooks/use-winery-search.ts` when search services are unreachable.
-    * Centralized container runner logic into `scripts/container-common.sh` with automated SELinux context restoration (`restore_supabase_selinux`) to eliminate Edge Runtime 503 boot errors after container volume mounts.
-* **Adversarial Regression Test Suite**:
-    * Added comprehensive adversarial unit test suites across `lib/__tests__/types.test.ts`, `lib/utils/__tests__/winery.test.ts`, `lib/utils/__tests__/opening-hours.test.ts`, `lib/services/__tests__/syncService.test.ts`, `lib/stores/__tests__/tripStore.test.ts`, `components/__tests__/WineryMap.test.tsx`, `hooks/__tests__/use-winery-map.test.ts`, and `hooks/__tests__/use-winery-search.test.ts`.
-    * Certified 100% clean passes across the full test suite (130 suites, 810 unit tests) and static type checking (`tsc --noEmit`).
+### Changed
+* Decomposed monolithic `tripStore` and `visitStore` into modular Zustand 5 slices under 300 LOC each ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43)).
+* Consolidated winery caching into canonical `wineryStore`, normalizing visit relationships to 3NF in `visitStore` ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43)).
+* Migrated winery search endpoint (`/api/wineries`) to Google Places API (New) V1 with field masking ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Inlined `is_visible_to_viewer` RLS policy function into the PostgreSQL query planner (`LANGUAGE sql STABLE`) ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Rewrote `get_map_markers` RPC to set-based hash joins, eliminating N+1 scalar subqueries ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Gated `@serwist/next` to production builds to unblock Turbopack development ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* Extracted Mapbox GL stylesheet from root layout directly into `MapView` ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* Upgraded `@playwright/test` to 1.63 and container base images to Ubuntu 24.04 noble ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Configured Jest worker memory limits (`workerIdleMemoryLimit: 512MB`) and eliminated `jest.resetModules()` anti-patterns ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Decomposed E2E test helpers and mock route managers into domain-specific modules under `e2e/fixtures/` and `e2e/helpers/` ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Parameterized activity ledger webhook notifications using Supabase Vault without hardcoded secrets ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
 
-### 🧪 Sprint 5: Test Automation Infrastructure Modernization & E2E Test Suite Stabilization ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#38](https://github.com/jarredb9/finger-lakes-app-57/issues/38), [#25](https://github.com/jarredb9/finger-lakes-app-57/issues/25))
-* **Jest 30 Infrastructure, Memory Management & Module Reset Remediation**:
-    * Resolved Node 24 JSDOM worker heap exhaustion by configuring `workerIdleMemoryLimit: '512MB'` and enabling global mock clearing (`clearMocks: true`) in `jest.config.mjs`.
-    * Polyfilled `URL.createObjectURL` and `URL.revokeObjectURL` in `jest.setup.ts` to support JSDOM testing of binary serialization and preview URLs.
-    * Audited and eliminated all 34 occurrences of `jest.resetModules()` across 22 test files (including `wineryStore.test.ts`, `tripStore.slices.test.ts`, `visitStore.slices.test.ts`, and `realtimeChannelCleanup.test.ts`), hoisting `@/utils/supabase/client` mocks to file-level scope and leveraging explicit store/service resets.
-    * Developed rootless containerized Jest runner `scripts/run-jest-container.sh` with Node 24 and Ubuntu 24.04 glibc 2.39 compatibility on RHEL 8 hosts.
-* **Store Domain Invariants & Offline Photo Reconstitution**:
-    * Created comprehensive domain invariant test suite `lib/stores/__tests__/visitStore.domainInvariants.test.ts` verifying Base64 photo reconstitution, preview URLs, AES-GCM queue payload encryption, and optimistic deletion rollback.
-    * Hardened `lib/stores/slices/visitInitHelpers.ts` to normalize relational IDs (`Number(winery.dbId)`), enforce mutex deduplication against React 19 concurrent double-mounts, and properly serialize binary photos into offline sync queues.
-    * Added comprehensive mutation test suites for `lib/services/socialService.ts` and `lib/services/tripService.ts`, enforcing input sanitization, multi-winery RPC rollback on chaining failure, trip deletion guards, and `.neq('role', 'owner')` owner protection assertions.
-* **Production Store Window Detachment & Runner Script Modernization**:
-    * Decoupled cross-store window access in `lib/stores/uiStore.ts`, replacing `(window as any).useTripStore` with direct store invocation.
-    * Strictly gated `(window as any).use*Store` attachments and `<E2EStoreExposer />` behind `process.env.NEXT_PUBLIC_IS_E2E === 'true'`, preventing store exposure on `window` in standard production builds.
-    * Augmented global `Window` and `globalThis` declarations in `lib/shims.d.ts`, eliminating over 100 `(window as any)` and `(globalThis as any)` type casts across stores, components, utilities, and test suites.
-    * Modernized container runner scripts (`run-e2e-container.sh`, `run-jest-container.sh`, `run-dev-container.sh`, `run-build-container.sh`) to include container volume isolation (`-v /work/node_modules`) preventing host pollution, safe positional argument parsing (defaulting to `webkit`), array-based argument passthrough, and rootless Podman `--userns=keep-id` with SELinux `:Z` mounts.
-* **Playwright 1.63 Container & NPM Package Upgrade**:
-    * Upgraded `@playwright/test` to 1.63.0 and updated all container runners to `mcr.microsoft.com/playwright:v1.63.0-noble`.
-    * Certified rootless containerized browser execution on RHEL 8 across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`.
-    * Remediated Playwright 1.63 breaking changes and deprecations in network route handling and generic serialization.
-* **Modular Route Fixtures & Store-Poking Decoupling**:
-    * Decomposed monolithic `MockMapsManager` into granular, single-responsibility domain handlers, browser shims, and shared utilities under `e2e/fixtures/`:
-        * `e2e/fixtures/shims/browser.shim.ts`: WebGL/Canvas mocks, service worker interception, and map bounds injection.
-        * `e2e/fixtures/shims/google-maps-sdk.shim.ts`: Maps JavaScript SDK stubs.
-        * `e2e/fixtures/handlers/places.handler.ts`: Places API v1 REST, legacy endpoints, and Edge Function mocks.
-        * `e2e/fixtures/handlers/assets.handler.ts`: Vector tiles, fonts, and Mapbox assets.
-        * `e2e/fixtures/handlers/trips.handler.ts`: Trips RPCs and `/rest/v1/trips` endpoints.
-        * `e2e/fixtures/handlers/visits.handler.ts`: Visits RPCs and idempotency tracking.
-        * `e2e/fixtures/handlers/social.handler.ts`: Social graph RPCs, friend feeds, and profile stats.
-        * `e2e/fixtures/handlers/favorites.handler.ts`: Favorites, wishlists, and dynamic map markers.
-    * Implemented `CompositeMockMapsManager` in `e2e/fixtures/index.ts` and refactored `e2e/utils.ts` into a 100% backward-compatible delegation façade.
-    * Decoupled E2E test helpers from store-poking in assertion retries, replacing store hydration polling with DOM readiness signals (`data-state="ready"`).
-* **E2E Helper Domain Modularization**:
-    * Decomposed monolithic 1,013-line `e2e/helpers.ts` into granular modules under `e2e/helpers/`: `core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, and barrel export `index.ts`.
-    * Enforced 100% export interface parity via `e2e/__tests__/helper-contracts.test.ts` and removed redundant facade file in favor of standard directory resolution.
-* **Playwright ESLint Guardrails, Snapshot Calibration & Flakiness Elimination**:
-    * Configured `eslint-plugin-playwright` in `eslint.config.mjs` (ESLint 9 Flat Config) with `'playwright/no-wait-for-timeout': 'error'` and `'playwright/no-force-option': 'warn'`.
-    * Calibrated visual regression snapshot tolerance in `playwright.config.ts` to `maxDiffPixelRatio: 0.01` (1%) and stripped coarse inline overrides in `e2e/visual.spec.ts`.
-    * Eliminated all 12 arbitrary `page.waitForTimeout()` sleeps across the E2E suite, replacing with deterministic auto-retrying assertions (`waitForResponse`, `toBeVisible`, `toPass`, `expect.poll`).
-    * Audited and eliminated all 24 `{ force: true }` clicks across 8 spec files and helpers, resolving underlying CSS z-index, animation timing, and drawer snap point actionability barriers.
-* **High-Value Feature Coverage & Final Certification**:
-    * Implemented full E2E coverage for drag-and-drop itinerary reordering using `@hello-pangea/dnd` accessible keyboard sensors in `e2e/trip-management.spec.ts`, asserting transient DOM reordering, RPC payload integrity, and persistence across reloads.
-    * Implemented full E2E coverage for PWA offline reconnection queue drainage (`context.setOffline(false)`), asserting queue drainage to zero and store cache invalidation in `e2e/pwa-offline.spec.ts`.
-    * Audited and eliminated all `any` types across route handlers, fixtures, and specs, replacing with canonical domain models (`RpcVisitWithWinery`, `Profile`, `SyncItem`, `Winery`, `Trip`).
-    * Pruned ephemeral post-TDD scaffolding while preserving permanent behavioral contracts (`handler-contracts.test.ts`, `helper-contracts.test.ts`, `mock-wineries.test.ts`).
-    * Certified 100% clean passes across the full cross-browser container matrix (`chromium`, `webkit`, `mobile-safari`, `mobile-chrome`) and complete Jest unit test suite (128 suites, 693 tests).
+### Removed
+* Redundant `wineryDataStore.ts` in favor of consolidated `wineryStore` ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43)).
+* Unused dependencies (`@dnd-kit/core`, `@dnd-kit/sortable`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`) and unreferenced Radix UI primitives ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* Orphaned `update-gemini-summary` Edge Function and `tr_visits_gemini_summary` database trigger ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Legacy CommonJS `node-fetch@2` polyfill, standardizing on Node 24 native Fetch ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
 
-### 🚀 Sprint 4: Frontend Modernization, React 19 / App Router Architecture & Bundle Optimization ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36))
-* **Dependency Pruning & Turbopack Dev Unblocking**:
-    * Pruned 7 dead dependencies (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, and `sonner`) and 10 unreferenced Radix UI primitives, safely retaining `@radix-ui/react-accordion`.
-    * Cleaned brittle overrides (`minimatch`, `glob`, `brace-expansion`, `uuid`) in `package.json`.
-    * Gated `@serwist/next` to production-only builds in `next.config.mjs`, unblocking high-performance local development with Turbopack (`next dev --turbo`).
-* **Map Engine Bundle Isolation, Error Boundary & Dynamic Fallback**:
-    * Extracted Mapbox GL stylesheet (`mapbox-gl/dist/mapbox-gl.css`) from root `layout.tsx` into `components/map/MapView.tsx`, eliminating Mapbox CSS loading on non-map pages.
-    * Dynamically loaded `GoogleMapFallback` via `next/dynamic` (`ssr: false`) with kebab-case module resolution (`./google-map-fallback`).
-    * Implemented `MapErrorBoundary` and `<Map onError>` fallback triggers to automatically recover from runtime WebGL context initialization failures or Mapbox style load timeouts.
-    * Extracted isolated `<MapStyleSwitcher />` component and sanitized winery coordinates (`Number.isFinite`) in GeoJSON features to prevent Mapbox parser crashes on invalid data.
-    * Added DOM container and listener cleanup in `GoogleMapFallback` effect teardown, eliminating StrictMode memory leaks.
-* **Root Layout Decoupling & Authenticated Modal Host**:
-    * Decoupled heavy modal component trees (`VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, `GlobalModalRenderer`, `WineryModal`, `VisitHistoryModal`) from root `app/layout.tsx`.
-    * Created `AuthenticatedModalHost` with `ssr: false` dynamic imports and idle prefetching via `requestIdleCallback`, mounting it within `components/app-shell.tsx` and standalone authenticated routes (`/trips/[id]`, `/friends/[id]`, `/settings`).
-    * Added route navigation listeners and unmount cleanup in `AuthenticatedModalHost` to dismiss active modals and clear lingering `document.body` pointer-event and overflow locks.
-    * Preserved `<ModalHost />` (`#modal-root`) in root `app/layout.tsx` for portal stability, restoring standard `DialogPrimitive.Portal` behavior to eliminate stacking context traps.
-* **Server Component Boundaries, Route Metadata & SSR Date Determinism**:
-    * Converted `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into Next.js Server Components exporting static `Metadata` and enforcing server-side auth redirects (`getUser()`), delegating interactive form logic to client components.
-    * Added global `app/error.tsx` App Router error boundary to gracefully handle server exceptions while preserving navigation shell.
-    * Whitelisted `/manual-confirm` in `proxy.ts`, preserved URL query parameters across unauthenticated `redirectTo` query strings, normalized trailing slashes on deep links, and returned 401 JSON responses for unauthorized Server Action POST requests.
-    * Fixed session cookie forwarding in `utils/supabase/auth-helper.ts` via `NextResponse.next({ request })` so downstream Server Components receive refreshed auth tokens.
-    * Replaced non-deterministic `new Date().toLocaleDateString()` with static constants in `/privacy` and `/terms`, and migrated `components/VisitForm.tsx` to `getTodayLocal()`, preserving raw `visit_date` strings without UTC shifts.
-* **React 19 State Derivation, Compiler Adherence & Layout Decomposition**:
-    * Eliminated render-phase `setState` calls in `use-winery-modal-state.ts`, resetting modal state via React reconciliation using `<WineryModalContent key={activeWineryId} />` while maintaining stable outer drawer/dialog instances.
-    * Decomposed winery modal layouts across desktop, tablet, and mobile into shared subcomponents (`winery-modal-tabs.tsx`, `winery-trip-badge.tsx`, `winery-vibe-scroller.tsx`), eliminating duplicated JSX and establishing discrete React 19 compiler boundaries.
-    * Extracted `<WineryQuestionReviewCard key={activeQuestionId} />` in `components/WineryQnA.tsx`, eliminating `useEffect` review index resets and out-of-bounds flashes.
-    * Replaced local mount effects with shared `useMounted()` hook in `components/trip-planner.tsx` and derived `currentMembers` directly in `hooks/use-trip-actions.ts`.
-    * Completely eliminated all `eslint-disable-next-line react-hooks/set-state-in-effect` comments across the entire codebase.
-* **React 19 Form Actions & Offline Resilience**:
-    * Created typed Server Actions in `app/actions/auth.ts` (`loginAction`, `forgotPasswordAction`, `manualConfirmAction`) with plain serializable `ActionState` contracts, refactoring auth forms to consume React 19 `useActionState`.
-    * Implemented Controlled Hybrid Client `useActionState` in `components/trip-form.tsx`, preserving `react-hook-form` / Zod validation and surfacing action errors through form fields.
-    * Allowed offline winery additions in `trip-form.tsx` using temporary negative ephemeral IDs when `ensureInDb` is offline.
-    * Implemented true optimistic rollback on permanent failure in `createTripHelper` and added atomic `replaceTripTempId` in `syncService.ts` and `tripDataSlice.ts` to prevent ghost trip duplication during offline replay.
-* **Service Worker Auth Hygiene & Session Resilience**:
-    * Restricted Supabase Auth routes (`/auth/v1/*`) strictly to `NetworkOnly` in `app/sw.ts` and excluded auth pages from Serwist `pages` cache.
-    * Added `PURGE_AUTH_CACHE` message handler in `app/sw.ts` to purge `supabase-auth` and `pages` CacheStorage upon logout.
-    * Hardened `userStore.logout()` with defensive `signOut()` error handling, CacheStorage deletion, and safe null-controller Service Worker messaging.
-    * Added offline session fallback via `supabase.auth.getSession()` in `userStore.fetchUser()` and `TripService.getTrips()` to preserve user identity and trip accessibility when offline.
+### Fixed
+* Eliminated runtime exceptions from malformed opening hours, invalid place IDs, and NaN review dates ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Enforced input key allowlisting on trip mutations to prevent unpermitted fields from polluting stores or sync payloads ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Fixed sync queue stalls by routing unrecoverable privacy mutations directly to the Dead Letter Queue ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Prevented MapView unmounting during pan/search errors, using non-destructive floating overlays ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53)).
+* Eliminated flaky test timeouts and `{ force: true }` clicks across the Playwright E2E suite ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Fixed session cookie forwarding in Server Component auth helpers ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
+* Prevented optimistic store corruption and sync payload empty object enqueueing during network failures ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Preserved session cookies across `/login` redirects in `proxy.ts` ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Fixed StrictMode memory leaks by properly cleaning up Google Maps fallback listeners on teardown ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
 
-### ⚙ Sprint 3: Zustand 5 State Consolidation, Domain Invariants & Sync Integrity ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43))
-* **Store Slice Decomposition (`tripStore`, `visitStore`)**:
-    * Decomposed monolithic `tripStore.ts` (1,225 lines) into focused, composable slices: `createTripDataSlice`, `createTripUISlice`, and `createTripRealtimeSlice` with dedicated helper modules (`tripFetchHelpers`, `tripMutationHelpers`, `tripPlanningHelpers`, etc.), each strictly under 300 lines of code.
-    * Decomposed `visitStore.ts` (656 lines) into modular slices: `createVisitDataSlice`, `createVisitUISlice`, and `createVisitRealtimeSlice` under 300 lines each.
-    * Maintained temporary `(window as any).useTripStore` backwards compatibility stubs for E2E testing.
-* **Canonical Winery Store Consolidation & 3NF Visit Normalization**:
-    * Deprecated and deleted redundant `wineryDataStore.ts`, consolidating all persistent caching, filtering, and selection logic into `wineryStore.ts`.
-    * Stripped duplicate `visits` arrays and child pointers from `Winery` entities, establishing `visitStore.ts` as the single source of truth for visits.
-    * Implemented on-demand visit hydration (`fetchVisitsForWinery`) in `visitStore` and wired modal state in `use-winery-modal-state.ts`.
-* **Domain Invariants, Coordinate Safety & Ghost Visit Purging**:
-    * Coerced all relational IDs (`trip_id`, `winery_id`, `user_id`) to `Number(id)` across store ingress, utility helpers, and TypeScript interfaces.
-    * Routed map click handlers in `use-winery-map.ts` through `standardizeWineryData`, eliminating legacy `.lat()` and `.lng()` calls in favor of `location.latitude` and `location.longitude`.
-    * Hardened `standardizeWineryData` to purge `visits` to `[]` when receiving either `user_visited: false` or camelCase `userVisited: false`.
-* **Offline Sync Resilience, Backoff, DLQ & Concurrency Control**:
-    * Replaced tight retry loops in `syncService.ts` with exponential backoff and jitter (1s to 60s max) on 5xx network errors.
-    * Implemented an IndexedDB Dead Letter Queue (DLQ) with 7-day automatic retention to route unrecoverable 4xx client errors without blocking the sync queue.
-    * Added optimistic concurrency control (OCC) comparing remote vs local `updated_at` timestamps on offline replay (server-wins conflict resolution).
-    * Wrapped multi-key persistence writes in single `readwrite` IndexedDB transactions (`setMany`) in `idb-persist-storage.ts`.
-    * Excluded `lastActionTimestamps` from IndexedDB `partialize` configuration to prevent stale locks from surviving hydration.
-* **Store Serializability & Realtime Teardown**:
-    * Removed Google Maps Map SDK DOM instances from `mapStore.ts` (sanitizing bounds to plain numbers `{ north, south, east, west }`) and `ReactNode` JSX elements from `uiStore.ts` in favor of serializable modal IDs.
-    * Added explicit WebSocket unsubscription teardown in `store.reset()` across `tripStore`, `visitStore`, and `socialStore` to prevent connection leaks on logout.
-* **Component Selector Hygiene & Re-Render Prevention**:
-    * Migrated whole-store subscriptions across `components/map/map-controls.tsx`, `components/trip-card.tsx`, and `components/winery/use-winery-modal-state.ts` to atomic selectors and `useShallow`.
-    * Added regression test suite `components/__tests__/selectorHygiene.test.tsx` verifying re-render isolation on unrelated store mutations.
-
-### ⚡ Sprint 2: Database Performance Optimization, RPC Hardening & Schema Integrity ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42))
-* **Covering Relational & Lookup Indexes**:
-    * Added covering btree indexes in `20260902100000_indexes_and_query_optimization.sql` across `visits`, `trip_wineries`, `trip_members`, `follows`, and `wineries` to eliminate sequential table scans.
-    * Added composite index on `activity_ledger(activity_type, object_id)` to optimize activity ledger filtering.
-* **RPC Query Plan Optimization & Search Path Defense**:
-    * Rewrote `get_map_markers(p_user_id)` to set-based `LEFT JOIN` hash joins against pre-filtered subqueries, eliminating N+1 correlated scalar subqueries.
-    * Pinned `search_path = public, pg_temp` and enforced strict `p_user_id = auth.uid()` authorization checks to prevent schema poisoning and unauthorized marker access.
-* **RLS Function Inlining**:
-    * Refactored `is_visible_to_viewer` to `LANGUAGE sql STABLE SECURITY DEFINER`, allowing the PostgreSQL query planner to inline security predicates directly into query plans.
-* **Single-Roundtrip Composite RPCs**:
-    * Updated `toggle_favorite` and `toggle_wishlist` to return composite `jsonb` payloads (`{ "is_favorite": boolean, "winery_id": integer }` / `{ "on_wishlist": boolean, "winery_id": integer }`), eliminating redundant secondary `ensureInDb` upserts.
-    * Added strict JSON payload validation (`jsonb_typeof(p_winery_data) = 'object'`).
-* **Places API (New) V1 Migration & Awaited Cache Upsert**:
-    * Migrated `app/api/wineries/route.ts` to Places API (New) V1 (`https://places.googleapis.com/v1/places:searchText`) using POST requests and `X-Goog-FieldMask`.
-    * Replaced unawaited floating IIFE with a properly awaited Supabase admin upsert into the local winery cache.
-* **Dynamic Webhook Parameterization & Edge Function Cleanup**:
-    * Parameterized `handle_activity_ledger_notification` using `current_setting('app.settings.supabase_url', true)` and Supabase Vault, falling back to local Kong (`http://kong:8000`) without hardcoding project secrets.
-    * Deleted orphaned Edge Function `update-gemini-summary/` and dropped legacy `tr_visits_gemini_summary` trigger.
-
-### 🛡️ Sprint 1: P0 Security Hotfixes, Production Safety & Test Runner Stabilization ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40))
-* **Database Security & Privilege Hardening**:
-    * Removed overly permissive RLS update policy (`"Authenticated users can update wineries"`) on `public.wineries` and revoked direct table `UPDATE` privileges from `anon` and `authenticated` roles.
-    * Revoked execution privileges on `public.bulk_upsert_wineries(jsonb[])` from `PUBLIC`, `anon`, and `authenticated`, restricting execution strictly to `service_role`.
-    * Set explicit `search_path = public, vault, extensions, pg_temp` on `handle_activity_ledger_notification`.
-* **Middleware & Route Protection**:
-    * Updated `proxy.ts` to preserve updated session cookies during `/login` redirects, preventing session token loss.
-    * Added `/privacy`, `/terms`, `/workbox-*`, and `/worker-*` route whitelists to unauthenticated bypass checks in `proxy.ts`.
-    * Restricted `app/api/auth/confirm-user/route.ts` to development/test environments with required secret headers, returning 404 in production.
-* **State Sync & Offline Queue Bugfix**:
-    * Removed corrupting `handleSyncError(..., {})` catch block in `lib/stores/tripStore.ts` that enqueued empty objects into IndexedDB during sync failures.
-* **Test Runner Stabilization & Decoupling**:
-    * Segregated live-database integration tests into `*.integration.test.ts` and excluded them from standard `npm test`, adding a dedicated `npm run test:integration` script.
-    * Refactored `e2e/utils.ts` to lazily resolve Supabase admin clients via dynamic proxy, eliminating crashes when optional environment variables are unset.
-    * Removed legacy CommonJS `node-fetch@2` polyfill, standardizing on Node 24 native Fetch and Web Streams in JSDOM.
+### Security
+* Revoked direct table `UPDATE` privileges on `public.wineries` from `anon` and `authenticated` roles, removing overly permissive RLS policies ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Restricted `public.bulk_upsert_wineries` RPC execution strictly to `service_role` ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Pinned `search_path = public, pg_temp` on `get_map_markers` RPC and enforced caller authorization ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42)).
+* Enforced secret scrubbing for API keys, PATs, and Bearer tokens across logging and error reporting ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39)).
+* Restricted internal auth confirmation endpoints (`app/api/auth/confirm-user`) to non-production environments with required secret headers ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40)).
+* Restricted Supabase Auth routes to `NetworkOnly` in Service Worker and purged auth caches on logout ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36)).
 
 ## [3.5.0] - 2026-08-28
 
-**Map Core, Search Autocomplete & Controls Decoupling Refactor**
+### Added
+* Universal Google Maps Street View launcher using native Universal URLs for mobile app deep-linking and browser tabs.
+* Accessible combobox keyboard navigation (ArrowDown/ArrowUp, Enter, Escape) in winery and place search inputs.
+* Unified user profile dropdown menu (`UserNav`) across desktop sidebar and mobile header with direct navigation to Settings, Terms, Privacy, and PWA controls.
+* Reusable combobox keyboard hook (`useComboboxKeyboard`) and presentational `PlaceAutocompleteSuggestionsList`.
+* Presentational `MapSearchBar`, `MapFilterToggles`, and `MapLegendPopover` components.
+* Dedicated `ExploreTabContent` and `HistoryTabContent` components to prevent full sidebar re-renders on map camera movement.
+* `MobileNavBar` component isolating social badge subscriptions.
 
-### 🚀 Features
-* **Universal Google Maps Street View Launcher**:
-    * Updated Street View trigger to launch native Google Maps Universal URLs (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={lat},{lng}`) directly in external browser tabs on desktop or deep-link to the native Google Maps app on mobile/tablet devices, providing zero API rate-limiting/charges and full hardware-accelerated 360° panoramas.
-* **Accessible Autocomplete Keyboard Navigation**:
-    * Enabled standard combobox keyboard controls in winery/place search inputs (ArrowDown/ArrowUp navigation, Enter selection, Escape dismissal, and click-outside closing).
-* **Unified User Profile & Navigation Menu (`UserNav`)**:
-    * Integrated a unified user profile dropdown menu for both desktop sidebar and mobile floating user avatar, providing direct navigation to Settings, Terms of Service, Privacy Policy, and PWA Install / Update actions.
+### Changed
+* Decomposed `PlaceAutocomplete` to compose pure Places SDK normalizers and presentation components.
+* Refactored `MapControls` into a container consuming `useWineryMapContext` and `useTripStore`, eliminating prop drilling.
+* Streamlined `AppSidebar` into a lightweight layout orchestrator (<80 LOC).
+* Extracted Mapbox layer configurations into `mapbox-layers.ts` and encapsulated fallback logic in `GoogleMapAdapter` and `GoogleMapFallback`.
+* Updated Playwright test scripts and selectors for Mobile Safari and Mobile Chrome execution targets.
 
-### ⚙ Refactoring & Architecture
-* **Search Autocomplete Decoupling & Pure Mappers**:
-    * Extracted pure Places SDK normalizer `mapSdkPlaceToV1Place(place, text)` with defensive coordinate extractors (`extractLatitude`, `extractLongitude`) in [`lib/utils/places-mapper.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/places-mapper.ts) supporting both SDK `lat()` methods and property-based coordinates (`place.location.latitude`).
-    * Created reusable keyboard navigation hook [`useComboboxKeyboard`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-combobox-keyboard.ts) to manage combobox interactions independently from UI rendering.
-    * Extracted pure presentational [`PlaceAutocompleteSuggestionsList`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/PlaceAutocompleteSuggestionsList.tsx) component.
-    * Refactored [`PlaceAutocomplete.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/PlaceAutocomplete.tsx) to compose the pure normalizer, keyboard hook, and suggestion list.
-* **Map Controls & Search Bar Decomposition**:
-    * Extracted pure presentational [`MapSearchBar`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-search-bar.tsx) (search input, debouncing, clear action, auto/manual search toggles, and API warning banners).
-    * Extracted pure presentational [`MapFilterToggles`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-filter-toggles.tsx) (category chips, attribute toggles, and trip overlay selector).
-    * Refactored [`MapControls`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-controls.tsx) into a container consuming `useWineryMapContext` and `useTripStore`, eliminating 11-prop drilling from `app-sidebar.tsx`.
-* **Map Symbology, Sidebar Tabs & Navigation Modularization**:
-    * Extracted [`MapLegendPopover`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-legend-popover.tsx) rendering map pin symbology definitions in an isolated popover.
-    * Extracted [`ExploreTabContent`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/explore-tab-content.tsx) and [`HistoryTabContent`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/history-tab-content.tsx), colocating map and UI store subscriptions to eliminate full sidebar re-renders during map camera/viewport updates.
-    * Streamlined [`AppSidebar.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-sidebar.tsx) into a lightweight layout and tab orchestrator (<80 LOC).
-* **Mobile Navigation Bar Decomposition**:
-    * Extracted [`MobileNavBar`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/layout/MobileNavBar.tsx) for mobile bottom navigation, colocating `useFriendStore` badge count subscriptions to prevent root `AppShell` re-renders on social updates.
-* **Map Core, Layer Configuration & Fallback Adapters**:
-    * Extracted Mapbox layer definitions (`clusterLayer`, `clusterCountLayer`, `unclusteredPointLayer`, `MAP_STYLES`, `PIN_COLORS`) into [`lib/maps/mapbox-layers.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/maps/mapbox-layers.ts).
-    * Extracted [`GoogleMapAdapter`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/maps/google-map-adapter.ts) providing a Mapbox-compatible interface for fallback maps.
-    * Extracted [`GoogleMapFallback`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/google-map-fallback.tsx) with isolated marker lifecycle and bounds management.
-    * Implemented [`useStreetViewPanorama`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-street-view-panorama.ts) hook managing Street View state and actions.
-    * Refactored [`MapView.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/MapView.tsx) into a lightweight container component preserving strict DOM stability (`data-state="ready|loading"`).
-
-### 🐛 Bug Fixes & Stabilization
-* **Defensive Pointer Capture Patch**:
-    * Implemented [`initPointerCaptureDefensivePatch`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/pointer-capture-patch.ts) guarding against `releasePointerCapture` DOM exceptions during synthetic touch event simulation.
-* **Date & Calendar Interaction Polish**:
-    * Resolved DOM removeChild errors in DatePicker during calendar date selections and trip creation.
-    * Standardized date formatting with `formatDateLocal` across map filter toggles and trip select dropdowns.
-* **Q&A Word Boundary Matcher**:
-    * Enforced regex word boundaries (`\bkeyword\b`) in `WineryQnA` to prevent false positive review snippet matching.
-
-### 🧪 Testing & Verification
-* **Unit & Component Testing**:
-    * Added comprehensive unit test suites across all new utilities, hooks, and presentational components (108 test suites, 493 tests passing, 100% pass rate).
-* **Playwright E2E Alignment**:
-    * Updated Playwright E2E helper selectors and container test scripts (`scripts/run-e2e-container.sh`) to support Mobile Safari and Mobile Chrome execution targets.
+### Fixed
+* Fixed `releasePointerCapture` DOM exceptions during synthetic touch event simulation.
+* Fixed DOM `removeChild` errors in DatePicker during calendar selections and trip creation.
+* Standardized date formatting with `formatDateLocal` across map filter toggles and trip selectors.
+* Fixed false-positive review keyword matches in `WineryQnA` using strict regex word boundaries.
 
 ## [3.4.0] - 2026-08-25
 
-**Adaptive 3-Tier Layout Architecture (Mobile, Tablet, Desktop)**
+### Added
+* Reactive `useLayoutTier` hook classifying viewports into mobile (<768px), tablet (768px–1023px), and desktop (≥1024px).
+* Tablet floating overlay drawer (`TabletFloatingDrawer`) preserving full-screen map canvas with collapsible pill mode.
+* `TabletWinerySheet` responsive winery detail presentation for tablet viewports.
+* Multi-viewport Playwright E2E test suite (`e2e/responsive-layout.spec.ts`) validating layout shifts across mobile, tablet, and desktop.
 
-### 🚀 Features
-* **Unified Layout Tier Hook (`useLayoutTier`)**:
-    * Implemented reactive breakpoint resolver in [`hooks/use-layout-tier.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-layout-tier.ts) establishing dynamic tier classifications: `mobile` (< 768px), `tablet` (768px – 1023px), and `desktop` (≥ 1024px).
-    * Exported configurable breakpoint constants (`DEFAULT_TABLET_BREAKPOINT = 768`, `DEFAULT_DESKTOP_BREAKPOINT = 1024`, `LAYOUT_BREAKPOINTS`).
-    * Added touch-capability detection (`isTouch`) and SSR hydration safety guarantees to eliminate layout shift and client-side mismatch warnings.
-* **Tablet Floating Drawer (`TabletFloatingDrawer`)**:
-    * Built elevated glassmorphic floating overlay card in [`components/layout/TabletFloatingDrawer.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/layout/TabletFloatingDrawer.tsx) (`absolute top-4 left-4 bottom-4 w-[380px] z-20`) preserving 100% full-screen map canvas.
-    * Implemented dual-state ergonomics: an expanded card containing search results, filter controls, and trip planner tabs, and a collapsible floating pill bar (`h-12`) with search query indicators, active filter badge counters, and expand triggers.
-* **Responsive Winery Details & 3-Tier Presentation**:
-    * Created [`TabletWinerySheet`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/tablet-winery-sheet.tsx) providing a non-blocking floating overlay card on tablet viewports that preserves full map context.
-    * Updated [`use-winery-modal-state.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/use-winery-modal-state.ts) and [`winery-modal.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery-modal.tsx) to route presentation seamlessly across all 3 tiers: `MobileWineryDrawer` (mobile bottom drawer with multi-snap points), `TabletWinerySheet` (tablet floating card), and `DesktopWineryModal` (desktop centered dialog).
-* **Touch Target Standardization (WCAG 2.5.5 & Apple HIG)**:
-    * Standardized all interactive map controls in [`components/map/map-controls.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-controls.tsx) (search inputs, submit buttons, filter toggles, attribute chips, trip selects) to enforce minimum 44×44px touch targets (`min-h-[44px] min-w-[44px]`) and standardized padding (`px-3 py-2`) on mobile and tablet touch tiers.
-* **3-Tier App Shell Orchestration**:
-    * Updated [`components/app-shell.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-shell.tsx) to orchestrate layout rendering per tier while maintaining strict DOM stability and `data-state` contracts (`ready | loading | error`).
-    * Replaced dynamic SSR import with direct import for `WineryModal` to prevent React 19 Suspense instrumentation errors.
-
-### 🧪 Testing & Verification
-* **Unit & Component Test Suites**:
-    * Added comprehensive unit test suites in [`hooks/__tests__/use-layout-tier.test.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/__tests__/use-layout-tier.test.ts), [`components/__tests__/TabletFloatingDrawer.test.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/__tests__/TabletFloatingDrawer.test.tsx), [`components/__tests__/map-controls.test.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/__tests__/map-controls.test.tsx), and [`components/__tests__/app-shell.test.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/__tests__/app-shell.test.tsx).
-* **Playwright E2E Verification**:
-    * Created [`e2e/responsive-layout.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/responsive-layout.spec.ts) verifying layout contracts, drawer toggling, non-blocking map canvas interactions, and modal presentation across Mobile (390px), Tablet Portrait (810×1080 iPad), Desktop (1280px), and dynamic viewport resize transitions.
+### Changed
+* Standardized interactive touch targets across map controls to meet WCAG 2.5.5 minimum 44×44px sizing.
+* Orchestrated `AppShell` rendering per layout tier with strict `data-state` contracts.
 
 ## [3.3.0] - 2026-08-24
 
-**Node.js 24 LTS Migration & Testing Infrastructure Modernization**
-
-### ⚙ Infrastructure & Tooling
-* **Node.js 24 LTS Runtime Migration**:
-    * Upgraded runtime engine constraint in [`package.json`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/package.json) to `"engines": { "node": "24.x" }`.
-    * Upgraded `@types/node` devDependency to `^24.13.3`.
-    * Updated `.nvmrc` to `24`.
-    * Updated `.github/workflows/ci.yml` and `.github/workflows/debug-pwa.yml` to use `node-version: '24'` across all jobs (`build`, `e2e-tests`, `merge-reports`, `deploy`).
-    * Updated `conductor/tech-stack.md` and testing stability guidelines to document Node.js 24 LTS.
-
-### 🧪 Testing & Reliability
-* **Jest Unit Suite Stabilization**:
-    * Standardized [`hooks/__tests__/use-places-autocomplete-session.test.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/__tests__/use-places-autocomplete-session.test.ts) to handle asynchronous session token resolution deterministically under Node.js 24 microtask scheduling.
-* **Playwright E2E Hardening**:
-    * **Visual Regression Tests**: Enhanced [`e2e/visual.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/visual.spec.ts) with pre-navigation animation/transition suppression and deterministic font-loading readiness (`document.fonts.ready`).
-    * **Trip Sharing & Collaboration**: Refactored [`e2e/trip-sharing.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/trip-sharing.spec.ts) to adhere to atomic state injection and collaboration verification standards.
-    * **Deep Linking & Sync Flow**: Upgraded [`e2e/deep-linking.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/deep-linking.spec.ts) and [`e2e/sync-infrastructure.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/sync-infrastructure.spec.ts) with proper CORS preflight handling and robust navigation commit wait patterns.
+### Changed
+* Upgraded runtime environment and CI workflows to Node.js 24 LTS.
+* Hardened asynchronous session token resolution tests under Node 24 microtask scheduling.
+* Enhanced Playwright visual tests with animation suppression and font-loading readiness guards.
+* Refactored trip sharing, deep linking, and sync E2E test flows with atomic state injection and CORS preflight handling.
 
 ## [3.2.0] - 2026-07-30
 
-**Winery Modal & Details Architecture Refactoring**
+### Added
+* Dedicated presentational components for winery details: `DesktopWineryModal`, `MobileWineryDrawer`, `WineryImage`, `AttributeStatus`, `WineryInfoCard`, `WineryAmenitiesList`, `WineryAiInsightsCard`, `HeroPhotoCarousel`, and `PhotoLightboxModal`.
 
-### ⚙ Refactoring & Architecture
-* **Modularization of WineryModal & WineryDetails**:
-    * Decomposed monolithic `winery-modal.tsx` (~990 lines) and `WineryDetails.tsx` (~743 lines) into modular sub-components and hooks located in [`components/winery/`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/).
-    * **State Extraction**: Decoupled 6 Zustand store subscriptions, visit merging/sorting, and tab navigation state into the dedicated [`use-winery-modal-state.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/use-winery-modal-state.ts) custom hook.
-    * **Responsive Layout Split**: Created dedicated presentational layout components: [`DesktopWineryModal`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/desktop-winery-modal.tsx) (desktop `Dialog` grid layout) and [`MobileWineryDrawer`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/mobile-winery-drawer.tsx) (mobile `Drawer` with multi-snap points).
-    * **Lightweight Containers**: Streamlined [`winery-modal.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery-modal.tsx) (~115 lines) into an orchestrating container and [`WineryDetails.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/WineryDetails.tsx) (~60 lines) into a view-mode switcher.
-    * **Extracted Presentational Components**:
-        * [`winery-image.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-image.tsx): Lazy image rendering component with photo caching.
-        * [`attribute-status.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/attribute-status.tsx): Status indicator badges (check/cross/help icons).
-        * [`winery-info-card.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-info-card.tsx): Operating hours, open status, and contact/directions action buttons.
-        * [`winery-amenities-list.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-amenities-list.tsx): Amenities checklist and Radix logistics accordions with Q&A triggers.
-        * [`winery-ai-insights-card.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-ai-insights-card.tsx): Gemini AI summary and neighborhood highlights block.
-        * [`hero-photo-carousel.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/hero-photo-carousel.tsx): Embla photo carousel with swipe gesture handling and indicators.
-        * [`photo-lightbox-modal.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/photo-lightbox-modal.tsx): Portal-rendered full-screen photo zoom modal.
+### Changed
+* Decomposed monolithic `winery-modal.tsx` and `WineryDetails.tsx` into modular subcomponents and the `use-winery-modal-state` hook.
+* Streamlined `winery-modal.tsx` into a lightweight container and `WineryDetails.tsx` into a view-mode switcher.
 
-### 🐛 Bug Fixes & Improvements
-* **Carousel & Lightbox Stability**:
-    * Eliminated photo caching store mutation loop and stabilized Embla carousel initialization.
-    * Prevented photo carousel index reset on caching updates and active slide transitions.
-    * Fixed ghost click bleed-through when dismissing photo lightbox in full mobile drawer view.
-* **UI & Style Polish**:
-    * Styled range slider thumb consistently for mobile WebKit and Firefox.
-    * Improved mobile responsive width and hid redundant scrollbars in `WineryInfoCard`.
-    * Removed redundant AI tasting notes banner from varietals tab when AI features are active.
-
-### 🧪 Testing & Verification
-* Preserved 100% test ID contracts and DOM stability attributes (`data-state="loading|ready|error"`).
-* Full container verification against Playwright E2E test suite across desktop and mobile viewports.
+### Fixed
+* Fixed photo caching store mutation loop and stabilized Embla photo carousel initialization.
+* Prevented photo carousel index reset during active slide transitions.
+* Fixed ghost click bleed-through when dismissing photo lightbox in mobile drawer view.
+* Fixed range slider thumb styling across WebKit and Firefox.
+* Hid redundant scrollbars in `WineryInfoCard` on mobile viewports.
+* Removed duplicate AI tasting notes banner from varietals tab when AI features are enabled.
 
 ## [3.1.0] - 2026-07-29
 
-**Winery Modal Redesign, Opt-In AI Settings & AI Varietal Extraction**
+### Added
+* Apple Maps-style multi-snap mobile drawer (`Peek`, `Half`, `Full`) with live operational status badges and gesture dismissal.
+* Hero photo carousel with full-screen lightbox preview in winery modal.
+* Real-time weather and outdoor tasting conditions widget (`WineryWeatherWidget`).
+* Varietals and tasting profile tab with interactive flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body).
+* Vibe and specialty badges horizontal scroller (e.g., Dog Friendly, EV Charging).
+* User preference toggle in `/settings` to enable or disable AI features (defaulted to OFF).
+* Varietal data extraction from review summaries in `update-gemini-summary` Edge Function.
+* Database migrations adding `varietals` and `vibe_tags` to `wineries` and `ai_enabled` to `profiles`.
 
-### 🚀 Features
-* **Redesign Winery Modal UX/UI**:
-    * **3-Tier Multi-Snap Drawer (Mobile)**: Implemented Apple Maps-style drawer snapping (`Peek ~300px`, `Half ~520px`, `Full 1.0`) with translucent title card, drag handle, and gesture dismissal.
-    * **Peek Snap Directives**: Added mandatory `🟢 OPEN NOW` / `🔴 CLOSED` status badge and swapped `Add to Trip` button with `Log Visit` CTA.
-    * **Hero Photo Carousel & Lightbox**: Added swipeable hero image preview with pagination indicators and full-screen lightbox modal.
-    * **Outdoor Weather Widget**: Integrated `WineryWeatherWidget` fetching real-time weather and tasting conditions (`weatherService`).
-    * **Vibe & Specialty Badges**: Added horizontal scroller with AI-enriched vibe and specialty badges (e.g., Riesling Specialist, Dog Friendly, EV Charging).
-    * **Varietals & Tasting Profile Tab**: Added dedicated tab with interactive flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body) and structured varietal notes.
-    * **Interactive Amenities & Reviews Side-Sheet**: Added sub-drawer/side-sheet overlay (`WineryQnA`) for review keyword search and amenity details.
-* **AI Features Toggle & User Preference (Opt-In / Default OFF)**:
-    * **Database Migration**: Added `ai_enabled` (boolean, default `false`) column to `public.profiles` table with backwards-compatible migration.
-    * **State & Store Integration**: Extended `userStore` and `User` model with `ai_enabled` property and `updateAIEnabled` offline-friendly sync action.
-    * **Settings UI**: Built `AISettings` section in `/settings` with opt-in switch toggle and clear disclosure copy.
-    * **Conditional Rendering & Global Hook**: Created `useAIFeaturesEnabled()` hook to conditionally hide "AI Insights" tab in `WineryModal` and AI notes in `WineryVarietalsTab` when disabled (falling back cleanly to "Community" tab).
-* **Gemini Edge Function Varietal Extraction**:
-    * Updated `update-gemini-summary` Supabase Edge Function to extract structured varietals data directly from winery review summaries and store them in the `wineries` table (`feat(ai)`).
+### Changed
+* Refactored `winery-modal` and test suites to support multi-snap drawer states and AI toggle preferences.
 
-### ⚙ Database Schema & Migrations
-* Added migration `20260717000000_add_varietals_and_vibe_tags.sql` adding `varietals` (JSONB) and `vibe_tags` (text[]) columns to `public.wineries`.
-* Added migration `20260728000000_add_ai_enabled_to_profiles.sql` adding `ai_enabled` column to `public.profiles`.
-
-### 🛡 Security & Dependabot
-* Resolved `npm audit` findings and updated vulnerable sub-dependencies.
-
-### 🧪 Testing & E2E Verification
-* Overhauled `winery-modal.spec.ts`, `visual.spec.ts`, `pwa-offline.spec.ts`, and `privacy-flow.spec.ts` for multi-snap drawer states and AI toggle preferences.
-* Added Jest unit test suites for `AISettings`, `useAIFeaturesEnabled`, `WineryWeatherWidget`, and store updates.
+### Security
+* Updated dependencies and resolved `npm audit` security vulnerabilities.
 
 ## [3.0.0] - 2026-07-16
 
-**Mapbox GL JS Migration — Hybrid Map Architecture**
+### Added
+* Mapbox GL JS vector map rendering via `react-map-gl` with custom marker clustering.
+* Floating map style switcher toggling between Outdoors and Streets basemaps.
+* Immersive full-screen Google Street View integration accessible from winery details.
+* "Powered by Google" floating attribution badge for Places API compliance.
+* Offline vector tile and asset caching rules in Service Worker with storage quota management.
 
-Version 3.0.0 is a major release that migrates the map rendering engine from Google Maps JavaScript API (`@vis.gl/react-google-maps`) to **Mapbox GL JS** (`react-map-gl` / `mapbox-gl`). This reduces Map Load API costs, enables offline tile caching, and modernizes the map canvas with vector-based rendering. Google Places API (v1 SDK) is retained as the single source of truth for search, autocomplete, winery details, reviews, and Street View.
+### Changed
+* **Breaking Change:** Migrated primary map rendering engine from Google Maps JavaScript API (`@vis.gl/react-google-maps`) to Mapbox GL JS.
+* **Breaking Change:** Required `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` environment variable for map rendering.
+* Refactored `mapStore`, `use-winery-map`, and `use-winery-filter` to consume Mapbox camera states and serializable bounding boxes.
 
-### 💥 Breaking Changes
-*   **Map Engine Replacement:** The `@vis.gl/react-google-maps` and `@googlemaps/markerclusterer` packages have been removed. All map rendering is now handled by Mapbox GL JS via `react-map-gl` v8.
-*   **Environment Variable:** A new `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` environment variable is required. Add it to `.env.local` and all deployment environments.
-
-### 🚀 Features
-*   **Mapbox GL JS Rendering**:
-    *   Replaced the Google Maps canvas in [WineryMap.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/WineryMap.tsx) and [MapView.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/MapView.tsx) with `react-map-gl`'s `<Map>` component backed by Mapbox GL JS.
-    *   Implemented built-in Mapbox source clustering with custom, high-fidelity cluster markers styled to match shadcn/ui (circular count badges, color-coded by density).
-    *   Added coordinate translation helpers in [map-utils.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/map-utils.ts) converting `{ latitude, longitude }` objects to Mapbox `[longitude, latitude]` arrays at the rendering boundary.
-*   **Map Style Switcher**:
-    *   Added a floating style toggle control allowing users to switch between **Outdoors** (`mapbox://styles/mapbox/outdoors-v12`, optimized for rural/scenic terrain) and **Streets** (`mapbox://styles/mapbox/streets-v12`, optimized for navigation).
-*   **Google Street View Integration**:
-    *   Implemented an immersive, full-screen Google Street View experience accessible from the Winery Modal via `@googlemaps/js-api-loader`, with overlay hiding and state preservation.
-*   **Google Attribution Compliance**:
-    *   Added a floating "Powered by Google" badge in the bottom-left corner of the map canvas to comply with Google Places Terms of Service, with responsive mobile positioning.
-*   **Offline Map Caching (PWA)**:
-    *   Updated the Service Worker (`app/sw.ts`) with runtime caching rules for Mapbox assets: styles (`/styles/v1`), sprites (`/sprites/`), glyphs/fonts (`/fonts/v1`), and vector/raster tiles (`/v4/`, `/tiles/`).
-    *   Implemented Cache-First and Stale-While-Revalidate strategies with `ExpirationPlugin` (100 max entries, 30-day max age).
-    *   Registered Mapbox cache namespaces in [quota.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/quota.ts) for resilient eviction under storage pressure.
-
-### ⚙ Refactoring & Architecture
-*   **Context & Hook Migration**:
-    *   Refactored [mapStore.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/mapStore.ts) to store Mapbox map instances and serializable bounding boxes.
-    *   Rewrote [use-winery-map.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-winery-map.ts) to manage Mapbox camera states, viewport bounding boxes, and zoom configurations.
-    *   Updated [use-winery-filter.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-winery-filter.ts) to use generic bounding box containment checks instead of `google.maps.LatLngBounds.contains()`.
-    *   Updated [winery-map-context.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery-map-context.tsx) to expose Mapbox-compatible event handlers, refs, and bounds calculations.
-*   **Legacy Cleanup**:
-    *   Deleted `components/google-maps-provider.tsx` and `components/generic-marker-clusterer.tsx`.
-    *   Removed all `GoogleMapsProvider` references from [app-shell.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-shell.tsx).
-    *   Active category filters now correctly apply to Mapbox markers and any Google Map fallback views.
-
-### 🧪 Testing & Verification
-*   **Jest Unit Tests**:
-    *   Added global mocks for `react-map-gl` and `mapbox-gl` in Jest setup files.
-    *   Refactored unit test mock hooks (e.g., `use-winery-search.test.ts`, `use-places-autocomplete-session.test.ts`) to remove legacy `@vis.gl/react-google-maps` mocks.
-    *   Added unit tests for coordinate translation helpers and Mapbox cache quota eviction.
-*   **Playwright E2E Tests**:
-    *   Updated [helpers.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/helpers.ts) and [utils.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/utils.ts) to intercept Mapbox API requests (styles, glyphs, sprites, tiles) and mock WebGL canvas context for headless environments.
-    *   Updated `waitForMapReady` helper and all store bounds mock injectors (`setBounds`) to match the new Mapbox serializable bounds schema.
-    *   Verified offline E2E flow stability (`pwa-offline.spec.ts`) with Mapbox tile caching.
-*   **Visual Regression**:
-    *   Regenerated all baseline visual snapshots inside the Podman container to match the new Mapbox GL JS layout.
-
+### Removed
+* Removed `@vis.gl/react-google-maps` and `@googlemaps/markerclusterer` packages.
+* Deleted legacy `GoogleMapsProvider` and `generic-marker-clusterer` components.
 
 ---
 
@@ -607,3 +204,12 @@ For earlier releases, see the archived changelogs:
 * [Version 2.x Releases (v2.0.0 – v2.13.3)](docs/changelogs/CHANGELOG-v2.md)
 * [agent-resolve Tooling Releases](scripts/agent-resolve/CHANGELOG.md)
 
+[Unreleased]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.7.0...HEAD
+[3.7.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.6.0...v3.7.0
+[3.6.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.5.0...v3.6.0
+[3.5.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.4.0...v3.5.0
+[3.4.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.3.0...v3.4.0
+[3.3.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.2.0...v3.3.0
+[3.2.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.1.0...v3.2.0
+[3.1.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v3.0.0...v3.1.0
+[3.0.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.13.3...v3.0.0

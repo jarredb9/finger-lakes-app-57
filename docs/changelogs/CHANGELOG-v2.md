@@ -3,6 +3,9 @@
 Historical release notes for Version 2 releases (v2.0.0 through v2.13.3).
 For current releases, see the main [CHANGELOG.md](../../CHANGELOG.md).
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [2.13.3] - 2026-07-15
 
 **Mobile Bottom Navigation and Drawer Enhancement**
@@ -629,3 +632,28 @@ Version 2.2.2 focuses on UX refinement and data consistency. We have completely 
 *   **Testing:**
     *   Added comprehensive unit and integration tests for stores and hooks.
     *   Configured Jest with React Testing Library for the new React 19 environment.
+
+[2.13.3]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.13.2...v2.13.3
+[2.13.2]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.13.1...v2.13.2
+[2.13.1]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.13.0...v2.13.1
+[2.13.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.12.0...v2.13.0
+[2.12.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.11.0...v2.12.0
+[2.11.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.10.0...v2.11.0
+[2.10.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.9.0...v2.10.0
+[2.9.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.8.0...v2.9.0
+[2.8.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.7.0...v2.8.0
+[2.7.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.6.1...v2.7.0
+[2.6.1]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.6.0...v2.6.1
+[2.6.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.5.0...v2.6.0
+[2.5.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.4.0...v2.5.0
+[2.4.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.3.0...v2.4.0
+[2.3.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.2.8...v2.3.0
+[2.2.8]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.2.7...v2.2.8
+[2.2.7]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.2.6...v2.2.7
+[2.2.6]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.2.5...v2.2.6
+[2.2.5]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.2.4...v2.2.5
+[2.2.4]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.2.3...v2.2.4
+[2.2.3]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.2.2...v2.2.3
+[2.2.2]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.2.1...v2.2.2
+[2.2.1]: https://github.com/jarredb9/finger-lakes-app-57/compare/v2.0.0...v2.2.1
+[2.0.0]: https://github.com/jarredb9/finger-lakes-app-57/compare/v1.4...v2.0.0
