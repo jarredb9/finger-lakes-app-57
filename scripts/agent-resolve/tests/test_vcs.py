@@ -746,11 +746,11 @@ class TestPreserveFailedWork(unittest.TestCase):
         )
 
         self.assertIn(
-            call(["git", "add", "components/WineryCard.tsx"]),
+            call(["git", "add", "--", "components/WineryCard.tsx"]),
             mock_run_cmd.call_args_list,
         )
         self.assertIn(
-            call(["git", "commit", "-m", "wip(winery): Incomplete implementation for Issue #42 [skip ci]"]),
+            call(["git", "commit", "--no-verify", "-m", "wip(winery): Incomplete implementation for Issue #42 [skip ci]"]),
             mock_run_cmd.call_args_list,
         )
 
@@ -779,7 +779,7 @@ class TestPreserveFailedWork(unittest.TestCase):
 
         wip_commits = [
             c for c in mock_run_cmd.call_args_list
-            if c[0][0][:2] == ["git", "commit"] and "wip(" in c[0][0][3]
+            if c[0][0][:2] == ["git", "commit"] and any("wip(" in arg for arg in c[0][0])
         ]
         self.assertEqual(len(wip_commits), 0)
 
@@ -933,8 +933,8 @@ class TestPreserveFailedWork(unittest.TestCase):
         )
 
         mock_run_cmd.assert_has_calls([
-            call(["git", "add", ".agent-state.json", "AGENT_HANDOFF.md"]),
-            call(["git", "commit", "-m", "docs(agent): Checkpoint state for Issue #42 [skip ci]"]),
+            call(["git", "add", "--", ".agent-state.json", "AGENT_HANDOFF.md"]),
+            call(["git", "commit", "--no-verify", "-m", "docs(agent): Checkpoint state for Issue #42 [skip ci]"]),
         ])
 
     @patch("agent_resolve.vcs.gh_cli")
@@ -1224,12 +1224,12 @@ class TestPreserveFailedWork(unittest.TestCase):
         )
 
         mock_run_cmd.assert_has_calls([
-            call(["git", "add", "components/WineryCard.tsx"]),
-            call(["git", "commit", "-m", "wip(winery): Incomplete implementation for Issue #42 [skip ci]"]),
+            call(["git", "add", "--", "components/WineryCard.tsx"]),
+            call(["git", "commit", "--no-verify", "-m", "wip(winery): Incomplete implementation for Issue #42 [skip ci]"]),
             call(["git", "checkout", "--", "."]),
             call(["git", "clean", "-fd"]),
-            call(["git", "add", ".agent-state.json", "AGENT_HANDOFF.md"]),
-            call(["git", "commit", "-m", "docs(agent): Checkpoint state for Issue #42 [skip ci]"]),
+            call(["git", "add", "--", ".agent-state.json", "AGENT_HANDOFF.md"]),
+            call(["git", "commit", "--no-verify", "-m", "docs(agent): Checkpoint state for Issue #42 [skip ci]"]),
         ])
 
 

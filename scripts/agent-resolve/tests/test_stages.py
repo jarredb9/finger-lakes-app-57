@@ -364,6 +364,62 @@ class TestStage1Plan(unittest.TestCase):
         self.assertEqual(blueprint.target_test_files, ["lib/utils/__tests__/geo.test.ts"])
         self.assertEqual(mock_gemini.call_count, 1)
 
+    def test_stage_1_sanitizes_invalid_paths_from_target_src_files(self) -> None:
+        mock_blueprint = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/geo.test.ts"],
+            target_src_files=[
+                ".husky/pre-commit",
+                "package.json",
+                "scripts/agent-resolve.py",
+                "supabase/migrations/20261026_init.sql",
+                "src/index.ts",
+                "lib/utils/geo.ts",
+                "components/WineryMap.tsx",
+            ],
+            plan_markdown="# Plan",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", return_value=mock_blueprint
+        ) as mock_gemini:
+            blueprint = stage_1_plan(self.client, 42, "Refactor geo", "Body", self.tracker)
+
+        self.assertEqual(blueprint.target_src_files, ["lib/utils/geo.ts", "components/WineryMap.tsx"])
+        self.assertEqual(mock_gemini.call_count, 1)
+
+    def test_stage_1_triggers_self_correction_when_target_src_files_filtered_empty(self) -> None:
+        bp_invalid = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/places.test.ts"],
+            target_src_files=["package.json", ".husky/pre-commit"],
+            plan_markdown="# Plan 1",
+        )
+        bp_valid = BlueprintPlan(
+            scope="winery",
+            target_test_files=["lib/utils/__tests__/places.test.ts"],
+            target_src_files=["lib/utils/places.ts"],
+            plan_markdown="# Plan 2",
+        )
+
+        with patch.object(
+            agent_resolve, "get_project_context", return_value="CONTEXT"
+        ), patch.object(
+            agent_resolve, "find_related_test_files", return_value=[]
+        ), patch.object(
+            agent_resolve, "call_gemini_with_fallback", side_effect=[bp_invalid, bp_valid]
+        ) as mock_gemini:
+            blueprint = stage_1_plan(self.client, 42, "Places fix", "Body", self.tracker)
+
+        self.assertEqual(mock_gemini.call_count, 2)
+        prompt_attempt_2 = mock_gemini.call_args_list[1][0][1]
+        self.assertIn("target source file", prompt_attempt_2.lower())
+        self.assertEqual(blueprint.target_src_files, ["lib/utils/places.ts"])
+
     def test_stage_1_triggers_self_correction_when_target_test_files_filtered_empty(self) -> None:
         bp_invalid = BlueprintPlan(
             scope="winery",
@@ -374,7 +430,7 @@ class TestStage1Plan(unittest.TestCase):
         bp_valid = BlueprintPlan(
             scope="winery",
             target_test_files=["lib/utils/__tests__/places.test.ts"],
-            target_src_files=["supabase/functions/_shared/places.ts"],
+            target_src_files=["lib/utils/places.ts"],
             plan_markdown="# Plan 2",
         )
 
@@ -734,11 +790,11 @@ class TestStage2Red(unittest.TestCase):
 
         mock_cmd.assert_has_calls([
             call(
-                ["git", "add", "lib/__tests__/new.test.ts", "lib/stubbed.ts", "lib/unstubbed.ts"],
+                ["git", "add", "--", "lib/__tests__/new.test.ts", "lib/stubbed.ts", "lib/unstubbed.ts"],
                 check=True,
             ),
             call(
-                ["git", "commit", "-m", "test(winery): Add failing tests for Issue #42"],
+                ["git", "commit", "--no-verify", "-m", "test(winery): Add failing tests for Issue #42"],
                 check=True,
             ),
         ])
@@ -921,7 +977,7 @@ class TestStage2Red(unittest.TestCase):
         self.assertIn("lib/__tests__/target.test.ts", prompt_text)
         self.assertNotIn("components/__tests__/blast.test.tsx", prompt_text)
 
-        mock_test.assert_any_call(["npx", "jest", "--json", "lib/__tests__/target.test.ts"])
+        mock_test.assert_any_call(["npx", "jest", "--json", "--", "lib/__tests__/target.test.ts"])
         for call_args in mock_test.call_args_list:
             self.assertNotIn("components/__tests__/blast.test.tsx", call_args[0][0])
         self.assertEqual(bp.blast_radius_test_files, ["components/__tests__/blast.test.tsx"])
@@ -1014,11 +1070,11 @@ class TestStage2Red(unittest.TestCase):
         self.assertTrue((self.root / "lib" / "__tests__" / "feature.test.ts").exists())
         mock_cmd.assert_has_calls([
             call(
-                ["git", "add", "lib/__tests__/feature.test.ts", "lib/feature.ts"],
+                ["git", "add", "--", "lib/__tests__/feature.test.ts", "lib/feature.ts"],
                 check=True,
             ),
             call(
-                ["git", "commit", "-m", "test(winery): Add failing tests for Issue #42"],
+                ["git", "commit", "--no-verify", "-m", "test(winery): Add failing tests for Issue #42"],
                 check=True,
             ),
         ])
@@ -1360,14 +1416,14 @@ class TestStage3Green(unittest.TestCase):
         self.assertEqual(mock_test.call_count, 5)
         mock_test.assert_has_calls([
             call(["npm", "run", "type-check"]),
-            call(["npx", "eslint", "--no-warn-ignored", "lib/foo.ts"]),
-            call(["npx", "jest", "--no-color", "--silent", "lib/__tests__/foo.test.ts"]),
+            call(["npx", "eslint", "--no-warn-ignored", "--", "lib/foo.ts"]),
+            call(["npx", "jest", "--no-color", "--silent", "--", "lib/__tests__/foo.test.ts"]),
             call(["npm", "run", "type-check"]),
             call(["npx", "jest", "--no-color", "--silent"]),
         ])
         mock_cmd.assert_has_calls([
-            call(["git", "add", "lib/foo.ts"], check=True),
-            call(["git", "commit", "-m", "feat(winery): Implement changes to satisfy Issue #42"], check=True),
+            call(["git", "add", "--", "lib/foo.ts"], check=True),
+            call(["git", "commit", "--no-verify", "-m", "feat(winery): Implement changes to satisfy Issue #42"], check=True),
         ])
 
     def test_retries_on_patch_application_failure_and_resets_baseline(self) -> None:
@@ -1583,8 +1639,8 @@ class TestStage3Green(unittest.TestCase):
             call(["git", "reset", "--soft", "deadbeef12345678"], check=True),
             call(["git", "rm", "-f", "--ignore-unmatch", ".agent-state.json", "AGENT_HANDOFF.md"]),
             call(["git", "reset", "HEAD"]),
-            call(["git", "add", "lib/foo.ts"], check=True),
-            call(["git", "commit", "-m", "feat(winery): Implement changes to satisfy Issue #42"], check=True),
+            call(["git", "add", "--", "lib/foo.ts"], check=True),
+            call(["git", "commit", "--no-verify", "-m", "feat(winery): Implement changes to satisfy Issue #42"], check=True),
         ])
         self.assertFalse(state_file.exists())
         self.assertFalse(handoff_file.exists())
@@ -2079,13 +2135,13 @@ class TestStage3Green(unittest.TestCase):
         ):
             stage_3_green(self.client, 42, "Satisfy tests", bp, self.tracker)
 
-        eslint_cmd = ["npx", "eslint", "--no-warn-ignored", "lib/foo.ts", "lib/bar.ts"]
+        eslint_cmd = ["npx", "eslint", "--no-warn-ignored", "--", "lib/foo.ts", "lib/bar.ts"]
         self.assertIn(call(eslint_cmd), mock_test.call_args_list)
 
         calls = [c[0][0] for c in mock_test.call_args_list]
         tc_idx = calls.index(["npm", "run", "type-check"])
         eslint_idx = calls.index(eslint_cmd)
-        jest_idx = calls.index(["npx", "jest", "--no-color", "--silent", "lib/__tests__/foo.test.ts"])
+        jest_idx = calls.index(["npx", "jest", "--no-color", "--silent", "--", "lib/__tests__/foo.test.ts"])
         self.assertLess(tc_idx, eslint_idx)
         self.assertLess(eslint_idx, jest_idx)
 

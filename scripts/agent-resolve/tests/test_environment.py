@@ -101,6 +101,12 @@ class TestEnvironment(unittest.TestCase):
             "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.supabase-service-key",
             "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.supabase-anon-key",
             "GOOGLE_MAPS_API_KEY": "custom-maps-api-key-val",
+            "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "custom-next-maps-api-key-val",
+            "SUPABASE_DB_URL": "postgresql://postgres:pass@localhost:5432/db",
+            "POSTGRES_PASSWORD": "custom-postgres-password",
+            "JWT_SECRET": "custom-jwt-secret-val",
+            "VERCEL_TOKEN": "custom-vercel-token-val",
+            "SUPABASE_ACCESS_TOKEN": "custom-supabase-access-token-val",
         }
         for k, v in sensitive_vars.items():
             os.environ[k] = v
@@ -111,7 +117,10 @@ class TestEnvironment(unittest.TestCase):
             "APP_KEY=-----BEGIN RSA PRIVATE KEY-----abcdef, "
             "SRV=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.supabase-service-key, "
             "ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.supabase-anon-key, "
-            "MAPS=custom-maps-api-key-val"
+            "MAPS=custom-maps-api-key-val, NEXT_MAPS=custom-next-maps-api-key-val, "
+            "DB=postgresql://postgres:pass@localhost:5432/db, PG_PASS=custom-postgres-password, "
+            "JWT=custom-jwt-secret-val, VERCEL=custom-vercel-token-val, "
+            "SB_TOKEN=custom-supabase-access-token-val"
         )
         sanitized = sanitize_secrets(text)
         for k in sensitive_vars:
@@ -124,6 +133,24 @@ class TestEnvironment(unittest.TestCase):
             sanitize_secrets("Issue ID is 12345 in repo"),
             "Issue ID is 12345 in repo",
         )
+
+    def test_sanitize_secrets_redacts_regex_patterns(self) -> None:
+        supabase_pat = "sbp_1234567890abcdef1234567890abcdef1234"
+        aq_key = "AQ1234567890abcdef123456"
+        sb_secret = "sb_secret_abcdef1234567890xyz"
+        pg_url = "postgresql://postgres:mypassword@db.jfsxclrdxmvftxacjuqf.supabase.co:5432/postgres"
+
+        raw = f"Details: token={supabase_pat}, aq={aq_key}, sb={sb_secret}, conn={pg_url}"
+        sanitized = sanitize_secrets(raw)
+
+        self.assertNotIn(supabase_pat, sanitized)
+        self.assertNotIn(aq_key, sanitized)
+        self.assertNotIn(sb_secret, sanitized)
+        self.assertNotIn(pg_url, sanitized)
+        self.assertIn("[REDACTED_SUPABASE_TOKEN]", sanitized)
+        self.assertIn("[REDACTED_AQ_KEY]", sanitized)
+        self.assertIn("[REDACTED_SECRET]", sanitized)
+        self.assertIn("[REDACTED_DB_URL]", sanitized)
 
     def test_run_cmd_executes_and_strips_output_using_dynamic_project_root(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -244,9 +271,57 @@ class TestEnvironment(unittest.TestCase):
                     self.assertIn(prefix_token, docker_cmd)
                 self.assertEqual(docker_cmd[-3:], ["node:24-slim", "npm", "test"])
                 self.assertEqual(called_kwargs["cwd"], tmp_path)
-                self.assertEqual(called_kwargs["env"], {})
+                self.assertNotEqual(called_kwargs["env"], {})
+                self.assertIn("PATH", called_kwargs["env"])
+                for sensitive in ["GEMINI_API_KEY", "GH_TOKEN", "SUPABASE_DB_URL"]:
+                    self.assertNotIn(sensitive, called_kwargs["env"])
                 self.assertEqual(called_kwargs["check"], False)
                 self.assertEqual(called_kwargs["timeout"], 120)
+
+    def test_run_isolated_test_raises_in_ci_when_docker_unavailable(self) -> None:
+        with patch("agent_resolve.environment.is_docker_available", return_value=False), \
+             patch.dict(os.environ, {"CI": "true"}):
+            with self.assertRaises(RuntimeError) as ctx:
+                run_isolated_test(["npm", "test"])
+            self.assertIn("Docker daemon is unavailable in CI", str(ctx.exception))
+
+    def test_run_cmd_scrubs_sensitive_env_keys_and_patterns_when_env_is_none(self) -> None:
+        with patch.dict(os.environ, {
+            "GEMINI_API_KEY": "secret_gemini",
+            "GH_TOKEN": "secret_gh",
+            "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY": "secret_maps",
+            "SUPABASE_DB_URL": "postgresql://postgres:secret@localhost:5432/db",
+            "POSTGRES_PASSWORD": "secret_postgres",
+            "JWT_SECRET": "secret_jwt",
+            "VERCEL_TOKEN": "secret_vercel",
+            "SUPABASE_ACCESS_TOKEN": "secret_supabase_token",
+            "AQ_TEST_KEY": "secret_aq_key",
+            "sb_secret_val": "secret_sb_key",
+            "SAFE_HOST_VAR": "keep_this_variable",
+        }, clear=True), patch("subprocess.Popen") as mock_popen:
+            mock_proc = MagicMock()
+            mock_proc.communicate.return_value = ("stdout", "stderr")
+            mock_proc.returncode = 0
+            mock_popen.return_value = mock_proc
+
+            run_cmd(["echo", "hello"], env=None)
+            mock_popen.assert_called_once()
+            passed_env = mock_popen.call_args.kwargs["env"]
+
+            self.assertEqual(passed_env.get("SAFE_HOST_VAR"), "keep_this_variable")
+            for scrubbed in [
+                "GEMINI_API_KEY",
+                "GH_TOKEN",
+                "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+                "SUPABASE_DB_URL",
+                "POSTGRES_PASSWORD",
+                "JWT_SECRET",
+                "VERCEL_TOKEN",
+                "SUPABASE_ACCESS_TOKEN",
+                "AQ_TEST_KEY",
+                "sb_secret_val",
+            ]:
+                self.assertNotIn(scrubbed, passed_env)
 
     def test_run_isolated_test_fallback_branch_scrubs_sensitive_env_vars(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
