@@ -52,10 +52,10 @@
 
 - [x] Task: Remove pg_graphql from Supabase Configuration [commit: 7da7a522]
     - [x] Remove `"graphql_public"` from `db.schemas` in both `supabase/config.toml` and `supabase/config.ci.toml`.
-- [ ] Task: Regenerate TypeScript Definitions & Verify Static Compilation Gate
-    - [ ] Regenerate database TypeScript definitions via `npm run db:gen-types`.
-    - [ ] Verify dropped RPCs are removed and audit generated exports in `lib/database.types.ts`.
-    - [ ] Verify TypeScript types compile cleanly with `npm run db:check-types:local`.
+- [x] Task: Regenerate TypeScript Definitions & Verify Static Compilation Gate [commit: 1fe96744]
+    - [x] Regenerate database TypeScript definitions via `npm run db:gen-types`.
+    - [x] Verify dropped RPCs are removed and audit generated exports in `lib/database.types.ts`.
+    - [x] Verify TypeScript types compile cleanly with `npm run db:check-types:local`.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Supabase Configuration & Client Type Synchronization' (Protocol in workflow.md)
 
 ## Phase 4: Security Advisor Linter & Final Quality Gates (Verification)
