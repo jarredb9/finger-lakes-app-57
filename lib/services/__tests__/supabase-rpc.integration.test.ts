@@ -577,5 +577,298 @@ describe('Supabase RPC Integration Tests', () => {
         // Cleanup
         createdWineryIds.push(payload[0].google_place_id);
       });
+
+      it('should deny unauthenticated (anon) read access to profiles, wineries, visits, and collections', async () => {
+        // Fixture setup: Ensure user1 has data across core tables
+        const wineryPlaceId = `test-anon-fixture-${crypto.randomUUID()}`;
+        createdWineryIds.push(wineryPlaceId);
+        const { data: winery } = await adminClient.from('wineries').insert({
+          google_place_id: wineryPlaceId,
+          name: 'Fixture Winery for Anon Check',
+          address: '100 Anon Rd',
+          latitude: 42.5,
+          longitude: -77.0
+        }).select('id').single();
+
+        await adminClient.from('profiles').upsert({
+          id: user1.id,
+          email: user1.email,
+          name: 'User One',
+          privacy_level: 'public'
+        });
+
+        if (winery) {
+          await adminClient.from('visits').insert({
+            user_id: user1.id,
+            winery_id: winery.id,
+            visit_date: getTodayLocal(),
+            rating: 5,
+            user_review: 'Great public visit',
+            is_private: false
+          });
+
+          await adminClient.from('favorites').upsert({
+            user_id: user1.id,
+            winery_id: winery.id
+          });
+
+          await adminClient.from('wishlist').upsert({
+            user_id: user1.id,
+            winery_id: winery.id
+          });
+        }
+
+        // 1. Unauthenticated read on profiles
+        const { data: profiles, error: profilesError } = await anonClient.from('profiles').select('id, name, email');
+        if (profilesError) {
+          expect(profilesError.code).toBe('42501');
+        } else {
+          expect(profiles).toEqual([]);
+        }
+
+        // 2. Unauthenticated read on wineries
+        const { data: wineries, error: wineriesError } = await anonClient.from('wineries').select('id, name');
+        if (wineriesError) {
+          expect(wineriesError.code).toBe('42501');
+        } else {
+          expect(wineries).toEqual([]);
+        }
+
+        // 3. Unauthenticated read on visits
+        const { data: visits, error: visitsError } = await anonClient.from('visits').select('id, user_review');
+        if (visitsError) {
+          expect(visitsError.code).toBe('42501');
+        } else {
+          expect(visits).toEqual([]);
+        }
+
+        // 4. Unauthenticated read on favorites
+        const { data: favorites, error: favoritesError } = await anonClient.from('favorites').select('*');
+        if (favoritesError) {
+          expect(favoritesError.code).toBe('42501');
+        } else {
+          expect(favorites).toEqual([]);
+        }
+
+        // 5. Unauthenticated read on wishlist
+        const { data: wishlist, error: wishlistError } = await anonClient.from('wishlist').select('*');
+        if (wishlistError) {
+          expect(wishlistError.code).toBe('42501');
+        } else {
+          expect(wishlist).toEqual([]);
+        }
+      });
+
+      it('should reject direct table INSERT on public.wineries by authenticated non-service-role clients', async () => {
+        const testPlaceId = `test-direct-insert-${crypto.randomUUID()}`;
+        createdWineryIds.push(testPlaceId);
+
+        // Authenticated user1 attempts direct insert
+        const { error: insertError } = await user1.client.from('wineries').insert({
+          google_place_id: testPlaceId,
+          name: 'Direct Malicious Winery',
+          address: '123 Fake Rd',
+          latitude: 42.5,
+          longitude: -77.0
+        });
+
+        expect(insertError).not.toBeNull();
+        expect(insertError?.code).toBe('42501');
+
+        // Verify record was not inserted
+        const { data: winery } = await adminClient
+          .from('wineries')
+          .select('id')
+          .eq('google_place_id', testPlaceId)
+          .maybeSingle();
+        expect(winery).toBeNull();
+      });
+
+      it('should preserve catalog immutability, backfill nulls, and enforce auth in ensure_winery', async () => {
+        const placeId = `test-ensure-immutability-${crypto.randomUUID()}`;
+        createdWineryIds.push(placeId);
+
+        // 1. Seed canonical winery via adminClient
+        const { error: seedError } = await adminClient.from('wineries').insert({
+          google_place_id: placeId,
+          name: 'Canonical Finger Lakes Winery',
+          address: '100 Classic Trail',
+          latitude: 42.5000,
+          longitude: -76.8000,
+          phone: '607-555-0199',
+          website: null,
+          google_rating: 4.9
+        });
+        expect(seedError).toBeNull();
+
+        // 2. Tampering attempt via authenticated user
+        const { error: tamperError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: {
+            google_place_id: placeId,
+            name: 'Hacked Winery Name',
+            address: '999 Overwrite St',
+            latitude: 0.0,
+            longitude: 0.0,
+            phone: '000-000-0000',
+            website: 'https://canonical-flx.example.com',
+            rating: 1.0
+          }
+        });
+        expect(tamperError).toBeNull();
+
+        // Inspect record via adminClient
+        const { data: wineryAfter } = await adminClient
+          .from('wineries')
+          .select('name, address, latitude, longitude, phone, website, google_rating')
+          .eq('google_place_id', placeId)
+          .single();
+
+        expect(wineryAfter?.name).toBe('Canonical Finger Lakes Winery');
+        expect(wineryAfter?.address).toBe('100 Classic Trail');
+        expect(wineryAfter?.latitude).toBe(42.5000);
+        expect(wineryAfter?.longitude).toBe(-76.8000);
+        expect(wineryAfter?.phone).toBe('607-555-0199');
+        expect(wineryAfter?.website).toBe('https://canonical-flx.example.com');
+        expect(wineryAfter?.google_rating).toBe(4.9);
+
+        // 3. Place ID Aliasing (id vs google_place_id)
+        const { error: aliasError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: {
+            id: placeId,
+            name: 'Aliased Name Attempt'
+          }
+        });
+        expect(aliasError).toBeNull();
+        const { data: aliasCount } = await adminClient
+          .from('wineries')
+          .select('id')
+          .eq('google_place_id', placeId);
+        expect(aliasCount?.length).toBe(1);
+
+        // 4. Unauthenticated access denial
+        const { error: anonError } = await anonClient.rpc('ensure_winery', {
+          p_winery_data: {
+            id: `test-anon-${crypto.randomUUID()}`,
+            name: 'Anon Winery'
+          }
+        });
+        expect(anonError).not.toBeNull();
+      });
+
+      it('should isolate composite idempotency keys per user and reject unauthenticated execution in log_visit', async () => {
+        const sharedKey = crypto.randomUUID();
+        const placeIdA = `test-idem-a-${crypto.randomUUID()}`;
+        const placeIdB = `test-idem-b-${crypto.randomUUID()}`;
+        createdWineryIds.push(placeIdA, placeIdB);
+
+        const wineryA = {
+          id: placeIdA,
+          google_place_id: placeIdA,
+          name: 'Idempotency Winery A',
+          address: '1 A Rd',
+          latitude: 42.5,
+          longitude: -77.0
+        };
+        const wineryB = {
+          id: placeIdB,
+          google_place_id: placeIdB,
+          name: 'Idempotency Winery B',
+          address: '2 B Rd',
+          latitude: 42.6,
+          longitude: -77.1
+        };
+        const visitPayload = {
+          visit_date: getTodayLocal(),
+          rating: 4,
+          user_review: 'Great tasting room experience'
+        };
+
+        // 1. Unauthenticated Auth Guard
+        const { error: anonLogError } = await anonClient.rpc('log_visit', {
+          p_winery_data: wineryA,
+          p_visit_data: visitPayload,
+          p_idempotency_key: sharedKey
+        });
+        expect(anonLogError).not.toBeNull();
+
+        // 2. User 1 First Write with sharedKey
+        const { data: user1Visit, error: user1Error } = await user1.client.rpc('log_visit', {
+          p_winery_data: wineryA,
+          p_visit_data: visitPayload,
+          p_idempotency_key: sharedKey
+        });
+        expect(user1Error).toBeNull();
+        expect(user1Visit).toHaveProperty('visit_id');
+        const user1VisitId = (user1Visit as any).visit_id;
+
+        // 3. User 2 Cross-User Write with Same sharedKey
+        const { data: user2Visit, error: user2Error } = await user2.client.rpc('log_visit', {
+          p_winery_data: wineryB,
+          p_visit_data: visitPayload,
+          p_idempotency_key: sharedKey
+        });
+        expect(user2Error).toBeNull();
+        expect(user2Visit).toHaveProperty('visit_id');
+        const user2VisitId = (user2Visit as any).visit_id;
+        expect(user2VisitId).not.toBe(user1VisitId);
+
+        // 4. Database State Verification via adminClient
+        const { data: dbVisits } = await adminClient
+          .from('visits')
+          .select('id, user_id, idempotency_key')
+          .eq('idempotency_key', sharedKey);
+        expect(dbVisits?.length).toBe(2);
+        const userIds = dbVisits?.map(v => v.user_id);
+        expect(userIds).toContain(user1.id);
+        expect(userIds).toContain(user2.id);
+
+        // 5. Intra-User Replay (True Idempotency)
+        const { data: user2Replay, error: replayError } = await user2.client.rpc('log_visit', {
+          p_winery_data: wineryB,
+          p_visit_data: visitPayload,
+          p_idempotency_key: sharedKey
+        });
+        expect(replayError).toBeNull();
+        expect((user2Replay as any)?.visit_id).toBe(user2VisitId);
+      });
+
+      it('should redact email address in get_friend_profile_with_visits for non-friends and unauthenticated callers', async () => {
+        // Ensure user1 profile exists with user1.email and public privacy
+        await adminClient.from('profiles').upsert({
+          id: user1.id,
+          email: user1.email,
+          name: 'User One',
+          privacy_level: 'public'
+        });
+
+        // Ensure user3 is NOT a friend of user1
+        await adminClient.from('friends').delete()
+          .or(`and(user_id.eq.${user1.id},friend_id.eq.${user3.id}),and(user_id.eq.${user3.id},friend_id.eq.${user1.id})`);
+
+        // 1. Non-Friend Query
+        const { data: nonFriendData, error: nonFriendError } = await user3.client.rpc('get_friend_profile_with_visits', {
+          p_friend_id: user1.id
+        });
+        expect(nonFriendError).toBeNull();
+        expect((nonFriendData as any)?.profile?.id).toBe(user1.id);
+        expect((nonFriendData as any)?.profile?.email).toBeNull();
+
+        // 2. Unauthenticated Query
+        const { data: anonData, error: anonError } = await anonClient.rpc('get_friend_profile_with_visits', {
+          p_friend_id: user1.id
+        });
+        if (anonError) {
+          expect(anonError).not.toBeNull();
+        } else {
+          expect((anonData as any)?.profile).toBeFalsy();
+        }
+
+        // 3. Self Query (Owner Visibility)
+        const { data: selfData, error: selfError } = await user1.client.rpc('get_friend_profile_with_visits', {
+          p_friend_id: user1.id
+        });
+        expect(selfError).toBeNull();
+        expect((selfData as any)?.profile?.email).toBe(user1.email);
+      });
     });
 });
