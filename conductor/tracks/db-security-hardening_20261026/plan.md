@@ -48,7 +48,7 @@
     - [x] Run containerized integration tests, verify all 5 security regression tests pass (Green), and clean up any temporary test artifacts.
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Database Hardening & Security Regression' (Protocol in workflow.md) [commit: 7f9d06c6]
 
-## Phase 3: Supabase Configuration & Client Type Synchronization (Tooling)
+## Phase 3: Supabase Configuration & Client Type Synchronization (Tooling) [checkpoint: be4bfce3]
 
 - [x] Task: Remove pg_graphql from Supabase Configuration [commit: 7da7a522]
     - [x] Remove `"graphql_public"` from `db.schemas` in both `supabase/config.toml` and `supabase/config.ci.toml`.
@@ -56,7 +56,7 @@
     - [x] Regenerate database TypeScript definitions via `npm run db:gen-types`.
     - [x] Verify dropped RPCs are removed and audit generated exports in `lib/database.types.ts`.
     - [x] Verify TypeScript types compile cleanly with `npm run db:check-types:local`.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Supabase Configuration & Client Type Synchronization' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Supabase Configuration & Client Type Synchronization' (Protocol in workflow.md) [commit: be4bfce3]
 
 ## Phase 4: Security Advisor Linter & Final Quality Gates (Verification)
 
