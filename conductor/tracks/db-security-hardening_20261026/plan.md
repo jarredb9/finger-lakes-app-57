@@ -13,8 +13,8 @@
 - [x] Task: Verify Existing Test Suites Pass on Current Baseline [commit: 5a6a566b60beb36a46f802fa8f9b91a00140d070]
     - [x] Run containerized unit test suite for mutations: `npm run test:container -- lib/services/__tests__/tripService.mutations.test.ts`.
     - [x] Run existing integration tests to confirm baseline stability before applying database changes.
-- [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Confirm no lingering client references to the 10 RPCs targeted for removal.
+- [x] Task: Refactor & Scaffolding Cleanup [commit: 5bba2004ebacec3f8724cf92db20a1a74001c12f]
+    - [x] Confirm no lingering client references to the 10 RPCs targeted for removal.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Client & Integration Test Modernization' (Protocol in workflow.md)
 
 ## Phase 2: Database Hardening & Security Regression (Strict TDD)
@@ -43,11 +43,9 @@
     - [ ] Convert 8 read RPCs and 18 write RPCs to `SECURITY INVOKER`.
     - [ ] Retain 7 boundary RPCs as `SECURITY DEFINER` with explicit authenticated/service_role execute grants.
     - [ ] Lock down trigger functions (`handle_new_user`, `handle_activity_ledger_notification`, `handle_activity_ledger_entry`).
-    - [ ] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
-    - [ ] Run containerized integration tests and verify that all 5 security regression tests pass (Green).
-- [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Audit migration SQL for formatting, idempotency, and syntax cleanliness.
-    - [ ] Verify local database logs and clean up any temporary test artifacts.
+    - [ ] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
+    - [ ] Run containerized integration tests, verify all 5 security regression tests pass (Green), and clean up any temporary test artifacts.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Database Hardening & Security Regression' (Protocol in workflow.md)
 
 ## Phase 3: Supabase Configuration & Client Type Synchronization (Tooling)
@@ -56,10 +54,8 @@
     - [ ] Remove `"graphql_public"` from `db.schemas` in both `supabase/config.toml` and `supabase/config.ci.toml`.
 - [ ] Task: Regenerate TypeScript Definitions & Verify Static Compilation Gate
     - [ ] Regenerate database TypeScript definitions via `npm run db:gen-types`.
-    - [ ] Verify dropped RPCs are removed from `lib/database.types.ts`.
+    - [ ] Verify dropped RPCs are removed and audit generated exports in `lib/database.types.ts`.
     - [ ] Verify TypeScript types compile cleanly with `npm run db:check-types:local`.
-- [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Audit generated types in `lib/database.types.ts` for clean exports.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Supabase Configuration & Client Type Synchronization' (Protocol in workflow.md)
 
 ## Phase 4: Security Advisor Linter & Final Quality Gates (Verification)
@@ -70,7 +66,5 @@
     - [ ] Run full unit test suite: `npm run test:container`.
     - [ ] Run full integration test suite: `npm run test:integration:container`.
     - [ ] Run production build: `npm run build`.
-- [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Remove any temporary log or test artifacts.
-    - [ ] Verify clean git status.
+    - [ ] Remove any temporary log or test artifacts and verify clean git status.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Security Advisor Linter & Final Quality Gates' (Protocol in workflow.md)
