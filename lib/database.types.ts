@@ -609,7 +609,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      add_to_wishlist: { Args: { p_winery_data: Json }; Returns: Json }
       add_trip_member_by_email: {
         Args: { p_email: string; p_trip_id: number }
         Returns: Json
@@ -623,10 +622,6 @@ export type Database = {
             Args: { p_notes?: string; p_trip_id: number; p_winery_id: number }
             Returns: Json
           }
-      add_winery_to_trips: {
-        Args: { p_trip_ids: number[]; p_winery_id: number }
-        Returns: Json
-      }
       bulk_upsert_wineries: {
         Args: { p_wineries_data: Json[] }
         Returns: undefined
@@ -653,24 +648,6 @@ export type Database = {
       delete_trip: { Args: { p_trip_id: number }; Returns: Json }
       delete_visit: { Args: { p_visit_id: number }; Returns: Json }
       ensure_winery: { Args: { p_winery_data: Json }; Returns: number }
-      get_all_user_visits_list: {
-        Args: never
-        Returns: {
-          google_place_id: string
-          id: number
-          lat: number
-          latitude: number
-          lng: number
-          longitude: number
-          photos: string[]
-          rating: number
-          user_review: string
-          visit_date: string
-          winery_address: string
-          winery_id: number
-          winery_name: string
-        }[]
-      }
       get_all_wineries_with_user_data: {
         Args: never
         Returns: {
@@ -811,13 +788,6 @@ export type Database = {
           wineries: Json
         }[]
       }
-      get_user_dashboard: { Args: never; Returns: Json }
-      get_user_winery_data_aggregated: {
-        Args: never
-        Returns: {
-          wineries_data: Json
-        }[]
-      }
       get_wineries_for_trip_planner: {
         Args: { p_trip_date: string }
         Returns: {
@@ -837,140 +807,6 @@ export type Database = {
           trip_name: string
           user_visited: boolean
           visit_order: number
-          website: string
-        }[]
-      }
-      get_wineries_in_bounds:
-        | {
-            Args: {
-              p_max_latitude: number
-              p_max_longitude: number
-              p_min_latitude: number
-              p_min_longitude: number
-            }
-            Returns: {
-              accessibility_flags: Json | null
-              address: string
-              allows_dogs: boolean | null
-              created_at: string | null
-              editorial_summary: Json | null
-              enrichment_tier: string | null
-              generative_summary: Json | null
-              good_for_children: boolean | null
-              google_place_id: string | null
-              google_rating: number | null
-              has_ev_charging: boolean | null
-              id: number
-              last_action_timestamp: string | null
-              last_enriched_at: string | null
-              latitude: number | null
-              longitude: number | null
-              name: string
-              neighborhood_summary: Json | null
-              opening_hours: Json | null
-              outdoor_seating: boolean | null
-              parking_options: Json | null
-              phone: string | null
-              photo_references: Json | null
-              primary_photo_reference: string | null
-              reservable: boolean | null
-              reviews: Json | null
-              revision_id: string | null
-              serves_wine: boolean | null
-              user_rating_count: number | null
-              varietals: Json | null
-              vibe_tags: string[] | null
-              website: string | null
-            }[]
-            SetofOptions: {
-              from: "*"
-              to: "wineries"
-              isOneToOne: false
-              isSetofReturn: true
-            }
-          }
-        | {
-            Args: {
-              p_allows_dogs?: boolean
-              p_good_for_children?: boolean
-              p_has_ev_charging?: boolean
-              p_max_latitude: number
-              p_max_longitude: number
-              p_min_latitude: number
-              p_min_longitude: number
-              p_outdoor_seating?: boolean
-              p_serves_wine?: boolean
-            }
-            Returns: {
-              accessibility_flags: Json | null
-              address: string
-              allows_dogs: boolean | null
-              created_at: string | null
-              editorial_summary: Json | null
-              enrichment_tier: string | null
-              generative_summary: Json | null
-              good_for_children: boolean | null
-              google_place_id: string | null
-              google_rating: number | null
-              has_ev_charging: boolean | null
-              id: number
-              last_action_timestamp: string | null
-              last_enriched_at: string | null
-              latitude: number | null
-              longitude: number | null
-              name: string
-              neighborhood_summary: Json | null
-              opening_hours: Json | null
-              outdoor_seating: boolean | null
-              parking_options: Json | null
-              phone: string | null
-              photo_references: Json | null
-              primary_photo_reference: string | null
-              reservable: boolean | null
-              reviews: Json | null
-              revision_id: string | null
-              serves_wine: boolean | null
-              user_rating_count: number | null
-              varietals: Json | null
-              vibe_tags: string[] | null
-              website: string | null
-            }[]
-            SetofOptions: {
-              from: "*"
-              to: "wineries"
-              isOneToOne: false
-              isSetofReturn: true
-            }
-          }
-      get_winery_details: {
-        Args: { p_winery_id: number }
-        Returns: {
-          accessibility_flags: Json
-          address: string
-          allows_dogs: boolean
-          editorial_summary: Json
-          enrichment_tier: string
-          generative_summary: Json
-          good_for_children: boolean
-          google_place_id: string
-          google_rating: number
-          has_ev_charging: boolean
-          id: number
-          is_favorite: boolean
-          last_enriched_at: string
-          latitude: number
-          longitude: number
-          name: string
-          neighborhood_summary: Json
-          on_wishlist: boolean
-          outdoor_seating: boolean
-          parking_options: Json
-          phone: string
-          photo_references: Json
-          primary_photo_reference: string
-          serves_wine: boolean
-          user_visited: boolean
-          visits: Json
           website: string
         }[]
       }
@@ -1040,10 +876,6 @@ export type Database = {
         Args: { p_trip_id: number; p_winery_ids: number[] }
         Returns: Json
       }
-      respond_to_follow_request: {
-        Args: { p_accept: boolean; p_follower_id: string }
-        Returns: Json
-      }
       respond_to_friend_request: {
         Args: { p_accept: boolean; p_requester_id: string }
         Returns: undefined
@@ -1070,7 +902,6 @@ export type Database = {
           website: string
         }[]
       }
-      send_follow_request: { Args: { p_target_id: string }; Returns: Json }
       send_friend_request: {
         Args: { p_target_email: string }
         Returns: undefined
@@ -1094,10 +925,6 @@ export type Database = {
           p_visit_id: number
         }
         Returns: Json
-      }
-      upsert_wineries_from_search: {
-        Args: { p_wineries_data: Json[] }
-        Returns: undefined
       }
     }
     Enums: {
