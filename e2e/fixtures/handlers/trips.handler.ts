@@ -97,7 +97,7 @@ export class TripsHandler {
 
     // 1. Trips RPC Handler
     const tripsRpcRegex = new RegExp(
-      `${supabaseHost}/.*rpc/(get_trip_details|get_trips_for_date|create_trip|create_trip_with_winery|delete_trip|reorder_trip_wineries|update_trip_winery_notes|add_trip_member_by_email|add_winery_to_trip|remove_winery_from_trip|add_winery_to_trips|definitely_does_not_exist_rpc_12345)`
+      `${supabaseHost}/.*rpc/(get_trip_details|get_trips_for_date|create_trip|create_trip_with_winery|delete_trip|reorder_trip_wineries|update_trip_winery_notes|add_trip_member_by_email|add_winery_to_trip|remove_winery_from_trip|definitely_does_not_exist_rpc_12345)`
     );
 
     await this.page.context().route(tripsRpcRegex, async (route) => {

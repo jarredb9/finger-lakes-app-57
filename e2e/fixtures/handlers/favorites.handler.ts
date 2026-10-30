@@ -58,7 +58,7 @@ export class FavoritesHandler {
     }
 
     const favoritesRpcRegex = new RegExp(
-      `${supabaseHost}/.*rpc/(toggle_favorite|toggle_wishlist|toggle_favorite_privacy|toggle_wishlist_privacy|ensure_winery|get_map_markers|get_wineries_in_bounds|get_paginated_wineries|get_winery_details_by_id)`
+      `${supabaseHost}/.*rpc/(toggle_favorite|toggle_wishlist|toggle_favorite_privacy|toggle_wishlist_privacy|ensure_winery|get_map_markers|get_paginated_wineries|get_winery_details_by_id)`
     );
 
     await this.page.context().route(favoritesRpcRegex, async (route) => {
@@ -140,7 +140,7 @@ export class FavoritesHandler {
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(nextState) });
       }
 
-      if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
+      if (url.includes('get_map_markers') || url.includes('get_paginated_wineries')) {
         const userFavorites = this.state.favoritesMap.get(this.currentUserId);
         const userFavPriv = this.state.favoritePrivacyMap.get(this.currentUserId);
         const userWishlist = this.state.wishlistMap.get(this.currentUserId);

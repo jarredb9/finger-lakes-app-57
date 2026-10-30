@@ -224,11 +224,6 @@ export class BrowserShim {
       console.log('[DIAGNOSTIC] Intercepting get_map_markers with 500 error');
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
     });
-
-    await this.page.context().route(/.*rpc\/get_wineries_in_bounds/, async (route) => {
-      console.log('[DIAGNOSTIC] Intercepting get_wineries_in_bounds with 500 error');
-      await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
-    });
   }
 
   /**
