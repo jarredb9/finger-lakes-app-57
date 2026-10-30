@@ -3,18 +3,30 @@
 **Tracking:** Issue [#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87)  
 **Specification Reference:** [spec.md](./spec.md)  
 
-## Phase 1: Security Regression Tests, Integration Modernization & Hardening Migration
+## Phase 1: Client & Integration Test Modernization (Preparation)
 
-- [ ] Task: Write Failing Security Tests & Modernize Legacy RPC Test Calls (TDD Red phase)
+- [ ] Task: Modernize supabase-rpc Integration Tests & Prune Dead tripService Code
+    - [ ] Update `lib/services/__tests__/supabase-rpc.integration.test.ts`: replace deprecated `add_to_wishlist` calls with modern `toggle_wishlist`.
+    - [ ] Remove obsolete `send_follow_request` and `respond_to_follow_request` test blocks from `lib/services/__tests__/supabase-rpc.integration.test.ts`.
+    - [ ] Remove deprecated `addWineryToTripByApi` method from `lib/services/tripService.ts`.
+    - [ ] Remove `addWineryToTripByApi` test block from `lib/services/__tests__/tripService.mutations.test.ts`.
+- [ ] Task: Verify Existing Test Suites Pass on Current Baseline
+    - [ ] Run containerized unit test suite for mutations: `npm run test:container -- lib/services/__tests__/tripService.mutations.test.ts`.
+    - [ ] Run existing integration tests to confirm baseline stability before applying database changes.
+- [ ] Task: Refactor & Scaffolding Cleanup
+    - [ ] Confirm no lingering client references to the 10 RPCs targeted for removal.
+- [ ] Task: Conductor - User Manual Verification 'Phase 1: Client & Integration Test Modernization' (Protocol in workflow.md)
+
+## Phase 2: Database Hardening & Security Regression (Strict TDD)
+
+- [ ] Task: Write Failing Security Regression Tests (TDD Red phase)
     - [ ] Add integration test cases in `lib/services/__tests__/supabase-rpc.integration.test.ts` for unauthenticated (`anon`) access denial on `profiles`, `wineries`, `visits`, and user collections.
     - [ ] Add integration test case verifying direct `INSERT` on `public.wineries` is denied with code `42501` to regular authenticated users.
     - [ ] Add integration test cases verifying `ensure_winery` immutability on conflict (existing non-null attributes preserved, nulls backfilled, place ID aliasing, rating > 0).
-    - [ ] Add integration test cases verifying composite `(user_id, idempotency_key)` isolation (cross-user idempotency key reuse does not leak records or collide) and top-level auth checks.
+    - [ ] Add integration test cases verifying composite `(user_id, idempotency_key)` isolation (cross-user key reuse does not leak records or collide) and top-level auth checks.
     - [ ] Add test cases asserting email redaction for non-friends in `get_friend_profile_with_visits`.
-    - [ ] Modernize `lib/services/__tests__/supabase-rpc.integration.test.ts`: replace deprecated `add_to_wishlist` calls with `toggle_wishlist`, and remove deprecated `send_follow_request`/`respond_to_follow_request` tests.
-    - [ ] Remove deprecated `addWineryToTripByApi` test block from `lib/services/__tests__/tripService.mutations.test.ts`.
-    - [ ] Run containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures on the unhardened database.
-- [ ] Task: Implement Database Hardening Migration & Apply Locally (TDD Green phase)
+    - [ ] Run containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures on the unhardened schema.
+- [ ] Task: Implement Database Hardening Migration & Verify Green (TDD Green phase)
     - [ ] Create `supabase/migrations/20261026000000_harden_rls_and_security_invoker_rpcs.sql`.
     - [ ] Revoke table, sequence, and function privileges from `anon` in `schema public` and alter default privileges.
     - [ ] Drop `pg_graphql` extension (`DROP EXTENSION IF EXISTS pg_graphql CASCADE;`).
@@ -32,48 +44,33 @@
     - [ ] Retain 7 boundary RPCs as `SECURITY DEFINER` with explicit authenticated/service_role execute grants.
     - [ ] Lock down trigger functions (`handle_new_user`, `handle_activity_ledger_notification`, `handle_activity_ledger_entry`).
     - [ ] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
-    - [ ] Run containerized integration tests and verify that the security regression tests pass.
+    - [ ] Run containerized integration tests and verify that all 5 security regression tests pass (Green).
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Audit migration SQL for formatting, idempotency, and syntax cleanliness.
     - [ ] Verify local database logs and clean up any temporary test artifacts.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Security Regression Tests, Integration Modernization & Hardening Migration' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 2: Database Hardening & Security Regression' (Protocol in workflow.md)
 
-## Phase 2: Supabase Configuration & Client Type Synchronization
+## Phase 3: Supabase Configuration & Client Type Synchronization (Tooling)
 
-- [ ] Task: Write Failing Test for Schema Configuration Contract (TDD Red phase)
-    - [ ] Add contract test asserting `supabase/config.toml` and `supabase/config.ci.toml` do not include `"graphql_public"`.
-    - [ ] Run test and observe failure on existing configs.
-- [ ] Task: Synchronize Configs, Prune Legacy Client RPCs & Regenerate Types (TDD Green phase)
-    - [ ] Remove `"graphql_public"` from `db.schemas` in `supabase/config.toml` and `supabase/config.ci.toml`.
-    - [ ] Remove deprecated `addWineryToTripByApi` from `lib/services/tripService.ts`.
+- [ ] Task: Remove pg_graphql from Supabase Configuration
+    - [ ] Remove `"graphql_public"` from `db.schemas` in both `supabase/config.toml` and `supabase/config.ci.toml`.
+- [ ] Task: Regenerate TypeScript Definitions & Verify Static Compilation Gate
     - [ ] Regenerate database TypeScript definitions via `npm run db:gen-types`.
+    - [ ] Verify dropped RPCs are removed from `lib/database.types.ts`.
     - [ ] Verify TypeScript types compile cleanly with `npm run db:check-types:local`.
 - [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Audit generated types in `lib/database.types.ts` to confirm dropped RPCs are removed.
-    - [ ] Remove any temporary type check scripts.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Supabase Configuration & Client Type Synchronization' (Protocol in workflow.md)
+    - [ ] Audit generated types in `lib/database.types.ts` for clean exports.
+- [ ] Task: Conductor - User Manual Verification 'Phase 3: Supabase Configuration & Client Type Synchronization' (Protocol in workflow.md)
 
-## Phase 3: Security Advisor Linter Verification & Integration Test Audit
+## Phase 4: Security Advisor Linter & Final Quality Gates (Verification)
 
-- [ ] Task: Write Security Advisor Linter Assertion Check (TDD Red phase)
-    - [ ] Create test or validation script checking schema for categories 0026, 0027, 0028, and 0029 warnings.
-    - [ ] Run check to establish baseline verification.
-- [ ] Task: Execute and Stabilize Full Integration Test Suite (TDD Green phase)
-    - [ ] Run complete containerized integration suite: `npm run test:integration:container`.
-    - [ ] Ensure all RPC and database integration tests pass deterministically against the hardened schema.
-- [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Audit integration test assertions for determinism and cleanup hooks.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Security Advisor Linter Verification & Integration Test Audit' (Protocol in workflow.md)
-
-## Phase 4: Full Quality Gates, Unit Tests & Build Verification
-
-- [ ] Task: Establish Pre-Build Quality Gate Expectations (TDD Red phase)
-    - [ ] Run linter and typecheck checks to catch any residual references to dropped functions.
-- [ ] Task: Execute Full Containerized Test Suite & Build Verification (TDD Green phase)
+- [ ] Task: Verify Security Advisor Linter Warnings Resolution
+    - [ ] Verify categories 0026, 0027, 0028, and 0029 warnings are fully eliminated against the local database schema.
+- [ ] Task: Execute Full Containerized Test Suite & Production Build
     - [ ] Run full unit test suite: `npm run test:container`.
-    - [ ] Run TypeScript checks: `npm run db:check-types:local`.
+    - [ ] Run full integration test suite: `npm run test:integration:container`.
     - [ ] Run production build: `npm run build`.
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Remove any temporary log or test artifacts.
     - [ ] Verify clean git status.
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Full Quality Gates, Unit Tests & Build Verification' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 4: Security Advisor Linter & Final Quality Gates' (Protocol in workflow.md)
