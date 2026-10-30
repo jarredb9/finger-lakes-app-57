@@ -5,11 +5,11 @@
 
 ## Phase 1: Client & Integration Test Modernization (Preparation)
 
-- [ ] Task: Modernize supabase-rpc Integration Tests & Prune Dead tripService Code
-    - [ ] Update `lib/services/__tests__/supabase-rpc.integration.test.ts`: replace deprecated `add_to_wishlist` calls with modern `toggle_wishlist`.
-    - [ ] Remove obsolete `send_follow_request` and `respond_to_follow_request` test blocks from `lib/services/__tests__/supabase-rpc.integration.test.ts`.
-    - [ ] Remove deprecated `addWineryToTripByApi` method from `lib/services/tripService.ts`.
-    - [ ] Remove `addWineryToTripByApi` test block from `lib/services/__tests__/tripService.mutations.test.ts`.
+- [x] Task: Modernize supabase-rpc Integration Tests & Prune Dead tripService Code [commit: c029eb596e8306c6cc6e59c0daea3e631e224aa7]
+    - [x] Update `lib/services/__tests__/supabase-rpc.integration.test.ts`: replace deprecated `add_to_wishlist` calls with modern `toggle_wishlist`.
+    - [x] Remove obsolete `send_follow_request` and `respond_to_follow_request` test blocks from `lib/services/__tests__/supabase-rpc.integration.test.ts`.
+    - [x] Remove deprecated `addWineryToTripByApi` method from `lib/services/tripService.ts`.
+    - [x] Remove `addWineryToTripByApi` test block from `lib/services/__tests__/tripService.mutations.test.ts`.
 - [ ] Task: Verify Existing Test Suites Pass on Current Baseline
     - [ ] Run containerized unit test suite for mutations: `npm run test:container -- lib/services/__tests__/tripService.mutations.test.ts`.
     - [ ] Run existing integration tests to confirm baseline stability before applying database changes.
