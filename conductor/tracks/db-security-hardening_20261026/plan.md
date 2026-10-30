@@ -19,13 +19,13 @@
 
 ## Phase 2: Database Hardening & Security Regression (Strict TDD)
 
-- [ ] Task: Write Failing Security Regression Tests (TDD Red phase)
-    - [ ] Add integration test cases in `lib/services/__tests__/supabase-rpc.integration.test.ts` for unauthenticated (`anon`) access denial on `profiles`, `wineries`, `visits`, and user collections.
-    - [ ] Add integration test case verifying direct `INSERT` on `public.wineries` is denied with code `42501` to regular authenticated users.
-    - [ ] Add integration test cases verifying `ensure_winery` immutability on conflict (existing non-null attributes preserved, nulls backfilled, place ID aliasing, rating > 0).
-    - [ ] Add integration test cases verifying composite `(user_id, idempotency_key)` isolation (cross-user key reuse does not leak records or collide) and top-level auth checks.
-    - [ ] Add test cases asserting email redaction for non-friends in `get_friend_profile_with_visits`.
-    - [ ] Run containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures on the unhardened schema.
+- [x] Task: Write Failing Security Regression Tests (TDD Red phase) [commit: 5bbbfff8]
+    - [x] Add integration test cases in `lib/services/__tests__/supabase-rpc.integration.test.ts` for unauthenticated (`anon`) access denial on `profiles`, `wineries`, `visits`, and user collections.
+    - [x] Add integration test case verifying direct `INSERT` on `public.wineries` is denied with code `42501` to regular authenticated users.
+    - [x] Add integration test cases verifying `ensure_winery` immutability on conflict (existing non-null attributes preserved, nulls backfilled, place ID aliasing, rating > 0).
+    - [x] Add integration test cases verifying composite `(user_id, idempotency_key)` isolation (cross-user key reuse does not leak records or collide) and top-level auth checks.
+    - [x] Add test cases asserting email redaction for non-friends in `get_friend_profile_with_visits`.
+    - [x] Run containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures on the unhardened schema.
 - [ ] Task: Implement Database Hardening Migration & Verify Green (TDD Green phase)
     - [ ] Create `supabase/migrations/20261026000000_harden_rls_and_security_invoker_rpcs.sql`.
     - [ ] Revoke table, sequence, and function privileges from `anon` in `schema public` and alter default privileges.
