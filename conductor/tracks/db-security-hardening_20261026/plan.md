@@ -3,7 +3,7 @@
 **Tracking:** Issue [#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87)  
 **Specification Reference:** [spec.md](./spec.md)  
 
-## Phase 1: Client & Integration Test Modernization (Preparation)
+## Phase 1: Client & Integration Test Modernization (Preparation) [checkpoint: 7128b93]
 
 - [x] Task: Modernize supabase-rpc Integration Tests & Prune Dead tripService Code [commit: c029eb596e8306c6cc6e59c0daea3e631e224aa7]
     - [x] Update `lib/services/__tests__/supabase-rpc.integration.test.ts`: replace deprecated `add_to_wishlist` calls with modern `toggle_wishlist`.
@@ -15,7 +15,7 @@
     - [x] Run existing integration tests to confirm baseline stability before applying database changes.
 - [x] Task: Refactor & Scaffolding Cleanup [commit: 5bba2004ebacec3f8724cf92db20a1a74001c12f]
     - [x] Confirm no lingering client references to the 10 RPCs targeted for removal.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Client & Integration Test Modernization' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Client & Integration Test Modernization' (Protocol in workflow.md) [commit: 7128b93]
 
 ## Phase 2: Database Hardening & Security Regression (Strict TDD)
 
