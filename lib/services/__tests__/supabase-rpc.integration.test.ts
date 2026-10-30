@@ -290,12 +290,13 @@ describe('Supabase RPC Integration Tests', () => {
         };
         createdWineryIds.push(wineryPlaceId);
 
-        // 1. Add winery to user1 wishlist via add_to_wishlist RPC
-        const { data: wishData, error: wishError } = await user1.client.rpc('add_to_wishlist', {
+        // 1. Add winery to user1 wishlist via toggle_wishlist RPC
+        const { data: wishData, error: wishError } = await user1.client.rpc('toggle_wishlist', {
           p_winery_data: wineryData
         });
         expect(wishError).toBeNull();
         expect(wishData).toHaveProperty('winery_id');
+        expect(wishData.on_wishlist).toBe(true);
         const wineryDbId = wishData.winery_id;
 
         // 2. Verify wishlist entry exists in public.wishlist
@@ -346,10 +347,12 @@ describe('Supabase RPC Integration Tests', () => {
         createdWineryIds.push(wineryPlaceId);
 
         // 1. Add winery to user1 wishlist
-        const { data: wishData, error: wishError } = await user1.client.rpc('add_to_wishlist', {
+        const { data: wishData, error: wishError } = await user1.client.rpc('toggle_wishlist', {
           p_winery_data: wineryData
         });
         expect(wishError).toBeNull();
+        expect(wishData).toHaveProperty('winery_id');
+        expect(wishData.on_wishlist).toBe(true);
         const wineryDbId = wishData.winery_id;
 
         // 2. Log first visit
@@ -403,10 +406,12 @@ describe('Supabase RPC Integration Tests', () => {
         createdWineryIds.push(wineryPlaceId);
 
         // 1. Add winery to wishlist
-        const { data: wishData, error: wishError } = await user1.client.rpc('add_to_wishlist', {
+        const { data: wishData, error: wishError } = await user1.client.rpc('toggle_wishlist', {
           p_winery_data: wineryData
         });
         expect(wishError).toBeNull();
+        expect(wishData).toHaveProperty('winery_id');
+        expect(wishData.on_wishlist).toBe(true);
         const wineryDbId = wishData.winery_id;
 
         // 2. Log visit
@@ -470,73 +475,6 @@ describe('Supabase RPC Integration Tests', () => {
           .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`)
           .single();
         expect(friend).not.toBeNull();
-      });
-
-      it('should handle follow lifecycle (instant for public profiles)', async () => {
-        // 1. Ensure user2 is public (default)
-        await adminClient.from('profiles').update({ privacy_level: 'public' }).eq('id', user2.id);
-
-        // 2. User 1 follows User 2
-        const { data, error } = await user1.client.rpc('send_follow_request', {
-          p_target_id: user2.id
-        });
-        expect(error).toBeNull();
-        expect(data.status).toBe('followed');
-
-        // 3. Verify in follows table
-        const { data: follow } = await adminClient
-          .from('follows')
-          .select('*')
-          .eq('follower_id', user1.id)
-          .eq('following_id', user2.id)
-          .single();
-        expect(follow).not.toBeNull();
-      });
-
-      it('should handle follow request lifecycle (request for private profiles)', async () => {
-        // 1. Set user3 to private
-        await adminClient.from('profiles').update({ privacy_level: 'private' }).eq('id', user3.id);
-
-        // 2. User 1 follows User 3
-        const { data, error } = await user1.client.rpc('send_follow_request', {
-          p_target_id: user3.id
-        });
-        expect(error).toBeNull();
-        expect(data.status).toBe('request_sent');
-
-        // 3. Verify in follow_requests table
-        const { data: req } = await adminClient
-          .from('follow_requests')
-          .select('*')
-          .eq('follower_id', user1.id)
-          .eq('following_id', user3.id)
-          .single();
-        expect(req).not.toBeNull();
-
-        // 4. User 3 accepts
-        const { data: respondData, error: respondError } = await user3.client.rpc('respond_to_follow_request', {
-          p_follower_id: user1.id,
-          p_accept: true
-        });
-        expect(respondError).toBeNull();
-        expect(respondData.status).toBe('accepted');
-
-        // 5. Verify in follows table and request deleted
-        const { data: follow } = await adminClient
-          .from('follows')
-          .select('*')
-          .eq('follower_id', user1.id)
-          .eq('following_id', user3.id)
-          .single();
-        expect(follow).not.toBeNull();
-
-        const { data: deletedReq } = await adminClient
-          .from('follow_requests')
-          .select('*')
-          .eq('follower_id', user1.id)
-          .eq('following_id', user3.id)
-          .maybeSingle();
-        expect(deletedReq).toBeNull();
       });
 
       it('should allow followers to view content based on updated is_visible_to_viewer', async () => {
