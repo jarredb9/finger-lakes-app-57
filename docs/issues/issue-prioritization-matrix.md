@@ -8,7 +8,7 @@
 - `v3.8.0 - Component Decomposition & UI Modernization` (11 open issues: #52, #41, #31, #50, #92, #89, #47, #74, #61, #55, #109)
 - `v3.9.0 - Platform Feature Expansions` (3 open issues: #34, #32, #13)
 - `v3.10.0 - Social Discovery & Recommendation Platform` (Backlog / 3 open issues: #46, #45, #48)
-- `Tooling: agent-resolve Engine & Developer Experience` (Developer Infrastructure / 5 issues: #77, #84, #100, #85, #86)
+- `Tooling: agent-resolve Engine & Developer Experience` (Developer Infrastructure / 6 issues: #77, #84, #110, #100, #85, #86)
 - `v3.7.0 - Bug Fixes, Incomplete Implementations, and PWA Testing Updates` (Complete / Ready for Release Tag: 0 open, 9 closed)
 
 ---
@@ -45,7 +45,7 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 │ Features requiring community density and social network scale.         │
 ├────────────────────────────────────────────────────────────────────────┤
 │ Tier 7: Autonomous Developer Tooling & Pipeline Infrastructure         │
-│ agent-resolve engine modularization, token economics, and skills.      │
+│ agent-resolve engine, conductor-prompt package, token caps, & skills.  │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -121,6 +121,7 @@ flowchart TD
 | **26** | [#48: Feature: Community Discovery & Global Activity Feed](https://github.com/jarredb9/finger-lakes-app-57/issues/48) | Feature | `v3.10.0` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Broad Surface Area:** Realtime global activity feed. Lowest urgency until core community density reaches critical mass. |
 | **—** | [#77: fix prompt token blowout from blast-radius test injection](https://github.com/jarredb9/finger-lakes-app-57/issues/77) | Infra / Bug | `Tooling` | `closed` | `Autonomous Overnight` | **Topology D** (1 Headless Agent) | **Merged via PR #79:** Fixed prompt token blowout and hardened verification limits. Ready for maintainer closure. |
 | **—** | [#84: Quality hardening via patch-based Red phase](https://github.com/jarredb9/finger-lakes-app-57/issues/84) | Infra / Refactor | `Tooling` | `closed` | `Standard /plan Session` | **Topology B** (2 Agents) | **Merged via PR #90:** Implemented patch-based Red phase, test deduplication, and linter gates. Ready for maintainer closure. |
+| **—** | [#110: decompose generate-prompt.py into portable conductor-prompt package with RepoProfile seam](https://github.com/jarredb9/finger-lakes-app-57/issues/110) | Infra / Refactor | `Tooling` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Conductor DX & Multi-Repo Portability:** Decomposes the 1,524-line `generate-prompt.py` into a zero-dependency `scripts/conductor-prompt` package with a declarative `conductor/prompt-profile.toml` seam, unified blueprint/backtick parsers, single-pass strategy evaluation, and a Python-3.6-safe RHEL 8 CLI shim. |
 | **—** | [#100: Architectural guardrails, semantic UI contracts, and morning review observability](https://github.com/jarredb9/finger-lakes-app-57/issues/100) | Infra / Architecture | `Tooling` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Pipeline Hardening (Prerequisite to #85):** Establishes Zero Coordinate Coupling invariant in Stage 1 planning, replaces Directive 10 class assertions with Semantic UI Contracts in Stage 2, bounds triage briefs to boundaries/acceptance criteria, and formats high-signal PR Architectural Scorecards for morning review. |
 | **—** | [#85: Extract agent-resolve into standalone engine repo](https://github.com/jarredb9/finger-lakes-app-57/issues/85) | Infra / Feature | `Tooling` | `ready-for-agent` | `Conductor Track` | **Topology C** (Multiple Agents / Phased) | **Engine Decoupling:** Extract `scripts/agent-resolve` into an independent engine package with contract configuration. |
 | **—** | [#86: Author setup-agent-resolve onboarding skill](https://github.com/jarredb9/finger-lakes-app-57/issues/86) | Infra / Skill | `Tooling` | `ready-for-agent` | `Standard /plan Session` | **Topology B** (2 Agents: Plan -> Fresh Execute) | **Skill Authoring:** Create interactive agent skill to bootstrap `agent-resolve` in target repositories. |
@@ -511,6 +512,20 @@ flowchart TD
 - **Recommended Workflow:** `Standard /plan Session`
 - **Agent Topology & Sizing:** `Topology B (2 Agents)`
 - **Workflow & Sizing Rationale:** Merged via PR #90.
+
+#### [#110: refactor(agent): decompose generate-prompt.py into portable conductor-prompt package with RepoProfile seam](https://github.com/jarredb9/finger-lakes-app-57/issues/110)
+- **Problem & Impact:** `scripts/agent/generate-prompt.py` has grown to 1,524 lines combining six distinct responsibilities (Markdown track/blueprint parsing, git baseline/diff queries, heuristic command synthesis, 220+ lines of inline prompt templates, OS clipboard I/O, and a 320-line CLI `main()`). Copy-pasted Markdown/backtick scrapers have drifted between `--exec` and `--checkpoint` modes, `infer_verification_strategy` executes up to 3x per CLI run, and hardcoded Finger Lakes container/Supabase paths prevent reusing the generator across other Conductor repositories.
+- **Root Cause:** Organic feature accretion inside a single script without typed domain models (`TrackPlan`, `TaskBlueprint`, `PhaseCheckpointContext`, `VerificationStrategy`), I/O-vs-strategy separation, or a declarative repository profile seam, compounded by RHEL 8 host `/usr/bin/python3` resolving to Python 3.6.8 while `python3.12` sits alongside it.
+- **Remediation:**
+  - Extract a self-contained, zero-pip-dependency package at `scripts/conductor-prompt/` (`pyproject.toml` requiring Python `>= 3.11`, `README.md`, co-located synthetic `tests/`, and 7 modules: `models`, `profile`, `parser`, `git_scope`, `strategy`, `templates`, `cli`).
+  - Introduce a `RepoProfile` seam backed by stdlib `tomllib` (`conductor/prompt-profile.toml` with ordered `[[suites]]`, `[domains.<name>]`, `[type_check]`, `[planning]`, and `[safety]` tables) plus a clean generic built-in default so zero Finger Lakes paths remain in Python.
+  - Unify Markdown parsing so `TaskBlueprint` separates `target_files` from `referenced_test_files`, standardize permissive backtick command harvesting, compute `VerificationStrategy` in a single pure pass, and remove deprecated `--full`.
+  - Keep `scripts/agent/generate-prompt.py` as a Python-3.6-safe thin CLI shim that auto-re-execs `python3.12`/`python3.11` and resolves workspace roots via `-C`/`--repo-root` -> `cwd` `conductor/` walk -> script-path fallback, paired with a slim repo integration smoke suite in `scripts/__tests__/test_generate_prompt.py`.
+- **Milestone:** Assigned to `Tooling: agent-resolve Engine & Developer Experience`.
+- **Triage Label:** `ready-for-agent`
+- **Recommended Workflow:** `Conductor Track`
+- **Agent Topology & Sizing:** `Topology C (Multiple Agents / Phased Sessions)`
+- **Workflow & Sizing Rationale:** Multi-module package extraction (7 core modules, TOML profile schema, RHEL 8 Python 3.6 -> 3.12 re-exec shim, two-tier portable + repo-smoke test suites, and documentation updates) paralleling `agent-resolve-decomposition_20261015`. Phased Conductor execution ensures 100% CLI parity on every intermediate commit without context bloat.
 
 #### [#100: feat(agent-resolve): Architectural guardrails, semantic UI contracts, and morning review observability](https://github.com/jarredb9/finger-lakes-app-57/issues/100)
 - **Scope & Architectural Motivation:** Hardens the autonomous issue resolver against shallow local monkey-patches, magic-number coordinate coupling, and fragile JSDOM class-token assertions (as identified during the PR #99 post-mortem).
