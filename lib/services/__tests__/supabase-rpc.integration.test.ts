@@ -803,7 +803,7 @@ describe('Supabase RPC Integration Tests', () => {
         });
         expect(user1Error).toBeNull();
         expect(user1Visit).toHaveProperty('visit_id');
-        const user1VisitId = (user1Visit as any).visit_id;
+        const user1VisitId = (user1Visit as { visit_id: number }).visit_id;
 
         // 3. User 2 Cross-User Write with Same sharedKey
         const { data: user2Visit, error: user2Error } = await user2.client.rpc('log_visit', {
@@ -813,7 +813,7 @@ describe('Supabase RPC Integration Tests', () => {
         });
         expect(user2Error).toBeNull();
         expect(user2Visit).toHaveProperty('visit_id');
-        const user2VisitId = (user2Visit as any).visit_id;
+        const user2VisitId = (user2Visit as { visit_id: number }).visit_id;
         expect(user2VisitId).not.toBe(user1VisitId);
 
         // 4. Database State Verification via adminClient
@@ -833,10 +833,19 @@ describe('Supabase RPC Integration Tests', () => {
           p_idempotency_key: sharedKey
         });
         expect(replayError).toBeNull();
-        expect((user2Replay as any)?.visit_id).toBe(user2VisitId);
+        expect((user2Replay as { visit_id?: number })?.visit_id).toBe(user2VisitId);
       });
 
       it('should redact email address in get_friend_profile_with_visits for non-friends and unauthenticated callers', async () => {
+        type ProfileResponse = {
+          profile?: {
+            id: string;
+            name?: string;
+            email: string | null;
+            privacy_level?: string;
+          } | null;
+        };
+
         // Ensure user1 profile exists with user1.email and public privacy
         await adminClient.from('profiles').upsert({
           id: user1.id,
@@ -847,15 +856,15 @@ describe('Supabase RPC Integration Tests', () => {
 
         // Ensure user3 is NOT a friend of user1
         await adminClient.from('friends').delete()
-          .or(`and(user_id.eq.${user1.id},friend_id.eq.${user3.id}),and(user_id.eq.${user3.id},friend_id.eq.${user1.id})`);
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user3.id}),and(user1_id.eq.${user3.id},user2_id.eq.${user1.id})`);
 
         // 1. Non-Friend Query
         const { data: nonFriendData, error: nonFriendError } = await user3.client.rpc('get_friend_profile_with_visits', {
           p_friend_id: user1.id
         });
         expect(nonFriendError).toBeNull();
-        expect((nonFriendData as any)?.profile?.id).toBe(user1.id);
-        expect((nonFriendData as any)?.profile?.email).toBeNull();
+        expect((nonFriendData as ProfileResponse)?.profile?.id).toBe(user1.id);
+        expect((nonFriendData as ProfileResponse)?.profile?.email).toBeNull();
 
         // 2. Unauthenticated Query
         const { data: anonData, error: anonError } = await anonClient.rpc('get_friend_profile_with_visits', {
@@ -864,7 +873,7 @@ describe('Supabase RPC Integration Tests', () => {
         if (anonError) {
           expect(anonError).not.toBeNull();
         } else {
-          expect((anonData as any)?.profile).toBeFalsy();
+          expect((anonData as ProfileResponse)?.profile).toBeFalsy();
         }
 
         // 3. Self Query (Owner Visibility)
@@ -872,7 +881,7 @@ describe('Supabase RPC Integration Tests', () => {
           p_friend_id: user1.id
         });
         expect(selfError).toBeNull();
-        expect((selfData as any)?.profile?.email).toBe(user1.email);
+        expect((selfData as ProfileResponse)?.profile?.email).toBe(user1.email);
       });
     });
 });
