@@ -26,26 +26,26 @@
     - [x] Add integration test cases verifying composite `(user_id, idempotency_key)` isolation (cross-user key reuse does not leak records or collide) and top-level auth checks.
     - [x] Add test cases asserting email redaction for non-friends in `get_friend_profile_with_visits`.
     - [x] Run containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures on the unhardened schema.
-- [ ] Task: Implement Database Hardening Migration & Verify Green (TDD Green phase)
-    - [ ] Create `supabase/migrations/20261026000000_harden_rls_and_security_invoker_rpcs.sql`.
-    - [ ] Revoke table, sequence, and function privileges from `anon` in `schema public` and alter default privileges.
-    - [ ] Drop `pg_graphql` extension (`DROP EXTENSION IF EXISTS pg_graphql CASCADE;`).
-    - [ ] Drop `Authenticated users can insert wineries` RLS policy and revoke `INSERT`, `UPDATE`, and `DELETE` on `public.wineries` from `authenticated`.
-    - [ ] Update `is_visible_to_viewer` to return `FALSE` when `auth.uid() IS NULL` and remove deprecated `follows` table check.
-    - [ ] Update client-facing RLS policies with explicit `TO authenticated` and add missing `FOR UPDATE` policies to `favorites` and `wishlist`.
-    - [ ] Revoke privileges on unused tables (`follows`, `follow_requests`, `visit_participants`).
-    - [ ] Drop 10 dead/deprecated RPCs (`upsert_wineries_from_search`, `get_all_user_visits_list`, `get_user_dashboard`, `get_user_winery_data_aggregated`, `get_winery_details`, `get_wineries_in_bounds`, `add_winery_to_trips`, `add_to_wishlist`, `send_follow_request`, `respond_to_follow_request`).
-    - [ ] Replace global unique constraints on `visits.idempotency_key` and `trips.idempotency_key` with composite `UNIQUE (user_id, idempotency_key)`.
-    - [ ] Harden `ensure_winery` with caller auth check, parameter aliasing (`google_place_id` / `id`), rating normalization, and null-backfill conflict resolution for all attributes (`name`, `address`, `latitude`, `longitude`, `phone`, `website`, `google_rating`).
-    - [ ] Refactor `log_visit`, `create_trip_with_winery`, and `add_winery_to_trip` to delegate to `ensure_winery`.
-    - [ ] Scope `idempotency_key` queries and conflict clauses by `(user_id, idempotency_key)` with top-level auth checks.
-    - [ ] Redact email in `get_friend_profile_with_visits` for non-friends.
-    - [ ] Convert 8 read RPCs and 18 write RPCs to `SECURITY INVOKER`.
-    - [ ] Retain 7 boundary RPCs as `SECURITY DEFINER` with explicit authenticated/service_role execute grants.
-    - [ ] Lock down trigger functions (`handle_new_user`, `handle_activity_ledger_notification`, `handle_activity_ledger_entry`).
-    - [ ] Audit migration SQL for formatting, idempotency, and syntax cleanliness.
-    - [ ] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
-    - [ ] Run containerized integration tests, verify all 5 security regression tests pass (Green), and clean up any temporary test artifacts.
+- [x] Task: Implement Database Hardening Migration & Verify Green (TDD Green phase) [commit: 99d16e10]
+    - [x] Create `supabase/migrations/20261026000000_harden_rls_and_security_invoker_rpcs.sql`.
+    - [x] Revoke table, sequence, and function privileges from `anon` in `schema public` and alter default privileges.
+    - [x] Drop `pg_graphql` extension (`DROP EXTENSION IF EXISTS pg_graphql CASCADE;`).
+    - [x] Drop `Authenticated users can insert wineries` RLS policy and revoke `INSERT`, `UPDATE`, and `DELETE` on `public.wineries` from `authenticated`.
+    - [x] Update `is_visible_to_viewer` to return `FALSE` when `auth.uid() IS NULL` and remove deprecated `follows` table check.
+    - [x] Update client-facing RLS policies with explicit `TO authenticated` and add missing `FOR UPDATE` policies to `favorites` and `wishlist`.
+    - [x] Revoke privileges on unused tables (`follows`, `follow_requests`, `visit_participants`).
+    - [x] Drop 10 dead/deprecated RPCs (`upsert_wineries_from_search`, `get_all_user_visits_list`, `get_user_dashboard`, `get_user_winery_data_aggregated`, `get_winery_details`, `get_wineries_in_bounds`, `add_winery_to_trips`, `add_to_wishlist`, `send_follow_request`, `respond_to_follow_request`).
+    - [x] Replace global unique constraints on `visits.idempotency_key` and `trips.idempotency_key` with composite `UNIQUE (user_id, idempotency_key)`.
+    - [x] Harden `ensure_winery` with caller auth check, parameter aliasing (`google_place_id` / `id`), rating normalization, and null-backfill conflict resolution for all attributes (`name`, `address`, `latitude`, `longitude`, `phone`, `website`, `google_rating`).
+    - [x] Refactor `log_visit`, `create_trip_with_winery`, and `add_winery_to_trip` to delegate to `ensure_winery`.
+    - [x] Scope `idempotency_key` queries and conflict clauses by `(user_id, idempotency_key)` with top-level auth checks.
+    - [x] Redact email in `get_friend_profile_with_visits` for non-friends.
+    - [x] Convert 8 read RPCs and 18 write RPCs to `SECURITY INVOKER`.
+    - [x] Retain 7 boundary RPCs as `SECURITY DEFINER` with explicit authenticated/service_role execute grants.
+    - [x] Lock down trigger functions (`handle_new_user`, `handle_activity_ledger_notification`, `handle_activity_ledger_entry`).
+    - [x] Audit migration SQL for formatting, idempotency, and syntax cleanliness.
+    - [x] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
+    - [x] Run containerized integration tests, verify all 5 security regression tests pass (Green), and clean up any temporary test artifacts.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Database Hardening & Security Regression' (Protocol in workflow.md)
 
 ## Phase 3: Supabase Configuration & Client Type Synchronization (Tooling)
