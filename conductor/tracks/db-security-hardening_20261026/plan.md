@@ -50,8 +50,8 @@
 
 ## Phase 3: Supabase Configuration & Client Type Synchronization (Tooling)
 
-- [ ] Task: Remove pg_graphql from Supabase Configuration
-    - [ ] Remove `"graphql_public"` from `db.schemas` in both `supabase/config.toml` and `supabase/config.ci.toml`.
+- [x] Task: Remove pg_graphql from Supabase Configuration [commit: 7da7a522]
+    - [x] Remove `"graphql_public"` from `db.schemas` in both `supabase/config.toml` and `supabase/config.ci.toml`.
 - [ ] Task: Regenerate TypeScript Definitions & Verify Static Compilation Gate
     - [ ] Regenerate database TypeScript definitions via `npm run db:gen-types`.
     - [ ] Verify dropped RPCs are removed and audit generated exports in `lib/database.types.ts`.
