@@ -49,6 +49,19 @@ python3 scripts/agent/generate-prompt.py 3 1
 python3 scripts/agent/generate-prompt.py 3 1 --copy-plan   # Copies Plan prompt
 python3 scripts/agent/generate-prompt.py 3 1 --copy-exec   # Copies Exec prompt
 ```
+
+### Phase Checkpoint Invocation (Warm or Cold Session)
+
+When reaching the end of a phase (`User Manual Verification`), `generate-prompt.py` emits a single self-contained, diff-gated checkpoint prompt (skipping redundant two-session `phase-X-task-Y-plan.md` ceremony and skipping test container re-runs when the warm session already verified all changed files):
+
+```bash
+# Auto-detect checkpoint when all prior tasks in the phase are [x]:
+python3 scripts/agent/generate-prompt.py -c
+
+# Task-number-free lookup (ideal for pasting into the warm executor session at phase end):
+python3 scripts/agent/generate-prompt.py --checkpoint -c
+python3 scripts/agent/generate-prompt.py <phase> --checkpoint -c
+```
 ---
 
 ## 2. Recovery Invocation (Uncommitted Changes in `git status`)
