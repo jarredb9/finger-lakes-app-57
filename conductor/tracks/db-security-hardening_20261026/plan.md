@@ -10,9 +10,9 @@
     - [x] Remove obsolete `send_follow_request` and `respond_to_follow_request` test blocks from `lib/services/__tests__/supabase-rpc.integration.test.ts`.
     - [x] Remove deprecated `addWineryToTripByApi` method from `lib/services/tripService.ts`.
     - [x] Remove `addWineryToTripByApi` test block from `lib/services/__tests__/tripService.mutations.test.ts`.
-- [ ] Task: Verify Existing Test Suites Pass on Current Baseline
-    - [ ] Run containerized unit test suite for mutations: `npm run test:container -- lib/services/__tests__/tripService.mutations.test.ts`.
-    - [ ] Run existing integration tests to confirm baseline stability before applying database changes.
+- [x] Task: Verify Existing Test Suites Pass on Current Baseline [commit: 5a6a566b60beb36a46f802fa8f9b91a00140d070]
+    - [x] Run containerized unit test suite for mutations: `npm run test:container -- lib/services/__tests__/tripService.mutations.test.ts`.
+    - [x] Run existing integration tests to confirm baseline stability before applying database changes.
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Confirm no lingering client references to the 10 RPCs targeted for removal.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Client & Integration Test Modernization' (Protocol in workflow.md)
