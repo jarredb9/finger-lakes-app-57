@@ -17,7 +17,7 @@
     - [x] Confirm no lingering client references to the 10 RPCs targeted for removal.
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Client & Integration Test Modernization' (Protocol in workflow.md) [commit: 7128b93]
 
-## Phase 2: Database Hardening & Security Regression (Strict TDD)
+## Phase 2: Database Hardening & Security Regression (Strict TDD) [checkpoint: 7f9d06c6]
 
 - [x] Task: Write Failing Security Regression Tests (TDD Red phase) [commit: 5bbbfff8]
     - [x] Add integration test cases in `lib/services/__tests__/supabase-rpc.integration.test.ts` for unauthenticated (`anon`) access denial on `profiles`, `wineries`, `visits`, and user collections.
@@ -46,7 +46,7 @@
     - [x] Audit migration SQL for formatting, idempotency, and syntax cleanliness.
     - [x] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
     - [x] Run containerized integration tests, verify all 5 security regression tests pass (Green), and clean up any temporary test artifacts.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Database Hardening & Security Regression' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Database Hardening & Security Regression' (Protocol in workflow.md) [commit: 7f9d06c6]
 
 ## Phase 3: Supabase Configuration & Client Type Synchronization (Tooling)
 
