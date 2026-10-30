@@ -25,7 +25,7 @@ A scheduled itinerary of planned winery stops for a specific calendar date, orga
 _Avoid_: Tour, outing, route, journey
 
 **Trip Stop**:
-A single planned destination within a Trip, specifying a Winery, its sequence in the itinerary, and planning notes.
+A single planned destination within a Trip, specifying a Winery, its sequence in the itinerary, and planning notes. Invariant: A Winery may concurrently serve as a planned Trip Stop across multiple distinct Trips.
 _Avoid_: Visit, waypoint, destination, trip winery
 
 **Trip Navigation**:
