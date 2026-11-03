@@ -55,7 +55,7 @@ async function populate() {
         console.error(`❌ Error searching ${region.name}:`, error.message);
         if (error.message.includes('Missing GOOGLE_MAPS_API_KEY')) {
           console.log('\n💡 TIP: You need to set the API key for local functions:');
-          console.log('npx supabase secrets set GOOGLE_MAPS_API_KEY=your_key_here --local\n');
+          console.log('Add GOOGLE_MAPS_API_KEY=your_key_here to supabase/functions/.env and restart db.\n');
           process.exit(1);
         }
         continue;

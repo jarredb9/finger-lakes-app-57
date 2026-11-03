@@ -1,0 +1,35 @@
+#!/bin/bash
+# Podman compatibility shim for Supabase CLI v3 on RHEL 8
+# Translates Docker-specific Go template format (.Label "key") to Podman-compatible (index .Labels "key")
+
+SELF="$(realpath "$0" 2>/dev/null || readlink -f "$0" 2>/dev/null || echo "$0")"
+REAL_PODMAN=""
+while IFS= read -r candidate; do
+    candidate_real="$(realpath "$candidate" 2>/dev/null || readlink -f "$candidate" 2>/dev/null || echo "$candidate")"
+    if [ -x "$candidate" ] && [ "$candidate_real" != "$SELF" ]; then
+        if grep -q "compatibility shim for Supabase CLI" "$candidate" 2>/dev/null; then
+            continue
+        fi
+        REAL_PODMAN="$candidate"
+        break
+    fi
+done < <(which -a podman 2>/dev/null)
+
+if [ -z "$REAL_PODMAN" ] && [ -x "/usr/bin/podman" ]; then
+    REAL_PODMAN="/usr/bin/podman"
+fi
+
+if [ -z "$REAL_PODMAN" ] || [ ! -x "$REAL_PODMAN" ]; then
+    echo "Error: podman executable not found" >&2
+    exit 1
+fi
+
+args=()
+for arg in "$@"; do
+    if [[ "$arg" == *".Label"* ]]; then
+        arg=$(printf '%s\n' "$arg" | sed -E 's/\.Label[[:space:]]+(\\"[^\\"]+\\"|"[^"]+")/index .Labels \1/g')
+    fi
+    args+=("$arg")
+done
+
+exec "$REAL_PODMAN" "${args[@]}"

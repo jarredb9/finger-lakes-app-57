@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-# Load Docker Host for Podman
+# Load Docker Host and PATH shim for Podman
 export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
+export PATH="$PWD/scripts/bin:$PATH"
 
 echo "🔍 Starting Database Safety Audit..."
 
@@ -21,6 +22,6 @@ npm run db:check-types:local
 # 3. Drift Detection (Linked Project)
 # WARNING: This connects to the remote linked project (Production) for comparison.
 echo "Step 3: Checking for schema drift against linked production project..."
-npx supabase db diff --linked || echo "⚠️ Warning: Remote linked project unreachable (network timeout). Skipping remote drift check."
+npx supabase db diff --remote || echo "⚠️ Warning: Remote linked project unreachable (network timeout). Skipping remote drift check."
 
 echo "✅ Database Audit Complete. No critical drift or linting errors found."

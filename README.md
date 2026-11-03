@@ -37,7 +37,7 @@ We use a strict **Migration-First** workflow. The `supabase/migrations` folder i
 
 1.  **Create Migration:** `npx supabase migration new <description_of_change>`
 2.  **Edit SQL:** Write your changes in the generated file in `supabase/migrations/`.
-3.  **Deploy:** `npx supabase db push`
+3.  **Deploy Locally:** `npx supabase db push` (CLI v3 targets local by default; use `npx supabase db push --remote` to deploy to hosted remote)
 
 **Do not** manually edit the database via the Supabase dashboard or edit old schema files.
 

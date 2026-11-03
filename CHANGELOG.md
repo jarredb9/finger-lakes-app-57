@@ -13,8 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 * Added automated Security Advisor verification harness and catalog assertions to verify zero linter warnings and enforce security invoker RPC boundaries in the database audit pipeline ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Added security regression test coverage asserting unauthenticated access rejection, catalog write denial, composite idempotency isolation, and profile email redaction ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+* Added Podman compatibility shim translating Docker Go template syntax for Supabase CLI v3 container operations on RHEL 8.
 
 ### Changed
+* Upgraded Supabase CLI toolchain to v3.0.0 and setup-cli GitHub Action to v3, standardizing remote targeting with `--remote` and `--yes` flags while modernizing local configuration and deprecating legacy `--local`/`--linked` options.
 * Converted 26 user-facing database RPCs to `SECURITY INVOKER` to defer authorization to caller Row-Level Security policies while restricting `SECURITY DEFINER` strictly to an allowlist of 7 boundary functions ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Enforced catalog immutability for canonical wineries by requiring all catalog writes to route through `ensure_winery` with null-backfill resolution and revoking direct table mutations from regular users ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Scoped visit and trip idempotency keys by composite `(user_id, idempotency_key)` constraints to eliminate cross-tenant key exhaustion and prevent record snooping ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
@@ -23,6 +25,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 * Removed the unused `pg_graphql` extension and pruned `graphql_public` from local and CI PostgREST schema configurations to eliminate public table exposure ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Pruned 10 deprecated RPCs along with legacy follow table fallback queries from database schemas and client service integrations ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+
+### Fixed
+* Prevented ephemeral port collisions and container bind failures during CI database startup by reserving the Supabase port range in the Linux kernel on GitHub Actions runners ([#113](https://github.com/jarredb9/finger-lakes-app-57/pull/113)).
 
 ### Security
 * Remediated transitive moderate-severity denial-of-service and filesystem traversal vulnerabilities via glob and minimatch package overrides while formally accepting unpatched devDependency deepmerge under a moderate audit threshold ([ADR-0008](docs/adr/0008-transitive-audit-exception-policy.md)).

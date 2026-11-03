@@ -8,8 +8,8 @@ Our project enforces a strictly synchronized database state. All structural chan
 2. Iterate on the schema using SQL: `npx supabase db query "..."`
 3. Generate updated TypeScript types: `npm run db:gen-types`
 4. Verify changes in the app.
-5. Once stable, pull the changes into a new migration: `npx supabase db pull <descriptive_name> --local`
-6. Verify the migration: `npx supabase migration list --local`
+5. Once stable, pull the changes into a new migration: `npx supabase db pull <descriptive_name>`
+6. Verify the migration: `npx supabase migration list`
 
 ## 2. Pre-Push Safety Audit
 Before pushing your changes, you MUST run the local audit script:
@@ -23,7 +23,7 @@ This script performs:
 
 ## 3. Squash-and-Repair Protocol
 If you encounter migration history drift (e.g., someone else pushed a migration while you were working), follow this protocol:
-1. **Fetch remote state:** `npx supabase migration fetch --linked`
+1. **Fetch remote state:** `npx supabase migration fetch --remote`
 2. **Rebase local branch:** Sync your code with `main`.
 3. **Repair history:** If the remote migration history is out of sync with your local files, use `npx supabase migration repair --status applied <version>`.
 4. **Squash (Optional):** If you have too many small migrations, squash them into a single file BEFORE merging to `main`.
@@ -32,7 +32,7 @@ If you encounter migration history drift (e.g., someone else pushed a migration 
 The CI pipeline will FAIL if:
 - `npm run db:lint` reports errors.
 - `lib/database.types.ts` is out of sync with the local migrations.
-- `supabase db diff --linked` detects any structural drift against the production project.
+- `supabase db diff --remote` detects any structural drift against the production project.
 
 ---
 *Maintained by Conductor: Places API v1 Refactor & Enrichment Track*
