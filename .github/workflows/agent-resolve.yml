@@ -34,10 +34,10 @@ jobs:
       - name: Check GitHub App Configuration
         id: check-app
         env:
-          APP_ID: ${{ secrets.APP_ID }}
+          APP_CLIENT_ID: ${{ secrets.APP_CLIENT_ID }}
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
         run: |
-          if [ -n "$APP_ID" ] && [ -n "$APP_PRIVATE_KEY" ]; then
+          if [ -n "$APP_CLIENT_ID" ] && [ -n "$APP_PRIVATE_KEY" ]; then
             echo "has_app=true" >> $GITHUB_OUTPUT
           else
             echo "has_app=false" >> $GITHUB_OUTPUT
@@ -48,7 +48,7 @@ jobs:
         if: steps.check-app.outputs.has_app == 'true'
         uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.APP_ID }}
+          client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Determine Authentication Token
