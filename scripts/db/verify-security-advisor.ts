@@ -140,8 +140,10 @@ export async function executeSqlCatalogVerification(): Promise<{
   error?: string;
 }> {
   const dockerHost = `unix:///run/user/${process.getuid ? process.getuid() : 1000}/podman/podman.sock`;
+  const binPath = path.resolve(process.cwd(), 'scripts/bin');
   const env = {
     ...process.env,
+    PATH: process.env.PATH ? `${binPath}:${process.env.PATH}` : binPath,
     DOCKER_HOST: process.env.DOCKER_HOST || dockerHost,
   };
 
@@ -171,8 +173,10 @@ export async function executeCliLinter(): Promise<{
   violationsFound: string[];
 }> {
   const dockerHost = `unix:///run/user/${process.getuid ? process.getuid() : 1000}/podman/podman.sock`;
+  const binPath = path.resolve(process.cwd(), 'scripts/bin');
   const env = {
     ...process.env,
+    PATH: process.env.PATH ? `${binPath}:${process.env.PATH}` : binPath,
     DOCKER_HOST: process.env.DOCKER_HOST || dockerHost,
   };
 

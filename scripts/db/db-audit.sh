@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-# Load Docker Host for Podman
+# Load Docker Host and PATH shim for Podman
 export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
+export PATH="$PWD/scripts/bin:$PATH"
 
 echo "🔍 Starting Database Safety Audit..."
 
