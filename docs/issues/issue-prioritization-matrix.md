@@ -192,6 +192,7 @@ flowchart TD
   - Require added trip members to be the trip owner or an accepted mutual friend. Allow non-owner members to `DELETE` their own row from `trip_members`.
   - Drop `"Authenticated users can insert wineries"` and revoke `INSERT, UPDATE, DELETE, TRUNCATE` from `anon, authenticated`. Validate coordinate ranges, rating bounds, and `^https?://` website URLs in `ensure_winery`.
   - Prioritize `vault.decrypted_secrets` before `app.settings.*`. Fix `handle_activity_ledger_entry` privacy level assignment, and append `, pg_temp` to all `SECURITY DEFINER` search paths.
+  - Expand Security Advisor verification harness (`scripts/db/verify-security-advisor.sql`, `scripts/db/verify-security-advisor.ts`, and `npm run db:verify-advisor`) to assert zero violations on security rules: `0007_policy_exists_rls_disabled` (all public tables enforce RLS), `0008_rls_enabled_no_policy` (all RLS-enabled tables have explicit policies), and `0010_security_definer_view` (zero RLS-bypassing views). *(Note: Performance categories `0001_unindexed_foreign_keys` and `0003_auth_rls_initplan` are cataloged separately as Tier 4 tech debt).*
 - **Milestone:** Assigned to `v3.7.1 - Security Hardening & Production Defense`.
 - **Triage Label:** `ready-for-agent`
 - **Recommended Workflow:** `Conductor Track`
