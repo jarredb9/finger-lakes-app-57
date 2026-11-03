@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Added Podman compatibility shim translating Docker Go template syntax for Supabase CLI v3 container operations on RHEL 8.
 
 ### Changed
+* Upgraded GitHub Actions to native Node 24 releases across CI/CD, agent-resolve, and debug-pwa workflows to eliminate runner deprecation warnings and align artifact handling ([#114](https://github.com/jarredb9/finger-lakes-app-57/issues/114)).
+* Unblocked secretless Dependabot CI workflows by extracting local Supabase keys from running CLI containers and supplying mock map tokens for build and E2E test runs ([#114](https://github.com/jarredb9/finger-lakes-app-57/issues/114)).
+* Hardened Dependabot configuration to bundle npm minor and patch updates while ignoring routine semver-major updates, and consolidated GitHub Actions version updates into a single monthly group ([#114](https://github.com/jarredb9/finger-lakes-app-57/issues/114)).
 * Upgraded Supabase CLI toolchain to v3.0.0 and setup-cli GitHub Action to v3, standardizing remote targeting with `--remote` and `--yes` flags while modernizing local configuration and deprecating legacy `--local`/`--linked` options.
 * Converted 26 user-facing database RPCs to `SECURITY INVOKER` to defer authorization to caller Row-Level Security policies while restricting `SECURITY DEFINER` strictly to an allowlist of 7 boundary functions ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Enforced catalog immutability for canonical wineries by requiring all catalog writes to route through `ensure_winery` with null-backfill resolution and revoking direct table mutations from regular users ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).

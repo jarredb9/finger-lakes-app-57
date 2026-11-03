@@ -34,10 +34,10 @@ jobs:
       - name: Check GitHub App Configuration
         id: check-app
         env:
-          APP_ID: ${{ secrets.APP_ID }}
+          APP_CLIENT_ID: ${{ secrets.APP_CLIENT_ID }}
           APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
         run: |
-          if [ -n "$APP_ID" ] && [ -n "$APP_PRIVATE_KEY" ]; then
+          if [ -n "$APP_CLIENT_ID" ] && [ -n "$APP_PRIVATE_KEY" ]; then
             echo "has_app=true" >> $GITHUB_OUTPUT
           else
             echo "has_app=false" >> $GITHUB_OUTPUT
@@ -46,9 +46,9 @@ jobs:
       - name: Generate GitHub App Token
         id: app-token
         if: steps.check-app.outputs.has_app == 'true'
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ secrets.APP_ID }}
+          client-id: ${{ secrets.APP_CLIENT_ID }}
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Determine Authentication Token
@@ -66,14 +66,14 @@ jobs:
           fi
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           persist-credentials: false
           token: ${{ steps.auth.outputs.token }}
 
       - name: Setup Node.js 24
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: 'npm'
@@ -85,7 +85,7 @@ jobs:
         run: docker pull node:24-slim || true
 
       - name: Setup Python 3.12
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: 'pip'
@@ -132,7 +132,7 @@ jobs:
 
       - name: Upload Agent Diagnostic Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: agent-diagnostics
           path: |

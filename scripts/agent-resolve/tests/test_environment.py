@@ -97,6 +97,7 @@ class TestEnvironment(unittest.TestCase):
             "GH_TOKEN": "gh-custom-secret-val",
             "GITHUB_TOKEN": "gh-token-secret-val",
             "APP_ID": "12345678",
+            "APP_CLIENT_ID": "Iv1.customclientidval",
             "APP_PRIVATE_KEY": "-----BEGIN RSA PRIVATE KEY-----abcdef",
             "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.supabase-service-key",
             "NEXT_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.supabase-anon-key",
@@ -113,7 +114,7 @@ class TestEnvironment(unittest.TestCase):
 
         text = (
             "Env check: GEMINI=gemini-secret-token-value, GH=gh-custom-secret-val, "
-            "GITHUB=gh-token-secret-val, APP_ID=12345678, "
+            "GITHUB=gh-token-secret-val, APP_ID=12345678, APP_CLIENT=Iv1.customclientidval, "
             "APP_KEY=-----BEGIN RSA PRIVATE KEY-----abcdef, "
             "SRV=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.supabase-service-key, "
             "ANON=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.supabase-anon-key, "
