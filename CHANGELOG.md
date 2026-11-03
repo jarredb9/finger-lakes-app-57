@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 * Added automated Security Advisor verification harness and catalog assertions to verify zero linter warnings and enforce security invoker RPC boundaries in the database audit pipeline ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Added security regression test coverage asserting unauthenticated access rejection, catalog write denial, composite idempotency isolation, and profile email redaction ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+* Added Podman compatibility shim translating Docker Go template syntax for Supabase CLI v3 container operations on RHEL 8.
 
 ### Changed
 * Upgraded Supabase CLI toolchain to v3.0.0 and setup-cli GitHub Action to v3, standardizing remote targeting with `--remote` and `--yes` flags while modernizing local configuration and deprecating legacy `--local`/`--linked` options.
