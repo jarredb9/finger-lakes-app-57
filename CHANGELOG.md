@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Removed the unused `pg_graphql` extension and pruned `graphql_public` from local and CI PostgREST schema configurations to eliminate public table exposure ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Pruned 10 deprecated RPCs along with legacy follow table fallback queries from database schemas and client service integrations ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 
+### Fixed
+* Prevented ephemeral port collisions and container bind failures during CI database startup by reserving the Supabase port range in the Linux kernel on GitHub Actions runners ([#113](https://github.com/jarredb9/finger-lakes-app-57/pull/113)).
+
 ### Security
 * Remediated transitive moderate-severity denial-of-service and filesystem traversal vulnerabilities via glob and minimatch package overrides while formally accepting unpatched devDependency deepmerge under a moderate audit threshold ([ADR-0008](docs/adr/0008-transitive-audit-exception-policy.md)).
 * Revoked all schema, table, sequence, and function execution privileges from `anon` and `PUBLIC` to enforce zero unauthenticated visibility into catalog and user data ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
