@@ -21,6 +21,6 @@ npm run db:check-types:local
 # 3. Drift Detection (Linked Project)
 # WARNING: This connects to the remote linked project (Production) for comparison.
 echo "Step 3: Checking for schema drift against linked production project..."
-npx supabase db diff --linked || echo "⚠️ Warning: Remote linked project unreachable (network timeout). Skipping remote drift check."
+npx supabase db diff --remote || echo "⚠️ Warning: Remote linked project unreachable (network timeout). Skipping remote drift check."
 
 echo "✅ Database Audit Complete. No critical drift or linting errors found."

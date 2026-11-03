@@ -1,0 +1,18 @@
+#!/bin/bash
+# Podman compatibility shim for Supabase CLI v3 on RHEL 8
+# Translates Docker-specific Go template format (.Label "key") to Podman-compatible (index .Labels "key")
+
+REAL_PODMAN="/usr/bin/podman"
+if [ ! -x "$REAL_PODMAN" ]; then
+    REAL_PODMAN=$(which -a podman | grep -v "$0" | head -n 1)
+fi
+
+args=()
+for arg in "$@"; do
+    if [[ "$arg" == *".Label"* ]]; then
+        arg=$(echo "$arg" | sed -E 's/\.Label[[:space:]]+(\\"[^\\"]+\\"|"[^"]+")/index .Labels \1/g')
+    fi
+    args+=("$arg")
+done
+
+exec "$REAL_PODMAN" "${args[@]}"

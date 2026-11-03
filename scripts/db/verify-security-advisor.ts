@@ -147,7 +147,7 @@ export async function executeSqlCatalogVerification(): Promise<{
 
   try {
     execSync(
-      'npx supabase db query --local -f scripts/db/verify-security-advisor.sql',
+      'npx supabase db query -f scripts/db/verify-security-advisor.sql',
       {
         env,
         encoding: 'utf-8',
@@ -181,7 +181,7 @@ export async function executeCliLinter(): Promise<{
 
   try {
     stdout = execSync(
-      'npx supabase db lint --local --level warning --schema public',
+      'npx supabase db lint --level warning --schema public',
       {
         env,
         encoding: 'utf-8',

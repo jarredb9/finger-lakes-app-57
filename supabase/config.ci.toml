@@ -20,7 +20,7 @@ enabled = false # Disabled for CI speed
 [studio]
 enabled = false # Disabled for CI speed
 
-[inbucket]
+[local_smtp]
 enabled = false # Disabled for CI speed
 
 [storage]
@@ -32,7 +32,7 @@ site_url = "http://127.0.0.1:3001"
 enable_signup = true
 
 [auth.email]
-enable_signup = true
+enabled = true
 enable_confirmations = false
 
 [edge_runtime]
