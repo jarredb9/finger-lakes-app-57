@@ -34,7 +34,10 @@ Provides isolated rootless container runners to bypass RHEL 8 host glibc limitat
 * **`populate-wineries.ts`**: Seeds initial winery data into Supabase (`npm run db:populate`).
 * **`enrich-existing-wineries.ts`**: Enriches basic winery rows with Google Places / details.
 * **`cleanup-test-data.ts`**: Purges mock records created during automated or manual test runs.
-* **`db-audit.sh`**: Lints database migrations, verifies local TypeScript types, and checks schema drift against remote (`npm run db:audit`).
+* **`db-audit.sh`**: Comprehensive database safety pipeline (`npm run db:audit`): lints migrations, runs Security Advisor assertions, verifies local TypeScript types, and checks schema drift against remote.
+* **`verify-security-advisor.sql`**: PostgreSQL catalog assertion script asserting zero violations for Supabase Security Advisor categories `0026`–`0029`, verifying table exposure teardown (`pg_graphql`), revoking anon/public function execution, enforcing the ADR-0007 boundary allowlist (7 `SECURITY DEFINER` RPCs), and confirming 26 user-facing RPCs remain `SECURITY INVOKER`.
+* **`verify-security-advisor.ts`**: Automated verification runner (`npm run db:verify-advisor`) orchestrating SQL catalog assertions, warning-level Supabase CLI linting, and HTTP API boundary rejection probes.
+  * *Future Expansion Roadmap:* Security categories (`0007_policy_exists_rls_disabled`, `0008_rls_enabled_no_policy`, and `0010_security_definer_view`) are scheduled for integration during Issue #93 (PostgREST direct table RLS). Performance categories (`0001_unindexed_foreign_keys`, `0003_auth_rls_initplan`) are cataloged under Tier 4 technical debt.
 * **`debug-rpc.ts`**: Ad-hoc diagnostic tool for testing Supabase PostgreSQL RPC responses.
 * **`users/create-test-users.js`**: Provisions automated test user accounts into Supabase Auth.
 * **`users/create-manual-test-user.js`**: Generates a single test user credential set for manual QA.

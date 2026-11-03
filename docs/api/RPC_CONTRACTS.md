@@ -60,16 +60,3 @@ Updates an existing visit and returns the updated winery context.
   - `p_updates` (jsonb)
 - **Returns:** `jsonb` (Full winery object with visits)
 
-## Asymmetric Relationships
-
-### `send_follow_request`
-Sends a follow request or follows immediately if target is public.
-- **Parameters:** `target_id` (uuid)
-- **Returns:** `{"status": "following" | "requested"}`
-
-### `respond_to_follow_request`
-Accepts or declines a pending follow request.
-- **Parameters:**
-  - `follower_id` (uuid)
-  - `accept` (boolean)
-- **Returns:** `void`

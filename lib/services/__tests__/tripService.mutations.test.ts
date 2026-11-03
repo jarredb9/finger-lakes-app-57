@@ -496,26 +496,6 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
     });
   });
 
-  describe('addWineryToTripByApi', () => {
-    it('invokes add_winery_to_trips RPC with winery ID and array of trip IDs', async () => {
-      mockRpc.mockResolvedValueOnce({ data: { success: true }, error: null });
-
-      const result = await TripService.addWineryToTripByApi(55, [101, 102, 103]);
-
-      expect(mockRpc).toHaveBeenCalledWith('add_winery_to_trips', {
-        p_winery_id: 55,
-        p_trip_ids: [101, 102, 103],
-      });
-      expect(result).toEqual({ success: true });
-    });
-
-    it('throws error when add_winery_to_trips RPC fails', async () => {
-      mockRpc.mockResolvedValueOnce({ data: null, error: new Error('RPC batch error') });
-
-      await expect(TripService.addWineryToTripByApi(55, [101])).rejects.toThrow('RPC batch error');
-    });
-  });
-
   describe('WineryService.getRpcData Dual-Key Coordinates', () => {
     it('emits dual-key coordinates (latitude, longitude, lat, lng) for backward compatibility', () => {
       const winery = createMockWinery({

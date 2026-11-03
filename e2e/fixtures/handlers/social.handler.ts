@@ -48,7 +48,7 @@ export class SocialHandler {
     }
 
     const socialRpcRegex = new RegExp(
-      `${supabaseHost}/.*rpc/(send_friend_request|respond_to_friend_request|get_friends_and_requests|remove_friend|get_friend_activity_feed|get_friend_profile_with_visits|is_visible_to_viewer|update_profile_privacy|get_friends_ratings_for_winery|get_friends_activity_for_winery|send_follow_request|respond_to_follow_request)`
+      `${supabaseHost}/.*rpc/(send_friend_request|respond_to_friend_request|get_friends_and_requests|remove_friend|get_friend_activity_feed|get_friend_profile_with_visits|is_visible_to_viewer|update_profile_privacy|get_friends_ratings_for_winery|get_friends_activity_for_winery)`
     );
 
     await this.page.context().route(socialRpcRegex, async (route) => {

@@ -10,7 +10,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased] (v3.7.1)
 
+### Added
+* Added automated Security Advisor verification harness and catalog assertions to verify zero linter warnings and enforce security invoker RPC boundaries in the database audit pipeline ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+* Added security regression test coverage asserting unauthenticated access rejection, catalog write denial, composite idempotency isolation, and profile email redaction ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+
+### Changed
+* Converted 26 user-facing database RPCs to `SECURITY INVOKER` to defer authorization to caller Row-Level Security policies while restricting `SECURITY DEFINER` strictly to an allowlist of 7 boundary functions ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+* Enforced catalog immutability for canonical wineries by requiring all catalog writes to route through `ensure_winery` with null-backfill resolution and revoking direct table mutations from regular users ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+* Scoped visit and trip idempotency keys by composite `(user_id, idempotency_key)` constraints to eliminate cross-tenant key exhaustion and prevent record snooping ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+* Regenerated database TypeScript definitions following RPC pruning and schema hardening to maintain static compilation parity ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87)).
+
+### Removed
+* Removed the unused `pg_graphql` extension and pruned `graphql_public` from local and CI PostgREST schema configurations to eliminate public table exposure ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+* Pruned 10 deprecated RPCs along with legacy follow table fallback queries from database schemas and client service integrations ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+
 ### Security
+* Remediated transitive moderate-severity denial-of-service and filesystem traversal vulnerabilities via glob and minimatch package overrides while formally accepting unpatched devDependency deepmerge under a moderate audit threshold ([ADR-0008](docs/adr/0008-transitive-audit-exception-policy.md)).
+* Revoked all schema, table, sequence, and function execution privileges from `anon` and `PUBLIC` to enforce zero unauthenticated visibility into catalog and user data ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+* Redacted user email addresses for non-friend viewers in profile lookups and locked down trigger function execution to privileged service roles ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
+* Added explicit `TO authenticated` qualifiers and missing `FOR UPDATE` Row-Level Security policies across user collections ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Patched high-severity denial-of-service memory exhaustion vulnerability (CVE-2023-54404 / GHSA-mrhx-c7xc-m3w5) by upgrading Zod and Serwist toolchains to v4.6.7 ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
 * Restricted production secrets (`SUPABASE_DB_URL`, `SUPABASE_ACCESS_TOKEN`, `VERCEL_TOKEN`) strictly to GitHub Actions `Production` deployment environments, removing exposure to pull request builds ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
 * Added localhost hostname verification to database administration scripts to prevent execution against remote environments without `--allow-remote` ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).

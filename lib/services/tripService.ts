@@ -66,9 +66,12 @@ export const TripService = {
     // Transform to match expected UI structure
     const formattedTrips = trips?.map((t: any) => {
       const rawTripWineries = t.trip_wineries;
-      const wineriesCount = typeof rawTripWineries?.[0]?.count === 'number'
-        ? rawTripWineries[0].count
-        : (Array.isArray(rawTripWineries) ? rawTripWineries.length : 0);
+      let wineriesCount = 0;
+      if (typeof rawTripWineries?.[0]?.count === 'number') {
+        wineriesCount = rawTripWineries[0].count;
+      } else if (Array.isArray(rawTripWineries)) {
+        wineriesCount = rawTripWineries.length;
+      }
 
       const wineries = (Array.isArray(rawTripWineries) ? rawTripWineries : [])
         .filter((tw: any) => tw?.wineries || (tw?.id && tw?.name))
@@ -397,16 +400,5 @@ export const TripService = {
     }
 
     throw new Error("Invalid winery ID or data");
-  },
-
-  async addWineryToTripByApi(wineryId: number, tripIds: number[]) {
-     const supabase = createClient();
-     const { error } = await supabase.rpc('add_winery_to_trips', {
-         p_winery_id: wineryId,
-         p_trip_ids: tripIds
-     });
-     
-     if (error) throw error;
-     return { success: true };
   }
 };
