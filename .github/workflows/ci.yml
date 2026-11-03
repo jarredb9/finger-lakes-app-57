@@ -17,8 +17,8 @@ env:
   NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
   SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_LOCAL_SERVICE_ROLE_KEY }}
-  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
-  NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || 'e2e-mock-google-maps-key' }}
+  NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || 'pk.eyJ1IjoidGVzdCIsImEiOiJ0ZXN0In0.e2e' }}
   IS_E2E: 'true'
 
 jobs:
@@ -57,6 +57,40 @@ jobs:
         run: |
           cp supabase/config.ci.toml supabase/config.toml
           supabase start
+
+      - name: Populate Local Supabase Keys for Secretless / Dependabot CI
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Supabase secrets missing; extracting local credentials from running stack into GITHUB_ENV..."
+            STATUS_JSON=$(supabase status -o json 2>/dev/null || echo "{}")
+            ANON_KEY=$(echo "$STATUS_JSON" | jq -r '."ANON_KEY" // ."anon_key" // ."anon key" // empty')
+            SERVICE_KEY=$(echo "$STATUS_JSON" | jq -r '."SERVICE_ROLE_KEY" // ."service_role_key" // ."service_role key" // ."service role key" // empty')
+
+            if [ -z "$ANON_KEY" ]; then
+              ANON_KEY=$(supabase status -o env | grep -i 'anon.*key=' | head -n1 | cut -d '=' -f2- | tr -d '"'\'' ')
+            fi
+            if [ -z "$SERVICE_KEY" ]; then
+              SERVICE_KEY=$(supabase status -o env | grep -i 'service.*key=' | head -n1 | cut -d '=' -f2- | tr -d '"'\'' ')
+            fi
+
+            if [ -n "$ANON_KEY" ]; then
+              echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+              echo "Exported local NEXT_PUBLIC_SUPABASE_ANON_KEY"
+            else
+              echo "::error::Failed to extract local ANON_KEY from supabase status"
+              exit 1
+            fi
+
+            if [ -n "$SERVICE_KEY" ]; then
+              echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY" >> "$GITHUB_ENV"
+              echo "Exported local SUPABASE_SERVICE_ROLE_KEY"
+            else
+              echo "::error::Failed to extract local SERVICE_ROLE_KEY from supabase status"
+              exit 1
+            fi
+          else
+            echo "Repository Supabase secrets are already present; skipping local status fallback."
+          fi
 
       - name: Verify Edge Function CORS Preflight Headers
         run: |
@@ -163,6 +197,40 @@ jobs:
           cp supabase/config.ci.toml supabase/config.toml
           supabase start
 
+      - name: Populate Local Supabase Keys for Secretless / Dependabot CI
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ] || [ -z "$SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "Supabase secrets missing; extracting local credentials from running stack into GITHUB_ENV..."
+            STATUS_JSON=$(supabase status -o json 2>/dev/null || echo "{}")
+            ANON_KEY=$(echo "$STATUS_JSON" | jq -r '."ANON_KEY" // ."anon_key" // ."anon key" // empty')
+            SERVICE_KEY=$(echo "$STATUS_JSON" | jq -r '."SERVICE_ROLE_KEY" // ."service_role_key" // ."service_role key" // ."service role key" // empty')
+
+            if [ -z "$ANON_KEY" ]; then
+              ANON_KEY=$(supabase status -o env | grep -i 'anon.*key=' | head -n1 | cut -d '=' -f2- | tr -d '"'\'' ')
+            fi
+            if [ -z "$SERVICE_KEY" ]; then
+              SERVICE_KEY=$(supabase status -o env | grep -i 'service.*key=' | head -n1 | cut -d '=' -f2- | tr -d '"'\'' ')
+            fi
+
+            if [ -n "$ANON_KEY" ]; then
+              echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$ANON_KEY" >> "$GITHUB_ENV"
+              echo "Exported local NEXT_PUBLIC_SUPABASE_ANON_KEY"
+            else
+              echo "::error::Failed to extract local ANON_KEY from supabase status"
+              exit 1
+            fi
+
+            if [ -n "$SERVICE_KEY" ]; then
+              echo "SUPABASE_SERVICE_ROLE_KEY=$SERVICE_KEY" >> "$GITHUB_ENV"
+              echo "Exported local SUPABASE_SERVICE_ROLE_KEY"
+            else
+              echo "::error::Failed to extract local SERVICE_ROLE_KEY from supabase status"
+              exit 1
+            fi
+          else
+            echo "Repository Supabase secrets are already present; skipping local status fallback."
+          fi
+
       - name: Run Playwright tests in Container
         run: ./scripts/containers/run-e2e-container.sh all --shard=${{ matrix.shard }}/12 --reporter=blob --max-failures=3
 
@@ -215,6 +283,10 @@ jobs:
     environment: Production
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      IS_E2E: 'false'
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+      NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN: ${{ secrets.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN }}
     steps:
       - name: Reserve Supabase Ports
         run: sudo sysctl -w net.ipv4.ip_local_reserved_ports="54320-54330"
