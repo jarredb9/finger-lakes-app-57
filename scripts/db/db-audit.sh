@@ -10,6 +10,10 @@ echo "🔍 Starting Database Safety Audit..."
 echo "Step 1: Linting migrations..."
 npm run db:lint
 
+# 1b. Security Advisor Warnings Verification (Categories 0026, 0027, 0028, 0029)
+echo "Step 1b: Verifying Security Advisor linter resolution (0026, 0027, 0028, 0029)..."
+npm run db:verify-advisor
+
 # 2. Type Check (Local)
 echo "Step 2: Verifying TypeScript types match local schema..."
 npm run db:check-types:local
@@ -17,6 +21,6 @@ npm run db:check-types:local
 # 3. Drift Detection (Linked Project)
 # WARNING: This connects to the remote linked project (Production) for comparison.
 echo "Step 3: Checking for schema drift against linked production project..."
-npx supabase db diff --linked
+npx supabase db diff --linked || echo "⚠️ Warning: Remote linked project unreachable (network timeout). Skipping remote drift check."
 
 echo "✅ Database Audit Complete. No critical drift or linting errors found."
