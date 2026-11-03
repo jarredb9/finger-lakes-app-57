@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Pruned 10 deprecated RPCs along with legacy follow table fallback queries from database schemas and client service integrations ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 
 ### Security
+* Remediated transitive moderate-severity denial-of-service and filesystem traversal vulnerabilities via glob and minimatch package overrides while formally accepting unpatched devDependency deepmerge under a moderate audit threshold ([ADR-0008](docs/adr/0008-transitive-audit-exception-policy.md)).
 * Revoked all schema, table, sequence, and function execution privileges from `anon` and `PUBLIC` to enforce zero unauthenticated visibility into catalog and user data ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Redacted user email addresses for non-friend viewers in profile lookups and locked down trigger function execution to privileged service roles ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Added explicit `TO authenticated` qualifiers and missing `FOR UPDATE` Row-Level Security policies across user collections ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
