@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Enforced positive directory and extension allowlists for target source files and expanded protected configuration paths ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
 * Hardened subprocess execution to fail closed in CI without Docker, scrubbed default environment credentials while preserving `GH_TOKEN` for `gh` CLI commands, and added `--` argument delimiters ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
 * Expanded secret redaction to cover `postgres://` and `postgresql://` connection strings and service tokens ([#97](https://github.com/jarredb9/finger-lakes-app-57/issues/97)).
+* Expanded secret redaction to cover GitHub App client identifiers (`APP_CLIENT_ID`) during autonomous issue resolution ([#114](https://github.com/jarredb9/finger-lakes-app-57/issues/114)).
 
 ## [0.2.0] - 2026-10-23
 
