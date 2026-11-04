@@ -3,7 +3,7 @@
 **Tracking:** Issue [#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)  
 **Specification Reference:** [spec.md](./spec.md)  
 
-## Phase 1: Identity & Social Consent Hardening (Friends & Profiles) (Strict TDD)
+## Phase 1: Identity & Social Consent Hardening (Friends & Profiles) (Strict TDD) [checkpoint: 9b194214]
 
 - [x] Task: Write failing security regression tests for friends & profiles (TDD Red phase) [commit: 5e1e5149]
     - [x] Add integration test case in `lib/services/__tests__/supabase-rpc.integration.test.ts` asserting direct `INSERT` on `public.friends` with `status = 'accepted'` is rejected by RLS.
@@ -20,7 +20,7 @@
     - [x] Update `ProfileService.fetchProfile(userId)` in `lib/services/profileService.ts` to omit `email` from PostgREST `select()` and resolve email via `supabase.auth.getUser()`.
     - [x] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
     - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 1 tests pass (Green).
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Identity & Social Consent Hardening (Friends & Profiles)' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Identity & Social Consent Hardening (Friends & Profiles)' (Protocol in workflow.md) [commit: 9b194214]
 
 ## Phase 2: Trip Collaboration & Catalog Integrity Hardening (Trips & Wineries) (Strict TDD)
 
