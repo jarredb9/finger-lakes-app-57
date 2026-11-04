@@ -5,13 +5,13 @@
 
 ## Phase 1: Identity & Social Consent Hardening (Friends & Profiles) (Strict TDD)
 
-- [ ] Task: Write failing security regression tests for friends & profiles (TDD Red phase)
-    - [ ] Add integration test case in `lib/services/__tests__/supabase-rpc.integration.test.ts` asserting direct `INSERT` on `public.friends` with `status = 'accepted'` is rejected by RLS.
-    - [ ] Add integration test case asserting `public.friends` `UPDATE` cannot be executed by `user1_id` and requires `status = 'pending'`.
-    - [ ] Add integration test case asserting direct `UPDATE` of `profiles.email` and `profiles.id` is denied for authenticated role.
-    - [ ] Add integration test case asserting direct `SELECT` on `profiles.email` is denied for authenticated role.
-    - [ ] Add integration test case asserting `send_friend_request` rejects wildcard characters (`%`, `_`) and matches exact lower-case email.
-    - [ ] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures (Red).
+- [x] Task: Write failing security regression tests for friends & profiles (TDD Red phase) [commit: 5e1e5149]
+    - [x] Add integration test case in `lib/services/__tests__/supabase-rpc.integration.test.ts` asserting direct `INSERT` on `public.friends` with `status = 'accepted'` is rejected by RLS.
+    - [x] Add integration test case asserting `public.friends` `UPDATE` cannot be executed by `user1_id` and requires `status = 'pending'`.
+    - [x] Add integration test case asserting direct `UPDATE` of `profiles.email` and `profiles.id` is denied for authenticated role.
+    - [x] Add integration test case asserting direct `SELECT` on `profiles.email` is denied for authenticated role.
+    - [x] Add integration test case asserting `send_friend_request` rejects wildcard characters (`%`, `_`) and matches exact lower-case email.
+    - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures (Red).
 - [ ] Task: Implement friends & profiles hardening migration & client adapter (TDD Green phase)
     - [ ] Create `supabase/migrations/20261104100000_harden_friends_and_profiles.sql`.
     - [ ] Harden `public.friends`: add `CHECK (user1_id <> user2_id)` constraint, unique pair index on `(LEAST(user1_id, user2_id), GREATEST(user1_id, user2_id))`, restrict `INSERT` RLS to `auth.uid() = user1_id AND status = 'pending'`, and restrict `UPDATE` RLS to `auth.uid() = user2_id AND status = 'pending' WITH CHECK (status IN ('accepted', 'declined'))`.
