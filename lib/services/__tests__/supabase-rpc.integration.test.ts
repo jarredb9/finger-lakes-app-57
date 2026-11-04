@@ -883,5 +883,220 @@ describe('Supabase RPC Integration Tests', () => {
         expect(selfError).toBeNull();
         expect((selfData as ProfileResponse)?.profile?.email).toBe(user1.email);
       });
+
+      it('should reject direct INSERT on public.friends with status accepted by authenticated clients', async () => {
+        // Clear any existing friendship between user1 and user2
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        // Authenticated user1 attempts direct insert with accepted status
+        const { error } = await user1.client.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        }).select();
+
+        expect(error).not.toBeNull();
+        expect(error?.code).toBe('42501');
+
+        // Verify no friendship record was created
+        const { data: friendRows } = await adminClient
+          .from('friends')
+          .select('*')
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        expect(friendRows).toEqual([]);
+      });
+
+      it('should reject UPDATE on public.friends by requester and reject modifications to non-pending records', async () => {
+        // Clean up existing friendships
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        // Seed a pending friend request from user1 to user2
+        const { data: pendingRow, error: seedError } = await adminClient
+          .from('friends')
+          .insert({
+            user1_id: user1.id,
+            user2_id: user2.id,
+            status: 'pending'
+          })
+          .select()
+          .single();
+        expect(seedError).toBeNull();
+        expect(pendingRow).not.toBeNull();
+
+        // 1. Requester Self-Acceptance Attempt (user1 attempts to update)
+        const { data: user1Update, error: user1Error } = await user1.client
+          .from('friends')
+          .update({ status: 'accepted' })
+          .eq('id', pendingRow.id)
+          .select();
+        // Either RLS throws 42501 or 0 rows modified
+        if (user1Error) {
+          expect(user1Error.code).toBe('42501');
+        } else {
+          expect(user1Update).toEqual([]);
+        }
+
+        // 2. Transition row to settled 'accepted' state via adminClient
+        const { error: transitionError } = await adminClient
+          .from('friends')
+          .update({ status: 'accepted' })
+          .eq('id', pendingRow.id);
+        expect(transitionError).toBeNull();
+
+        // 3. Settled Record Tampering Attempt (user2 attempts to modify already accepted row)
+        const { data: user2Update, error: user2Error } = await user2.client
+          .from('friends')
+          .update({ status: 'declined' })
+          .eq('id', pendingRow.id)
+          .select();
+        if (user2Error) {
+          expect(user2Error.code).toBe('42501');
+        } else {
+          expect(user2Update).toEqual([]);
+        }
+
+        // Verify status remains accepted
+        const { data: verifiedRow } = await adminClient
+          .from('friends')
+          .select('status')
+          .eq('id', pendingRow.id)
+          .single();
+        expect(verifiedRow?.status).toBe('accepted');
+
+        // Cleanup
+        await adminClient.from('friends').delete().eq('id', pendingRow.id);
+      });
+
+      it('should deny direct UPDATE on profiles.email and profiles.id for authenticated role', async () => {
+        // Ensure user1 profile exists with canonical email
+        await adminClient.from('profiles').upsert({
+          id: user1.id,
+          email: user1.email,
+          name: 'User One',
+          privacy_level: 'public'
+        });
+
+        // 1. Direct Email Mutation Attempt
+        const { error: updateEmailError } = await user1.client
+          .from('profiles')
+          .update({ email: 'squatted-address@example.com' })
+          .eq('id', user1.id);
+
+        expect(updateEmailError).not.toBeNull();
+        expect(updateEmailError?.code).toBe('42501');
+
+        // 2. Direct ID Mutation Attempt
+        const { error: updateIdError } = await user1.client
+          .from('profiles')
+          .update({ id: crypto.randomUUID() })
+          .eq('id', user1.id);
+
+        expect(updateIdError).not.toBeNull();
+        expect(updateIdError?.code).toBe('42501');
+
+        // 3. Database State Verification
+        const { data: profile } = await adminClient
+          .from('profiles')
+          .select('id, email')
+          .eq('id', user1.id)
+          .single();
+        expect(profile?.id).toBe(user1.id);
+        expect(profile?.email).toBe(user1.email);
+      });
+
+      it('should deny direct SELECT on profiles.email for authenticated clients while allowing public metadata', async () => {
+        // Ensure user1 has a profile with email and public privacy
+        await adminClient.from('profiles').upsert({
+          id: user1.id,
+          email: user1.email,
+          name: 'User One',
+          privacy_level: 'public'
+        });
+
+        // 1. Other User Email Query Attempt
+        const { error: otherError } = await user2.client
+          .from('profiles')
+          .select('id, email')
+          .eq('id', user1.id);
+
+        expect(otherError).not.toBeNull();
+        expect(otherError?.code).toBe('42501');
+
+        // 2. Own Email Query Attempt
+        const { error: ownError } = await user1.client
+          .from('profiles')
+          .select('id, email')
+          .eq('id', user1.id);
+
+        expect(ownError).not.toBeNull();
+        expect(ownError?.code).toBe('42501');
+
+        // 3. Non-Sensitive Field Query Success
+        const { data: publicProfile, error: publicError } = await user2.client
+          .from('profiles')
+          .select('id, name, privacy_level')
+          .eq('id', user1.id)
+          .single();
+
+        expect(publicError).toBeNull();
+        expect(publicProfile?.id).toBe(user1.id);
+      });
+
+      it('should reject wildcard patterns in send_friend_request and match exact lower-case email', async () => {
+        // Clean up existing friendships
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        // Ensure user2 profile exists with canonical email
+        await adminClient.from('profiles').upsert({
+          id: user2.id,
+          email: user2.email,
+          name: 'User Two',
+          privacy_level: 'public'
+        });
+
+        // 1. Wildcard Probing Attempt
+        // Construct wildcard e.g. "rpc-test-%@example.com"
+        const emailParts = user2.email.split('@');
+        const wildcardEmail = emailParts[0].slice(0, 4) + '%@' + emailParts[1];
+
+        const { error: wildcardError } = await user1.client.rpc('send_friend_request', {
+          p_target_email: wildcardEmail
+        });
+
+        expect(wildcardError).not.toBeNull();
+
+        // Verify zero friend rows exist
+        const { data: friendRows } = await adminClient
+          .from('friends')
+          .select('*')
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        expect(friendRows).toEqual([]);
+
+        // 2. Exact Lower-Case Matching Attempt with Upper/Mixed Case Input
+        const upperEmail = user2.email.toUpperCase();
+        const { error: matchError } = await user1.client.rpc('send_friend_request', {
+          p_target_email: upperEmail
+        });
+
+        expect(matchError).toBeNull();
+
+        // Verify a pending friend request exists
+        const { data: createdReq } = await adminClient
+          .from('friends')
+          .select('*')
+          .eq('user1_id', user1.id)
+          .eq('user2_id', user2.id)
+          .single();
+
+        expect(createdReq).not.toBeNull();
+        expect(createdReq?.status).toBe('pending');
+
+        // Cleanup
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+      });
     });
 });
