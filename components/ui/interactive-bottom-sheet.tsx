@@ -123,12 +123,21 @@ export function InteractiveBottomSheet({
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/10 shrink-0 w-full rounded-t-[15px] relative">
             {/* Toggle Area (Expand/Collapse) */}
             <div
-              className="flex-1 flex items-center cursor-pointer active:bg-muted/20 transition-colors touch-none"
+              className="flex-1 flex items-center cursor-pointer active:bg-muted/20 transition-colors touch-none focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
               onClick={toggleSize}
               onTouchStart={handleTouchStart}
               onTouchEnd={handleTouchEnd}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  toggleSize();
+                }
+              }}
               role="button"
-              aria-label={mode === "mini" ? "Expand to full screen" : "Minimize to half screen"}
+              tabIndex={0}
+              data-testid="bottom-sheet-toggle"
+              data-mode={mode}
+              aria-label={mode === "mini" ? `${title}, expand to full screen` : `${title}, minimize to half screen`}
             >
               <div className="flex-1 text-left truncate pr-2">
                 <div className="text-sm font-semibold text-foreground">{title}</div>

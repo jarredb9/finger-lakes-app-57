@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Pruned 10 deprecated RPCs along with legacy follow table fallback queries from database schemas and client service integrations ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 
 ### Fixed
+* Resolved WCAG 2.1 Label-in-Name accessibility violations in the mobile interactive bottom sheet by incorporating the visible title into the accessible name and enabling keyboard activation ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117)).
 * Prevented ephemeral port collisions and container bind failures during CI database startup by reserving the Supabase port range in the Linux kernel on GitHub Actions runners ([#113](https://github.com/jarredb9/finger-lakes-app-57/pull/113)).
 
 ### Security
