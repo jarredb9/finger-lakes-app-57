@@ -22,7 +22,7 @@
     - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 1 tests pass (Green).
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Identity & Social Consent Hardening (Friends & Profiles)' (Protocol in workflow.md) [commit: 9b194214]
 
-## Phase 2: Trip Collaboration & Catalog Integrity Hardening (Trips & Wineries) (Strict TDD)
+## Phase 2: Trip Collaboration & Catalog Integrity Hardening (Trips & Wineries) (Strict TDD) [checkpoint: a2a65653]
 
 - [x] Task: Write failing security regression tests for trip members & ensure_winery (TDD Red phase) [commit: ed0ab978]
     - [x] Add integration test case asserting arbitrary non-mutual friends cannot be inserted into `trip_members` via direct PostgREST `INSERT`.
@@ -40,7 +40,7 @@
     - [x] Harden `ensure_winery`: add checks for latitude (-90..90), longitude (-180..180), ratings (0..5), and `^https?://` URLs, raising explicit exceptions on validation failure.
     - [x] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
     - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 2 tests pass (Green).
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Trip Collaboration & Catalog Integrity Hardening (Trips & Wineries)' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Trip Collaboration & Catalog Integrity Hardening (Trips & Wineries)' (Protocol in workflow.md) [commit: a2a65653]
 
 ## Phase 3: Private Storage, Ledger Privacy & Webhook Resilience (Storage & Triggers) (Strict TDD)
 
