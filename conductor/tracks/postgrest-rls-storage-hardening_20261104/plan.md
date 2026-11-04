@@ -12,14 +12,14 @@
     - [x] Add integration test case asserting direct `SELECT` on `profiles.email` is denied for authenticated role.
     - [x] Add integration test case asserting `send_friend_request` rejects wildcard characters (`%`, `_`) and matches exact lower-case email.
     - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures (Red).
-- [ ] Task: Implement friends & profiles hardening migration & client adapter (TDD Green phase)
-    - [ ] Create `supabase/migrations/20261104100000_harden_friends_and_profiles.sql`.
-    - [ ] Harden `public.friends`: add `CHECK (user1_id <> user2_id)` constraint, unique pair index on `(LEAST(user1_id, user2_id), GREATEST(user1_id, user2_id))`, restrict `INSERT` RLS to `auth.uid() = user1_id AND status = 'pending'`, and restrict `UPDATE` RLS to `auth.uid() = user2_id AND status = 'pending' WITH CHECK (status IN ('accepted', 'declined'))`.
-    - [ ] Harden `public.profiles`: revoke `UPDATE (id, email)` and `SELECT (email)` from `authenticated`, create unique index on `LOWER(email)` where email is not null.
-    - [ ] Update `send_friend_request` to match `LOWER(email) = LOWER(TRIM(p_target_email))`.
-    - [ ] Update `ProfileService.fetchProfile(userId)` in `lib/services/profileService.ts` to omit `email` from PostgREST `select()` and resolve email via `supabase.auth.getUser()`.
-    - [ ] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
-    - [ ] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 1 tests pass (Green).
+- [x] Task: Implement friends & profiles hardening migration & client adapter (TDD Green phase) [commit: 6fde7b58]
+    - [x] Create `supabase/migrations/20261104100000_harden_friends_and_profiles.sql`.
+    - [x] Harden `public.friends`: add `CHECK (user1_id <> user2_id)` constraint, unique pair index on `(LEAST(user1_id, user2_id), GREATEST(user1_id, user2_id))`, restrict `INSERT` RLS to `auth.uid() = user1_id AND status = 'pending'`, and restrict `UPDATE` RLS to `auth.uid() = user2_id AND status = 'pending' WITH CHECK (status IN ('accepted', 'declined'))`.
+    - [x] Harden `public.profiles`: revoke `UPDATE (id, email)` and `SELECT (email)` from `authenticated`, create unique index on `LOWER(email)` where email is not null.
+    - [x] Update `send_friend_request` to match `LOWER(email) = LOWER(TRIM(p_target_email))`.
+    - [x] Update `ProfileService.fetchProfile(userId)` in `lib/services/profileService.ts` to omit `email` from PostgREST `select()` and resolve email via `supabase.auth.getUser()`.
+    - [x] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
+    - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 1 tests pass (Green).
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Identity & Social Consent Hardening (Friends & Profiles)' (Protocol in workflow.md)
 
 ## Phase 2: Trip Collaboration & Catalog Integrity Hardening (Trips & Wineries) (Strict TDD)
