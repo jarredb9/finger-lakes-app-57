@@ -104,13 +104,13 @@ export async function ensureSidebarExpanded(page: Page) {
         await expect(sidebar).toBeVisible({ timeout: 10000 });
         await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
 
-        const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
-        const isMiniMode = await expandBtn.isVisible().catch(() => false);
+        const toggleBtn = page.getByTestId('bottom-sheet-toggle');
+        const isMiniMode = await toggleBtn.getAttribute('data-mode').then(mode => mode === 'mini').catch(() => false)
+            || await page.getByRole('button', { name: /expand to full screen/i }).isVisible().catch(() => false);
         
         if (isMiniMode) {
-            await expandBtn.click();
-            const minimizeBtn = page.getByRole('button', { name: 'Minimize to half screen' });
-            await expect(minimizeBtn).toBeVisible({ timeout: 5000 }).catch(() => {});
+            await toggleBtn.or(page.getByRole('button', { name: /expand to full screen/i })).first().click();
+            await expect(toggleBtn).toHaveAttribute('data-mode', 'full', { timeout: 5000 }).catch(() => {});
             await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
         }
     } else {

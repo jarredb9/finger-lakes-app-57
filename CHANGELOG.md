@@ -16,6 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Added Podman compatibility shim translating Docker Go template syntax for Supabase CLI v3 container operations on RHEL 8.
 
 ### Changed
+* Partitioned Dependabot npm updates into distinct `prod-dependencies` and `dev-dependencies` groups to isolate runtime package updates from test and linter tooling changes ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117)).
+* Synchronized container runner image and debug PWA workflow to Playwright `v1.64.1-noble` to align with `@playwright/test` 1.64.1 and resolve browser binary launch failures during containerized E2E runs ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117), [ADR-0009](docs/adr/0009-container-runner-playwright-coupling.md)).
+* Excluded `@playwright/test` from automated Dependabot npm batch updates to prevent runner container image skew and maintain atomic browser binary parity across local and CI environments ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117), [ADR-0009](docs/adr/0009-container-runner-playwright-coupling.md)).
 * Upgraded GitHub Actions to native Node 24 releases across CI/CD, agent-resolve, and debug-pwa workflows to eliminate runner deprecation warnings and align artifact handling ([#114](https://github.com/jarredb9/finger-lakes-app-57/issues/114)).
 * Unblocked secretless Dependabot CI workflows by extracting local Supabase keys from running CLI containers and supplying mock map tokens for build and E2E test runs ([#114](https://github.com/jarredb9/finger-lakes-app-57/issues/114)).
 * Hardened Dependabot configuration to bundle npm minor and patch updates while ignoring routine semver-major updates, and consolidated GitHub Actions version updates into a single monthly group ([#114](https://github.com/jarredb9/finger-lakes-app-57/issues/114)).
@@ -30,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Pruned 10 deprecated RPCs along with legacy follow table fallback queries from database schemas and client service integrations ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 
 ### Fixed
+* Resolved WCAG 2.1 Label-in-Name accessibility violations in the mobile interactive bottom sheet by incorporating the visible title into the accessible name and enabling keyboard activation ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117)).
 * Prevented ephemeral port collisions and container bind failures during CI database startup by reserving the Supabase port range in the Linux kernel on GitHub Actions runners ([#113](https://github.com/jarredb9/finger-lakes-app-57/pull/113)).
 
 ### Security
