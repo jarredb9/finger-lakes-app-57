@@ -31,15 +31,15 @@
     - [x] Add integration test case asserting non-owner trip members can `DELETE` their own row from `trip_members`.
     - [x] Add integration test case asserting `ensure_winery` rejects out-of-bound latitude/longitude, invalid ratings, and non-HTTP(S) URLs.
     - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures (Red).
-- [ ] Task: Implement trip collaboration & catalog integrity hardening migration (TDD Green phase)
-    - [ ] Create `supabase/migrations/20261104110000_harden_trips_and_wineries.sql`.
-    - [ ] Harden `public.trip_members` RLS: `INSERT` requires trip owner + accepted mutual friend; `DELETE` permits trip owner or member themselves (`user_id = auth.uid()`).
-    - [ ] Update `create_trip_with_winery`: validate all `p_members` are owner or accepted mutual friends, raising `RAISE EXCEPTION 'Trip members must be accepted mutual friends';` on violation.
-    - [ ] Update `add_trip_member_by_email`: match `LOWER(email) = LOWER(TRIM(p_email))` and verify target user is an accepted mutual friend of `auth.uid()`, raising explicit exception on violation.
-    - [ ] Update existing integration test in `lib/services/__tests__/supabase-rpc.integration.test.ts` (lines 98–111) to establish mutual friendship before shared trip creation.
-    - [ ] Harden `ensure_winery`: add checks for latitude (-90..90), longitude (-180..180), ratings (0..5), and `^https?://` URLs, raising explicit exceptions on validation failure.
-    - [ ] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
-    - [ ] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 2 tests pass (Green).
+- [x] Task: Implement trip collaboration & catalog integrity hardening migration (TDD Green phase) [commit: 1d2d7b40]
+    - [x] Create `supabase/migrations/20261104110000_harden_trips_and_wineries.sql`.
+    - [x] Harden `public.trip_members` RLS: `INSERT` requires trip owner + accepted mutual friend; `DELETE` permits trip owner or member themselves (`user_id = auth.uid()`).
+    - [x] Update `create_trip_with_winery`: validate all `p_members` are owner or accepted mutual friends, raising `RAISE EXCEPTION 'Trip members must be accepted mutual friends';` on violation.
+    - [x] Update `add_trip_member_by_email`: match `LOWER(email) = LOWER(TRIM(p_email))` and verify target user is an accepted mutual friend of `auth.uid()`, raising explicit exception on violation.
+    - [x] Update existing integration test in `lib/services/__tests__/supabase-rpc.integration.test.ts` (lines 98–111) to establish mutual friendship before shared trip creation.
+    - [x] Harden `ensure_winery`: add checks for latitude (-90..90), longitude (-180..180), ratings (0..5), and `^https?://` URLs, raising explicit exceptions on validation failure.
+    - [x] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
+    - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 2 tests pass (Green).
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Trip Collaboration & Catalog Integrity Hardening (Trips & Wineries)' (Protocol in workflow.md)
 
 ## Phase 3: Private Storage, Ledger Privacy & Webhook Resilience (Storage & Triggers) (Strict TDD)
