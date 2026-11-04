@@ -4,16 +4,32 @@ import { User } from '@/lib/stores/userStore';
 export class ProfileService {
   /**
    * Fetches the user profile from the profiles table.
+   * Resolves email via supabase.auth.getUser() to respect column-level SELECT revocation on profiles.email.
    * Includes retry logic to handle potential race conditions during account creation.
    */
   static async fetchProfile(userId: string): Promise<User | null> {
     const supabase = createClient();
+    let email = '';
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && user.id === userId && user.email) {
+        email = user.email;
+      } else {
+        const { data: sessionData } = await supabase.auth.getSession();
+        if (sessionData?.session?.user?.id === userId && sessionData.session.user.email) {
+          email = sessionData.session.user.email;
+        }
+      }
+    } catch {
+      // Graceful degradation when offline or disconnected
+    }
+
     let retries = 5;
     
     while (retries > 0) {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, email, privacy_level, ai_enabled')
+        .select('id, name, privacy_level, ai_enabled')
         .eq('id', userId)
         .single();
 
@@ -21,7 +37,7 @@ export class ProfileService {
         return {
           id: data.id,
           full_name: data.name || 'User',
-          email: data.email || '',
+          email,
           privacy_level: data.privacy_level,
           ai_enabled: data.ai_enabled ?? false,
         };
