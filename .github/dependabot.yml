@@ -16,6 +16,7 @@ updates:
           - "minor"
           - "patch"
     ignore:
+      - dependency-name: "@playwright/test"
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"

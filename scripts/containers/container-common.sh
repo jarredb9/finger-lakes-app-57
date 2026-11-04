@@ -5,7 +5,7 @@
 # and common options for container runner scripts (RHEL 8 / glibc < 2.29 compatibility).
 
 # 1. Canonical Image Configuration
-PLAYWRIGHT_VERSION="v1.63.0-noble"
+PLAYWRIGHT_VERSION="v1.64.1-noble"
 IMAGE="mcr.microsoft.com/playwright:$PLAYWRIGHT_VERSION"
 
 # Project root resolution (supports execution from scripts/ or scripts/containers/)
