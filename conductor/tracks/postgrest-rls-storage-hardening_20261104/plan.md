@@ -24,13 +24,13 @@
 
 ## Phase 2: Trip Collaboration & Catalog Integrity Hardening (Trips & Wineries) (Strict TDD)
 
-- [ ] Task: Write failing security regression tests for trip members & ensure_winery (TDD Red phase)
-    - [ ] Add integration test case asserting arbitrary non-mutual friends cannot be inserted into `trip_members` via direct PostgREST `INSERT`.
-    - [ ] Add integration test case asserting `create_trip_with_winery` raises explicit exception when non-mutual-friend UUIDs are passed in `p_members`.
-    - [ ] Add integration test case asserting `add_trip_member_by_email` raises explicit exception when target user is not an accepted mutual friend or wildcard emails are provided.
-    - [ ] Add integration test case asserting non-owner trip members can `DELETE` their own row from `trip_members`.
-    - [ ] Add integration test case asserting `ensure_winery` rejects out-of-bound latitude/longitude, invalid ratings, and non-HTTP(S) URLs.
-    - [ ] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures (Red).
+- [x] Task: Write failing security regression tests for trip members & ensure_winery (TDD Red phase) [commit: ed0ab978]
+    - [x] Add integration test case asserting arbitrary non-mutual friends cannot be inserted into `trip_members` via direct PostgREST `INSERT`.
+    - [x] Add integration test case asserting `create_trip_with_winery` raises explicit exception when non-mutual-friend UUIDs are passed in `p_members`.
+    - [x] Add integration test case asserting `add_trip_member_by_email` raises explicit exception when target user is not an accepted mutual friend or wildcard emails are provided.
+    - [x] Add integration test case asserting non-owner trip members can `DELETE` their own row from `trip_members`.
+    - [x] Add integration test case asserting `ensure_winery` rejects out-of-bound latitude/longitude, invalid ratings, and non-HTTP(S) URLs.
+    - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures (Red).
 - [ ] Task: Implement trip collaboration & catalog integrity hardening migration (TDD Green phase)
     - [ ] Create `supabase/migrations/20261104110000_harden_trips_and_wineries.sql`.
     - [ ] Harden `public.trip_members` RLS: `INSERT` requires trip owner + accepted mutual friend; `DELETE` permits trip owner or member themselves (`user_id = auth.uid()`).
