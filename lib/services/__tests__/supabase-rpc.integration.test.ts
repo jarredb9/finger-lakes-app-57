@@ -95,6 +95,15 @@ describe('Supabase RPC Integration Tests', () => {
       });
 
       it('should allow trip members from trip_members table to fetch details via get_trip_details', async () => {
+        // Ensure user1 and user2 are accepted mutual friends for the shared trip
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
         // 1. User 1 creates a trip and includes User 2 as a member atomically
         const { data: tripData, error: tripError } = await user1.client.rpc('create_trip_with_winery', {
           p_trip_name: 'Shared Trip',
@@ -120,6 +129,11 @@ describe('Supabase RPC Integration Tests', () => {
         expect(detailsError).toBeNull();
         expect(details).not.toBeNull();
         expect(details.id).toBe(tripId);
+
+        // Teardown friendship and trip
+        await adminClient.from('trips').delete().eq('id', tripId);
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
       });
 
       it('should persist numeric coordinates when add_winery_to_trip is called with latitude and longitude keys (without lat/lng)', async () => {
