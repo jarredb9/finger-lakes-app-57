@@ -1098,5 +1098,241 @@ describe('Supabase RPC Integration Tests', () => {
         await adminClient.from('friends').delete()
           .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
       });
+
+      it('should deny direct table INSERT on trip_members for non-mutual friends', async () => {
+        // Setup trip owned by user1
+        const { data: trip, error: tripCreateError } = await adminClient
+          .from('trips')
+          .insert({ user_id: user1.id, name: 'Security Direct Insert Test Trip', trip_date: getTodayLocal() })
+          .select()
+          .single();
+        expect(tripCreateError).toBeNull();
+
+        // Ensure user1 and user3 have NO friendship record
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user3.id}),and(user1_id.eq.${user3.id},user2_id.eq.${user1.id})`);
+
+        // Authenticated user1 attempts direct insert adding non-friend user3
+        const { error } = await user1.client.from('trip_members').insert({
+          trip_id: trip.id,
+          user_id: user3.id,
+          role: 'member',
+          status: 'joined'
+        }).select();
+
+        expect(error).not.toBeNull();
+        expect(error?.code).toBe('42501');
+
+        const { data: memberRows } = await adminClient
+          .from('trip_members')
+          .select('*')
+          .eq('trip_id', trip.id)
+          .eq('user_id', user3.id);
+        expect(memberRows).toEqual([]);
+
+        // Cleanup
+        await adminClient.from('trips').delete().eq('id', trip.id);
+      });
+
+      it('should raise an exception in create_trip_with_winery when non-mutual-friend UUIDs are passed in p_members', async () => {
+        // Ensure user1 and user3 have NO friendship record
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user3.id}),and(user1_id.eq.${user3.id},user2_id.eq.${user1.id})`);
+
+        const placeId = `sec-winery-${crypto.randomUUID()}`;
+        createdWineryIds.push(placeId);
+
+        const { error } = await user1.client.rpc('create_trip_with_winery', {
+          p_trip_name: 'Trip With Non-Friend Member',
+          p_trip_date: getTodayLocal(),
+          p_winery_data: {
+            id: placeId,
+            name: 'TDD Red Winery',
+            address: '123 Test Trail',
+            lat: 42.5,
+            lng: -76.9
+          },
+          p_members: [user1.id, user3.id]
+        });
+
+        expect(error).not.toBeNull();
+        expect(error?.message).toContain('Trip members must be accepted mutual friends');
+
+        const { data: persistedTrips } = await adminClient
+          .from('trips')
+          .select('id')
+          .eq('name', 'Trip With Non-Friend Member')
+          .eq('user_id', user1.id);
+        expect(persistedTrips?.length ?? 0).toBe(0);
+
+        if (persistedTrips && persistedTrips.length > 0) {
+          for (const t of persistedTrips) {
+            await adminClient.from('trips').delete().eq('id', t.id);
+          }
+        }
+      });
+
+      it('should raise an exception in add_trip_member_by_email for non-mutual friends and reject wildcards', async () => {
+        // Create base trip owned by user1
+        const { data: trip, error: tripError } = await adminClient
+          .from('trips')
+          .insert({ user_id: user1.id, name: 'Security Add Member By Email Trip', trip_date: getTodayLocal() })
+          .select()
+          .single();
+        expect(tripError).toBeNull();
+
+        // Ensure user2 and user3 profiles exist with canonical emails
+        await adminClient.from('profiles').upsert([
+          { id: user2.id, email: user2.email, name: 'User Two', privacy_level: 'public' },
+          { id: user3.id, email: user3.email, name: 'User Three', privacy_level: 'public' }
+        ]);
+
+        // Ensure user1 and user3 are NOT friends
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user3.id}),and(user1_id.eq.${user3.id},user2_id.eq.${user1.id})`);
+
+        // Ensure user1 and user2 are NOT friends initially
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        // 1. Non-Friend Addition Attempt
+        const { error: nonFriendError } = await user1.client.rpc('add_trip_member_by_email', {
+          p_trip_id: trip.id,
+          p_email: user3.email
+        });
+        expect(nonFriendError).not.toBeNull();
+        expect(nonFriendError?.message).toContain('Trip members must be accepted mutual friends');
+
+        const { data: nonFriendRows } = await adminClient
+          .from('trip_members')
+          .select('*')
+          .eq('trip_id', trip.id)
+          .eq('user_id', user3.id);
+        expect(nonFriendRows).toEqual([]);
+
+        // 2. Wildcard Probing Attempt
+        const emailParts = user2.email.split('@');
+        const wildcardEmail = emailParts[0].slice(0, 4) + '%@' + emailParts[1];
+        const { error: wildcardError } = await user1.client.rpc('add_trip_member_by_email', {
+          p_trip_id: trip.id,
+          p_email: wildcardEmail
+        });
+        expect(wildcardError).not.toBeNull();
+
+        const { data: wildcardRows } = await adminClient
+          .from('trip_members')
+          .select('*')
+          .eq('trip_id', trip.id)
+          .eq('user_id', user2.id);
+        expect(wildcardRows).toEqual([]);
+
+        // 3. Exact Lower-Case Matching Attempt (Accepted Mutual Friend with Uppercase Input)
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
+        const { error: validError } = await user1.client.rpc('add_trip_member_by_email', {
+          p_trip_id: trip.id,
+          p_email: user2.email.toUpperCase()
+        });
+        expect(validError).toBeNull();
+
+        // Cleanup
+        await adminClient.from('trips').delete().eq('id', trip.id);
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+      });
+
+      it('should allow non-owner trip members to delete their own row from trip_members', async () => {
+        // Create trip owned by user1
+        const { data: trip, error: tripError } = await adminClient
+          .from('trips')
+          .insert({ user_id: user1.id, name: 'Security Leave Trip Test', trip_date: getTodayLocal() })
+          .select()
+          .single();
+        expect(tripError).toBeNull();
+
+        // Add user2 as a member
+        const { error: memberInsertError } = await adminClient
+          .from('trip_members')
+          .insert({
+            trip_id: trip.id,
+            user_id: user2.id,
+            role: 'member',
+            status: 'joined'
+          });
+        expect(memberInsertError).toBeNull();
+
+        // Execution: Authenticated user2 attempts to delete their own membership row
+        const { data, error } = await user2.client
+          .from('trip_members')
+          .delete()
+          .eq('trip_id', trip.id)
+          .eq('user_id', user2.id)
+          .select();
+
+        expect(error).toBeNull();
+        expect(data?.length).toBe(1);
+
+        // Verify with adminClient
+        const { data: memberRows } = await adminClient
+          .from('trip_members')
+          .select('*')
+          .eq('trip_id', trip.id)
+          .eq('user_id', user2.id);
+        expect(memberRows).toEqual([]);
+
+        // Cleanup
+        await adminClient.from('trips').delete().eq('id', trip.id);
+      });
+
+      it('should reject invalid coordinates, ratings, and URLs in ensure_winery', async () => {
+        const id1 = `bad-lat-${crypto.randomUUID()}`;
+        const id2 = `bad-lng-${crypto.randomUUID()}`;
+        const id3 = `bad-rating-${crypto.randomUUID()}`;
+        const id4 = `bad-proto-${crypto.randomUUID()}`;
+        const id5 = `bad-ftp-${crypto.randomUUID()}`;
+        createdWineryIds.push(id1, id2, id3, id4, id5);
+
+        // 1. Out-of-Bounds Latitude (> 90 or < -90)
+        const { error: badLatError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id1, name: 'Bad Lat Winery', latitude: 95.0, longitude: -76.9 }
+        });
+        expect(badLatError).not.toBeNull();
+        expect(badLatError?.message).toContain('Latitude must be between -90 and 90');
+
+        // 2. Out-of-Bounds Longitude (> 180 or < -180)
+        const { error: badLngError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id2, name: 'Bad Lng Winery', latitude: 42.5, longitude: 195.0 }
+        });
+        expect(badLngError).not.toBeNull();
+        expect(badLngError?.message).toContain('Longitude must be between -180 and 180');
+
+        // 3. Out-of-Bounds Rating (< 0 or > 5)
+        const { error: badRatingError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id3, name: 'Bad Rating Winery', latitude: 42.5, longitude: -76.9, rating: 6.5 }
+        });
+        expect(badRatingError).not.toBeNull();
+        expect(badRatingError?.message).toContain('Rating must be between 0 and 5');
+
+        // 4. Non-HTTP(S) Website Protocol (javascript:)
+        const { error: badProtoError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id4, name: 'Bad Proto Winery', latitude: 42.5, longitude: -76.9, website: 'javascript:alert(1)' }
+        });
+        expect(badProtoError).not.toBeNull();
+        expect(badProtoError?.message).toContain('Website must be a valid HTTP or HTTPS URL');
+
+        // 5. FTP Protocol Rejection
+        const { error: badFtpError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id5, name: 'Bad FTP Winery', latitude: 42.5, longitude: -76.9, website: 'ftp://files.example.com' }
+        });
+        expect(badFtpError).not.toBeNull();
+        expect(badFtpError?.message).toContain('Website must be a valid HTTP or HTTPS URL');
+
+        // Cleanup
+        await adminClient.from('wineries').delete().in('google_place_id', [id1, id2, id3, id4, id5]);
+      });
     });
 });
