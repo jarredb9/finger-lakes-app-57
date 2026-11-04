@@ -21,7 +21,7 @@ A personal 1-to-5 star evaluation of a user's experience during a Visit.
 _Avoid_: Winery rating, business score, venue grade
 
 **Trip**:
-A scheduled itinerary of planned winery stops for a specific calendar date, organized by an owner and optionally shared with collaborators.
+A scheduled itinerary of planned winery stops for a specific calendar date, organized by an owner and optionally shared with collaborators. Invariant: Collaborators added to a Trip must be accepted Friends of the trip owner, and non-owner members may autonomously remove their own membership.
 _Avoid_: Tour, outing, route, journey
 
 **Trip Stop**:
@@ -44,6 +44,10 @@ _Avoid_: Attendee, participant, customer
 A companion user tagged as having attended a Visit alongside the Visitor.
 _Avoid_: Member, guest, follower
 
+**Visit Photo**:
+A digital photograph uploaded by a Visitor documenting a physical tasting experience during a Visit. Invariant: Stored in private object storage, accessible only via authenticated signed URLs verified against the Visit's Visibility Level and Visitor ownership.
+_Avoid_: Image, snapshot, picture, venue photo
+
 ## User Collections
 
 **Wishlist**:
@@ -57,7 +61,7 @@ _Avoid_: Star, like, bookmark
 ## Social & Privacy
 
 **Friend**:
-A registered user with whom a bidirectional, mutual connection has been established.
+A registered user with whom a bidirectional, mutual connection has been established. Invariant: Friendships require bilateral consent; direct table insertion cannot unilaterally force an accepted friendship.
 _Avoid_: Follower, following, contact, connection
 
 **Friend Request**:
