@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Added Podman compatibility shim translating Docker Go template syntax for Supabase CLI v3 container operations on RHEL 8.
 
 ### Changed
+* Partitioned Dependabot npm updates into distinct `prod-dependencies` and `dev-dependencies` groups to isolate runtime package updates from test and linter tooling changes ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117)).
 * Synchronized container runner image and debug PWA workflow to Playwright `v1.64.1-noble` to align with `@playwright/test` 1.64.1 and resolve browser binary launch failures during containerized E2E runs ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117), [ADR-0009](docs/adr/0009-container-runner-playwright-coupling.md)).
 * Excluded `@playwright/test` from automated Dependabot npm batch updates to prevent runner container image skew and maintain atomic browser binary parity across local and CI environments ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117), [ADR-0009](docs/adr/0009-container-runner-playwright-coupling.md)).
 * Upgraded GitHub Actions to native Node 24 releases across CI/CD, agent-resolve, and debug-pwa workflows to eliminate runner deprecation warnings and align artifact handling ([#114](https://github.com/jarredb9/finger-lakes-app-57/issues/114)).
