@@ -90,12 +90,12 @@
     - [x] Add type assertion verifying `react-map-gl/mapbox` exports resolve to concrete library types rather than `any`.
     - [x] Add unit test in `lib/utils/__tests__/pointer-capture-patch.test.ts` verifying `initPointerCaptureDefensivePatch` exports and runs safely in client environments without throwing DOMException.
     - [x] Run `npm run type-check` or test suite and confirm type assertion / compiler failures (Red).
-- [ ] Task: Implement Supabase `<Database>` typing, remove Mapbox shims, and add client directive to pointer-capture patch (TDD Green phase)
-    - [ ] Update `utils/supabase/client.ts`, `server.ts`, `admin.ts`, and `auth-helper.ts` to pass `<Database>` generic from `@/lib/database.types`.
-    - [ ] Remove `declare module "react-map-gl/mapbox"` `any` block from `lib/shims.d.ts:3-12`.
-    - [ ] Add `"use client"` to `lib/utils/pointer-capture-patch.ts`.
-    - [ ] Run `npm run type-check` and resolve true parameter/column discrepancies across all consuming stores, services, and tests.
-    - [ ] Execute test runner and verify Phase 6 type assertions and tests pass cleanly (Green).
+- [x] Task: Implement Supabase `<Database>` typing, remove Mapbox shims, and add client directive to pointer-capture patch (TDD Green phase) [commit: 876e50f9]
+    - [x] Update `utils/supabase/client.ts`, `server.ts`, `admin.ts`, and `auth-helper.ts` to pass `<Database>` generic from `@/lib/database.types`.
+    - [x] Remove `declare module "react-map-gl/mapbox"` `any` block from `lib/shims.d.ts:3-12`.
+    - [x] Add `"use client"` to `lib/utils/pointer-capture-patch.ts`.
+    - [x] Run `npm run type-check` and resolve true parameter/column discrepancies across all consuming stores, services, and tests.
+    - [x] Execute test runner and verify Phase 6 type assertions and tests pass cleanly (Green).
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Supabase `<Database>` Typing & Module Seam Rigor' (Protocol in workflow.md)
 
 ## Phase 7: Wire CI/CD Verification Gates & Docker Reliability (Verification & CI/CD)
