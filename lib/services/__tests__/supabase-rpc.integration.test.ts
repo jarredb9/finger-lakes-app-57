@@ -4,6 +4,12 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 import { createMockWinery, createMockVisit } from '@/lib/test-utils/fixtures';
 import { getTodayLocal } from '@/lib/utils';
+import { TripService } from '@/lib/services/tripService';
+import { createClient as createBrowserClient } from '@/utils/supabase/client';
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(),
+}));
 
 // Load env vars immediately at the top of the file
 // In CI, .env.local won't exist, so we use the provided process.env
@@ -1347,6 +1353,324 @@ describe('Supabase RPC Integration Tests', () => {
 
         // Cleanup
         await adminClient.from('wineries').delete().in('google_place_id', [id1, id2, id3, id4, id5]);
+      });
+
+      it('should enforce private storage bucket and reject unauthorized access to private visit photos in visit-photos', async () => {
+        // 1. Inspect bucket privacy
+        const { data: bucket, error: bucketError } = await adminClient.storage.getBucket('visit-photos');
+        expect(bucketError).toBeNull();
+        expect(bucket?.public).toBe(false);
+
+        // 2. Prepare test photos
+        const privatePhotoPath = `${user1.id}/private-test-${crypto.randomUUID()}.jpg`;
+        const publicPhotoPath = `${user1.id}/public-test-${crypto.randomUUID()}.jpg`;
+        const fakeImageBytes = Buffer.from('fake-jpeg-binary-content');
+
+        const { error: uploadPrivateError } = await user1.client.storage
+          .from('visit-photos')
+          .upload(privatePhotoPath, fakeImageBytes, { contentType: 'image/jpeg' });
+        expect(uploadPrivateError).toBeNull();
+
+        const { error: uploadPublicError } = await user1.client.storage
+          .from('visit-photos')
+          .upload(publicPhotoPath, fakeImageBytes, { contentType: 'image/jpeg' });
+        expect(uploadPublicError).toBeNull();
+
+        // 3. Ensure user1 and user2 are accepted mutual friends; user1 and user3 are NOT friends
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user3.id}),and(user1_id.eq.${user3.id},user2_id.eq.${user1.id})`);
+
+        // 4. Create winery
+        const wineryPlaceId = `mock-winery-photo-${crypto.randomUUID()}`;
+        createdWineryIds.push(wineryPlaceId);
+        const { data: wineryRes } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: {
+            id: wineryPlaceId,
+            name: 'Photo Privacy Winery',
+            latitude: 42.5,
+            longitude: -76.9
+          }
+        });
+        const wineryId = typeof wineryRes === 'number' ? wineryRes : (wineryRes as any)?.id;
+
+        let privateVisitId: number | null = null;
+        let publicVisitId: number | null = null;
+
+        try {
+          // 5. Seed private visit and public visit
+          const { data: privateVisit, error: privateVisitError } = await adminClient
+            .from('visits')
+            .insert({
+              user_id: user1.id,
+              winery_id: wineryId,
+              visit_date: getTodayLocal(),
+              rating: 5,
+              is_private: true,
+              photos: [privatePhotoPath]
+            })
+            .select('id')
+            .single();
+          expect(privateVisitError).toBeNull();
+          privateVisitId = privateVisit!.id;
+
+          const { data: publicVisit, error: publicVisitError } = await adminClient
+            .from('visits')
+            .insert({
+              user_id: user1.id,
+              winery_id: wineryId,
+              visit_date: getTodayLocal(),
+              rating: 5,
+              is_private: false,
+              photos: [publicPhotoPath]
+            })
+            .select('id')
+            .single();
+          expect(publicVisitError).toBeNull();
+          publicVisitId = publicVisit!.id;
+
+          // 6. Assert unauthenticated download fails
+          const { error: anonError } = await anonClient.storage
+            .from('visit-photos')
+            .download(privatePhotoPath);
+          expect(anonError).not.toBeNull();
+
+          // 7. Assert friend access to private visit photo is denied
+          const { error: friendPrivateError } = await user2.client.storage
+            .from('visit-photos')
+            .download(privatePhotoPath);
+          expect(friendPrivateError).not.toBeNull();
+
+          // 8. Assert non-friend access is denied
+          const { error: nonFriendError } = await user3.client.storage
+            .from('visit-photos')
+            .download(privatePhotoPath);
+          expect(nonFriendError).not.toBeNull();
+
+          // 9. Assert owner access is permitted
+          const { data: ownerData, error: ownerError } = await user1.client.storage
+            .from('visit-photos')
+            .download(privatePhotoPath);
+          expect(ownerError).toBeNull();
+          expect(ownerData).not.toBeNull();
+
+          // 10. Assert friend access to public visit photo is permitted
+          const { data: friendPublicData, error: friendPublicError } = await user2.client.storage
+            .from('visit-photos')
+            .download(publicPhotoPath);
+          expect(friendPublicError).toBeNull();
+          expect(friendPublicData).not.toBeNull();
+        } finally {
+          await adminClient.storage.from('visit-photos').remove([privatePhotoPath, publicPhotoPath]);
+          if (privateVisitId) await adminClient.from('visits').delete().eq('id', privateVisitId);
+          if (publicVisitId) await adminClient.from('visits').delete().eq('id', publicVisitId);
+          await adminClient.from('friends').delete()
+            .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        }
+      });
+
+      it('should inherit privacy_level = "private" in handle_activity_ledger_entry when user profile is private', async () => {
+        // 1. Set user1 profile to private
+        const { error: profileUpdateError } = await adminClient
+          .from('profiles')
+          .update({ privacy_level: 'private' })
+          .eq('id', user1.id);
+        expect(profileUpdateError).toBeNull();
+
+        const wineryPlaceId = `mock-winery-ledger-${crypto.randomUUID()}`;
+        createdWineryIds.push(wineryPlaceId);
+        const { data: wineryRes } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: {
+            id: wineryPlaceId,
+            name: 'Ledger Privacy Winery',
+            latitude: 42.5,
+            longitude: -76.9
+          }
+        });
+        const wineryId = typeof wineryRes === 'number' ? wineryRes : (wineryRes as any)?.id;
+
+        let visitId: number | null = null;
+        try {
+          // 2. Insert visit for user1 with is_private = false
+          const { data: visit, error: visitError } = await adminClient
+            .from('visits')
+            .insert({
+              user_id: user1.id,
+              winery_id: wineryId,
+              visit_date: getTodayLocal(),
+              rating: 4,
+              is_private: false
+            })
+            .select('id')
+            .single();
+          expect(visitError).toBeNull();
+          expect(visit).not.toBeNull();
+          visitId = visit!.id;
+
+          // 3. Query activity_ledger for this visit
+          const { data: ledgerRow, error: ledgerError } = await adminClient
+            .from('activity_ledger')
+            .select('id, privacy_level, object_id')
+            .eq('object_id', visitId!.toString())
+            .single();
+
+          expect(ledgerError).toBeNull();
+          expect(ledgerRow).not.toBeNull();
+          // Invariant: privacy_level must inherit user's private profile setting
+          expect(ledgerRow!.privacy_level).toBe('private');
+        } finally {
+          if (visitId) {
+            await adminClient.from('activity_ledger').delete().eq('object_id', visitId.toString());
+            await adminClient.from('visits').delete().eq('id', visitId);
+          }
+          await adminClient.from('profiles').update({ privacy_level: 'public' }).eq('id', user1.id);
+        }
+      });
+
+      it('should execute TripService.getTrips without 42501 permission denied on profiles.email', async () => {
+        // 1. Mutual friends
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
+        // 2. Create trip owned by user1
+        const { data: trip, error: tripError } = await adminClient
+          .from('trips')
+          .insert({
+            user_id: user1.id,
+            name: 'Email Decoupling Trip',
+            trip_date: getTodayLocal()
+          })
+          .select('id')
+          .single();
+        expect(tripError).toBeNull();
+        const tripId = trip!.id;
+
+        // Add user1 and user2 to trip_members
+        await adminClient.from('trip_members').insert([
+          { trip_id: tripId, user_id: user1.id, role: 'owner', status: 'accepted' },
+          { trip_id: tripId, user_id: user2.id, role: 'editor', status: 'accepted' }
+        ]);
+
+        (createBrowserClient as jest.Mock).mockReturnValue(user1.client);
+
+        try {
+          const result = await TripService.getTrips(1, 'upcoming');
+          expect(result).toBeDefined();
+          expect(result.trips).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                id: tripId,
+                members: expect.arrayContaining([
+                  expect.objectContaining({
+                    id: user1.id,
+                    email: ''
+                  })
+                ])
+              })
+            ])
+          );
+        } finally {
+          (createBrowserClient as jest.Mock).mockReset();
+          await adminClient.from('trip_members').delete().eq('trip_id', tripId);
+          await adminClient.from('trips').delete().eq('id', tripId);
+          await adminClient.from('friends').delete()
+            .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        }
+      });
+
+      it('should execute SECURITY INVOKER activity RPCs without 42501 column privilege denials on profiles.email', async () => {
+        // 1. Ensure user1 and user2 are accepted mutual friends
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
+        const wineryPlaceId = `mock-winery-activity-${crypto.randomUUID()}`;
+        createdWineryIds.push(wineryPlaceId);
+        const { data: wineryRes } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: {
+            id: wineryPlaceId,
+            name: 'Activity Decoupling Winery',
+            latitude: 42.5,
+            longitude: -76.9
+          }
+        });
+        const wineryId = typeof wineryRes === 'number' ? wineryRes : (wineryRes as any)?.id;
+
+        const visitUuid = crypto.randomUUID();
+        const favoriteUuid = crypto.randomUUID();
+
+        try {
+          // Insert activity ledger records for user2
+          await adminClient.from('activity_ledger').insert([
+            {
+              user_id: user2.id,
+              activity_type: 'visit',
+              object_id: visitUuid,
+              privacy_level: 'public',
+              metadata: {
+                winery_id: wineryId,
+                winery_name: 'Activity Decoupling Winery',
+                rating: 5,
+                user_review: 'Exceptional Riesling',
+                photos: []
+              }
+            },
+            {
+              user_id: user2.id,
+              activity_type: 'favorite',
+              object_id: favoriteUuid,
+              privacy_level: 'public',
+              metadata: {
+                winery_id: wineryId,
+                winery_name: 'Activity Decoupling Winery'
+              }
+            }
+          ]);
+
+          // 1. Friend Activity Feed
+          const { data: feed, error: feedError } = await user1.client.rpc('get_friend_activity_feed', { p_limit: 10 });
+          expect(feedError).toBeNull();
+          expect(feed).not.toBeNull();
+          const feedItem = (feed as any[])?.find((item: any) => item.activity_user_id === user2.id);
+          expect(feedItem).toBeDefined();
+          expect(feedItem.user_email).toBeNull();
+
+          // 2. Friends Activity for Winery
+          const { data: activity, error: activityError } = await user1.client.rpc('get_friends_activity_for_winery', { p_winery_id: wineryId });
+          expect(activityError).toBeNull();
+          expect(activity).not.toBeNull();
+          const favItem = (activity as any)?.favoritedBy?.find((item: any) => item.id === user2.id);
+          expect(favItem).toBeDefined();
+          expect(favItem.email).toBeNull();
+
+          // 3. Friends Ratings for Winery
+          const { data: ratings, error: ratingsError } = await user1.client.rpc('get_friends_ratings_for_winery', { p_winery_id: wineryId });
+          expect(ratingsError).toBeNull();
+          expect(ratings).not.toBeNull();
+          const ratingItem = (ratings as any[])?.find((item: any) => item.user_id === user2.id);
+          expect(ratingItem).toBeDefined();
+          expect(ratingItem.email).toBe('hidden');
+        } finally {
+          await adminClient.from('activity_ledger').delete().in('object_id', [visitUuid, favoriteUuid]);
+          await adminClient.from('friends').delete()
+            .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        }
       });
     });
 });
