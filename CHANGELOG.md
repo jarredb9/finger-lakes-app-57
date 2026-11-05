@@ -11,15 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] (v3.7.1)
 
 ### Added
-* Added portable environment wrapper script `scripts/bin/db-docker-env.sh` and template `.env.local.example` to standardize local Supabase CLI database operations across macOS, Ubuntu, and container hosts.
+* Added portable environment wrapper script `scripts/bin/db-docker-env.sh` and template `.env.local.example` to standardize local Supabase CLI database operations across macOS, Ubuntu, and container hosts ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md)).
+* Planned extraction of `scripts/agent-resolve/` into a standalone contract-based runner repository ([#85](https://github.com/jarredb9/finger-lakes-app-57/issues/85), [ADR-0013](docs/adr/0013-extract-agent-resolve-to-standalone-engine.md)).
 * Added automated Security Advisor verification harness and catalog assertions to verify zero linter warnings and enforce security invoker RPC boundaries in the database audit pipeline ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Added security regression test coverage asserting unauthenticated access rejection, catalog write denial, composite idempotency isolation, and profile email redaction ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Added Podman compatibility shim translating Docker Go template syntax for Supabase CLI v3 container operations on RHEL 8.
 
 ### Changed
-* Standardized pull request integration in `AGENTS.md` to mandate "Squash and merge" for trunk history linearity, bisectability, and TDD isolation.
-* Abstracted host SELinux restorecon invocations and Podman socket detection out of `package.json` into portable container wrapper utilities.
-* Configured container runners to isolate HOME to `/tmp` to prevent browser runtime cache leaks into repository root.
+* Standardized pull request integration in `AGENTS.md` and GitHub repository settings to mandate "Squash and merge" for trunk history linearity, bisectability, and TDD isolation ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
+* Abstracted host SELinux restorecon invocations and Podman socket detection out of `package.json` into portable container wrapper utilities ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md)).
+* Configured container runners to isolate HOME to `/tmp` to prevent browser runtime cache leaks into repository root ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md)).
 * Partitioned Dependabot npm updates into distinct `prod-dependencies` and `dev-dependencies` groups to isolate runtime package updates from test and linter tooling changes ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117)).
 * Synchronized container runner image and debug PWA workflow to Playwright `v1.64.1-noble` to align with `@playwright/test` 1.64.1 and resolve browser binary launch failures during containerized E2E runs ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117), [ADR-0009](docs/adr/0009-container-runner-playwright-coupling.md)).
 * Excluded `@playwright/test` from automated Dependabot npm batch updates to prevent runner container image skew and maintain atomic browser binary parity across local and CI environments ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117), [ADR-0009](docs/adr/0009-container-runner-playwright-coupling.md)).
@@ -33,12 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Regenerated database TypeScript definitions following RPC pruning and schema hardening to maintain static compilation parity ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87)).
 
 ### Removed
-* Untracked accidental debug artifacts including Playwright CLI session snapshots, git commit messages, and local MCP configuration files from Git tracking.
+* Untracked accidental debug artifacts including Playwright CLI session snapshots, git commit messages, and local MCP configuration files from Git tracking ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
 * Removed the unused `pg_graphql` extension and pruned `graphql_public` from local and CI PostgREST schema configurations to eliminate public table exposure ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 * Pruned 10 deprecated RPCs along with legacy follow table fallback queries from database schemas and client service integrations ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 
 ### Fixed
-* Corrected live deployment badge and overview link in `README.md` to reference the public production application URL rather than private project management settings.
+* Corrected live deployment badge and overview link in `README.md` to reference the public production application URL rather than private project management settings ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
 * Resolved WCAG 2.1 Label-in-Name accessibility violations in the mobile interactive bottom sheet by incorporating the visible title into the accessible name and enabling keyboard activation ([#117](https://github.com/jarredb9/finger-lakes-app-57/pull/117)).
 * Prevented ephemeral port collisions and container bind failures during CI database startup by reserving the Supabase port range in the Linux kernel on GitHub Actions runners ([#113](https://github.com/jarredb9/finger-lakes-app-57/pull/113)).
 

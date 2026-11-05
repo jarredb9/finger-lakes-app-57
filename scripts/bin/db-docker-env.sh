@@ -17,31 +17,34 @@ if [ -d "$PROJECT_ROOT/scripts/bin" ]; then
     esac
 fi
 
-# 2. Portably restore SELinux context if restorecon exists (RHEL/CentOS/Fedora)
+# 2. Portably restore SELinux context via container-common.sh if present
 # Silently no-ops on macOS, Ubuntu, Debian, or non-SELinux environments
-restore_selinux() {
-    local target_dir="$PROJECT_ROOT/supabase/functions"
-    if [ -d "$target_dir" ]; then
-        if command -v restorecon >/dev/null 2>&1; then
-            restorecon -RF "$target_dir" >/dev/null 2>&1 || true
-        elif [ -x /sbin/restorecon ]; then
-            /sbin/restorecon -RF "$target_dir" >/dev/null 2>&1 || true
-        elif [ -x /usr/sbin/restorecon ]; then
-            /usr/sbin/restorecon -RF "$target_dir" >/dev/null 2>&1 || true
-        fi
-    fi
-}
-restore_selinux
+if [ -f "$PROJECT_ROOT/scripts/containers/container-common.sh" ]; then
+    # shellcheck source=../containers/container-common.sh
+    source "$PROJECT_ROOT/scripts/containers/container-common.sh"
+    restore_supabase_selinux
+fi
 
 # 3. Detect container engine & configure DOCKER_HOST portably
-# If DOCKER_HOST is not already set, check for rootless Podman socket
+# If DOCKER_HOST is not explicitly set, determine container runtime
 if [ -z "${DOCKER_HOST:-}" ]; then
-    UID_NUM="$(id -u 2>/dev/null || echo 1000)"
-    PODMAN_SOCK="/run/user/$UID_NUM/podman/podman.sock"
-    if [ -S "$PODMAN_SOCK" ]; then
-        export DOCKER_HOST="unix://$PODMAN_SOCK"
+    if [ "${CONTAINER_ENGINE:-}" = "docker" ] || ([ -z "${CONTAINER_ENGINE:-}" ] && command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1); then
+        # Standard Docker daemon is active and responsive; leave DOCKER_HOST unset
+        :
+    elif [ "${CONTAINER_ENGINE:-}" = "podman" ] || command -v podman >/dev/null 2>&1; then
+        UID_NUM="$(id -u 2>/dev/null || echo 1000)"
+        PODMAN_SOCK="/run/user/$UID_NUM/podman/podman.sock"
+        if [ -S "$PODMAN_SOCK" ]; then
+            export DOCKER_HOST="unix://$PODMAN_SOCK"
+        fi
     fi
 fi
+
+# Helper: Extract clean variable value from .env.local or .env
+get_env_val() {
+    local key="$1"
+    grep -E "^${key}=" "$PROJECT_ROOT/.env.local" "$PROJECT_ROOT/.env" 2>/dev/null | head -n 1 | cut -d '=' -f2- | tr -d '"'\r || true
+}
 
 # 4. Dispatch subcommands or execute arbitrary arguments
 cd "$PROJECT_ROOT"
@@ -49,17 +52,22 @@ cd "$PROJECT_ROOT"
 case "${1:-}" in
     start)
         shift
-        # Extract API keys if present in .env.local or .env
-        GOOGLE_MAPS_KEY="$(grep NEXT_PUBLIC_GOOGLE_MAPS_API_KEY .env.local .env 2>/dev/null | head -n 1 | cut -d '=' -f2- | tr -d '"'\r || true)"
+        # Extract API keys if present
+        GOOGLE_MAPS_KEY="$(get_env_val "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY")"
         if [ -n "$GOOGLE_MAPS_KEY" ]; then
             export GOOGLE_MAPS_API_KEY="$GOOGLE_MAPS_KEY"
         fi
 
-        GEMINI_KEY="$(grep -E '^GEMINI_API_KEY=' .env.local .env 2>/dev/null | head -n 1 | cut -d '=' -f2- | tr -d '"'\r || true)"
+        GEMINI_KEY="$(get_env_val "GEMINI_API_KEY")"
         if [ -n "$GEMINI_KEY" ]; then
             export GEMINI_API_KEY="$GEMINI_KEY"
             if [ -f "./supabase/functions/.env" ]; then
-                sed -i "s|^GEMINI_API_KEY=.*|GEMINI_API_KEY=$GEMINI_KEY|" ./supabase/functions/.env 2>/dev/null || true
+                TMP_ENV="$(mktemp ./supabase/functions/.env.tmp.XXXXXX 2>/dev/null || mktemp /tmp/supabase-env.XXXXXX)"
+                if sed "s|^GEMINI_API_KEY=.*|GEMINI_API_KEY=$GEMINI_KEY|" ./supabase/functions/.env > "$TMP_ENV" 2>/dev/null; then
+                    mv "$TMP_ENV" ./supabase/functions/.env
+                else
+                    rm -f "$TMP_ENV"
+                fi
             fi
         fi
         exec npx supabase start "$@"
@@ -86,9 +94,10 @@ case "${1:-}" in
         ;;
     check-types:local)
         shift
-        npx supabase gen types typescript --schema public > lib/database.types.tmp.ts
-        diff lib/database.types.ts lib/database.types.tmp.ts
-        rm -f lib/database.types.tmp.ts
+        TMP_FILE="lib/database.types.tmp.ts"
+        trap 'rm -f "$TMP_FILE"' EXIT INT TERM
+        npx supabase gen types typescript --schema public > "$TMP_FILE"
+        diff lib/database.types.ts "$TMP_FILE"
         ;;
     gen-types)
         shift
