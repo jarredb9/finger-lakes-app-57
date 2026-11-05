@@ -2,7 +2,7 @@
  * scripts/db/verify-security-advisor.ts
  *
  * Automated verification runner for Supabase Security Advisor linter resolution
- * across categories 0026, 0027, 0028, and 0029, adhering to ADR-0007.
+ * across categories 0007, 0008, 0010, 0026, 0027, 0028, and 0029, adhering to ADR-0007 and ADR-0010.
  */
 
 import { execSync } from 'child_process';
@@ -16,9 +16,12 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 /**
- * Canonical Security Advisor linter categories addressed in Issue #87.
+ * Canonical Security Advisor linter categories addressed across Issues #87 and #93.
  */
 export type SecurityAdvisorCategory =
+  | '0007_policy_exists_rls_disabled'
+  | '0008_rls_enabled_no_policy'
+  | '0010_security_definer_view'
   | '0026_pg_graphql_anon_table_exposed'
   | '0027_pg_graphql_authenticated_table_exposed'
   | '0028_anon_security_definer_function_executable'
@@ -200,10 +203,16 @@ export async function executeCliLinter(): Promise<{
 
   const combined = stdout + '\n' + stderr;
   const targetCategories = [
+    '0007_policy_exists_rls_disabled',
+    '0008_rls_enabled_no_policy',
+    '0010_security_definer_view',
     '0026_pg_graphql_anon_table_exposed',
     '0027_pg_graphql_authenticated_table_exposed',
     '0028_anon_security_definer_function_executable',
     '0029_authenticated_security_definer_function_executable',
+    '0007',
+    '0008',
+    '0010',
     '0026',
     '0027',
     '0028',
@@ -321,7 +330,7 @@ export async function runSecurityAdvisorVerification(): Promise<SecurityAdvisorS
   console.log('\n[2/3] Running Supabase CLI database linter (warning level)...');
   const lintResult = await executeCliLinter();
   if (lintResult.violationsFound.length === 0) {
-    console.log('  ✅ Supabase db lint found 0 warnings for categories 0026, 0027, 0028, 0029.');
+    console.log('  ✅ Supabase db lint found 0 warnings for categories 0007, 0008, 0010, 0026, 0027, 0028, 0029.');
   } else {
     console.error(`  ❌ Found ${lintResult.violationsFound.length} lint warnings:`);
     lintResult.violationsFound.forEach((v) => console.error(`     - ${v}`));
@@ -341,8 +350,43 @@ export async function runSecurityAdvisorVerification(): Promise<SecurityAdvisorS
     console.error('  ❌ Unauthenticated call to boundary RPC succeeded.');
   }
 
+  // Categorize linter warnings
+  const violations0007 = lintResult.violationsFound.filter(
+    (v) => v.includes('0007') || v.includes('0007_policy_exists_rls_disabled')
+  );
+  const violations0008 = lintResult.violationsFound.filter(
+    (v) => v.includes('0008') || v.includes('0008_rls_enabled_no_policy')
+  );
+  const violations0010 = lintResult.violationsFound.filter(
+    (v) => v.includes('0010') || v.includes('0010_security_definer_view')
+  );
+
   // Build Results Map
   const results: Record<SecurityAdvisorCategory, AdvisorCategoryResult> = {
+    '0007_policy_exists_rls_disabled': {
+      category: '0007_policy_exists_rls_disabled',
+      name: 'Policy Exists With RLS Disabled',
+      passed: catalogResult.passed && violations0007.length === 0,
+      violationCount: catalogResult.passed && violations0007.length === 0 ? 0 : Math.max(1, violations0007.length),
+      violations: violations0007,
+      remediationSummary: 'All public tables have RLS enabled (relrowsecurity = true); no policies defined on unshielded tables.',
+    },
+    '0008_rls_enabled_no_policy': {
+      category: '0008_rls_enabled_no_policy',
+      name: 'RLS Enabled With No Policy',
+      passed: catalogResult.passed && violations0008.length === 0,
+      violationCount: catalogResult.passed && violations0008.length === 0 ? 0 : Math.max(1, violations0008.length),
+      violations: violations0008,
+      remediationSummary: 'All tables with RLS enabled define explicit access policies.',
+    },
+    '0010_security_definer_view': {
+      category: '0010_security_definer_view',
+      name: 'SECURITY DEFINER View',
+      passed: catalogResult.passed && violations0010.length === 0,
+      violationCount: catalogResult.passed && violations0010.length === 0 ? 0 : Math.max(1, violations0010.length),
+      violations: violations0010,
+      remediationSummary: 'Zero public views bypass caller RLS via default SECURITY DEFINER semantics; all views require security_invoker = true.',
+    },
     '0026_pg_graphql_anon_table_exposed': {
       category: '0026_pg_graphql_anon_table_exposed',
       name: 'pg_graphql Anon Table Exposure',
@@ -381,7 +425,12 @@ export async function runSecurityAdvisorVerification(): Promise<SecurityAdvisorS
     (acc, curr) => acc + curr.violationCount,
     0
   );
-  const allPassed = totalViolations === 0 && catalogResult.passed && lintResult.violationsFound.length === 0;
+  const allPassed =
+    totalViolations === 0 &&
+    catalogResult.passed &&
+    lintResult.violationsFound.length === 0 &&
+    apiResult.graphqlDisabled &&
+    apiResult.anonRpcBlocked;
 
   const scorecard: SecurityAdvisorScorecard = {
     timestamp: new Date().toISOString(),
@@ -394,17 +443,17 @@ export async function runSecurityAdvisorVerification(): Promise<SecurityAdvisorS
 
   // Render Terminal Scorecard
   console.log('\n================================================================================');
-  console.log('           SUPABASE SECURITY ADVISOR VERIFICATION SCORECARD (ISSUE #87)         ');
+  console.log('           SUPABASE SECURITY ADVISOR VERIFICATION SCORECARD (ISSUES #87, #93)   ');
   console.log('================================================================================');
   console.log(` Timestamp: ${scorecard.timestamp}`);
   console.log(` Target:    ${scorecard.databaseUrl}`);
   console.log(` Status:    ${allPassed ? '✅ ALL CHECKS PASSED' : '❌ VERIFICATION FAILED'}`);
   console.log(` Violations:${totalViolations}`);
   console.log('--------------------------------------------------------------------------------');
-  console.log(' Category                                  | Status | Violations | Notes');
-  console.log('-------------------------------------------+--------+------------+--------------');
+  console.log(' Category                                                 | Status | Violations | Notes');
+  console.log('----------------------------------------------------------+--------+------------+--------------');
   for (const cat of Object.values(results)) {
-    const padCat = cat.category.padEnd(41, ' ');
+    const padCat = cat.category.padEnd(56, ' ');
     const status = cat.passed ? ' PASS ' : ' FAIL ';
     const count = String(cat.violationCount).padStart(10, ' ');
     console.log(` ${padCat} | ${status} | ${count} | 0 warnings`);

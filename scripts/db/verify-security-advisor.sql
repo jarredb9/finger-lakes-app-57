@@ -1,5 +1,8 @@
 -- scripts/db/verify-security-advisor.sql
 -- Verification harness asserting zero violations for Supabase Security Advisor categories:
+--   0007: policy_exists_rls_disabled
+--   0008: rls_enabled_no_policy
+--   0010: security_definer_view
 --   0026: pg_graphql_anon_table_exposed
 --   0027: pg_graphql_authenticated_table_exposed
 --   0028: anon_security_definer_function_executable
@@ -12,6 +15,101 @@ DECLARE
   v_details text;
 BEGIN
   RAISE NOTICE 'Starting Security Advisor catalog verification...';
+
+  -- ---------------------------------------------------------------------------
+  -- 0A. Category 0007: policy_exists_rls_disabled & Public Table RLS Enforcement
+  -- ---------------------------------------------------------------------------
+  -- 0A.1. Assert no table in public has policies defined while RLS is disabled
+  SELECT count(*) INTO v_count
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relkind = 'r'
+    AND NOT c.relrowsecurity
+    AND EXISTS (SELECT 1 FROM pg_policy pol WHERE pol.polrelid = c.oid);
+
+  IF v_count > 0 THEN
+    SELECT string_agg(c.relname, ', ') INTO v_details
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind = 'r'
+      AND NOT c.relrowsecurity
+      AND EXISTS (SELECT 1 FROM pg_policy pol WHERE pol.polrelid = c.oid);
+    RAISE EXCEPTION 'Category 0007 Violation: Table(s) have policies defined but RLS disabled: %', v_details;
+  END IF;
+
+  -- 0A.2. Assert all public tables have RLS enabled (relrowsecurity = true)
+  SELECT count(*) INTO v_count
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relkind = 'r'
+    AND NOT c.relrowsecurity;
+
+  IF v_count > 0 THEN
+    SELECT string_agg(c.relname, ', ') INTO v_details
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind = 'r'
+      AND NOT c.relrowsecurity;
+    RAISE EXCEPTION 'Category 0007 Violation: Public table(s) have RLS disabled: %', v_details;
+  END IF;
+
+  -- ---------------------------------------------------------------------------
+  -- 0B. Category 0008: rls_enabled_no_policy
+  -- ---------------------------------------------------------------------------
+  -- Assert that every table in public with RLS enabled defines at least one policy
+  SELECT count(*) INTO v_count
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relkind = 'r'
+    AND c.relrowsecurity = true
+    AND NOT EXISTS (
+      SELECT 1 FROM pg_policy pol WHERE pol.polrelid = c.oid
+    );
+
+  IF v_count > 0 THEN
+    SELECT string_agg(c.relname, ', ') INTO v_details
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind = 'r'
+      AND c.relrowsecurity = true
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_policy pol WHERE pol.polrelid = c.oid
+      );
+    RAISE EXCEPTION 'Category 0008 Violation: Table(s) have RLS enabled but no explicit policies: %', v_details;
+  END IF;
+
+  -- ---------------------------------------------------------------------------
+  -- 0C. Category 0010: security_definer_view
+  -- ---------------------------------------------------------------------------
+  -- Assert zero database views in public bypass caller RLS via default SECURITY DEFINER semantics
+  SELECT count(*) INTO v_count
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  WHERE n.nspname = 'public'
+    AND c.relkind = 'v'
+    AND (
+      c.reloptions IS NULL
+      OR NOT (c.reloptions @> ARRAY['security_invoker=true'])
+    );
+
+  IF v_count > 0 THEN
+    SELECT string_agg(c.relname, ', ') INTO v_details
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind = 'v'
+      AND (
+        c.reloptions IS NULL
+        OR NOT (c.reloptions @> ARRAY['security_invoker=true'])
+      );
+    RAISE EXCEPTION 'Category 0010 Violation: View(s) defined without security_invoker = true (SECURITY DEFINER view): %', v_details;
+  END IF;
 
   -- ---------------------------------------------------------------------------
   -- 1. Category 0026 & 0027: pg_graphql extension & public table exposure
@@ -248,5 +346,5 @@ BEGIN
     RAISE EXCEPTION 'Security Invoker Invariant Violation: Converted RPCs still marked SECURITY DEFINER: %', v_details;
   END IF;
 
-  RAISE NOTICE 'NOTICE: All Security Advisor checks (0026, 0027, 0028, 0029) passed with 0 violations.';
+  RAISE NOTICE 'NOTICE: All Security Advisor checks (0007, 0008, 0010, 0026, 0027, 0028, 0029) passed with 0 violations.';
 END $$;
