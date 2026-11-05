@@ -12,7 +12,7 @@
 - **Database:** PostgreSQL (managed by Supabase)
 - **Authentication:** Supabase Auth (Native SDK on client)
 - **Business Logic:** Hybrid Supabase Architecture (Edge Functions for external API orchestration and Gemini AI integration; Postgres RPCs for atomic high-volume operations)
-- **Maps:** Google Maps Platform (Places API v1 via @vis.gl/react-google-maps)
+- **Maps:** Mapbox GL JS (`react-map-gl/mapbox`, `mapbox-gl`) as primary map rendering, clustering, and viewport interaction engine. Google Maps (`components/map/google-map-fallback.tsx` via `@googlemaps/js-api-loader` and Places API v1 in Supabase Edge Functions) as dynamic fallback for non-GPU, headless, or WebGL-disabled systems.
 - **Storage:** Supabase Storage (for visit photos)
 
 ## Tooling & Infrastructure

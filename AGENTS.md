@@ -9,7 +9,7 @@
 1. **Production Database Safety:** Never execute migrations, DDL, or DML mutations (INSERT, UPDATE, DELETE) against the remote Supabase project (`jfsxclrdxmvftxacjuqf`) without explicit user directive and a secondary confirmation turn. Read-only queries (SELECT) are permitted for inspection.
 2. **Supabase Operations:** Prioritize Supabase MCP tools for interacting with hosted environments. Use the local CLI (`npm run db:*`) for local development.
 3. **Backwards Compatibility:** All database migrations in `supabase/migrations/*` must follow the expand-and-contract pattern to avoid breaking live running instances.
-4. **Git Hygiene:** Do not modify `.git/` or make automated commits unless explicitly requested.
+4. **Git Hygiene & Commit Safety:** Do not modify `.git/` or make automated commits unless explicitly requested. Maintain atomic Red/Green commits on topic branches; always squash-merge to `main`.
 5. **Modal & Plan Approval Invariant:** A response of `User Skipped` or dismissal of `ask_question` is strictly non-affirmative. Never interpret a skipped modal as consent, approval, or a directive to proceed. Under `/plan` or any confirmation gate, you MUST halt and wait for explicit affirmative text approval before executing any code changes or commands.
 
 ## 3. Environment & Execution Commands
@@ -61,6 +61,7 @@
   - **Mandatory:** Domain logic, bug fixes, Zustand stores, and DB RPC/Edge functions. In `plan.md`, split into sequential Red (`test(...)`) and Green (`feat(...)`) tasks. Never collapse them.
   - **Exempt:** Pure UI styling/Tailwind, scripts/infra, types, and docs. Non-TDD tasks in `plan.md` must append `[exempt: <category>]`.
   - **Standards:** Test behavior through seams; never write tautological markup/class tests (see `.agents/skills/tdd/SKILL.md`).
+- **PR Merging & Trunk Linearity:** All PRs merging into `main` must use GitHub **"Squash and merge"** (or fast-forward squash rebase) with a high-signal PR description. Never merge via `--no-ff`. This isolates exploratory/Red TDD commits on topic branches, eliminates Conductor plan toggles and checkpoint commits from trunk history, and guarantees `main` remains linear, green, and bisectable.
 - **Changelog Standards (Keep a Changelog):**
   - Root `CHANGELOG.md` records application features, database, and CI/CD changes; `scripts/agent-resolve/CHANGELOG.md` strictly records tooling updates.
   - New entries belong strictly under `## [Unreleased]` grouped by canonical H3 headers (`### Added`, `### Changed`, `### Deprecated`, `### Removed`, `### Fixed`, `### Security`). Never create a version heading unless cutting a release.

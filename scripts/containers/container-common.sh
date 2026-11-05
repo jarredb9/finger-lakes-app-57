@@ -55,6 +55,7 @@ setup_container_engine() {
     else
         EXTRA_OPTS+=( "--user" "$(id -u):$(id -g)" )
     fi
+    EXTRA_OPTS+=( "-e" "HOME=/tmp" )
 }
 
 # Ensure container image exists locally or pull it
