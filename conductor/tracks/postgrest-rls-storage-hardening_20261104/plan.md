@@ -42,7 +42,7 @@
     - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 2 tests pass (Green).
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Trip Collaboration & Catalog Integrity Hardening (Trips & Wineries)' (Protocol in workflow.md) [commit: a2a65653]
 
-## Phase 3: Private Storage, Ledger Privacy & Webhook Resilience (Storage & Triggers) (Strict TDD)
+## Phase 3: Private Storage, Ledger Privacy & Webhook Resilience (Storage & Triggers) (Strict TDD) [checkpoint: bef5f4ed]
 
 - [x] Task: Write failing security regression tests for storage RLS & trigger privacy (TDD Red phase) [commit: 82521989]
     - [x] Add integration test case asserting `visit-photos` storage objects reject unauthenticated or non-viewer access to private visit photos.
@@ -62,7 +62,7 @@
     - [x] Update `TripService.getTrips` in `lib/services/tripService.ts` to omit `email` from PostgREST `profiles ( name )` join query and default `email: ''` in client mapper.
     - [x] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
     - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 3 tests pass (Green).
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Private Storage, Ledger Privacy & Webhook Resilience (Storage & Triggers)' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Private Storage, Ledger Privacy & Webhook Resilience (Storage & Triggers)' (Protocol in workflow.md) [commit: bef5f4ed]
 
 ## Phase 4: Security Advisor Linter Harness Expansion & Tooling (Verification & Tooling)
 
