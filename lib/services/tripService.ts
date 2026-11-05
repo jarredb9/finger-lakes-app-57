@@ -46,8 +46,7 @@ export const TripService = {
               role,
               status,
               profiles (
-                  name,
-                  email
+                  name
               )
           )
       `, { count: 'exact' })
@@ -108,7 +107,7 @@ export const TripService = {
           role: m.role,
           status: m.status,
           name: m.profiles?.name || 'User',
-          email: m.profiles?.email || ''
+          email: ''
         })) || []
       };
     });
