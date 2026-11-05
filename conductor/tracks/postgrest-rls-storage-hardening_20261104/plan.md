@@ -47,6 +47,8 @@
 - [ ] Task: Write failing security regression tests for storage RLS & trigger privacy (TDD Red phase)
     - [ ] Add integration test case asserting `visit-photos` storage objects reject unauthenticated or non-viewer access to private visit photos.
     - [ ] Add integration test case asserting `handle_activity_ledger_entry` records `privacy_level = 'private'` when the user's profile is private (even if visit is not explicitly marked private).
+    - [ ] Add integration test case asserting `TripService.getTrips` query succeeds for authenticated users without encountering 42501 column privilege denial on `profiles.email`.
+    - [ ] Add integration test cases asserting authenticated callers can invoke `get_friend_activity_feed`, `get_friends_activity_for_winery`, and `get_friends_ratings_for_winery` without 42501 permission denied errors.
     - [ ] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures (Red).
 - [ ] Task: Implement private storage, ledger privacy & webhook hardening migration (TDD Green phase)
     - [ ] Create `supabase/migrations/20261104120000_harden_storage_and_webhooks.sql`.
@@ -56,6 +58,8 @@
     - [ ] Fix `handle_activity_ledger_entry`: set `v_privacy_level := 'private'` if `NEW.is_private OR v_user_privacy = 'private'`.
     - [ ] Harden `handle_activity_ledger_notification`: prioritize `vault.decrypted_secrets` before `app.settings`, validate webhook URL domain against allowlist, and fail open with `RAISE WARNING` / `RETURN NEW;`.
     - [ ] Append `, pg_temp` to `SET search_path = public, auth, pg_temp` across all `SECURITY DEFINER` functions.
+    - [ ] Decouple `profiles.email` from `SECURITY INVOKER` RPCs in `supabase/migrations/20261104120000_harden_storage_and_webhooks.sql`: project `NULL::text as user_email` in `get_friend_activity_feed`, project `p.id, p.name, NULL::text as email` in `get_friends_activity_for_winery`, and project `'hidden'::text as email` in `get_friends_ratings_for_winery`.
+    - [ ] Update `TripService.getTrips` in `lib/services/tripService.ts` to omit `email` from PostgREST `profiles ( name )` join query and default `email: ''` in client mapper.
     - [ ] Reset local database stack (`npm run db:reset`) and verify migration applies cleanly.
     - [ ] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and verify Phase 3 tests pass (Green).
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Private Storage, Ledger Privacy & Webhook Resilience (Storage & Triggers)' (Protocol in workflow.md)

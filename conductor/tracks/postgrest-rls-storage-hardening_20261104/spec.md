@@ -21,7 +21,7 @@ This specification defines the comprehensive hardening migrations (split into 3 
 - **Visibility Level (CONTEXT.md):** Direct table queries via PostgREST cannot bypass intended visibility. Unauthenticated users (`anon`) have zero access to database tables or storage objects.
 - **Bilateral Friendship Consent (CONTEXT.md, ADR-0010):** Friend relationships require explicit bilateral consent. A user cannot unilaterally force `status = 'accepted'` via direct `INSERT` on `public.friends`.
 - **Private Storage Bucket Invariant (CONTEXT.md, ADR-0010):** `visit-photos` must be private (`public = false`) and only accessible via authenticated signed URLs verified against visit ownership/visibility. Queries are accelerated by a GIN index on `public.visits (photos)`.
-- **Profile Email Privacy & Immutability (ADR-0010):** Users cannot mutate `email` directly on `profiles` (must be managed by Supabase auth triggers). Direct SELECT of `email` by authenticated users is revoked (`REVOKE SELECT (email) ON public.profiles FROM authenticated`), preserving `is_visible_to_viewer` RLS for general profile attributes (name, avatar, privacy level) and avoiding elevating `get_friend_profile_with_visits` to `SECURITY DEFINER`. `ProfileService.fetchProfile` in client code resolves email via `supabase.auth.getUser()`. Email lookups in RPCs must match exact normalized lower-case email (`LOWER(email) = LOWER(TRIM(p_email))`), preventing wildcard enumeration.
+- **Profile Email Privacy & Immutability (ADR-0010):** Users cannot mutate `email` directly on `profiles` (must be managed by Supabase auth triggers). Direct SELECT of `email` by authenticated users is revoked (`REVOKE SELECT (email) ON public.profiles FROM authenticated`), preserving `is_visible_to_viewer` RLS for general profile attributes (name, avatar, privacy level) and avoiding elevating `get_friend_profile_with_visits` to `SECURITY DEFINER`. `ProfileService.fetchProfile` in client code resolves email via `supabase.auth.getUser()`. All `SECURITY INVOKER` functions (`get_friend_profile_with_visits`, `get_friend_activity_feed`, `get_friends_activity_for_winery`, `get_friends_ratings_for_winery`) and PostgREST client queries (`TripService.getTrips`) must not query or join `profiles.email` as `authenticated`, avoiding 42501 permission denied errors while projecting safe defaults (`NULL` or `'hidden'`). Email lookups in RPCs must match exact normalized lower-case email (`LOWER(email) = LOWER(TRIM(p_email))`), preventing wildcard enumeration.
 - **Trip Membership Consent & Autonomous Exit (CONTEXT.md, ADR-0010):** Trip owners cannot inject arbitrary non-friend users into trips. Added trip members must be accepted mutual friends; violating this in `create_trip_with_winery` or `add_trip_member_by_email` raises an explicit exception. Non-owner trip members can voluntarily delete their own membership record from `public.trip_members`.
 - **Catalog Integrity & Input Validation:** `ensure_winery` validates latitude (-90 to 90), longitude (-180 to 180), rating (0 to 5), and HTTP(S) URLs, raising exceptions on invalid payloads.
 - **Webhook Resilience & Safe Search Path:** `handle_activity_ledger_notification` prioritizes `vault.decrypted_secrets` before `app.settings`, validates webhook URL domains against an allowlist, and fails open with a logged warning (`RAISE WARNING ...; RETURN NEW;`) to prevent webhook faults from aborting core visit/wishlist writes. All SECURITY DEFINER functions include `pg_temp` at the end of `SET search_path = public, auth, pg_temp`.
@@ -81,6 +81,15 @@ This specification defines the comprehensive hardening migrations (split into 3 
   - Set `search_path = public, auth, pg_temp;`.
 - Audit and append `, pg_temp` to `SET search_path = public, auth, pg_temp` across all `SECURITY DEFINER` functions.
 
+### 3.6.1 SECURITY INVOKER & PostgREST profiles.email Decoupling
+- In `supabase/migrations/20261104120000_harden_storage_and_webhooks.sql`:
+  - Update `get_friend_activity_feed`: project `NULL::text as user_email` without querying `p.email`.
+  - Update `get_friends_activity_for_winery`: project `p.id, p.name, NULL::text as email` without querying `p.email`.
+  - Update `get_friends_ratings_for_winery`: project `'hidden'::text as email` without querying `p.email`, preserving the `RETURNS TABLE(user_id uuid, name text, email text, rating integer, user_review text, photos text[])` signature.
+- In `lib/services/tripService.ts`:
+  - Update `TripService.getTrips()` query to request `trip_members!inner ( user_id, role, status, profiles ( name ) )` instead of `profiles ( name, email )`.
+  - In member transformation, default `email: ''` to preserve the return type contract.
+
 ### 3.7 Security Advisor Linter Harness Expansion
 - Expand `scripts/db/verify-security-advisor.sql` to assert zero violations on:
   - `0007_policy_exists_rls_disabled`: Assert all public tables have RLS enabled (`relrowsecurity = true`).
@@ -91,6 +100,7 @@ This specification defines the comprehensive hardening migrations (split into 3 
 
 ### 3.8 Client & Integration Test Synchronization
 - Update `lib/services/profileService.ts` to omit `email` from direct PostgREST `select()`.
+- Update `lib/services/tripService.ts` to omit `email` from `profiles` join query.
 - Regenerate database types via `npm run db:gen-types`.
 - Add integration test assertions in `lib/services/__tests__/supabase-rpc.integration.test.ts` covering:
   1. Unilateral friendship acceptance blocked via PostgREST INSERT.
@@ -100,6 +110,8 @@ This specification defines the comprehensive hardening migrations (split into 3 
   5. Arbitrary non-friend trip member addition blocked; self-removal permitted.
   6. `ensure_winery` input validation (coordinates, rating, website URL).
   7. Activity ledger privacy inheritance for private profile owners.
+  8. `TripService.getTrips` query executes successfully for authenticated users without encountering 42501 column privilege denial.
+  9. `get_friend_activity_feed`, `get_friends_activity_for_winery`, and `get_friends_ratings_for_winery` execute successfully for authenticated clients without encountering 42501 permission denied errors.
 
 ## 4. Acceptance Criteria
 1. Migration applies cleanly on local stack via `npm run db:reset`.
@@ -107,6 +119,7 @@ This specification defines the comprehensive hardening migrations (split into 3 
 3. `npm run db:check-types:local` passes without errors.
 4. Containerized unit and integration test suites (`npm run test:container`, `npm run test:integration:container`) pass completely.
 5. Direct PostgREST attacks (unilateral friendship accept, profile email overwrite/select, non-friend trip injection, private photo enumeration) are proven blocked by tests.
+6. Authenticated callers to `TripService.getTrips`, `get_friend_activity_feed`, `get_friends_activity_for_winery`, and `get_friends_ratings_for_winery` execute cleanly without 42501 permission denied errors.
 
 ## 5. Out of Scope
 - Performance advisor categories 0001 (unindexed foreign keys) and 0003 (auth RLS initplan), cataloged separately as Tier 4 tech debt.
