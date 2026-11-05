@@ -57,7 +57,10 @@
   - Handle targeted inspections, surgical code modifications (<3 files), and single-spec test verifications directly in the main session.
   - Delegate broad multi-file indexing, large test suite runs, or open-ended exploratory research to subagents (`invoke_subagent`) to preserve context cleanliness.
 - **Verification Loop:** Rely on empirical verification (run tests, check linter/types) rather than assumptions before declaring a task complete.
-- **TDD Task Granularity Invariant:** In `plan.md`, all TDD features must be split into two sequential tasks: a Red phase task (`Task: Write failing ... (TDD Red phase)`, committed as `test(...)`) and a Green phase task (`Task: Implement ... (TDD Green phase)`, committed as `feat(...)`). Never collapse Red and Green into a single task item.
+- **TDD Task Granularity & Scope:**
+  - **Mandatory:** Domain logic, bug fixes, Zustand stores, and DB RPC/Edge functions. In `plan.md`, split into sequential Red (`test(...)`) and Green (`feat(...)`) tasks. Never collapse them.
+  - **Exempt:** Pure UI styling/Tailwind, scripts/infra, types, and docs. Non-TDD tasks in `plan.md` must append `[exempt: <category>]`.
+  - **Standards:** Test behavior through seams; never write tautological markup/class tests (see `.agents/skills/tdd/SKILL.md`).
 - **Changelog Standards (Keep a Changelog):**
   - Root `CHANGELOG.md` records application features, database, and CI/CD changes; `scripts/agent-resolve/CHANGELOG.md` strictly records tooling updates.
   - New entries belong strictly under `## [Unreleased]` grouped by canonical H3 headers (`### Added`, `### Changed`, `### Deprecated`, `### Removed`, `### Fixed`, `### Security`). Never create a version heading unless cutting a release.
