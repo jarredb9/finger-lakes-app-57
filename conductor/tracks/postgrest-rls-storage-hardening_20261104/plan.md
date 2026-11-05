@@ -83,7 +83,7 @@
     - [x] Verify clean git status and absence of temporary artifacts.
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Full Test Suite Verification & Quality Gates' (Protocol in workflow.md) [commit: 1059edc2]
 
-## Phase 6: Supabase `<Database>` Typing & Module Seam Rigor (Strict TDD)
+## Phase 6: Supabase `<Database>` Typing & Module Seam Rigor (Strict TDD) [checkpoint: a85f89f2]
 
 - [x] Task: Write failing type assertions & seam regression tests for Supabase clients and Mapbox types (TDD Red phase) [commit: 4cfb24ef]
     - [x] Create type test assertions in `lib/services/__tests__/client-types.test.ts` checking that Supabase client factories return `SupabaseClient<Database>` and queries against non-existent columns fail `tsc`.
@@ -96,7 +96,7 @@
     - [x] Add `"use client"` to `lib/utils/pointer-capture-patch.ts`.
     - [x] Run `npm run type-check` and resolve true parameter/column discrepancies across all consuming stores, services, and tests.
     - [x] Execute test runner and verify Phase 6 type assertions and tests pass cleanly (Green).
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: Supabase `<Database>` Typing & Module Seam Rigor' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 6: Supabase `<Database>` Typing & Module Seam Rigor' (Protocol in workflow.md) [commit: a85f89f2]
 
 ## Phase 7: Wire CI/CD Verification Gates & Docker Reliability (Verification & CI/CD)
 
