@@ -44,12 +44,12 @@
 
 ## Phase 3: Private Storage, Ledger Privacy & Webhook Resilience (Storage & Triggers) (Strict TDD)
 
-- [ ] Task: Write failing security regression tests for storage RLS & trigger privacy (TDD Red phase)
-    - [ ] Add integration test case asserting `visit-photos` storage objects reject unauthenticated or non-viewer access to private visit photos.
-    - [ ] Add integration test case asserting `handle_activity_ledger_entry` records `privacy_level = 'private'` when the user's profile is private (even if visit is not explicitly marked private).
-    - [ ] Add integration test case asserting `TripService.getTrips` query succeeds for authenticated users without encountering 42501 column privilege denial on `profiles.email`.
-    - [ ] Add integration test cases asserting authenticated callers can invoke `get_friend_activity_feed`, `get_friends_activity_for_winery`, and `get_friends_ratings_for_winery` without 42501 permission denied errors.
-    - [ ] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures (Red).
+- [x] Task: Write failing security regression tests for storage RLS & trigger privacy (TDD Red phase) [commit: 82521989]
+    - [x] Add integration test case asserting `visit-photos` storage objects reject unauthenticated or non-viewer access to private visit photos.
+    - [x] Add integration test case asserting `handle_activity_ledger_entry` records `privacy_level = 'private'` when the user's profile is private (even if visit is not explicitly marked private).
+    - [x] Add integration test case asserting `TripService.getTrips` query succeeds for authenticated users without encountering 42501 column privilege denial on `profiles.email`.
+    - [x] Add integration test cases asserting authenticated callers can invoke `get_friend_activity_feed`, `get_friends_activity_for_winery`, and `get_friends_ratings_for_winery` without 42501 permission denied errors.
+    - [x] Execute containerized integration tests (`npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`) and confirm test failures (Red).
 - [ ] Task: Implement private storage, ledger privacy & webhook hardening migration (TDD Green phase)
     - [ ] Create `supabase/migrations/20261104120000_harden_storage_and_webhooks.sql`.
     - [ ] Harden `visit-photos` storage bucket: update `storage.buckets` configuration (`public = false`, `file_size_limit = 10485760`, `allowed_mime_types = ARRAY['image/jpeg', 'image/png', 'image/webp', 'image/gif']`).
