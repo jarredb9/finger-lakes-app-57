@@ -167,18 +167,18 @@ const MapView = memo(({
         return;
       }
 
-      const clickedFeature = features[0];
-      if (clickedFeature.layer.id === "clusters") {
+      const clickedFeature = features[0] as any;
+      if (clickedFeature.layer?.id === "clusters") {
         const clusterId = clickedFeature.properties?.cluster_id;
         const source = map.getSource("wineries") as any;
         source.getClusterExpansionZoom(clusterId, (err: any, zoom?: number | null) => {
           if (err || !zoom) return;
           map.easeTo({
-            center: (clickedFeature.geometry as any).coordinates,
+            center: clickedFeature.geometry?.coordinates,
             zoom: zoom,
           });
         });
-      } else if (clickedFeature.layer.id === "unclustered-point") {
+      } else if (clickedFeature.layer?.id === "unclustered-point") {
         const wineryId = clickedFeature.properties?.id;
         const winery = allWineries.find((w) => w.id === wineryId);
         if (winery) {

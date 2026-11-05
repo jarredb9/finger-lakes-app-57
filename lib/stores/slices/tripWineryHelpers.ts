@@ -212,7 +212,6 @@ export async function toggleWineryOnTripHelper(
       const { data, error } = await supabase.rpc('add_winery_to_trip', {
         p_trip_id: trip.id,
         p_winery_data: rpcWineryData,
-        p_notes: null
       });
 
       if (error) {

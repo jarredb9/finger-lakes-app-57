@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/client';
-import { WineryDbId, Friend } from '@/lib/types';
+import { WineryDbId, Friend, FriendActivity } from '@/lib/types';
 
 export interface FriendsAndRequestsPayload {
   friends?: Friend[];
@@ -38,13 +38,13 @@ export const SocialService = {
     };
   },
 
-  async getFriendActivity() {
+  async getFriendActivity(): Promise<FriendActivity[]> {
     const supabase = createClient();
     const { data, error } = await supabase.rpc('get_friend_activity_feed', { 
         p_limit: 20
     });
     if (error) throw error;
-    return data || [];
+    return (data as unknown as FriendActivity[]) || [];
   },
 
   async sendFriendRequest(email: string) {
@@ -100,8 +100,8 @@ export const SocialService = {
     if (activityResult.error) throw activityResult.error;
 
     return {
-      ratings: ratingsResult.data || [],
-      activity: activityResult.data || { favoritedBy: [], wishlistedBy: [] }
+      ratings: (ratingsResult.data as any) || [],
+      activity: (activityResult.data as { favoritedBy: any[]; wishlistedBy: any[] }) || { favoritedBy: [], wishlistedBy: [] }
     };
   }
 };

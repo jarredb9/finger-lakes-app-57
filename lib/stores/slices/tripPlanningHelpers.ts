@@ -103,16 +103,17 @@ export async function addWineryToTripsHelper(
           p_trip_name: newTripName,
           p_trip_date: dateString,
           p_winery_data: rpcWineryData,
-          p_notes: addTripNotes || null
+          p_notes: addTripNotes || undefined
         });
         if (error) throw error;
-        return { tripId: data.trip_id, wineryId: data.winery_id, isNew: true };
+        const payload = data as { trip_id: number; winery_id: number; [key: string]: unknown } | null;
+        return { tripId: payload?.trip_id, wineryId: payload?.winery_id, isNew: true };
       } else {
         const numericTripId = Number(tripId);
         const { data, error } = await supabase.rpc('add_winery_to_trip', {
           p_trip_id: numericTripId,
           p_winery_data: rpcWineryData,
-          p_notes: addTripNotes || null
+          p_notes: addTripNotes || undefined
         });
         if (error) throw error;
         return { tripId: numericTripId, wineryId: (data as any)?.winery_id, isNew: false };

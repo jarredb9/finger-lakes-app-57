@@ -38,7 +38,7 @@ export class ProfileService {
           id: data.id,
           full_name: data.name || 'User',
           email,
-          privacy_level: data.privacy_level,
+          privacy_level: data.privacy_level ?? undefined,
           ai_enabled: data.ai_enabled ?? false,
         };
       }

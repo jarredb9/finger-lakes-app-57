@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * Defensive patch for Element.prototype.releasePointerCapture and setPointerCapture.
  * Prevents Uncaught NotFoundError in Chromium DevTools touch emulation and when

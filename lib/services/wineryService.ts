@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/client';
 import { WineryDbId, Winery } from '@/lib/types';
+import type { Json } from '@/lib/database.types';
 
 // --- E2E Helpers ---
 const shouldSkipRealSync = () => {
@@ -11,7 +12,7 @@ const shouldSkipRealSync = () => {
     return !(globalVal || localVal);
 };
 
-export interface WineryRpcData {
+export type WineryRpcData = {
   id?: string;
   name: string;
   address: string;
@@ -23,7 +24,8 @@ export interface WineryRpcData {
   website: string | null;
   rating: number | null;
   user_rating_count: number | null;
-}
+  [key: string]: Json | undefined;
+};
 
 export const WineryService = {
   /**
@@ -159,9 +161,11 @@ export const WineryService = {
         throw error;
     }
 
+    const result = data as { success?: boolean; is_private?: boolean } | null;
+
     return { 
-        success: data.success, 
-        isPrivate: data.is_private,
+        success: result?.success, 
+        isPrivate: result?.is_private,
         dbId
     };
   },
@@ -179,9 +183,11 @@ export const WineryService = {
 
     if (error) throw error;
 
+    const result = data as { success?: boolean; is_private?: boolean } | null;
+
     return { 
-        success: data.success, 
-        isPrivate: data.is_private,
+        success: result?.success, 
+        isPrivate: result?.is_private,
         dbId
     };
   },

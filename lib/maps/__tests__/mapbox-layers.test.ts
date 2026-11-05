@@ -30,10 +30,11 @@ describe("mapbox-layers", () => {
       expect(clusterLayer.type).toBe("circle");
       expect(clusterLayer.filter).toEqual(["has", "point_count"]);
       expect(clusterLayer.paint).toBeDefined();
-      expect(clusterLayer.paint["circle-stroke-color"]).toBe("#ffffff");
-      expect(clusterLayer.paint["circle-stroke-width"]).toBe(2);
-      expect(Array.isArray(clusterLayer.paint["circle-color"])).toBe(true);
-      expect(Array.isArray(clusterLayer.paint["circle-radius"])).toBe(true);
+      const paint = clusterLayer.paint as Record<string, any>;
+      expect(paint["circle-stroke-color"]).toBe("#ffffff");
+      expect(paint["circle-stroke-width"]).toBe(2);
+      expect(Array.isArray(paint["circle-color"])).toBe(true);
+      expect(Array.isArray(paint["circle-radius"])).toBe(true);
     });
   });
 
@@ -43,9 +44,11 @@ describe("mapbox-layers", () => {
       expect(clusterCountLayer.type).toBe("symbol");
       expect(clusterCountLayer.filter).toEqual(["has", "point_count"]);
       expect(clusterCountLayer.layout).toBeDefined();
-      expect(clusterCountLayer.layout["text-field"]).toEqual(["get", "point_count_abbreviated"]);
-      expect(clusterCountLayer.layout["text-size"]).toBe(12);
-      expect(clusterCountLayer.paint["text-color"]).toBe("#ffffff");
+      const layout = clusterCountLayer.layout as Record<string, any>;
+      const paint = clusterCountLayer.paint as Record<string, any>;
+      expect(layout["text-field"]).toEqual(["get", "point_count_abbreviated"]);
+      expect(layout["text-size"]).toBe(12);
+      expect(paint["text-color"]).toBe("#ffffff");
     });
   });
 
@@ -55,11 +58,12 @@ describe("mapbox-layers", () => {
       expect(unclusteredPointLayer.type).toBe("circle");
       expect(unclusteredPointLayer.filter).toEqual(["!", ["has", "point_count"]]);
       expect(unclusteredPointLayer.paint).toBeDefined();
-      expect(unclusteredPointLayer.paint["circle-radius"]).toBe(7);
-      expect(unclusteredPointLayer.paint["circle-stroke-width"]).toBe(1.5);
-      expect(unclusteredPointLayer.paint["circle-stroke-color"]).toBe("#ffffff");
+      const paint = unclusteredPointLayer.paint as Record<string, any>;
+      expect(paint["circle-radius"]).toBe(7);
+      expect(paint["circle-stroke-width"]).toBe(1.5);
+      expect(paint["circle-stroke-color"]).toBe("#ffffff");
       
-      const colorExpression = unclusteredPointLayer.paint["circle-color"] as any[];
+      const colorExpression = paint["circle-color"] as any[];
       expect(colorExpression[0]).toBe("match");
       expect(colorExpression[1]).toEqual(["get", "type"]);
       expect(colorExpression).toContain(PIN_COLORS.trip);

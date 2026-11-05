@@ -273,7 +273,7 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
 
       expect(mockFrom).toHaveBeenCalledWith('trip_wineries');
       expect(mockBuilder.delete).toHaveBeenCalled();
-      expect(mockBuilder.eq).toHaveBeenCalledWith('trip_id', '401');
+      expect(mockBuilder.eq).toHaveBeenCalledWith('trip_id', 401);
       expect(mockBuilder.eq).toHaveBeenCalledWith('winery_id', 102);
     });
 
@@ -333,7 +333,7 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
         name: 'Updated Name',
         trip_date: '2026-11-01',
       });
-      expect(mockBuilder.eq).toHaveBeenCalledWith('id', '401');
+      expect(mockBuilder.eq).toHaveBeenCalledWith('id', 401);
     });
   });
 

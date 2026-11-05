@@ -177,7 +177,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
             return;
           }
           if (data) {
-            get().hydrateWineries(data);
+            get().hydrateWineries(data as unknown as MapMarkerRpc[]);
           }
         } catch (err) {
           console.error('Error in fetchWineryData:', err);
@@ -315,7 +315,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           if (!/^\d+$/.test(placeId) && !placeId.startsWith('test-') && !placeId.startsWith('mock-')) {
             effectivePlaceId = placeId;
           } else if (dbData?.google_place_id && !/^\d+$/.test(dbData.google_place_id)) {
-            effectivePlaceId = dbData.google_place_id;
+            effectivePlaceId = dbData.google_place_id as GooglePlaceId;
           } else if (existing?.id && !/^\d+$/.test(existing.id)) {
             effectivePlaceId = existing.id;
           }
