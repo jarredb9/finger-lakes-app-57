@@ -85,11 +85,11 @@
 
 ## Phase 6: Supabase `<Database>` Typing & Module Seam Rigor (Strict TDD)
 
-- [ ] Task: Write failing type assertions & seam regression tests for Supabase clients and Mapbox types (TDD Red phase)
-    - [ ] Create type test assertions in `lib/services/__tests__/client-types.test.ts` checking that Supabase client factories return `SupabaseClient<Database>` and queries against non-existent columns fail `tsc`.
-    - [ ] Add type assertion verifying `react-map-gl/mapbox` exports resolve to concrete library types rather than `any`.
-    - [ ] Add unit test in `lib/utils/__tests__/pointer-capture-patch.test.ts` verifying `initPointerCaptureDefensivePatch` exports and runs safely in client environments without throwing DOMException.
-    - [ ] Run `npm run type-check` or test suite and confirm type assertion / compiler failures (Red).
+- [x] Task: Write failing type assertions & seam regression tests for Supabase clients and Mapbox types (TDD Red phase) [commit: 4cfb24ef]
+    - [x] Create type test assertions in `lib/services/__tests__/client-types.test.ts` checking that Supabase client factories return `SupabaseClient<Database>` and queries against non-existent columns fail `tsc`.
+    - [x] Add type assertion verifying `react-map-gl/mapbox` exports resolve to concrete library types rather than `any`.
+    - [x] Add unit test in `lib/utils/__tests__/pointer-capture-patch.test.ts` verifying `initPointerCaptureDefensivePatch` exports and runs safely in client environments without throwing DOMException.
+    - [x] Run `npm run type-check` or test suite and confirm type assertion / compiler failures (Red).
 - [ ] Task: Implement Supabase `<Database>` typing, remove Mapbox shims, and add client directive to pointer-capture patch (TDD Green phase)
     - [ ] Update `utils/supabase/client.ts`, `server.ts`, `admin.ts`, and `auth-helper.ts` to pass `<Database>` generic from `@/lib/database.types`.
     - [ ] Remove `declare module "react-map-gl/mapbox"` `any` block from `lib/shims.d.ts:3-12`.
