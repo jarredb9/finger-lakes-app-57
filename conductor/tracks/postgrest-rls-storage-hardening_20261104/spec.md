@@ -14,8 +14,11 @@ A comprehensive security audit of database tables, RLS policies, RPCs, Storage, 
 5. **Direct `INSERT` on `public.wineries` & Cache Poisoning (High / P1):** `ensure_winery` lacks coordinate, rating, and URL protocol validation, allowing attackers to inject corrupted records into the catalog.
 6. **Webhook GUC Priority & Trigger Privacy Hardening (High / P1):** webhook notification prioritizes `app.settings` over `vault.decrypted_secrets`, activity ledger entries default to public if user profile is private, and SECURITY DEFINER functions omit `pg_temp` in `search_path`.
 7. **Security Advisor Linter Expansion:** linter harness only checks categories 0026–0029, leaving 0007 (RLS disabled with policy), 0008 (RLS enabled no policy), and 0010 (SECURITY DEFINER view) unasserted.
+8. **Supabase Client Type Safety & Module Seams (High / P0 - Phase 6):** All 4 Supabase client factories (`client.ts`, `server.ts`, `admin.ts`, `auth-helper.ts`) omit the `<Database>` generic, causing every `.from()` and `.rpc()` query across stores and services to resolve to untyped `any`. In addition, `lib/shims.d.ts` shadows `react-map-gl/mapbox` with untyped `any` exports, and `lib/utils/pointer-capture-patch.ts` lacks `"use client"`, rendering the browser touch-emulation patch inoperative in Next.js Server Component boundaries (`app/layout.tsx`).
+9. **CI/CD Verification Gaps & Docker Pull Reliability (High / P0 - Phase 7):** `.github/workflows/ci.yml` runs only `npm run test` (which excludes integration tests), silently omitting `npm run lint`, `npm run type-check`, `npm run test:integration`, `npm run test:functions`, and `npm run db:verify-advisor`. Furthermore, `send-social-notification` is omitted from production Edge Function deployments despite an active database trigger referencing it, and container runners lack retry backoff on network drops during `docker pull` / `podman pull`.
+10. **Edge Function Authentication & Privacy Lockdown (Critical / P0 - Phase 8):** `search-wineries` and `get-winery-details` have `verify_jwt = false` in `supabase/config.toml` and lack authorization checks in their handlers, allowing unauthenticated callers to exhaust Google Places and Gemini API quotas and mutate catalog data. `get-winery-details` queries private `visits.user_review` using `service_role` without filtering `is_private = false` or `profiles.ai_enabled = true`, leaking private notes to Gemini and copying snippets verbatim into `public.wineries.generative_summary` via fallback logic. `send-social-notification` lacks bearer token/secret validation, acting as an unauthenticated friend-graph oracle.
 
-This specification defines the comprehensive hardening migrations (split into 3 cohesive domain slices: Friends & Profiles, Trips & Wineries, and Storage & Webhooks), trigger and RPC updates, Security Advisor test suite expansion, client adapter updates, and integration test verifications to resolve Issue #93 adhering to ADR-0007 and ADR-0010.
+This specification defines the comprehensive hardening migrations (split into 3 cohesive domain slices: Friends & Profiles, Trips & Wineries, and Storage & Webhooks), trigger and RPC updates, Security Advisor test suite expansion, client adapter updates, integration test verifications, client type-safety wiring, CI/CD verification circuits, and Edge Function authentication/privacy lockdowns to resolve Issue #93 adhering to ADR-0004, ADR-0007, and ADR-0010.
 
 ## 2. Domain & Architectural Invariants
 - **Visibility Level (CONTEXT.md):** Direct table queries via PostgREST cannot bypass intended visibility. Unauthenticated users (`anon`) have zero access to database tables or storage objects.
@@ -25,6 +28,11 @@ This specification defines the comprehensive hardening migrations (split into 3 
 - **Trip Membership Consent & Autonomous Exit (CONTEXT.md, ADR-0010):** Trip owners cannot inject arbitrary non-friend users into trips. Added trip members must be accepted mutual friends; violating this in `create_trip_with_winery` or `add_trip_member_by_email` raises an explicit exception. Non-owner trip members can voluntarily delete their own membership record from `public.trip_members`.
 - **Catalog Integrity & Input Validation:** `ensure_winery` validates latitude (-90 to 90), longitude (-180 to 180), rating (0 to 5), and HTTP(S) URLs, raising exceptions on invalid payloads.
 - **Webhook Resilience & Safe Search Path:** `handle_activity_ledger_notification` prioritizes `vault.decrypted_secrets` before `app.settings`, validates webhook URL domains against an allowlist, and fails open with a logged warning (`RAISE WARNING ...; RETURN NEW;`) to prevent webhook faults from aborting core visit/wishlist writes. All SECURITY DEFINER functions include `pg_temp` at the end of `SET search_path = public, auth, pg_temp`.
+- **Strongly-Typed Database Seam:** All Supabase client factories (`client.ts`, `server.ts`, `admin.ts`, `auth-helper.ts`) must supply `<Database>` generic from `@/lib/database.types`. No `.from()` or `.rpc()` query in the application may resolve to untyped `any`.
+- **Module Seam Integrity:** Official library type definitions must not be shadowed with `any` declarations in `lib/shims.d.ts`. Browser-only patches interacting with DOM APIs must be guarded with `"use client"` directives so they execute on the client rather than dead-code evaluating in Server Component boundaries.
+- **CI/CD Gate Completeness & Failure Circuit:** Pull requests and automated workflows must enforce all static checks (`lint`, `type-check`), security verifications (`db:verify-advisor`), and functional test suites (Jest unit, Supabase RLS integration, and Deno edge functions) before build/deploy stages. All production Edge Functions must be tracked and deployed in CI.
+- **Zero-Trust Edge Function Authentication:** Edge Functions servicing client requests must enforce caller authentication (`verify_jwt = true` in `config.toml` and explicit `supabase.auth.getUser()` token verification). Functions triggered by database webhooks must validate internal shared bearer secrets (`INTERNAL_WEBHOOK_SECRET`).
+- **User Privacy & AI Opt-In Isolation (CONTEXT.md, ADR-0004):** Private visit reviews (`is_private = true`) and reviews from users who have not opted into AI (`profiles.ai_enabled = false`) must never be queried by service-role functions or passed to external AI models (Gemini). AI fallback summaries must never copy raw review snippets verbatim, must not hardcode regional assumptions ("Finger Lakes") on global winery records, and must avoid false freshness stamps on `last_enriched_at`.
 - **Expand-and-Contract & Production Safety (AGENTS.md):** Never drop or mutate production data unsafely. Local DB verification only (`npm run db:reset`).
 
 ## 3. Functional Requirements
@@ -113,6 +121,54 @@ This specification defines the comprehensive hardening migrations (split into 3 
   8. `TripService.getTrips` query executes successfully for authenticated users without encountering 42501 column privilege denial.
   9. `get_friend_activity_feed`, `get_friends_activity_for_winery`, and `get_friends_ratings_for_winery` execute successfully for authenticated clients without encountering 42501 permission denied errors.
 
+### 3.9 Phase 6: Supabase `<Database>` Typing & Module Seam Rigor
+- **Supabase Client Generic Typing:**
+  - Update `utils/supabase/client.ts` to import `Database` from `@/lib/database.types` and supply `<Database>` generic to `createBrowserClient<Database>(...)`.
+  - Update `utils/supabase/server.ts` to import `Database` and supply `<Database>` generic to `createServerClient<Database>(...)`.
+  - Update `utils/supabase/admin.ts` to import `Database` and supply `<Database>` generic to `createServerClient<Database>(...)`.
+  - Update `utils/supabase/auth-helper.ts` to import `Database` and supply `<Database>` generic to `createServerClient<Database>(...)`.
+  - Ensure all database queries through `.from()` and `.rpc()` yield strongly-typed records and compilation failures for missing or mismatched columns/tables.
+- **Mapbox Type Declaration Cleanup (`lib/shims.d.ts`):**
+  - Delete `declare module "react-map-gl/mapbox"` `any` block (lines 3-12) in `lib/shims.d.ts`.
+  - Allow TypeScript to resolve native definitions and interfaces (`MapRef`, `Source`, `Layer`, `Marker`, `MapProvider`, `useMap`) directly from `react-map-gl/mapbox`.
+- **Pointer-Capture Patch Client Boundary (`lib/utils/pointer-capture-patch.ts`):**
+  - Add `"use client"` directive to `lib/utils/pointer-capture-patch.ts` so Next.js App Router packages and executes the defensive monkey-patch for `releasePointerCapture` and `setPointerCapture` inside browser runtime rather than dead-code evaluating in Server Component boundaries (`app/layout.tsx`).
+- **Static Type Gate & Schema Discrepancy Remediation:**
+  - Execute `npm run type-check`.
+  - Resolve true parameter/column discrepancies uncovered across stores (`lib/stores/`), services (`lib/services/`), and tests once `<Database>` is bound.
+
+### 3.10 Phase 7: Wire CI/CD Verification Gates & Docker Reliability
+- **Complete CI Verification Matrix (`.github/workflows/ci.yml`):**
+  - In `build` job:
+    - Add `npm run lint` step to enforce ESLint rules (including `playwright/no-wait-for-timeout`).
+    - Add `npm run type-check` step to enforce full TypeScript compile check across all app, test, and e2e files.
+    - Add `denoland/setup-deno@v2` step (with `deno-version: v2.x`) and run `npm run test:functions` to verify Edge Functions in CI.
+    - Add `npm run test:integration` step (executing RLS and RPC integration tests against booted local Supabase stack).
+    - Add `npm run db:verify-advisor` step to prevent security advisor regressions in CI.
+- **Edge Function Production Deployment Completeness:**
+  - In `deploy` job: add deployment step for `send-social-notification`:
+    ```yaml
+    supabase functions deploy send-social-notification --remote=jfsxclrdxmvftxacjuqf --yes
+    ```
+    alongside `get-winery-details` and `search-wineries`.
+- **Container Runner Exponential Backoff Retry (`scripts/containers/container-common.sh`):**
+  - Update `ensure_container_image()` in `scripts/containers/container-common.sh` to wrap `podman pull` and `docker pull` commands in a 3-attempt loop with exponential backoff (2s, 4s, 8s) to prevent transient network errors from failing container runs.
+
+### 3.11 Phase 8: Edge Function Authentication & Privacy Lockdown
+- **Gateway JWT Verification & Handler Authorization:**
+  - In `supabase/config.toml`: set `verify_jwt = true` for `[functions.search-wineries]` and `[functions.get-winery-details]`.
+  - In `supabase/functions/search-wineries/index.ts`: extract `Authorization` header, verify caller identity via `supabaseClient.auth.getUser()`, and return HTTP 401 Unauthorized for missing or invalid tokens.
+  - In `supabase/functions/get-winery-details/index.ts`: extract `Authorization` header, verify caller identity via `supabaseClient.auth.getUser()`, and return HTTP 401 Unauthorized for missing or invalid tokens.
+- **Private Visit Review Isolation & AI Consent Guard:**
+  - In `supabase/functions/get-winery-details/index.ts`: update in-app review queries on `visits`. Only select reviews where `visits.is_private = false` and where the reviewing user has `profiles.ai_enabled = true`. Never expose private visit reviews to external LLM services.
+- **Generative Fallback Sanitization, Global Scope Alignment & Enrichment Freshness:**
+  - In `supabase/functions/_shared/gemini.ts`:
+    - Remove snippet copying of raw user reviews into `generative_summary` (`Guests frequently note: "${shortSnippet}"`).
+    - Remove hardcoded "Finger Lakes" copy for wineries outside the Finger Lakes region (conforming to ADR-0004 global scope).
+    - Ensure `generateSmartFallback` returns an error status / property so `get-winery-details` does not stamp `last_enriched_at` on fallbacks, preventing wineries from being locked in an un-enriched state for 30 days.
+- **Webhook Authorization on Social Notifications:**
+  - In `supabase/functions/send-social-notification/index.ts`: enforce authorization checking that requests provide a valid bearer token matching `INTERNAL_WEBHOOK_SECRET` or service authorization. Return HTTP 401 Unauthorized on invalid or missing credentials.
+
 ## 4. Acceptance Criteria
 1. Migration applies cleanly on local stack via `npm run db:reset`.
 2. `npm run db:verify-advisor` passes with 0 violations across categories 0007, 0008, 0010, 0026, 0027, 0028, and 0029.
@@ -120,7 +176,16 @@ This specification defines the comprehensive hardening migrations (split into 3 
 4. Containerized unit and integration test suites (`npm run test:container`, `npm run test:integration:container`) pass completely.
 5. Direct PostgREST attacks (unilateral friendship accept, profile email overwrite/select, non-friend trip injection, private photo enumeration) are proven blocked by tests.
 6. Authenticated callers to `TripService.getTrips`, `get_friend_activity_feed`, `get_friends_activity_for_winery`, and `get_friends_ratings_for_winery` execute cleanly without 42501 permission denied errors.
+7. `npm run type-check` passes with `<Database>` generic active across all 4 Supabase client factories (`client.ts`, `server.ts`, `admin.ts`, `auth-helper.ts`).
+8. `lib/shims.d.ts` no longer contains the `react-map-gl/mapbox` `any` module declaration, and Mapbox components type-check against official `react-map-gl` types.
+9. `lib/utils/pointer-capture-patch.ts` includes `"use client"` and executes correctly in browser runtime.
+10. `.github/workflows/ci.yml` includes active steps for `lint`, `type-check`, `test:integration`, `test:functions`, `db:verify-advisor`, and deploys `send-social-notification`.
+11. `scripts/containers/container-common.sh` implements 3-attempt exponential backoff retry for image pulls.
+12. `search-wineries` and `get-winery-details` enforce `verify_jwt = true` and return 401 for unauthenticated calls.
+13. `get-winery-details` isolates private reviews and non-AI-opted users, fallback enrichment does not leak user review text or hardcode "Finger Lakes" globally, and `send-social-notification` enforces secret authentication.
 
 ## 5. Out of Scope
 - Performance advisor categories 0001 (unindexed foreign keys) and 0003 (auth RLS initplan), cataloged separately as Tier 4 tech debt.
 - HaveIBeenPwned k-anonymity validation during signup (Issue #88).
+- Refactoring Zustand stores into normalized ID records (Horizon 2/3).
+- Full RSC route group refactor around `(authenticated)/layout.tsx` (Horizon 3).

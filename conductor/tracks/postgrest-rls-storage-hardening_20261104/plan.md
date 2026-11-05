@@ -82,3 +82,54 @@
     - [x] Run production build: `npm run build`.
     - [x] Verify clean git status and absence of temporary artifacts.
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Full Test Suite Verification & Quality Gates' (Protocol in workflow.md) [commit: 1059edc2]
+
+## Phase 6: Supabase `<Database>` Typing & Module Seam Rigor (Strict TDD)
+
+- [ ] Task: Write failing type assertions & seam regression tests for Supabase clients and Mapbox types (TDD Red phase)
+    - [ ] Create type test assertions in `lib/services/__tests__/client-types.test.ts` checking that Supabase client factories return `SupabaseClient<Database>` and queries against non-existent columns fail `tsc`.
+    - [ ] Add type assertion verifying `react-map-gl/mapbox` exports resolve to concrete library types rather than `any`.
+    - [ ] Add unit test in `lib/utils/__tests__/pointer-capture-patch.test.ts` verifying `initPointerCaptureDefensivePatch` exports and runs safely in client environments without throwing DOMException.
+    - [ ] Run `npm run type-check` or test suite and confirm type assertion / compiler failures (Red).
+- [ ] Task: Implement Supabase `<Database>` typing, remove Mapbox shims, and add client directive to pointer-capture patch (TDD Green phase)
+    - [ ] Update `utils/supabase/client.ts`, `server.ts`, `admin.ts`, and `auth-helper.ts` to pass `<Database>` generic from `@/lib/database.types`.
+    - [ ] Remove `declare module "react-map-gl/mapbox"` `any` block from `lib/shims.d.ts:3-12`.
+    - [ ] Add `"use client"` to `lib/utils/pointer-capture-patch.ts`.
+    - [ ] Run `npm run type-check` and resolve true parameter/column discrepancies across all consuming stores, services, and tests.
+    - [ ] Execute test runner and verify Phase 6 type assertions and tests pass cleanly (Green).
+- [ ] Task: Conductor - User Manual Verification 'Phase 6: Supabase `<Database>` Typing & Module Seam Rigor' (Protocol in workflow.md)
+
+## Phase 7: Wire CI/CD Verification Gates & Docker Reliability (Verification & CI/CD)
+
+- [ ] Task: Add missing verification steps and function deployments to `.github/workflows/ci.yml`
+    - [ ] In `build` job of `.github/workflows/ci.yml`, add `npm run lint`.
+    - [ ] In `build` job of `.github/workflows/ci.yml`, add `npm run type-check`.
+    - [ ] In `build` job of `.github/workflows/ci.yml`, add `denoland/setup-deno@v2` (deno-version: v2.x) and `npm run test:functions`.
+    - [ ] In `build` job of `.github/workflows/ci.yml`, add `npm run test:integration` (executed after Supabase local stack starts and migrations run).
+    - [ ] In `build` job of `.github/workflows/ci.yml`, add `npm run db:verify-advisor`.
+    - [ ] In `deploy` job of `.github/workflows/ci.yml`, add deployment step for `send-social-notification`: `supabase functions deploy send-social-notification --remote=jfsxclrdxmvftxacjuqf --yes`.
+    - [ ] Validate `.github/workflows/ci.yml` syntax using action linter or YAML parser.
+- [ ] Task: Add exponential backoff retry logic to container runners
+    - [ ] Update `ensure_container_image()` in `scripts/containers/container-common.sh` to wrap `podman pull` and `docker pull` in a 3-attempt retry loop with exponential backoff (2s, 4s, 8s).
+    - [ ] Add logging on retry attempts and clean error reporting on exhausted retries.
+    - [ ] Test `container-common.sh` locally to confirm pull logic functions correctly.
+- [ ] Task: Conductor - User Manual Verification 'Phase 7: Wire CI/CD Verification Gates & Docker Reliability' (Protocol in workflow.md)
+
+## Phase 8: Edge Function Authentication & Privacy Lockdown (Strict TDD)
+
+- [ ] Task: Write failing Edge Function security and privacy tests (TDD Red phase)
+    - [ ] Add Deno tests in `supabase/functions/tests/` asserting:
+        - `search-wineries` returns 401 Unauthorized when invoked without a valid Bearer token.
+        - `get-winery-details` returns 401 Unauthorized when invoked without a valid Bearer token.
+        - `get-winery-details` does not query or include reviews marked `is_private = true` or where the reviewer's profile has `ai_enabled = false`.
+        - `generateSmartFallback` in `_shared/gemini.ts` does not copy user review text into `generative_summary`, does not hardcode "Finger Lakes" for non-FLX wineries (ADR-0004), and returns an error indicator to avoid false enrichment freshness stamping.
+        - `send-social-notification` returns 401 Unauthorized when invoked without a valid bearer secret.
+    - [ ] Execute `npm run test:functions` and confirm test failures (Red).
+- [ ] Task: Implement Edge Function authentication & privacy safeguards (TDD Green phase)
+    - [ ] Update `supabase/config.toml`: set `verify_jwt = true` for `[functions.search-wineries]` and `[functions.get-winery-details]`.
+    - [ ] Update `supabase/functions/search-wineries/index.ts`: verify caller identity via `supabase.auth.getUser()`, returning 401 on missing or invalid JWT.
+    - [ ] Update `supabase/functions/get-winery-details/index.ts`: verify caller identity via `supabase.auth.getUser()`, returning 401 on missing or invalid JWT.
+    - [ ] Update `supabase/functions/get-winery-details/index.ts`: filter review queries by `is_private = false` and verify reviewer has `profiles.ai_enabled = true`.
+    - [ ] Update `supabase/functions/_shared/gemini.ts`: remove fallback review snippet copying, sanitize region-specific fallback copy for global wineries (ADR-0004), and return an error indicator on fallback so `last_enriched_at` is not stamped.
+    - [ ] Update `supabase/functions/send-social-notification/index.ts`: enforce bearer token check against `INTERNAL_WEBHOOK_SECRET` / service authorization, returning 401 on missing or invalid secret.
+    - [ ] Execute `npm run test:functions` and verify Phase 8 tests pass (Green).
+- [ ] Task: Conductor - User Manual Verification 'Phase 8: Edge Function Authentication & Privacy Lockdown' (Protocol in workflow.md)
