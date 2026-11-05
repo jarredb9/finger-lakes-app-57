@@ -66,12 +66,12 @@
 
 ## Phase 4: Security Advisor Linter Harness Expansion & Tooling (Verification & Tooling)
 
-- [ ] Task: Implement Security Advisor Linter Assertions & TypeScript Sync
-    - [ ] Expand catalog query in `scripts/db/verify-security-advisor.sql` to include checks for `0007_policy_exists_rls_disabled`, `0008_rls_enabled_no_policy`, and `0010_security_definer_view`.
-    - [ ] Update `scripts/db/verify-security-advisor.ts` to assert zero violations for categories 0007, 0008, and 0010 in `SecurityAdvisorCategory`, scorecard results, and CLI linter assertions.
-    - [ ] Regenerate database TypeScript definitions via `npm run db:gen-types`.
-    - [ ] Verify TypeScript types compile cleanly with `npm run db:check-types:local`.
-    - [ ] Run `npm run db:verify-advisor` and confirm 0 violations across categories 0007, 0008, 0010, 0026, 0027, 0028, and 0029.
+- [x] Task: Implement Security Advisor Linter Assertions & TypeScript Sync [commit: c703a50a]
+    - [x] Expand catalog query in `scripts/db/verify-security-advisor.sql` to include checks for `0007_policy_exists_rls_disabled`, `0008_rls_enabled_no_policy`, and `0010_security_definer_view`.
+    - [x] Update `scripts/db/verify-security-advisor.ts` to assert zero violations for categories 0007, 0008, and 0010 in `SecurityAdvisorCategory`, scorecard results, and CLI linter assertions.
+    - [x] Regenerate database TypeScript definitions via `npm run db:gen-types`.
+    - [x] Verify TypeScript types compile cleanly with `npm run db:check-types:local`.
+    - [x] Run `npm run db:verify-advisor` and confirm 0 violations across categories 0007, 0008, 0010, 0026, 0027, 0028, and 0029.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Security Advisor Linter Harness Expansion & Tooling' (Protocol in workflow.md)
 
 ## Phase 5: Full Test Suite Verification & Quality Gates (Verification)
