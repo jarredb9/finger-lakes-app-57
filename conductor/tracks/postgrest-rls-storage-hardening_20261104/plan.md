@@ -114,7 +114,7 @@
     - [x] Test `container-common.sh` locally to confirm pull logic functions correctly.
 - [x] Task: Conductor - User Manual Verification 'Phase 7: Wire CI/CD Verification Gates & Docker Reliability' (Protocol in workflow.md) [commit: 9131c518]
 
-## Phase 8: Edge Function Authentication & Privacy Lockdown (Strict TDD)
+## Phase 8: Edge Function Authentication & Privacy Lockdown (Strict TDD) [checkpoint: 1e56ddea]
 
 - [x] Task: Write failing Edge Function security and privacy tests (TDD Red phase) [commit: 75348d63]
     - [x] Add Deno tests in `supabase/functions/tests/` asserting:
@@ -132,7 +132,7 @@
     - [x] Update `supabase/functions/_shared/gemini.ts`: remove fallback review snippet copying, sanitize region-specific fallback copy for global wineries (ADR-0004), and return an error indicator on fallback so `last_enriched_at` is not stamped.
     - [x] Update `supabase/functions/send-social-notification/index.ts`: enforce bearer token check against `INTERNAL_WEBHOOK_SECRET` / service authorization, returning 401 on missing or invalid secret.
     - [x] Execute `npm run test:functions` and verify Phase 8 tests pass (Green).
-- [ ] Task: Conductor - User Manual Verification 'Phase 8: Edge Function Authentication & Privacy Lockdown' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 8: Edge Function Authentication & Privacy Lockdown' (Protocol in workflow.md) [commit: 1e56ddea]
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions b09de8d
