@@ -133,3 +133,6 @@
     - [ ] Update `supabase/functions/send-social-notification/index.ts`: enforce bearer token check against `INTERNAL_WEBHOOK_SECRET` / service authorization, returning 401 on missing or invalid secret.
     - [ ] Execute `npm run test:functions` and verify Phase 8 tests pass (Green).
 - [ ] Task: Conductor - User Manual Verification 'Phase 8: Edge Function Authentication & Privacy Lockdown' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions b09de8d
