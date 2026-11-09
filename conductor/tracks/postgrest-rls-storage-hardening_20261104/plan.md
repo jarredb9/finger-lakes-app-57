@@ -108,10 +108,10 @@
     - [x] In `build` job of `.github/workflows/ci.yml`, add `npm run db:verify-advisor`.
     - [x] In `deploy` job of `.github/workflows/ci.yml`, add deployment step for `send-social-notification`: `supabase functions deploy send-social-notification --remote=jfsxclrdxmvftxacjuqf --yes`.
     - [x] Validate `.github/workflows/ci.yml` syntax using action linter or YAML parser.
-- [ ] Task: Add exponential backoff retry logic to container runners
-    - [ ] Update `ensure_container_image()` in `scripts/containers/container-common.sh` to wrap `podman pull` and `docker pull` in a 3-attempt retry loop with exponential backoff (2s, 4s, 8s).
-    - [ ] Add logging on retry attempts and clean error reporting on exhausted retries.
-    - [ ] Test `container-common.sh` locally to confirm pull logic functions correctly.
+- [x] Task: Add exponential backoff retry logic to container runners [commit: 6b5838b7]
+    - [x] Update `ensure_container_image()` in `scripts/containers/container-common.sh` to wrap `podman pull` and `docker pull` in a 3-attempt retry loop with exponential backoff (2s, 4s, 8s).
+    - [x] Add logging on retry attempts and clean error reporting on exhausted retries.
+    - [x] Test `container-common.sh` locally to confirm pull logic functions correctly.
 - [ ] Task: Conductor - User Manual Verification 'Phase 7: Wire CI/CD Verification Gates & Docker Reliability' (Protocol in workflow.md)
 
 ## Phase 8: Edge Function Authentication & Privacy Lockdown (Strict TDD)
