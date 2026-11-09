@@ -49,10 +49,12 @@ GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO service_role;
 -- Replace global idempotency constraints with composite (user_id, idempotency_key) constraints
 ALTER TABLE public.visits DROP CONSTRAINT IF EXISTS visits_idempotency_key_key;
 ALTER TABLE public.visits DROP CONSTRAINT IF EXISTS visits_user_id_idempotency_key_key;
+-- migration-lint: ignore-reconciliation (loosens global idempotency_key unique constraint to composite user_id + idempotency_key)
 ALTER TABLE public.visits ADD CONSTRAINT visits_user_id_idempotency_key_key UNIQUE (user_id, idempotency_key);
 
 ALTER TABLE public.trips DROP CONSTRAINT IF EXISTS trips_idempotency_key_key;
 ALTER TABLE public.trips DROP CONSTRAINT IF EXISTS trips_user_id_idempotency_key_key;
+-- migration-lint: ignore-reconciliation (loosens global idempotency_key unique constraint to composite user_id + idempotency_key)
 ALTER TABLE public.trips ADD CONSTRAINT trips_user_id_idempotency_key_key UNIQUE (user_id, idempotency_key);
 
 -- Revoke direct mutation privileges on public.wineries from authenticated and anon

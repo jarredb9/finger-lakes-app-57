@@ -34,6 +34,7 @@
     "db:reset": "./scripts/bin/db-docker-env.sh reset",
     "db:status": "./scripts/bin/db-docker-env.sh status",
     "db:lint": "./scripts/bin/db-docker-env.sh lint",
+    "db:lint:migrations": "npx tsx scripts/db/lint-migrations.ts",
     "db:verify-advisor": "./scripts/bin/db-docker-env.sh verify-advisor",
     "db:audit": "./scripts/db/db-audit.sh",
     "db:seed": "npm run db:reset",
@@ -146,6 +147,7 @@
       "bash -c 'npm run type-check'"
     ],
     "supabase/migrations/*.sql": [
+      "bash -c 'npm run db:lint:migrations'",
       "bash -c 'npm run db:lint'"
     ]
   }

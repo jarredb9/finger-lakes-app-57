@@ -86,6 +86,7 @@ case "${1:-}" in
         ;;
     lint)
         shift
+        npx tsx scripts/db/lint-migrations.ts
         exec npx supabase db lint --level error --schema public "$@"
         ;;
     verify-advisor)
