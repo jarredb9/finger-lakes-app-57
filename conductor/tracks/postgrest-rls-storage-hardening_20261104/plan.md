@@ -116,14 +116,14 @@
 
 ## Phase 8: Edge Function Authentication & Privacy Lockdown (Strict TDD)
 
-- [ ] Task: Write failing Edge Function security and privacy tests (TDD Red phase)
-    - [ ] Add Deno tests in `supabase/functions/tests/` asserting:
+- [x] Task: Write failing Edge Function security and privacy tests (TDD Red phase) [commit: 75348d63]
+    - [x] Add Deno tests in `supabase/functions/tests/` asserting:
         - `search-wineries` returns 401 Unauthorized when invoked without a valid Bearer token.
         - `get-winery-details` returns 401 Unauthorized when invoked without a valid Bearer token.
         - `get-winery-details` does not query or include reviews marked `is_private = true` or where the reviewer's profile has `ai_enabled = false`.
         - `generateSmartFallback` in `_shared/gemini.ts` does not copy user review text into `generative_summary`, does not hardcode "Finger Lakes" for non-FLX wineries (ADR-0004), and returns an error indicator to avoid false enrichment freshness stamping.
         - `send-social-notification` returns 401 Unauthorized when invoked without a valid bearer secret.
-    - [ ] Execute `npm run test:functions` and confirm test failures (Red).
+    - [x] Execute `npm run test:functions` and confirm test failures (Red).
 - [ ] Task: Implement Edge Function authentication & privacy safeguards (TDD Green phase)
     - [ ] Update `supabase/config.toml`: set `verify_jwt = true` for `[functions.search-wineries]` and `[functions.get-winery-details]`.
     - [ ] Update `supabase/functions/search-wineries/index.ts`: verify caller identity via `supabase.auth.getUser()`, returning 401 on missing or invalid JWT.
