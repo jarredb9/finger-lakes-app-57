@@ -100,14 +100,14 @@
 
 ## Phase 7: Wire CI/CD Verification Gates & Docker Reliability (Verification & CI/CD)
 
-- [ ] Task: Add missing verification steps and function deployments to `.github/workflows/ci.yml`
-    - [ ] In `build` job of `.github/workflows/ci.yml`, add `npm run lint`.
-    - [ ] In `build` job of `.github/workflows/ci.yml`, add `npm run type-check`.
-    - [ ] In `build` job of `.github/workflows/ci.yml`, add `denoland/setup-deno@v2` (deno-version: v2.x) and `npm run test:functions`.
-    - [ ] In `build` job of `.github/workflows/ci.yml`, add `npm run test:integration` (executed after Supabase local stack starts and migrations run).
-    - [ ] In `build` job of `.github/workflows/ci.yml`, add `npm run db:verify-advisor`.
-    - [ ] In `deploy` job of `.github/workflows/ci.yml`, add deployment step for `send-social-notification`: `supabase functions deploy send-social-notification --remote=jfsxclrdxmvftxacjuqf --yes`.
-    - [ ] Validate `.github/workflows/ci.yml` syntax using action linter or YAML parser.
+- [x] Task: Add missing verification steps and function deployments to `.github/workflows/ci.yml` [commit: 7e63d35a]
+    - [x] In `build` job of `.github/workflows/ci.yml`, add `npm run lint`.
+    - [x] In `build` job of `.github/workflows/ci.yml`, add `npm run type-check`.
+    - [x] In `build` job of `.github/workflows/ci.yml`, add `denoland/setup-deno@v2` (deno-version: v2.x) and `npm run test:functions`.
+    - [x] In `build` job of `.github/workflows/ci.yml`, add `npm run test:integration` (executed after Supabase local stack starts and migrations run).
+    - [x] In `build` job of `.github/workflows/ci.yml`, add `npm run db:verify-advisor`.
+    - [x] In `deploy` job of `.github/workflows/ci.yml`, add deployment step for `send-social-notification`: `supabase functions deploy send-social-notification --remote=jfsxclrdxmvftxacjuqf --yes`.
+    - [x] Validate `.github/workflows/ci.yml` syntax using action linter or YAML parser.
 - [ ] Task: Add exponential backoff retry logic to container runners
     - [ ] Update `ensure_container_image()` in `scripts/containers/container-common.sh` to wrap `podman pull` and `docker pull` in a 3-attempt retry loop with exponential backoff (2s, 4s, 8s).
     - [ ] Add logging on retry attempts and clean error reporting on exhausted retries.
