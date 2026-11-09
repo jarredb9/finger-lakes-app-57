@@ -39,22 +39,22 @@ export type ExpectTrue<T extends true> = T;
 // -----------------------------------------------------------------------------
 
 // Assert createBrowserClient returns SupabaseClient<Database>
-export type _BrowserClientTyped = ExpectTrue<
+export type BrowserClientTypedCheck = ExpectTrue<
   AssertClientIsDatabaseTyped<ReturnType<typeof createBrowserClient>>
 >;
 
 // Assert createServerClient returns SupabaseClient<Database>
-export type _ServerClientTyped = ExpectTrue<
+export type ServerClientTypedCheck = ExpectTrue<
   AssertClientIsDatabaseTyped<Awaited<ReturnType<typeof createServerClient>>>
 >;
 
 // Assert createAdminClient returns SupabaseClient<Database>
-export type _AdminClientTyped = ExpectTrue<
+export type AdminClientTypedCheck = ExpectTrue<
   AssertClientIsDatabaseTyped<Awaited<ReturnType<typeof createAdminClient>>>
 >;
 
 // Assert invalid tables and columns are rejected at compile time
-export async function _typeCheckQueries() {
+export async function typeCheckQueries() {
   const client = createBrowserClient();
 
   // @ts-expect-error Querying non-existent table should fail when client is typed with Database
@@ -68,12 +68,12 @@ export async function _typeCheckQueries() {
 // 2. Compile-Time Type Assertions: Mapbox Types (no 'any' shims)
 // -----------------------------------------------------------------------------
 
-export type _MapRefTyped = ExpectTrue<AssertNotAny<MapRef>>;
-export type _SourceTyped = ExpectTrue<AssertNotAny<typeof Source>>;
-export type _LayerTyped = ExpectTrue<AssertNotAny<typeof Layer>>;
-export type _MarkerTyped = ExpectTrue<AssertNotAny<typeof Marker>>;
-export type _MapProviderTyped = ExpectTrue<AssertNotAny<typeof MapProvider>>;
-export type _UseMapCurrentTyped = ExpectTrue<AssertNotAny<ReturnType<typeof useMap>['current']>>;
+export type MapRefTypedCheck = ExpectTrue<AssertNotAny<MapRef>>;
+export type SourceTypedCheck = ExpectTrue<AssertNotAny<typeof Source>>;
+export type LayerTypedCheck = ExpectTrue<AssertNotAny<typeof Layer>>;
+export type MarkerTypedCheck = ExpectTrue<AssertNotAny<typeof Marker>>;
+export type MapProviderTypedCheck = ExpectTrue<AssertNotAny<typeof MapProvider>>;
+export type UseMapCurrentTypedCheck = ExpectTrue<AssertNotAny<ReturnType<typeof useMap>['current']>>;
 
 // -----------------------------------------------------------------------------
 // 3. Runtime Jest Seam Tests
