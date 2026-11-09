@@ -124,14 +124,14 @@
         - `generateSmartFallback` in `_shared/gemini.ts` does not copy user review text into `generative_summary`, does not hardcode "Finger Lakes" for non-FLX wineries (ADR-0004), and returns an error indicator to avoid false enrichment freshness stamping.
         - `send-social-notification` returns 401 Unauthorized when invoked without a valid bearer secret.
     - [x] Execute `npm run test:functions` and confirm test failures (Red).
-- [ ] Task: Implement Edge Function authentication & privacy safeguards (TDD Green phase)
-    - [ ] Update `supabase/config.toml`: set `verify_jwt = true` for `[functions.search-wineries]` and `[functions.get-winery-details]`.
-    - [ ] Update `supabase/functions/search-wineries/index.ts`: verify caller identity via `supabase.auth.getUser()`, returning 401 on missing or invalid JWT.
-    - [ ] Update `supabase/functions/get-winery-details/index.ts`: verify caller identity via `supabase.auth.getUser()`, returning 401 on missing or invalid JWT.
-    - [ ] Update `supabase/functions/get-winery-details/index.ts`: filter review queries by `is_private = false` and verify reviewer has `profiles.ai_enabled = true`.
-    - [ ] Update `supabase/functions/_shared/gemini.ts`: remove fallback review snippet copying, sanitize region-specific fallback copy for global wineries (ADR-0004), and return an error indicator on fallback so `last_enriched_at` is not stamped.
-    - [ ] Update `supabase/functions/send-social-notification/index.ts`: enforce bearer token check against `INTERNAL_WEBHOOK_SECRET` / service authorization, returning 401 on missing or invalid secret.
-    - [ ] Execute `npm run test:functions` and verify Phase 8 tests pass (Green).
+- [x] Task: Implement Edge Function authentication & privacy safeguards (TDD Green phase) [commit: 5dfc9c14]
+    - [x] Update `supabase/config.toml`: set `verify_jwt = true` for `[functions.search-wineries]` and `[functions.get-winery-details]`.
+    - [x] Update `supabase/functions/search-wineries/index.ts`: verify caller identity via `supabase.auth.getUser()`, returning 401 on missing or invalid JWT.
+    - [x] Update `supabase/functions/get-winery-details/index.ts`: verify caller identity via `supabase.auth.getUser()`, returning 401 on missing or invalid JWT.
+    - [x] Update `supabase/functions/get-winery-details/index.ts`: filter review queries by `is_private = false` and verify reviewer has `profiles.ai_enabled = true`.
+    - [x] Update `supabase/functions/_shared/gemini.ts`: remove fallback review snippet copying, sanitize region-specific fallback copy for global wineries (ADR-0004), and return an error indicator on fallback so `last_enriched_at` is not stamped.
+    - [x] Update `supabase/functions/send-social-notification/index.ts`: enforce bearer token check against `INTERNAL_WEBHOOK_SECRET` / service authorization, returning 401 on missing or invalid secret.
+    - [x] Execute `npm run test:functions` and verify Phase 8 tests pass (Green).
 - [ ] Task: Conductor - User Manual Verification 'Phase 8: Edge Function Authentication & Privacy Lockdown' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
