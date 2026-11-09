@@ -14,6 +14,36 @@ export const handler = async (req: Request): Promise<Response> => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const authHeader = req.headers.get('Authorization')
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ error: 'Unauthorized: Missing authorization header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  if (!token) {
+    return new Response(JSON.stringify({ error: 'Unauthorized: Missing authorization header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
+  const authClient = createClient(
+    Deno.env.get('SUPABASE_URL') ?? '',
+    Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+    { global: { headers: { Authorization: authHeader } } }
+  )
+
+  const { data: { user }, error: authError } = await authClient.auth.getUser(token)
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized: Invalid or expired token' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
+
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -75,12 +105,20 @@ export const handler = async (req: Request): Promise<Response> => {
     if (winery?.id) {
       const { data: visits } = await supabaseClient
         .from('visits')
-        .select('user_review')
+        .select('user_review, is_private, profiles!inner(ai_enabled)')
         .eq('winery_id', winery.id)
+        .eq('is_private', false)
+        .eq('profiles.ai_enabled', true)
         .not('user_review', 'is', null)
 
-      if (visits) {
-        appReviews = visits as Array<{ user_review: string }>
+      if (visits && Array.isArray(visits)) {
+        appReviews = (visits as Array<any>)
+          .filter((v) => {
+            if (v.is_private === true) return false
+            const aiEnabled = v.profiles?.ai_enabled ?? v.ai_enabled
+            return aiEnabled === true
+          })
+          .map((v) => ({ user_review: v.user_review }))
       }
     }
 
@@ -108,7 +146,7 @@ export const handler = async (req: Request): Promise<Response> => {
     }
 
     // Only set last_enriched_at if Gemini AI enrichment succeeded to avoid getting stuck in a half-enriched state
-    if (!geminiResult.generative_summary) {
+    if (!geminiResult.generative_summary || geminiResult.error) {
       wineryData.last_enriched_at = null;
       if (!wineryData.generative_summary) {
         wineryData.generative_summary = null;
