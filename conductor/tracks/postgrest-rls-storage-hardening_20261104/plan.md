@@ -98,7 +98,7 @@
     - [x] Execute test runner and verify Phase 6 type assertions and tests pass cleanly (Green).
 - [x] Task: Conductor - User Manual Verification 'Phase 6: Supabase `<Database>` Typing & Module Seam Rigor' (Protocol in workflow.md) [commit: a85f89f2]
 
-## Phase 7: Wire CI/CD Verification Gates & Docker Reliability (Verification & CI/CD)
+## Phase 7: Wire CI/CD Verification Gates & Docker Reliability (Verification & CI/CD) [checkpoint: 9131c518]
 
 - [x] Task: Add missing verification steps and function deployments to `.github/workflows/ci.yml` [commit: 7e63d35a]
     - [x] In `build` job of `.github/workflows/ci.yml`, add `npm run lint`.
@@ -112,7 +112,7 @@
     - [x] Update `ensure_container_image()` in `scripts/containers/container-common.sh` to wrap `podman pull` and `docker pull` in a 3-attempt retry loop with exponential backoff (2s, 4s, 8s).
     - [x] Add logging on retry attempts and clean error reporting on exhausted retries.
     - [x] Test `container-common.sh` locally to confirm pull logic functions correctly.
-- [ ] Task: Conductor - User Manual Verification 'Phase 7: Wire CI/CD Verification Gates & Docker Reliability' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 7: Wire CI/CD Verification Gates & Docker Reliability' (Protocol in workflow.md) [commit: 9131c518]
 
 ## Phase 8: Edge Function Authentication & Privacy Lockdown (Strict TDD)
 
