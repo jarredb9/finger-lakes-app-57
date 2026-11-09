@@ -11,8 +11,13 @@ echo "🔍 Starting Database Safety Audit..."
 echo "Step 1: Linting migrations..."
 npm run db:lint
 
-# 1b. Security Advisor Warnings Verification (Categories 0007, 0008, 0010, 0026, 0027, 0028, 0029)
-echo "Step 1b: Verifying Security Advisor linter resolution (0007, 0008, 0010, 0026, 0027, 0028, 0029)..."
+# 1b. Two-Phase Adversarial Migration Replay (ADR-0014)
+echo "Step 1b: Verifying migrations via two-phase adversarial replay..."
+npm run db:verify-migrations
+npm run db:reset
+
+# 1c. Security Advisor Warnings Verification (Categories 0007, 0008, 0010, 0026, 0027, 0028, 0029)
+echo "Step 1c: Verifying Security Advisor linter resolution (0007, 0008, 0010, 0026, 0027, 0028, 0029)..."
 npm run db:verify-advisor
 
 # 2. Type Check (Local)

@@ -36,6 +36,7 @@
     "db:lint": "./scripts/bin/db-docker-env.sh lint",
     "db:lint:migrations": "npx tsx scripts/db/lint-migrations.ts",
     "db:verify-advisor": "./scripts/bin/db-docker-env.sh verify-advisor",
+    "db:verify-migrations": "./scripts/bin/db-docker-env.sh verify-migrations",
     "db:audit": "./scripts/db/db-audit.sh",
     "db:seed": "npm run db:reset",
     "db:check-types": "npx supabase gen types typescript --remote=\"$SUPABASE_DB_URL\" --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",

@@ -93,6 +93,10 @@ case "${1:-}" in
         shift
         exec npx tsx scripts/db/verify-security-advisor.ts "$@"
         ;;
+    verify-migrations)
+        shift
+        exec npx tsx scripts/db/verify-migrations.ts "$@"
+        ;;
     check-types:local)
         shift
         TMP_FILE="lib/database.types.tmp.ts"

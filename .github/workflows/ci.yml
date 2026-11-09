@@ -135,6 +135,9 @@ jobs:
           npm run db:lint
           npm run db:check-types:ci
 
+      - name: Verify Migrations (Two-Phase Adversarial Replay)
+        run: npm run db:verify-migrations
+
       - name: Verify Migrations (Fresh Build)
         run: supabase db reset
 

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] (v3.7.1)
 
 ### Added
+* Added two-phase local adversarial migration replay harness and CI gate to verify schema migrations against pre-existing dirty rows prior to clean build ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0014](docs/adr/0014-multi-phase-migration-verification-and-reconciliation-policy.md)).
 * Added zero-container static migration reconciliation and idempotency linter to pre-commit and database lint workflows to detect un-reconciled constraint tightening before deployment ([ADR-0014](docs/adr/0014-multi-phase-migration-verification-and-reconciliation-policy.md)).
 * Added automated CI/CD verification gates (lint, type-check, Edge Function tests, integration suite, and Security Advisor) along with automated production deployment for the social notification function ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
 * Added exponential backoff retry logic to container image pulls in runner utilities to prevent build failures during transient network drops ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md)).
