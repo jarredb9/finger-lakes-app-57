@@ -1,0 +1,7 @@
+---
+status: accepted
+---
+
+# Multi-Phase Migration Verification and In-Migration Data Reconciliation
+
+Standard `supabase db reset` runs all migrations sequentially against an empty database before executing `supabase/seed.sql`, and `supabase db push --dry-run` only diffs the migration history table without executing DDL or checking constraints against live rows. Rather than provisioning a persistent hosted staging database or paid preview branches—which introduce ongoing infrastructure overhead and still drift from production state—database migration safety is enforced through three layers: (1) every post-baseline migration that tightens constraints (`UNIQUE`, `CHECK`, `FOREIGN KEY`, `SET NOT NULL`) on an existing table must precede the DDL with an idempotent, deterministic data-reconciliation statement (`DELETE`/`UPDATE`) and an idempotency guard (`IF NOT EXISTS` or `DO $$`), enforced statically via `scripts/db/lint-migrations.ts` (with `-- migration-lint: ignore-reconciliation (<reason>)` reserved for constraint loosening); (2) local CI executes a two-phase adversarial replay (`supabase db reset --version 20261026000000 --no-seed`, dirty fixture injection, and `supabase migration up`) prior to standard clean reset; and (3) remote deployments execute unapplied migrations inside a rolled-back transaction (`BEGIN; ... ROLLBACK;`) prior to `supabase db push --remote` (and conditionally on same-repo migration PRs when `SUPABASE_DB_URL` is present).

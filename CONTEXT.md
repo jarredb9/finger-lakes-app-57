@@ -73,11 +73,11 @@ _Avoid_: Star, like, bookmark
 ## Social & Privacy
 
 **Friend**:
-A registered user with whom a bidirectional, mutual connection has been established. Invariant: Friendships require bilateral consent; direct table insertion cannot unilaterally force an accepted friendship.
+A registered user with whom a bidirectional, mutual connection has been established. Invariant: Friendships require bilateral consent, forbid self-referential links, and enforce unordered pair uniqueness (at most one friendship or request record may exist between any two users regardless of direction); direct table insertion cannot unilaterally force an accepted friendship.
 _Avoid_: Follower, following, contact, connection
 
 **Friend Request**:
-An invitation sent by one user to another to establish a mutual friendship.
+An invitation sent by one user to another to establish a mutual friendship, governed by the same unordered pair uniqueness invariant as a Friend connection.
 _Avoid_: Follow request, invite, link request
 
 **Friend Activity**:
