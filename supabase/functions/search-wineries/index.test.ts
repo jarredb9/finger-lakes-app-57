@@ -32,6 +32,7 @@ Deno.test("search-wineries handler - successful search", async () => {
   try {
     const req = new Request("https://test.com", {
       method: "POST",
+      headers: { Authorization: "Bearer test-jwt-token" },
       body: JSON.stringify({ query: "test winery" }),
     });
 
@@ -51,11 +52,16 @@ Deno.test("search-wineries handler - successful search", async () => {
 });
 
 Deno.test("search-wineries handler - missing API key", async () => {
-  const envStub = mockDenoEnv({});
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
+  });
+  const fetchStub = mockFetch(null, null);
 
   try {
     const req = new Request("https://test.com", {
       method: "POST",
+      headers: { Authorization: "Bearer test-jwt-token" },
       body: JSON.stringify({ query: "test winery" }),
     });
 
@@ -66,6 +72,7 @@ Deno.test("search-wineries handler - missing API key", async () => {
     assertEquals(data.error, "Missing GOOGLE_MAPS_API_KEY");
   } finally {
     envStub.restore();
+    fetchStub.restore();
   }
 });
 
@@ -118,6 +125,14 @@ Deno.test("search-wineries handler - requests places.rating and places.userRatin
           })
         );
       }
+      if (urlStr.includes("/auth/v1/user")) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ id: "mock-user-id", email: "test@example.com" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        );
+      }
       if (urlStr.includes(".supabase.co")) {
         return Promise.resolve(
           new Response(JSON.stringify(null), {
@@ -133,6 +148,7 @@ Deno.test("search-wineries handler - requests places.rating and places.userRatin
   try {
     const req = new Request("https://test.com", {
       method: "POST",
+      headers: { Authorization: "Bearer test-jwt-token" },
       body: JSON.stringify({ query: "Seneca Lake Cellars" }),
     });
 
@@ -180,6 +196,7 @@ Deno.test("search-wineries handler - normalizes unrated or zero ratings to null"
   try {
     const req = new Request("https://test.com", {
       method: "POST",
+      headers: { Authorization: "Bearer test-jwt-token" },
       body: JSON.stringify({ query: "Unrated Winery" }),
     });
 

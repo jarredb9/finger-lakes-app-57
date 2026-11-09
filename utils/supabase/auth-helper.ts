@@ -1,5 +1,6 @@
-import { createServerClient} from '@supabase/ssr'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import type { Database } from '@/lib/database.types'
 
 interface CookieOptions {
   maxAge?: number;
@@ -26,7 +27,7 @@ export async function updateSession(request: NextRequest) {
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   try {
-    const supabase = createServerClient(
+    const supabase = createServerClient<Database>(
       url!,
       key!,
       {

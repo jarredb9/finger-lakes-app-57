@@ -75,6 +75,7 @@ Deno.test("send-social-notification - skips when activity is private", async () 
   try {
     const req = new Request("https://test.com", {
       method: "POST",
+      headers: { Authorization: "Bearer test-role-key" },
       body: JSON.stringify({
         record: {
           id: "activity-1",
@@ -109,6 +110,7 @@ Deno.test("send-social-notification - skips when profile is private", async () =
   try {
     const req = new Request("https://test.com", {
       method: "POST",
+      headers: { Authorization: "Bearer test-role-key" },
       body: JSON.stringify({
         record: {
           id: "activity-1",
@@ -155,6 +157,7 @@ Deno.test("send-social-notification - successfully sends notifications to unique
   try {
     const req = new Request("https://test.com", {
       method: "POST",
+      headers: { Authorization: "Bearer test-role-key" },
       body: JSON.stringify({
         record: {
           id: "activity-1",

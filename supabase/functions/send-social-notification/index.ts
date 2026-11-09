@@ -7,7 +7,27 @@ const corsHeaders = {
 
 export const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ error: 'Unauthorized: Missing or invalid authorization header' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+  const internalSecret = Deno.env.get('INTERNAL_WEBHOOK_SECRET');
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  const isAuthorized = (internalSecret && token === internalSecret) || (serviceKey && token === serviceKey);
+  if (!isAuthorized) {
+    return new Response(JSON.stringify({ error: 'Unauthorized: Invalid secret token' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 
   try {

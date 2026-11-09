@@ -18,6 +18,7 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.local.example
 
 # vercel
 .vercel
@@ -32,23 +33,29 @@ next-env.d.ts
 .firecrawl/
 skills-lock.json
 
-# Local environment variables
-.env.local
-
-# Playwright
+# Playwright & Testing Artifacts
 node_modules/
 /test-results/
 /playwright-report/
 /blob-report/
-/playwright/.cache/
-/playwright/.auth/
-.cache/*
-.pki/*
+/playwright/
+.playwright/
+.playwright-cli/
+
+# Local runtimes, caches & leaked container home directories
+.cache/
+.pki/
+.mozilla/
+Downloads/
+neo4j_data/
+sdlmcp.sqlite
+.sdl-config.json
+.git_commit_msg
 
 # Testing
 coverage/
 *.log
-deno.lock
+/deno.lock
 
 # PWA
 /public/sw.js

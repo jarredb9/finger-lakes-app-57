@@ -45,9 +45,22 @@ export function mockFetch(googleResponse: any, supabaseResponses: any[] | any): 
           )
         );
       }
+      if (urlStr.includes("/auth/v1/user")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({ id: "mock-user-id", email: "test@example.com" }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }
+          )
+        );
+      }
       if (urlStr.includes(".supabase.co") || urlStr.includes("127.0.0.1:54321") || urlStr.includes("localhost:54321")) {
         const response = Array.isArray(supabaseResponses) 
-          ? (supabaseResponses[supabaseCallCount] || supabaseResponses[supabaseResponses.length - 1])
+          ? (supabaseCallCount < supabaseResponses.length
+              ? supabaseResponses[supabaseCallCount]
+              : supabaseResponses[supabaseResponses.length - 1])
           : supabaseResponses;
         supabaseCallCount++;
         

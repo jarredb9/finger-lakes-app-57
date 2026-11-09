@@ -363,7 +363,7 @@ export const SyncService = {
               const { data: currentVisit } = await supabase
                 .from('visits')
                 .select('photos')
-                .eq('id', p.visitId)
+                .eq('id', parseInt(p.visitId, 10))
                 .single();
 
               const existingServerPhotos = (currentVisit?.photos as string[]) || [];

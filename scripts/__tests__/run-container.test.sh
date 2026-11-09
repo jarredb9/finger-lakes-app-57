@@ -23,6 +23,29 @@ mkdir -p "$MOCK_BIN"
 cat << 'EOF' > "$MOCK_BIN/podman"
 #!/bin/bash
 if [ "${1:-}" = "image" ] && [ "${2:-}" = "exists" ]; then
+    if [ "${MOCK_IMAGE_EXISTS:-true}" = "false" ]; then
+        exit 1
+    fi
+    exit 0
+fi
+if [ "${1:-}" = "pull" ]; then
+    image="${2:-}"
+    if [ -n "${MOCK_LOG:-}" ]; then
+        echo "PULL: $image" >> "$MOCK_LOG"
+    fi
+    fail_threshold="${MOCK_PULL_FAIL_COUNT:-0}"
+    if [ "$fail_threshold" -gt 0 ]; then
+        count_file="${MOCK_PULL_COUNT_FILE:-${MOCK_LOG:-/tmp/mock}.podman_pull_count}"
+        current_count=0
+        if [ -f "$count_file" ]; then
+            current_count=$(cat "$count_file")
+        fi
+        current_count=$((current_count + 1))
+        echo "$current_count" > "$count_file"
+        if [ "$current_count" -le "$fail_threshold" ]; then
+            exit 1
+        fi
+    fi
     exit 0
 fi
 if [ "${1:-}" = "stop" ] || [ "${1:-}" = "rm" ]; then
@@ -51,6 +74,29 @@ chmod +x "$MOCK_BIN/podman"
 cat << 'EOF' > "$MOCK_BIN/docker"
 #!/bin/bash
 if [ "${1:-}" = "image" ] && [ "${2:-}" = "inspect" ]; then
+    if [ "${MOCK_IMAGE_EXISTS:-true}" = "false" ]; then
+        exit 1
+    fi
+    exit 0
+fi
+if [ "${1:-}" = "pull" ]; then
+    image="${2:-}"
+    if [ -n "${MOCK_LOG:-}" ]; then
+        echo "PULL: $image" >> "$MOCK_LOG"
+    fi
+    fail_threshold="${MOCK_PULL_FAIL_COUNT:-0}"
+    if [ "$fail_threshold" -gt 0 ]; then
+        count_file="${MOCK_PULL_COUNT_FILE:-${MOCK_LOG:-/tmp/mock}.docker_pull_count}"
+        current_count=0
+        if [ -f "$count_file" ]; then
+            current_count=$(cat "$count_file")
+        fi
+        current_count=$((current_count + 1))
+        echo "$current_count" > "$count_file"
+        if [ "$current_count" -le "$fail_threshold" ]; then
+            exit 1
+        fi
+    fi
     exit 0
 fi
 if [ "${1:-}" = "stop" ] || [ "${1:-}" = "rm" ]; then
@@ -185,31 +231,31 @@ echo "=== Running scripts/containers/run-e2e-container.sh Unit Tests (Phase 4 Ta
 
 # 1. Zero-argument safety: should default project to webkit without crashing on shift
 run_script_test "$E2E_SCRIPT" "E2E: Zero arguments defaults to webkit and does not crash" \
-    "ENV: TEST_CMD=npx playwright test --project=\"webkit\""
+    "npx playwright test --project=webkit"
 
 # 2. Spec file path without project: should default to webkit and pass spec path
 run_script_test "$E2E_SCRIPT" "E2E: Spec file path without project defaults to webkit" \
-    "ENV: TEST_CMD=npx playwright test --project=\"webkit\" e2e/trip-flow.spec.ts" \
+    "npx playwright test --project=webkit e2e/trip-flow.spec.ts" \
     "e2e/trip-flow.spec.ts"
 
 # 3. CLI flag passthrough without project: should default to webkit and pass flags
 run_script_test "$E2E_SCRIPT" "E2E: CLI flag passthrough without project defaults to webkit" \
-    "ENV: TEST_CMD=npx playwright test --project=\"webkit\" --grep @smoke" \
+    "npx playwright test --project=webkit --grep @smoke" \
     "--grep" "@smoke"
 
 # 4. Explicit project with spec path
 run_script_test "$E2E_SCRIPT" "E2E: Explicit project with spec path sets project correctly" \
-    "ENV: TEST_CMD=npx playwright test --project=\"chromium\" e2e/trip-flow.spec.ts" \
+    "npx playwright test --project=chromium e2e/trip-flow.spec.ts" \
     "chromium" "e2e/trip-flow.spec.ts"
 
 # 5. Project alias resolution: mobile-safari -> Mobile Safari
 run_script_test "$E2E_SCRIPT" "E2E: Project alias mobile-safari maps to Mobile Safari" \
-    "ENV: TEST_CMD=npx playwright test --project=\"Mobile Safari\" e2e/trip-flow.spec.ts" \
+    "npx playwright test --project=Mobile Safari e2e/trip-flow.spec.ts" \
     "mobile-safari" "e2e/trip-flow.spec.ts"
 
 # 6. Project 'all' runs without --project filter
 run_script_test "$E2E_SCRIPT" "E2E: Project 'all' executes without --project argument" \
-    "ENV: TEST_CMD=npx playwright test e2e/trip-flow.spec.ts" \
+    "npx playwright test e2e/trip-flow.spec.ts" \
     "all" "e2e/trip-flow.spec.ts"
 
 # 7. Workspace mount: container mount must mount workspace with :Z
@@ -268,7 +314,7 @@ test_common_vars() {
     local output
     output=$(bash -c "source '$PROJECT_ROOT/scripts/containers/container-common.sh' && echo \"\$PLAYWRIGHT_VERSION \$IMAGE\"")
     set -e
-    if [[ "$output" == "v1.63.0-noble mcr.microsoft.com/playwright:v1.63.0-noble" ]]; then
+    if [[ "$output" == "v1.64.1-noble mcr.microsoft.com/playwright:v1.64.1-noble" ]]; then
         echo "✓ PASSED"
         PASSED=$((PASSED + 1))
     else
@@ -309,6 +355,152 @@ test_common_ci_docker() {
     fi
 }
 test_common_ci_docker
+
+echo ""
+echo "=== Running ensure_container_image() Retry & Backoff Unit Tests ==="
+
+test_ensure_container_image_cached() {
+    local engine="${1:-podman}"
+    echo -n "Running test: ensure_container_image ($engine): Skips pull when image is cached locally... "
+    rm -f "$MOCK_LOG" "${MOCK_LOG}."*
+    touch "$MOCK_LOG"
+    set +e
+    local stdout_log="$TEMP_DIR/ensure_cached_out.log"
+    local stderr_log="$TEMP_DIR/ensure_cached_err.log"
+    (
+        export PATH="$MOCK_BIN:$PATH"
+        export CONTAINER_ENGINE="$engine"
+        export MOCK_LOG="$MOCK_LOG"
+        export MOCK_IMAGE_EXISTS="true"
+        export CONTAINER_PULL_INITIAL_BACKOFF=0
+        source "$PROJECT_ROOT/scripts/containers/container-common.sh"
+        ENGINE="$engine"
+        ensure_container_image "test-image:latest" "test-image"
+    ) > "$stdout_log" 2> "$stderr_log"
+    local exit_code=$?
+    set -e
+
+    if [ $exit_code -eq 0 ] && ! grep -q "PULL:" "$MOCK_LOG" && [ ! -s "$stdout_log" ]; then
+        echo "✓ PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "✗ FAILED (exit: $exit_code, log: $(cat "$MOCK_LOG" 2>/dev/null), stdout: $(cat "$stdout_log" 2>/dev/null))"
+        FAILED=$((FAILED + 1))
+    fi
+}
+test_ensure_container_image_cached "podman"
+test_ensure_container_image_cached "docker"
+
+test_ensure_container_image_pull_immediate_success() {
+    local engine="${1:-podman}"
+    echo -n "Running test: ensure_container_image ($engine): Pulls image on cache miss (immediate success)... "
+    rm -f "$MOCK_LOG" "${MOCK_LOG}."*
+    touch "$MOCK_LOG"
+    set +e
+    local stdout_log="$TEMP_DIR/ensure_pull_success_out.log"
+    local stderr_log="$TEMP_DIR/ensure_pull_success_err.log"
+    (
+        export PATH="$MOCK_BIN:$PATH"
+        export CONTAINER_ENGINE="$engine"
+        export MOCK_LOG="$MOCK_LOG"
+        export MOCK_IMAGE_EXISTS="false"
+        export MOCK_PULL_FAIL_COUNT=0
+        export CONTAINER_PULL_INITIAL_BACKOFF=0
+        source "$PROJECT_ROOT/scripts/containers/container-common.sh"
+        ENGINE="$engine"
+        ensure_container_image "test-image:latest" "test-image"
+    ) > "$stdout_log" 2> "$stderr_log"
+    local exit_code=$?
+    set -e
+
+    local pull_count
+    pull_count=$(grep -c "PULL: test-image:latest" "$MOCK_LOG" || true)
+
+    if [ $exit_code -eq 0 ] && [ "$pull_count" -eq 1 ] && grep -q "📥 Pulling test-image (attempt 1/3)..." "$stdout_log"; then
+        echo "✓ PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "✗ FAILED (exit: $exit_code, pulls: $pull_count, stdout: $(cat "$stdout_log" 2>/dev/null))"
+        FAILED=$((FAILED + 1))
+    fi
+}
+test_ensure_container_image_pull_immediate_success "podman"
+test_ensure_container_image_pull_immediate_success "docker"
+
+test_ensure_container_image_pull_retry_success() {
+    local engine="${1:-podman}"
+    echo -n "Running test: ensure_container_image ($engine): Retries on transient failure and succeeds... "
+    rm -f "$MOCK_LOG" "${MOCK_LOG}."*
+    touch "$MOCK_LOG"
+    set +e
+    local stdout_log="$TEMP_DIR/ensure_retry_success_out.log"
+    local stderr_log="$TEMP_DIR/ensure_retry_success_err.log"
+    (
+        export PATH="$MOCK_BIN:$PATH"
+        export CONTAINER_ENGINE="$engine"
+        export MOCK_LOG="$MOCK_LOG"
+        export MOCK_IMAGE_EXISTS="false"
+        export MOCK_PULL_FAIL_COUNT=1
+        export CONTAINER_PULL_INITIAL_BACKOFF=0
+        source "$PROJECT_ROOT/scripts/containers/container-common.sh"
+        ENGINE="$engine"
+        ensure_container_image "test-image:latest" "test-image"
+    ) > "$stdout_log" 2> "$stderr_log"
+    local exit_code=$?
+    set -e
+
+    local pull_count
+    pull_count=$(grep -c "PULL: test-image:latest" "$MOCK_LOG" || true)
+
+    if [ $exit_code -eq 0 ] && [ "$pull_count" -eq 2 ] && \
+       grep -q "⚠️  Pull failed for test-image (attempt 1/3). Retrying in 0s..." "$stderr_log" && \
+       grep -q "📥 Pulling test-image (attempt 2/3)..." "$stdout_log"; then
+        echo "✓ PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "✗ FAILED (exit: $exit_code, pulls: $pull_count, stderr: $(cat "$stderr_log" 2>/dev/null))"
+        FAILED=$((FAILED + 1))
+    fi
+}
+test_ensure_container_image_pull_retry_success "podman"
+test_ensure_container_image_pull_retry_success "docker"
+
+test_ensure_container_image_pull_exhausted_retries() {
+    local engine="${1:-podman}"
+    echo -n "Running test: ensure_container_image ($engine): Returns 1 and logs error when retries exhausted... "
+    rm -f "$MOCK_LOG" "${MOCK_LOG}."*
+    touch "$MOCK_LOG"
+    set +e
+    local stdout_log="$TEMP_DIR/ensure_exhausted_out.log"
+    local stderr_log="$TEMP_DIR/ensure_exhausted_err.log"
+    (
+        export PATH="$MOCK_BIN:$PATH"
+        export CONTAINER_ENGINE="$engine"
+        export MOCK_LOG="$MOCK_LOG"
+        export MOCK_IMAGE_EXISTS="false"
+        export MOCK_PULL_FAIL_COUNT=5
+        export CONTAINER_PULL_INITIAL_BACKOFF=0
+        source "$PROJECT_ROOT/scripts/containers/container-common.sh"
+        ENGINE="$engine"
+        ensure_container_image "test-image:latest" "test-image"
+    ) > "$stdout_log" 2> "$stderr_log"
+    local exit_code=$?
+    set -e
+
+    local pull_count
+    pull_count=$(grep -c "PULL: test-image:latest" "$MOCK_LOG" || true)
+
+    if [ $exit_code -eq 1 ] && [ "$pull_count" -eq 3 ] && \
+       grep -q "❌ Error: Failed to pull test-image after 3 attempts." "$stderr_log"; then
+        echo "✓ PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "✗ FAILED (exit: $exit_code, pulls: $pull_count, stderr: $(cat "$stderr_log" 2>/dev/null))"
+        FAILED=$((FAILED + 1))
+    fi
+}
+test_ensure_container_image_pull_exhausted_retries "podman"
+test_ensure_container_image_pull_exhausted_retries "docker"
 
 echo ""
 echo "=== Test Results: $PASSED passed, $FAILED failed ==="

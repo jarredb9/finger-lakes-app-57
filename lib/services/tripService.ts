@@ -46,8 +46,7 @@ export const TripService = {
               role,
               status,
               profiles (
-                  name,
-                  email
+                  name
               )
           )
       `, { count: 'exact' })
@@ -108,7 +107,7 @@ export const TripService = {
           role: m.role,
           status: m.status,
           name: m.profiles?.name || 'User',
-          email: m.profiles?.email || ''
+          email: ''
         })) || []
       };
     });
@@ -132,11 +131,12 @@ export const TripService = {
       throw new Error(error.message || "Trip not found");
     }
 
-    if (data) {
-      data.id = Number(data.id);
+    const tripData = data as Trip | null;
+    if (tripData) {
+      tripData.id = Number(tripData.id);
     }
 
-    return data as Trip;
+    return tripData as Trip;
   },
 
   async getUpcomingTrips() {
@@ -167,28 +167,33 @@ export const TripService = {
     // If multiple wineries are provided (rare in our current UI flow for NEW trips), 
     // we take the first one or just create the trip normally if empty.
     
+    const tripDate = trip.trip_date || getTodayLocal();
+
     if (trip.wineries && trip.wineries.length > 0) {
         const w = trip.wineries[0];
         const { data, error } = await supabase.rpc('create_trip_with_winery', {
             p_trip_name: trip.name || 'New Trip',
-            p_trip_date: trip.trip_date,
+            p_trip_date: tripDate,
             p_winery_data: WineryService.getRpcData(w),
             p_members: [],
             p_idempotency_key: idempotencyKey
         });
 
         if (error) throw error;
+
+        const payload = data as { trip_id: number } | null;
+        if (!payload?.trip_id) throw new Error("Trip ID missing from RPC response");
         
         // If there were more wineries, add them to the existing trip
         if (trip.wineries.length > 1) {
             const extraWineries = trip.wineries.slice(1);
             try {
                 for (const extra of extraWineries) {
-                    await this.addWineryToExistingTrip(data.trip_id, extra, extra.notes || null);
+                    await this.addWineryToExistingTrip(payload.trip_id, extra, extra.notes || null);
                 }
             } catch (chainedError: unknown) {
                 try {
-                    await this.deleteTrip(data.trip_id.toString());
+                    await this.deleteTrip(payload.trip_id.toString());
                 } catch (rollbackError) {
                     console.error("Failed to rollback trip creation after chaining error:", rollbackError);
                 }
@@ -199,19 +204,22 @@ export const TripService = {
             }
         }
 
-        return this.getTripById(data.trip_id.toString());
+        return this.getTripById(payload.trip_id.toString());
     }
 
     // Fallback for trip without wineries (Use RPC for robustness)
     const { data, error } = await supabase.rpc('create_trip', {
         p_name: trip.name || 'New Trip',
-        p_trip_date: trip.trip_date,
+        p_trip_date: tripDate,
         p_idempotency_key: idempotencyKey
     });
 
     if (error) throw error;
 
-    return this.getTripById(data.id.toString());
+    const fallbackPayload = data as { id: number } | null;
+    if (!fallbackPayload?.id) throw new Error("Trip ID missing from RPC response");
+
+    return this.getTripById(fallbackPayload.id.toString());
   },
 
   async deleteTrip(tripId: string) {
@@ -243,12 +251,12 @@ export const TripService = {
     }
 
     // 2. Handle Winery Removal
-    if ('removeWineryId' in updates) {
+    if ('removeWineryId' in updates && updates.removeWineryId !== undefined) {
         const { error } = await supabase
             .from("trip_wineries")
             .delete()
-            .eq("trip_id", tripId)
-            .eq("winery_id", updates.removeWineryId);
+            .eq("trip_id", parsedTripId)
+            .eq("winery_id", Number(updates.removeWineryId));
         if (error) throw error;
         return;
     }
@@ -288,7 +296,7 @@ export const TripService = {
         const { error } = await supabase
             .from("trips")
             .update(otherUpdates)
-            .eq("id", tripId);
+            .eq("id", parsedTripId);
 
         if (error) throw error;
     }
@@ -354,7 +362,8 @@ export const TripService = {
     });
 
     if (error) throw error;
-    return { success: true, tripId: data.trip_id };
+    const payload = data as { trip_id: number } | null;
+    return { success: true, tripId: payload?.trip_id };
   },
 
   async addWineryToExistingTrip(tripId: number, wineryOrId: number | Winery, notes: string | null = null): Promise<{ success: true }> {
@@ -364,7 +373,7 @@ export const TripService = {
       const { error } = await supabase.rpc('add_winery_to_trip', {
         p_trip_id: tripId,
         p_winery_data: WineryService.getRpcData(wineryOrId),
-        p_notes: notes,
+        p_notes: (notes ?? null) as unknown as string | undefined,
       });
 
       if (error) throw error;
@@ -383,7 +392,7 @@ export const TripService = {
         const { error } = await supabase.rpc('add_winery_to_trip', {
           p_trip_id: tripId,
           p_winery_id: wineryOrId,
-          p_notes: notes,
+          p_notes: (notes ?? null) as unknown as string | undefined,
         });
         if (error) throw error;
         return { success: true };
@@ -392,7 +401,7 @@ export const TripService = {
       const { error } = await supabase.rpc('add_winery_to_trip', {
         p_trip_id: tripId,
         p_winery_data: WineryService.getRpcData(winery),
-        p_notes: notes,
+        p_notes: (notes ?? null) as unknown as string | undefined,
       });
 
       if (error) throw error;

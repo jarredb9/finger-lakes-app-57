@@ -48,6 +48,20 @@ jobs:
       - name: Audit Dependencies (High & Critical)
         run: npm audit --audit-level=high
 
+      - name: Lint Source Code
+        run: npm run lint
+
+      - name: Type Check TypeScript
+        run: npm run type-check
+
+      - name: Setup Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Run Edge Function Tests
+        run: npm run test:functions
+
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v3
         with:
@@ -124,8 +138,14 @@ jobs:
       - name: Verify Migrations (Fresh Build)
         run: supabase db reset
 
+      - name: Verify Security Advisor (Zero Warnings)
+        run: npm run db:verify-advisor
+
       - name: Run Jest tests
         run: npm run test
+
+      - name: Run Jest Integration Tests
+        run: npm run test:integration
 
       - name: Build Next.js App
         run: npm run build
@@ -318,6 +338,7 @@ jobs:
         run: |
           supabase functions deploy get-winery-details --remote=jfsxclrdxmvftxacjuqf --yes
           supabase functions deploy search-wineries --remote=jfsxclrdxmvftxacjuqf --yes
+          supabase functions deploy send-social-notification --remote=jfsxclrdxmvftxacjuqf --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 

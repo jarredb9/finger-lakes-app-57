@@ -4,6 +4,7 @@ export interface GeminiEnrichmentResult {
   varietals: Array<{ name: string; description?: string; sweetness?: number; body?: number; price?: string }>;
   error?: string;
   errorDetails?: string[];
+  is_fallback?: boolean;
 }
 
 export async function generateGeminiSummary(
@@ -147,17 +148,18 @@ You MUST respond with a JSON object formatted as follows:
   const finalErrorMsg = `All Gemini models (${models.join(', ')}) failed to generate content. Key Source: ${keySource}`;
   console.warn(`[Gemini] ${finalErrorMsg}. Using smart fallback AI enrichment.`, errorDetails);
 
-  return generateSmartFallback(wineryName, address, googleReviews, appReviews);
+  return generateSmartFallback(wineryName, address, googleReviews, appReviews, finalErrorMsg);
 }
 
 /**
  * Deterministic fallback enrichment when live API calls are unavailable or key is restricted.
  */
-function generateSmartFallback(
+export function generateSmartFallback(
   wineryName: string,
   address: string,
   googleReviews: Array<{ text: string }> = [],
-  appReviews: Array<{ user_review: string }> = []
+  appReviews: Array<{ user_review: string }> = [],
+  errorMessage?: string
 ): GeminiEnrichmentResult {
   const allTexts = [
     ...googleReviews.map(r => r?.text),
@@ -165,6 +167,8 @@ function generateSmartFallback(
   ].filter(Boolean) as string[];
   
   const combined = allTexts.join(' ').toLowerCase();
+
+  const isFingerLakes = /\b(finger lakes|keuka|seneca|cayuga|canandaigua|skaneateles|flx|watkins glen|geneva|hammondsport|ithaca|penn yan)\b/i.test(`${address} ${wineryName}`);
 
   const vibeTags: string[] = [];
   if (combined.includes('dog') || combined.includes('pet')) vibeTags.push('Dog Friendly');
@@ -175,28 +179,46 @@ function generateSmartFallback(
   if (combined.includes('patio') || combined.includes('outdoor')) vibeTags.push('Outdoor Seating');
 
   if (vibeTags.length < 2) {
-    vibeTags.push('Finger Lakes Wine', 'Tasting Room');
+    if (isFingerLakes) {
+      vibeTags.push('Finger Lakes Wine', 'Tasting Room');
+    } else {
+      vibeTags.push('Wine Tasting', 'Tasting Room');
+    }
   }
 
   const varietals = [
-    { name: 'Dry Riesling', description: 'Crisp and vibrant Finger Lakes white with bright citrus and mineral notes', sweetness: 2, body: 3 },
-    { name: 'Cabernet Franc', description: 'Classic cool-climate red featuring dark berry and subtle herbal character', sweetness: 1, body: 6 },
-    { name: 'Chardonnay', description: 'Balanced white wine with stone fruit and subtle oak influences', sweetness: 2, body: 4 }
+    {
+      name: 'Dry Riesling',
+      description: isFingerLakes
+        ? 'Crisp and vibrant Finger Lakes white with bright citrus and mineral notes'
+        : 'Crisp and vibrant white with bright citrus and mineral notes',
+      sweetness: 2,
+      body: 3
+    },
+    {
+      name: 'Cabernet Franc',
+      description: 'Classic cool-climate red featuring dark berry and subtle herbal character',
+      sweetness: 1,
+      body: 6
+    },
+    {
+      name: 'Chardonnay',
+      description: 'Balanced white wine with stone fruit and subtle oak influences',
+      sweetness: 2,
+      body: 4
+    }
   ];
 
-  let summaryText = '';
-  if (allTexts.length > 0) {
-    const firstReview = allTexts[0].replace(/\s+/g, ' ').trim();
-    const shortSnippet = firstReview.length > 140 ? firstReview.substring(0, 140) + '...' : firstReview;
-    summaryText = `Visitors praise ${wineryName} for its picturesque setting and warm tasting experience. Guests frequently note: "${shortSnippet}"`;
-  } else {
-    summaryText = `${wineryName} is a highly regarded Finger Lakes winery located at ${address}, known for its distinctive wines and scenic setting.`;
-  }
+  const regionText = isFingerLakes ? 'Finger Lakes winery' : 'winery';
+  const summaryText = `${wineryName} is a ${regionText} located at ${address}, known for its distinctive wines and scenic setting.`;
 
   console.log(`[Gemini] Generated smart fallback AI summary for "${wineryName}"`);
   return {
     generative_summary: { overview: { text: summaryText } },
     vibe_tags: vibeTags.slice(0, 4),
-    varietals
+    varietals,
+    error: errorMessage || "Smart fallback enrichment applied; live AI generation was unavailable",
+    errorDetails: [errorMessage || "Fallback enrichment applied"],
+    is_fallback: true,
   };
 }

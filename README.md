@@ -1,12 +1,22 @@
 # Winery Visit Planner and Tracker
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/jarreds-projects-8ff50eea/v0-fingerlakes-winery-app)
+[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://v0-fingerlakes-winery-app.vercel.app)
 
 ## Overview
 
 This is a Next.js web application for discovering wineries worldwide, planning day trips, and tracking tasting visits. While seeded with the Finger Lakes as its default regional view, the platform provides global winery exploration and location tracking.
 
-**Live URL:** [https://vercel.com/jarreds-projects-8ff50eea/v0-fingerlakes-winery-app](https://vercel.com/jarreds-projects-8ff50eea/v0-fingerlakes-winery-app)
+**Live URL:** [https://v0-fingerlakes-winery-app.vercel.app](https://v0-fingerlakes-winery-app.vercel.app)
+
+## Local Development Setup
+
+```bash
+cp .env.local.example .env.local  # 1. Seed environment configuration
+npm install                       # 2. Install dependencies
+npm run db:start                  # 3. Start local Supabase container stack
+npm run db:populate               # 4. Seed wineries database
+npm run dev:real                  # 5. Start dev server at http://localhost:3000
+```
 
 ## Tech Stack
 

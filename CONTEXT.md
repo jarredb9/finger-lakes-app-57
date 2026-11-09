@@ -13,20 +13,32 @@ A historical record of a user physically attending a winery on or before today, 
 _Avoid_: Check-in, trip stop, attendance, booking
 
 **Visit Note**:
-A personal written reflection or tasting record of a user's experience during a Visit.
+A personal written reflection of a user's overall experience during a Visit.
 _Avoid_: Review, venue critique, comment, feedback
 
 **Visit Rating**:
 A personal 1-to-5 star evaluation of a user's experience during a Visit.
 _Avoid_: Winery rating, business score, venue grade
 
+**Tasting**:
+An evaluation of an individual wine or pour sampled during a Visit, capturing specific varietal, vintage, personal impressions, or bottle purchase intent distinct from the overall Visit Rating.
+_Avoid_: Check-in, flight item, drink log, venue review
+
 **Trip**:
-A scheduled itinerary of planned winery stops for a specific calendar date, organized by an owner and optionally shared with collaborators.
+A scheduled itinerary of planned winery stops for a specific calendar date, organized by an owner and optionally shared with Trip Collaborators. Invariant: Trip Collaborators added to a Trip must be accepted Friends of the trip owner, and non-owner Trip Collaborators may autonomously remove their own membership.
 _Avoid_: Tour, outing, route, journey
 
+**Trip Collaborator**:
+An accepted Friend invited by a Trip's owner to co-view and participate in a planned Trip itinerary, distinct from a Visit Participant on a logged Visit.
+_Avoid_: Trip member, guest, co-planner, attendee
+
 **Trip Stop**:
-A single planned destination within a Trip, specifying a Winery, its sequence in the itinerary, and planning notes. Invariant: A Winery may concurrently serve as a planned Trip Stop across multiple distinct Trips.
+A single planned destination within a Trip, specifying a Winery, its sequence in the itinerary, and planning notes. Invariant: A Winery may concurrently serve as a planned Trip Stop across multiple distinct Trips, and a planned Trip Stop never implicitly constitutes a logged Visit without explicit Visitor confirmation.
 _Avoid_: Visit, waypoint, destination, trip winery
+
+**Trip Leg**:
+The road-network travel segment connecting two consecutive Trip Stops within a Trip, characterized by actual driving distance and travel duration rather than straight-line proximity.
+_Avoid_: Segment, hop, connector, straight-line distance
 
 **Trip Navigation**:
 The action of launching an external turn-by-turn navigation application to guide a user along a Trip's sequence of planned Trip Stops.
@@ -44,6 +56,10 @@ _Avoid_: Attendee, participant, customer
 A companion user tagged as having attended a Visit alongside the Visitor.
 _Avoid_: Member, guest, follower
 
+**Visit Photo**:
+A digital photograph uploaded by a Visitor documenting a physical tasting experience during a Visit. Invariant: Stored in private object storage, accessible only via authenticated signed URLs verified against the Visit's Visibility Level and Visitor ownership.
+_Avoid_: Image, snapshot, picture, venue photo
+
 ## User Collections
 
 **Wishlist**:
@@ -57,7 +73,7 @@ _Avoid_: Star, like, bookmark
 ## Social & Privacy
 
 **Friend**:
-A registered user with whom a bidirectional, mutual connection has been established.
+A registered user with whom a bidirectional, mutual connection has been established. Invariant: Friendships require bilateral consent; direct table insertion cannot unilaterally force an accepted friendship.
 _Avoid_: Follower, following, contact, connection
 
 **Friend Request**:

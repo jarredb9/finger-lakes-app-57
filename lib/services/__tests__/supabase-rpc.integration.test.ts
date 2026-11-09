@@ -4,6 +4,12 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 import { createMockWinery, createMockVisit } from '@/lib/test-utils/fixtures';
 import { getTodayLocal } from '@/lib/utils';
+import { TripService } from '@/lib/services/tripService';
+import { createClient as createBrowserClient } from '@/utils/supabase/client';
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(),
+}));
 
 // Load env vars immediately at the top of the file
 // In CI, .env.local won't exist, so we use the provided process.env
@@ -95,6 +101,15 @@ describe('Supabase RPC Integration Tests', () => {
       });
 
       it('should allow trip members from trip_members table to fetch details via get_trip_details', async () => {
+        // Ensure user1 and user2 are accepted mutual friends for the shared trip
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
         // 1. User 1 creates a trip and includes User 2 as a member atomically
         const { data: tripData, error: tripError } = await user1.client.rpc('create_trip_with_winery', {
           p_trip_name: 'Shared Trip',
@@ -120,6 +135,11 @@ describe('Supabase RPC Integration Tests', () => {
         expect(detailsError).toBeNull();
         expect(details).not.toBeNull();
         expect(details.id).toBe(tripId);
+
+        // Teardown friendship and trip
+        await adminClient.from('trips').delete().eq('id', tripId);
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
       });
 
       it('should persist numeric coordinates when add_winery_to_trip is called with latitude and longitude keys (without lat/lng)', async () => {
@@ -882,6 +902,775 @@ describe('Supabase RPC Integration Tests', () => {
         });
         expect(selfError).toBeNull();
         expect((selfData as ProfileResponse)?.profile?.email).toBe(user1.email);
+      });
+
+      it('should reject direct INSERT on public.friends with status accepted by authenticated clients', async () => {
+        // Clear any existing friendship between user1 and user2
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        // Authenticated user1 attempts direct insert with accepted status
+        const { error } = await user1.client.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        }).select();
+
+        expect(error).not.toBeNull();
+        expect(error?.code).toBe('42501');
+
+        // Verify no friendship record was created
+        const { data: friendRows } = await adminClient
+          .from('friends')
+          .select('*')
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        expect(friendRows).toEqual([]);
+      });
+
+      it('should reject UPDATE on public.friends by requester and reject modifications to non-pending records', async () => {
+        // Clean up existing friendships
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        // Seed a pending friend request from user1 to user2
+        const { data: pendingRow, error: seedError } = await adminClient
+          .from('friends')
+          .insert({
+            user1_id: user1.id,
+            user2_id: user2.id,
+            status: 'pending'
+          })
+          .select()
+          .single();
+        expect(seedError).toBeNull();
+        expect(pendingRow).not.toBeNull();
+
+        // 1. Requester Self-Acceptance Attempt (user1 attempts to update)
+        const { data: user1Update, error: user1Error } = await user1.client
+          .from('friends')
+          .update({ status: 'accepted' })
+          .eq('id', pendingRow.id)
+          .select();
+        // Either RLS throws 42501 or 0 rows modified
+        if (user1Error) {
+          expect(user1Error.code).toBe('42501');
+        } else {
+          expect(user1Update).toEqual([]);
+        }
+
+        // 2. Transition row to settled 'accepted' state via adminClient
+        const { error: transitionError } = await adminClient
+          .from('friends')
+          .update({ status: 'accepted' })
+          .eq('id', pendingRow.id);
+        expect(transitionError).toBeNull();
+
+        // 3. Settled Record Tampering Attempt (user2 attempts to modify already accepted row)
+        const { data: user2Update, error: user2Error } = await user2.client
+          .from('friends')
+          .update({ status: 'declined' })
+          .eq('id', pendingRow.id)
+          .select();
+        if (user2Error) {
+          expect(user2Error.code).toBe('42501');
+        } else {
+          expect(user2Update).toEqual([]);
+        }
+
+        // Verify status remains accepted
+        const { data: verifiedRow } = await adminClient
+          .from('friends')
+          .select('status')
+          .eq('id', pendingRow.id)
+          .single();
+        expect(verifiedRow?.status).toBe('accepted');
+
+        // Cleanup
+        await adminClient.from('friends').delete().eq('id', pendingRow.id);
+      });
+
+      it('should deny direct UPDATE on profiles.email and profiles.id for authenticated role', async () => {
+        // Ensure user1 profile exists with canonical email
+        await adminClient.from('profiles').upsert({
+          id: user1.id,
+          email: user1.email,
+          name: 'User One',
+          privacy_level: 'public'
+        });
+
+        // 1. Direct Email Mutation Attempt
+        const { error: updateEmailError } = await user1.client
+          .from('profiles')
+          .update({ email: 'squatted-address@example.com' })
+          .eq('id', user1.id);
+
+        expect(updateEmailError).not.toBeNull();
+        expect(updateEmailError?.code).toBe('42501');
+
+        // 2. Direct ID Mutation Attempt
+        const { error: updateIdError } = await user1.client
+          .from('profiles')
+          .update({ id: crypto.randomUUID() })
+          .eq('id', user1.id);
+
+        expect(updateIdError).not.toBeNull();
+        expect(updateIdError?.code).toBe('42501');
+
+        // 3. Database State Verification
+        const { data: profile } = await adminClient
+          .from('profiles')
+          .select('id, email')
+          .eq('id', user1.id)
+          .single();
+        expect(profile?.id).toBe(user1.id);
+        expect(profile?.email).toBe(user1.email);
+      });
+
+      it('should deny direct SELECT on profiles.email for authenticated clients while allowing public metadata', async () => {
+        // Ensure user1 has a profile with email and public privacy
+        await adminClient.from('profiles').upsert({
+          id: user1.id,
+          email: user1.email,
+          name: 'User One',
+          privacy_level: 'public'
+        });
+
+        // 1. Other User Email Query Attempt
+        const { error: otherError } = await user2.client
+          .from('profiles')
+          .select('id, email')
+          .eq('id', user1.id);
+
+        expect(otherError).not.toBeNull();
+        expect(otherError?.code).toBe('42501');
+
+        // 2. Own Email Query Attempt
+        const { error: ownError } = await user1.client
+          .from('profiles')
+          .select('id, email')
+          .eq('id', user1.id);
+
+        expect(ownError).not.toBeNull();
+        expect(ownError?.code).toBe('42501');
+
+        // 3. Non-Sensitive Field Query Success
+        const { data: publicProfile, error: publicError } = await user2.client
+          .from('profiles')
+          .select('id, name, privacy_level')
+          .eq('id', user1.id)
+          .single();
+
+        expect(publicError).toBeNull();
+        expect(publicProfile?.id).toBe(user1.id);
+      });
+
+      it('should reject wildcard patterns in send_friend_request and match exact lower-case email', async () => {
+        // Clean up existing friendships
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        // Ensure user2 profile exists with canonical email
+        await adminClient.from('profiles').upsert({
+          id: user2.id,
+          email: user2.email,
+          name: 'User Two',
+          privacy_level: 'public'
+        });
+
+        // 1. Wildcard Probing Attempt
+        // Construct wildcard e.g. "rpc-test-%@example.com"
+        const emailParts = user2.email.split('@');
+        const wildcardEmail = emailParts[0].slice(0, 4) + '%@' + emailParts[1];
+
+        const { error: wildcardError } = await user1.client.rpc('send_friend_request', {
+          p_target_email: wildcardEmail
+        });
+
+        expect(wildcardError).not.toBeNull();
+
+        // Verify zero friend rows exist
+        const { data: friendRows } = await adminClient
+          .from('friends')
+          .select('*')
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        expect(friendRows).toEqual([]);
+
+        // 2. Exact Lower-Case Matching Attempt with Upper/Mixed Case Input
+        const upperEmail = user2.email.toUpperCase();
+        const { error: matchError } = await user1.client.rpc('send_friend_request', {
+          p_target_email: upperEmail
+        });
+
+        expect(matchError).toBeNull();
+
+        // Verify a pending friend request exists
+        const { data: createdReq } = await adminClient
+          .from('friends')
+          .select('*')
+          .eq('user1_id', user1.id)
+          .eq('user2_id', user2.id)
+          .single();
+
+        expect(createdReq).not.toBeNull();
+        expect(createdReq?.status).toBe('pending');
+
+        // Cleanup
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+      });
+
+      it('should deny direct table INSERT on trip_members for non-mutual friends', async () => {
+        // Setup trip owned by user1
+        const { data: trip, error: tripCreateError } = await adminClient
+          .from('trips')
+          .insert({ user_id: user1.id, name: 'Security Direct Insert Test Trip', trip_date: getTodayLocal() })
+          .select()
+          .single();
+        expect(tripCreateError).toBeNull();
+
+        // Ensure user1 and user3 have NO friendship record
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user3.id}),and(user1_id.eq.${user3.id},user2_id.eq.${user1.id})`);
+
+        // Authenticated user1 attempts direct insert adding non-friend user3
+        const { error } = await user1.client.from('trip_members').insert({
+          trip_id: trip.id,
+          user_id: user3.id,
+          role: 'member',
+          status: 'joined'
+        }).select();
+
+        expect(error).not.toBeNull();
+        expect(error?.code).toBe('42501');
+
+        const { data: memberRows } = await adminClient
+          .from('trip_members')
+          .select('*')
+          .eq('trip_id', trip.id)
+          .eq('user_id', user3.id);
+        expect(memberRows).toEqual([]);
+
+        // Cleanup
+        await adminClient.from('trips').delete().eq('id', trip.id);
+      });
+
+      it('should raise an exception in create_trip_with_winery when non-mutual-friend UUIDs are passed in p_members', async () => {
+        // Ensure user1 and user3 have NO friendship record
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user3.id}),and(user1_id.eq.${user3.id},user2_id.eq.${user1.id})`);
+
+        const placeId = `sec-winery-${crypto.randomUUID()}`;
+        createdWineryIds.push(placeId);
+
+        const { error } = await user1.client.rpc('create_trip_with_winery', {
+          p_trip_name: 'Trip With Non-Friend Member',
+          p_trip_date: getTodayLocal(),
+          p_winery_data: {
+            id: placeId,
+            name: 'TDD Red Winery',
+            address: '123 Test Trail',
+            lat: 42.5,
+            lng: -76.9
+          },
+          p_members: [user1.id, user3.id]
+        });
+
+        expect(error).not.toBeNull();
+        expect(error?.message).toContain('Trip members must be accepted mutual friends');
+
+        const { data: persistedTrips } = await adminClient
+          .from('trips')
+          .select('id')
+          .eq('name', 'Trip With Non-Friend Member')
+          .eq('user_id', user1.id);
+        expect(persistedTrips?.length ?? 0).toBe(0);
+
+        if (persistedTrips && persistedTrips.length > 0) {
+          for (const t of persistedTrips) {
+            await adminClient.from('trips').delete().eq('id', t.id);
+          }
+        }
+      });
+
+      it('should raise an exception in add_trip_member_by_email for non-mutual friends and reject wildcards', async () => {
+        // Create base trip owned by user1
+        const { data: trip, error: tripError } = await adminClient
+          .from('trips')
+          .insert({ user_id: user1.id, name: 'Security Add Member By Email Trip', trip_date: getTodayLocal() })
+          .select()
+          .single();
+        expect(tripError).toBeNull();
+
+        // Ensure user2 and user3 profiles exist with canonical emails
+        await adminClient.from('profiles').upsert([
+          { id: user2.id, email: user2.email, name: 'User Two', privacy_level: 'public' },
+          { id: user3.id, email: user3.email, name: 'User Three', privacy_level: 'public' }
+        ]);
+
+        // Ensure user1 and user3 are NOT friends
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user3.id}),and(user1_id.eq.${user3.id},user2_id.eq.${user1.id})`);
+
+        // Ensure user1 and user2 are NOT friends initially
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        // 1. Non-Friend Addition Attempt
+        const { error: nonFriendError } = await user1.client.rpc('add_trip_member_by_email', {
+          p_trip_id: trip.id,
+          p_email: user3.email
+        });
+        expect(nonFriendError).not.toBeNull();
+        expect(nonFriendError?.message).toContain('Trip members must be accepted mutual friends');
+
+        const { data: nonFriendRows } = await adminClient
+          .from('trip_members')
+          .select('*')
+          .eq('trip_id', trip.id)
+          .eq('user_id', user3.id);
+        expect(nonFriendRows).toEqual([]);
+
+        // 2. Wildcard Probing Attempt
+        const emailParts = user2.email.split('@');
+        const wildcardEmail = emailParts[0].slice(0, 4) + '%@' + emailParts[1];
+        const { error: wildcardError } = await user1.client.rpc('add_trip_member_by_email', {
+          p_trip_id: trip.id,
+          p_email: wildcardEmail
+        });
+        expect(wildcardError).not.toBeNull();
+
+        const { data: wildcardRows } = await adminClient
+          .from('trip_members')
+          .select('*')
+          .eq('trip_id', trip.id)
+          .eq('user_id', user2.id);
+        expect(wildcardRows).toEqual([]);
+
+        // 3. Exact Lower-Case Matching Attempt (Accepted Mutual Friend with Uppercase Input)
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
+        const { error: validError } = await user1.client.rpc('add_trip_member_by_email', {
+          p_trip_id: trip.id,
+          p_email: user2.email.toUpperCase()
+        });
+        expect(validError).toBeNull();
+
+        // Cleanup
+        await adminClient.from('trips').delete().eq('id', trip.id);
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+      });
+
+      it('should allow non-owner trip members to delete their own row from trip_members', async () => {
+        // Create trip owned by user1
+        const { data: trip, error: tripError } = await adminClient
+          .from('trips')
+          .insert({ user_id: user1.id, name: 'Security Leave Trip Test', trip_date: getTodayLocal() })
+          .select()
+          .single();
+        expect(tripError).toBeNull();
+
+        // Add user2 as a member
+        const { error: memberInsertError } = await adminClient
+          .from('trip_members')
+          .insert({
+            trip_id: trip.id,
+            user_id: user2.id,
+            role: 'member',
+            status: 'joined'
+          });
+        expect(memberInsertError).toBeNull();
+
+        // Execution: Authenticated user2 attempts to delete their own membership row
+        const { data, error } = await user2.client
+          .from('trip_members')
+          .delete()
+          .eq('trip_id', trip.id)
+          .eq('user_id', user2.id)
+          .select();
+
+        expect(error).toBeNull();
+        expect(data?.length).toBe(1);
+
+        // Verify with adminClient
+        const { data: memberRows } = await adminClient
+          .from('trip_members')
+          .select('*')
+          .eq('trip_id', trip.id)
+          .eq('user_id', user2.id);
+        expect(memberRows).toEqual([]);
+
+        // Cleanup
+        await adminClient.from('trips').delete().eq('id', trip.id);
+      });
+
+      it('should reject invalid coordinates, ratings, and URLs in ensure_winery', async () => {
+        const id1 = `bad-lat-${crypto.randomUUID()}`;
+        const id2 = `bad-lng-${crypto.randomUUID()}`;
+        const id3 = `bad-rating-${crypto.randomUUID()}`;
+        const id4 = `bad-proto-${crypto.randomUUID()}`;
+        const id5 = `bad-ftp-${crypto.randomUUID()}`;
+        createdWineryIds.push(id1, id2, id3, id4, id5);
+
+        // 1. Out-of-Bounds Latitude (> 90 or < -90)
+        const { error: badLatError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id1, name: 'Bad Lat Winery', latitude: 95.0, longitude: -76.9 }
+        });
+        expect(badLatError).not.toBeNull();
+        expect(badLatError?.message).toContain('Latitude must be between -90 and 90');
+
+        // 2. Out-of-Bounds Longitude (> 180 or < -180)
+        const { error: badLngError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id2, name: 'Bad Lng Winery', latitude: 42.5, longitude: 195.0 }
+        });
+        expect(badLngError).not.toBeNull();
+        expect(badLngError?.message).toContain('Longitude must be between -180 and 180');
+
+        // 3. Out-of-Bounds Rating (< 0 or > 5)
+        const { error: badRatingError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id3, name: 'Bad Rating Winery', latitude: 42.5, longitude: -76.9, rating: 6.5 }
+        });
+        expect(badRatingError).not.toBeNull();
+        expect(badRatingError?.message).toContain('Rating must be between 0 and 5');
+
+        // 4. Non-HTTP(S) Website Protocol (javascript:)
+        const { error: badProtoError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id4, name: 'Bad Proto Winery', latitude: 42.5, longitude: -76.9, website: 'javascript:alert(1)' }
+        });
+        expect(badProtoError).not.toBeNull();
+        expect(badProtoError?.message).toContain('Website must be a valid HTTP or HTTPS URL');
+
+        // 5. FTP Protocol Rejection
+        const { error: badFtpError } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: { id: id5, name: 'Bad FTP Winery', latitude: 42.5, longitude: -76.9, website: 'ftp://files.example.com' }
+        });
+        expect(badFtpError).not.toBeNull();
+        expect(badFtpError?.message).toContain('Website must be a valid HTTP or HTTPS URL');
+
+        // Cleanup
+        await adminClient.from('wineries').delete().in('google_place_id', [id1, id2, id3, id4, id5]);
+      });
+
+      it('should enforce private storage bucket and reject unauthorized access to private visit photos in visit-photos', async () => {
+        // 1. Inspect bucket privacy
+        const { data: bucket, error: bucketError } = await adminClient.storage.getBucket('visit-photos');
+        expect(bucketError).toBeNull();
+        expect(bucket?.public).toBe(false);
+
+        // 2. Prepare test photos
+        const privatePhotoPath = `${user1.id}/private-test-${crypto.randomUUID()}.jpg`;
+        const publicPhotoPath = `${user1.id}/public-test-${crypto.randomUUID()}.jpg`;
+        const fakeImageBytes = Buffer.from('fake-jpeg-binary-content');
+
+        const { error: uploadPrivateError } = await user1.client.storage
+          .from('visit-photos')
+          .upload(privatePhotoPath, fakeImageBytes, { contentType: 'image/jpeg' });
+        expect(uploadPrivateError).toBeNull();
+
+        const { error: uploadPublicError } = await user1.client.storage
+          .from('visit-photos')
+          .upload(publicPhotoPath, fakeImageBytes, { contentType: 'image/jpeg' });
+        expect(uploadPublicError).toBeNull();
+
+        // 3. Ensure user1 and user2 are accepted mutual friends; user1 and user3 are NOT friends
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user3.id}),and(user1_id.eq.${user3.id},user2_id.eq.${user1.id})`);
+
+        // 4. Create winery
+        const wineryPlaceId = `mock-winery-photo-${crypto.randomUUID()}`;
+        createdWineryIds.push(wineryPlaceId);
+        const { data: wineryRes } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: {
+            id: wineryPlaceId,
+            name: 'Photo Privacy Winery',
+            latitude: 42.5,
+            longitude: -76.9
+          }
+        });
+        const wineryId = typeof wineryRes === 'number' ? wineryRes : (wineryRes as any)?.id;
+
+        let privateVisitId: number | null = null;
+        let publicVisitId: number | null = null;
+
+        try {
+          // 5. Seed private visit and public visit
+          const { data: privateVisit, error: privateVisitError } = await adminClient
+            .from('visits')
+            .insert({
+              user_id: user1.id,
+              winery_id: wineryId,
+              visit_date: getTodayLocal(),
+              rating: 5,
+              is_private: true,
+              photos: [privatePhotoPath]
+            })
+            .select('id')
+            .single();
+          expect(privateVisitError).toBeNull();
+          privateVisitId = privateVisit!.id;
+
+          const { data: publicVisit, error: publicVisitError } = await adminClient
+            .from('visits')
+            .insert({
+              user_id: user1.id,
+              winery_id: wineryId,
+              visit_date: getTodayLocal(),
+              rating: 5,
+              is_private: false,
+              photos: [publicPhotoPath]
+            })
+            .select('id')
+            .single();
+          expect(publicVisitError).toBeNull();
+          publicVisitId = publicVisit!.id;
+
+          // 6. Assert unauthenticated download fails
+          const { error: anonError } = await anonClient.storage
+            .from('visit-photos')
+            .download(privatePhotoPath);
+          expect(anonError).not.toBeNull();
+
+          // 7. Assert friend access to private visit photo is denied
+          const { error: friendPrivateError } = await user2.client.storage
+            .from('visit-photos')
+            .download(privatePhotoPath);
+          expect(friendPrivateError).not.toBeNull();
+
+          // 8. Assert non-friend access is denied
+          const { error: nonFriendError } = await user3.client.storage
+            .from('visit-photos')
+            .download(privatePhotoPath);
+          expect(nonFriendError).not.toBeNull();
+
+          // 9. Assert owner access is permitted
+          const { data: ownerData, error: ownerError } = await user1.client.storage
+            .from('visit-photos')
+            .download(privatePhotoPath);
+          expect(ownerError).toBeNull();
+          expect(ownerData).not.toBeNull();
+
+          // 10. Assert friend access to public visit photo is permitted
+          const { data: friendPublicData, error: friendPublicError } = await user2.client.storage
+            .from('visit-photos')
+            .download(publicPhotoPath);
+          expect(friendPublicError).toBeNull();
+          expect(friendPublicData).not.toBeNull();
+        } finally {
+          await adminClient.storage.from('visit-photos').remove([privatePhotoPath, publicPhotoPath]);
+          if (privateVisitId) await adminClient.from('visits').delete().eq('id', privateVisitId);
+          if (publicVisitId) await adminClient.from('visits').delete().eq('id', publicVisitId);
+          await adminClient.from('friends').delete()
+            .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        }
+      });
+
+      it('should inherit privacy_level = "private" in handle_activity_ledger_entry when user profile is private', async () => {
+        // 1. Set user1 profile to private
+        const { error: profileUpdateError } = await adminClient
+          .from('profiles')
+          .update({ privacy_level: 'private' })
+          .eq('id', user1.id);
+        expect(profileUpdateError).toBeNull();
+
+        const wineryPlaceId = `mock-winery-ledger-${crypto.randomUUID()}`;
+        createdWineryIds.push(wineryPlaceId);
+        const { data: wineryRes } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: {
+            id: wineryPlaceId,
+            name: 'Ledger Privacy Winery',
+            latitude: 42.5,
+            longitude: -76.9
+          }
+        });
+        const wineryId = typeof wineryRes === 'number' ? wineryRes : (wineryRes as any)?.id;
+
+        let visitId: number | null = null;
+        try {
+          // 2. Insert visit for user1 with is_private = false
+          const { data: visit, error: visitError } = await adminClient
+            .from('visits')
+            .insert({
+              user_id: user1.id,
+              winery_id: wineryId,
+              visit_date: getTodayLocal(),
+              rating: 4,
+              is_private: false
+            })
+            .select('id')
+            .single();
+          expect(visitError).toBeNull();
+          expect(visit).not.toBeNull();
+          visitId = visit!.id;
+
+          // 3. Query activity_ledger for this visit
+          const { data: ledgerRow, error: ledgerError } = await adminClient
+            .from('activity_ledger')
+            .select('id, privacy_level, object_id')
+            .eq('object_id', visitId!.toString())
+            .single();
+
+          expect(ledgerError).toBeNull();
+          expect(ledgerRow).not.toBeNull();
+          // Invariant: privacy_level must inherit user's private profile setting
+          expect(ledgerRow!.privacy_level).toBe('private');
+        } finally {
+          if (visitId) {
+            await adminClient.from('activity_ledger').delete().eq('object_id', visitId.toString());
+            await adminClient.from('visits').delete().eq('id', visitId);
+          }
+          await adminClient.from('profiles').update({ privacy_level: 'public' }).eq('id', user1.id);
+        }
+      });
+
+      it('should execute TripService.getTrips without 42501 permission denied on profiles.email', async () => {
+        // 1. Mutual friends
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
+        // 2. Create trip owned by user1
+        const { data: trip, error: tripError } = await adminClient
+          .from('trips')
+          .insert({
+            user_id: user1.id,
+            name: 'Email Decoupling Trip',
+            trip_date: getTodayLocal()
+          })
+          .select('id')
+          .single();
+        expect(tripError).toBeNull();
+        const tripId = trip!.id;
+
+        // Add user1 and user2 to trip_members
+        await adminClient.from('trip_members').insert([
+          { trip_id: tripId, user_id: user1.id, role: 'owner', status: 'accepted' },
+          { trip_id: tripId, user_id: user2.id, role: 'editor', status: 'accepted' }
+        ]);
+
+        (createBrowserClient as jest.Mock).mockReturnValue(user1.client);
+
+        try {
+          const result = await TripService.getTrips(1, 'upcoming');
+          expect(result).toBeDefined();
+          expect(result.trips).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                id: tripId,
+                members: expect.arrayContaining([
+                  expect.objectContaining({
+                    id: user1.id,
+                    email: ''
+                  })
+                ])
+              })
+            ])
+          );
+        } finally {
+          (createBrowserClient as jest.Mock).mockReset();
+          await adminClient.from('trip_members').delete().eq('trip_id', tripId);
+          await adminClient.from('trips').delete().eq('id', tripId);
+          await adminClient.from('friends').delete()
+            .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        }
+      });
+
+      it('should execute SECURITY INVOKER activity RPCs without 42501 column privilege denials on profiles.email', async () => {
+        // 1. Ensure user1 and user2 are accepted mutual friends
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'accepted'
+        });
+
+        const wineryPlaceId = `mock-winery-activity-${crypto.randomUUID()}`;
+        createdWineryIds.push(wineryPlaceId);
+        const { data: wineryRes } = await user1.client.rpc('ensure_winery', {
+          p_winery_data: {
+            id: wineryPlaceId,
+            name: 'Activity Decoupling Winery',
+            latitude: 42.5,
+            longitude: -76.9
+          }
+        });
+        const wineryId = typeof wineryRes === 'number' ? wineryRes : (wineryRes as any)?.id;
+
+        const visitUuid = crypto.randomUUID();
+        const favoriteUuid = crypto.randomUUID();
+
+        try {
+          // Insert activity ledger records for user2
+          await adminClient.from('activity_ledger').insert([
+            {
+              user_id: user2.id,
+              activity_type: 'visit',
+              object_id: visitUuid,
+              privacy_level: 'public',
+              metadata: {
+                winery_id: wineryId,
+                winery_name: 'Activity Decoupling Winery',
+                rating: 5,
+                user_review: 'Exceptional Riesling',
+                photos: []
+              }
+            },
+            {
+              user_id: user2.id,
+              activity_type: 'favorite',
+              object_id: favoriteUuid,
+              privacy_level: 'public',
+              metadata: {
+                winery_id: wineryId,
+                winery_name: 'Activity Decoupling Winery'
+              }
+            }
+          ]);
+
+          // 1. Friend Activity Feed
+          const { data: feed, error: feedError } = await user1.client.rpc('get_friend_activity_feed', { p_limit: 10 });
+          expect(feedError).toBeNull();
+          expect(feed).not.toBeNull();
+          const feedItem = (feed as any[])?.find((item: any) => item.activity_user_id === user2.id);
+          expect(feedItem).toBeDefined();
+          expect(feedItem.user_email).toBeNull();
+
+          // 2. Friends Activity for Winery
+          const { data: activity, error: activityError } = await user1.client.rpc('get_friends_activity_for_winery', { p_winery_id: wineryId });
+          expect(activityError).toBeNull();
+          expect(activity).not.toBeNull();
+          const favItem = (activity as any)?.favoritedBy?.find((item: any) => item.id === user2.id);
+          expect(favItem).toBeDefined();
+          expect(favItem.email).toBeNull();
+
+          // 3. Friends Ratings for Winery
+          const { data: ratings, error: ratingsError } = await user1.client.rpc('get_friends_ratings_for_winery', { p_winery_id: wineryId });
+          expect(ratingsError).toBeNull();
+          expect(ratings).not.toBeNull();
+          const ratingItem = (ratings as any[])?.find((item: any) => item.user_id === user2.id);
+          expect(ratingItem).toBeDefined();
+          expect(ratingItem.email).toBe('hidden');
+        } finally {
+          await adminClient.from('activity_ledger').delete().in('object_id', [visitUuid, favoriteUuid]);
+          await adminClient.from('friends').delete()
+            .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+        }
       });
     });
 });

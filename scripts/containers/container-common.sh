@@ -55,24 +55,60 @@ setup_container_engine() {
     else
         EXTRA_OPTS+=( "--user" "$(id -u):$(id -g)" )
     fi
+    EXTRA_OPTS+=( "-e" "HOME=/tmp" )
 }
 
-# Ensure container image exists locally or pull it
+# Ensure container image exists locally or pull it with exponential backoff retry (2s, 4s, 8s)
 ensure_container_image() {
     local target_image="${1:-$IMAGE}"
     local label="${2:-image $target_image}"
 
+    if [ -z "${ENGINE:-}" ]; then
+        detect_container_engine
+    fi
+
+    # Fast path: zero network if image already exists locally
     if [ "$ENGINE" = "podman" ]; then
-        if ! podman image exists "$target_image"; then
-            echo "📥 Pulling $label..."
-            podman pull "$target_image"
+        if podman image exists "$target_image"; then
+            return 0
         fi
     else
-        if ! docker image inspect "$target_image" >/dev/null 2>&1; then
-            echo "📥 Pulling $label..."
-            docker pull "$target_image"
+        if docker image inspect "$target_image" >/dev/null 2>&1; then
+            return 0
         fi
     fi
+
+    local max_attempts="${CONTAINER_PULL_MAX_ATTEMPTS:-3}"
+    local backoff="${CONTAINER_PULL_INITIAL_BACKOFF:-2}"
+    local attempt=1
+
+    while [ "$attempt" -le "$max_attempts" ]; do
+        echo "📥 Pulling $label (attempt $attempt/$max_attempts)..."
+        local pull_status=0
+        if [ "$ENGINE" = "podman" ]; then
+            podman pull "$target_image" || pull_status=$?
+        else
+            docker pull "$target_image" || pull_status=$?
+        fi
+
+        if [ $pull_status -eq 0 ]; then
+            return 0
+        fi
+
+        if [ "$attempt" -lt "$max_attempts" ]; then
+            echo "⚠️  Pull failed for $label (attempt $attempt/$max_attempts). Retrying in ${backoff}s..." >&2
+            if [ "$backoff" -gt 0 ]; then
+                sleep "$backoff"
+            fi
+            backoff=$((backoff * 2))
+            attempt=$((attempt + 1))
+        else
+            echo "❌ Error: Failed to pull $label after $max_attempts attempts." >&2
+            return 1
+        fi
+    done
+
+    return 1
 }
 
 # Restore SELinux security context on supabase/functions directory

@@ -127,8 +127,9 @@ export async function saveVisitHelper(
       throw rpcError;
     }
     
-    const visitId = rpcResult.visit_id;
-    const wineryDbId = rpcResult.winery_id;
+    const payload = rpcResult as { visit_id: number; winery_id: number; [key: string]: unknown } | null;
+    const visitId = payload?.visit_id;
+    const wineryDbId = payload?.winery_id;
     const finishedNow = Date.now();
     get().setLastActionTimestamp(String(visitId), finishedNow);
     
@@ -266,14 +267,15 @@ export async function updateVisitHelper(
       }
     }
 
+    const updatedPayload = (updatedVisit as Record<string, any>) || {};
     const finalVisit: VisitWithWinery = {
       ...originalVisit,
-      ...updatedVisit,
-      id: !isNaN(Number(updatedVisit.id ?? updatedVisit.visit_id ?? visitId))
-        ? Number(updatedVisit.id ?? updatedVisit.visit_id ?? visitId)
-        : (updatedVisit.id ?? updatedVisit.visit_id ?? visitId),
-      wineryName: updatedVisit.winery_name || originalVisit.wineryName,
-      wineryId: updatedVisit.google_place_id || originalVisit.wineryId,
+      ...updatedPayload,
+      id: !isNaN(Number(updatedPayload.id ?? updatedPayload.visit_id ?? visitId))
+        ? Number(updatedPayload.id ?? updatedPayload.visit_id ?? visitId)
+        : (updatedPayload.id ?? updatedPayload.visit_id ?? visitId),
+      wineryName: updatedPayload.winery_name || originalVisit.wineryName,
+      wineryId: updatedPayload.google_place_id || originalVisit.wineryId,
       syncStatus: 'synced'
     };
 

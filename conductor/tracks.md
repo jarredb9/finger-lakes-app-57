@@ -38,5 +38,7 @@
 | **agent-resolve-token-limits_20261019** | Prevent prompt token blowout from blast-radius test injection, unbounded Jest output, and cached token accounting | [x] Archived | [Plan](./archive/agent-resolve-token-limits_20261019/plan.md) |
 | **agent-resolve-quality-hardening_20261021** | Quality hardening via patch-based Red phase, test deduplication, targeted linter gates, and prompt context pruning | [x] Archived | [Plan](./archive/agent-resolve-quality-hardening_20261021/plan.md) |
 | **db-security-hardening_20261026** | Database Security Hardening, RLS Lockdown, and SECURITY INVOKER Conversion (Issue #87) | [x] Archived | [Plan](./archive/db-security-hardening_20261026/plan.md) |
+| **postgrest-rls-storage-hardening_20261104** | PostgREST Direct Table RLS, Storage Policies, Trip/Friend Membership Validation, and Webhook Hardening (Issue #93) | [x] Archived | [Plan](./archive/postgrest-rls-storage-hardening_20261104/plan.md) |
+
 
 

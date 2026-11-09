@@ -48,6 +48,7 @@ Deno.test("get-winery-details - successful fetch (lazy enrichment)", async () =>
   try {
     const req = new Request("https://test.com", {
       method: "POST",
+      headers: { Authorization: "Bearer test-jwt-token" },
       body: JSON.stringify({ placeId: "ChIJtest" }),
     });
 
@@ -73,10 +74,12 @@ Deno.test("get-winery-details - missing API key", async () => {
     SUPABASE_URL: "https://test.supabase.co",
     SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
   });
+  const fetchStub = mockFetch(null, null);
 
   try {
     const req = new Request("https://test.com", {
       method: "POST",
+      headers: { Authorization: "Bearer test-jwt-token" },
       body: JSON.stringify({ placeId: "ChIJtest" }),
     });
 
@@ -88,6 +91,7 @@ Deno.test("get-winery-details - missing API key", async () => {
     // If we mock Supabase to return nothing (404/empty), it will proceed to enrichment and fail there.
   } finally {
     envStub.restore();
+    fetchStub.restore();
   }
 });
 

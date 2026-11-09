@@ -39,11 +39,12 @@ Never collapse Red and Green phases into a single composite task item in `plan.m
    - With the safety of passing tests, refactor the implementation code and the test code to improve clarity, remove duplication, and enhance performance without changing the external behavior.
    - Rerun tests to ensure they still pass after refactoring.
 
-6. **Verify Coverage:** Run coverage reports using the project's chosen tools. For example, in a Python project, this might look like:
+6. **Verify Coverage & Tests:** Run unit and integration tests using the project's test runners:
    ```bash
-   pytest --cov=app --cov-report=html
+   npm run test            # Jest unit tests
+   npm run test:functions  # Supabase Edge Function Deno tests
    ```
-   Target: >80% coverage for new code. The specific tools and commands will vary by language and framework.
+   Target: >80% coverage for domain modules and invariant boundaries.
 
 7. **Document Deviations:** If implementation differs from tech stack:
    - **STOP** implementation
@@ -53,7 +54,7 @@ Never collapse Red and Green phases into a single composite task item in `plan.m
 
 8. **Commit Code Changes:**
    - Stage all code changes related to the task.
-   - Propose a clear, concise commit message e.g, `feat(ui): Create basic HTML structure for calculator`.
+   - Propose a clear, concise commit message following Conventional Commits, e.g., `feat(winery): add operational hours resilience helper` or `test(trips): add failing collaboration permission tests`.
    - Perform the commit.
 
 9. **Attach Task Summary with Git Notes:**
@@ -157,27 +158,30 @@ Before marking any task complete, verify:
 
 ## Development Commands
 
-**AI AGENT INSTRUCTION: This section should be adapted to the project's specific language, framework, and build tools.**
-
 ### Setup
 ```bash
-# Example: Commands to set up the development environment (e.g., install dependencies, configure database)
-# e.g., for a Node.js project: npm install
-# e.g., for a Go project: go mod tidy
+npm install                      # Install Node dependencies
+cp .env.local.example .env.local  # Seed local environment template
+npm run db:start                 # Boot local Supabase container stack
+npm run db:populate              # Populate local database with wineries
 ```
 
 ### Daily Development
 ```bash
-# Example: Commands for common daily tasks (e.g., start dev server, run tests, lint, format)
-# e.g., for a Node.js project: npm run dev, npm test, npm run lint
-# e.g., for a Go project: go run main.go, go test ./..., go fmt ./...
+npm run dev                      # Next.js dev server (Turbopack) at http://localhost:3000
+npm run dev:real                 # Dev server connected to local Supabase (http://127.0.0.1:54321)
+npm run test                     # Run Jest unit test suite
+npm run test:integration         # Run PostgreSQL integration test suite
+npm run test:functions           # Run Deno Edge Function tests
+npm run lint                     # Run ESLint across codebase
 ```
 
 ### Before Committing
 ```bash
-# Example: Commands to run all pre-commit checks (e.g., format, lint, type check, run tests)
-# e.g., for a Node.js project: npm run check
-# e.g., for a Go project: make check (if a Makefile exists)
+npm run lint                     # Run ESLint checks
+npm run type-check               # Run TypeScript compiler checks
+npm run test                     # Run Jest unit tests
+npm run db:lint                  # Validate SQL migrations with Supabase linter
 ```
 
 ## Testing Requirements

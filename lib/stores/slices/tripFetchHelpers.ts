@@ -209,7 +209,7 @@ export async function fetchTripsForDateHelper(
         return true;
       });
 
-      const staleIds = new Set(tripsForDate.filter((t: Trip) => !filteredTrips.includes(t)).map((t: Trip) => t.id));
+      const staleIds = new Set(tripsForDate.filter(t => !filteredTrips.includes(t)).map(t => t.id));
       const updatedTripsForDate = tripsForDate.map((newTrip: Trip) => {
         if (staleIds.has(newTrip.id)) {
           return state.tripsForDate.find((t: Trip) => t.id === newTrip.id) || newTrip;
