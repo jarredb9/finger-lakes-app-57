@@ -6,6 +6,7 @@
  */
 
 import { execSync } from 'child_process';
+import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -136,18 +137,35 @@ export function assertLocalEnvironment(url: string): void {
 }
 
 /**
+ * Detects portable Docker / Podman socket location.
+ * Respects explicit DOCKER_HOST if provided, falls back to user Podman socket
+ * only if present on disk, or returns undefined for default Docker daemon.
+ */
+export function resolveDockerHost(): string | undefined {
+  if (process.env.DOCKER_HOST) {
+    return process.env.DOCKER_HOST;
+  }
+  const uid = process.getuid ? process.getuid() : 1000;
+  const podmanSock = `/run/user/${uid}/podman/podman.sock`;
+  if (fs.existsSync(podmanSock)) {
+    return `unix://${podmanSock}`;
+  }
+  return undefined;
+}
+
+/**
  * Execute the SQL catalog verification script via Supabase CLI.
  */
 export async function executeSqlCatalogVerification(): Promise<{
   passed: boolean;
   error?: string;
 }> {
-  const dockerHost = `unix:///run/user/${process.getuid ? process.getuid() : 1000}/podman/podman.sock`;
+  const dockerHost = resolveDockerHost();
   const binPath = path.resolve(process.cwd(), 'scripts/bin');
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     PATH: process.env.PATH ? `${binPath}:${process.env.PATH}` : binPath,
-    DOCKER_HOST: process.env.DOCKER_HOST || dockerHost,
+    ...(dockerHost ? { DOCKER_HOST: dockerHost } : {}),
   };
 
   try {
@@ -175,12 +193,12 @@ export async function executeCliLinter(): Promise<{
   rawOutput: string;
   violationsFound: string[];
 }> {
-  const dockerHost = `unix:///run/user/${process.getuid ? process.getuid() : 1000}/podman/podman.sock`;
+  const dockerHost = resolveDockerHost();
   const binPath = path.resolve(process.cwd(), 'scripts/bin');
-  const env = {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     PATH: process.env.PATH ? `${binPath}:${process.env.PATH}` : binPath,
-    DOCKER_HOST: process.env.DOCKER_HOST || dockerHost,
+    ...(dockerHost ? { DOCKER_HOST: dockerHost } : {}),
   };
 
   let stdout = '';
