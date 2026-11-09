@@ -11,37 +11,37 @@ const corsHeaders = {
 
 export const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  const authHeader = req.headers.get('Authorization')
+  const authHeader = req.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Missing authorization header' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
 
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Missing authorization header' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
 
   const authClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     { global: { headers: { Authorization: authHeader } } }
-  )
+  );
 
-  const { data: { user }, error: authError } = await authClient.auth.getUser(token)
+  const { data: { user }, error: authError } = await authClient.auth.getUser(token);
   if (authError || !user) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Invalid or expired token' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
 
   try {
@@ -101,7 +101,14 @@ export const handler = async (req: Request): Promise<Response> => {
     const wineryData = normalizeGooglePlaceV1(place, 'enriched')
 
     // 4. Fetch any existing in-app reviews for this winery if db record exists
-    let appReviews: Array<{ user_review: string }> = []
+    interface VisitWithProfileReview {
+      user_review: string | null;
+      is_private?: boolean | null;
+      profiles?: { ai_enabled?: boolean | null } | null;
+      ai_enabled?: boolean | null;
+    }
+
+    let appReviews: Array<{ user_review: string }> = [];
     if (winery?.id) {
       const { data: visits } = await supabaseClient
         .from('visits')
@@ -109,16 +116,16 @@ export const handler = async (req: Request): Promise<Response> => {
         .eq('winery_id', winery.id)
         .eq('is_private', false)
         .eq('profiles.ai_enabled', true)
-        .not('user_review', 'is', null)
+        .not('user_review', 'is', null);
 
       if (visits && Array.isArray(visits)) {
-        appReviews = (visits as Array<any>)
+        appReviews = (visits as unknown as VisitWithProfileReview[])
           .filter((v) => {
-            if (v.is_private === true) return false
-            const aiEnabled = v.profiles?.ai_enabled ?? v.ai_enabled
-            return aiEnabled === true
+            if (v.is_private === true) return false;
+            const aiEnabled = v.profiles?.ai_enabled ?? v.ai_enabled;
+            return aiEnabled === true;
           })
-          .map((v) => ({ user_review: v.user_review }))
+          .map((v) => ({ user_review: v.user_review || '' }));
       }
     }
 

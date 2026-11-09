@@ -1,11 +1,10 @@
-import { assertEquals, assertNotEquals } from "std/testing/asserts.ts";
-import { stub, Stub } from "std/testing/mock.ts";
+import { assertEquals } from "std/testing/asserts.ts";
+import { stub } from "std/testing/mock.ts";
 import { generateGeminiSummary } from "../_shared/gemini.ts";
-import type { GeminiEnrichmentResult } from "../_shared/gemini.ts";
 import { mockDenoEnv } from "../_shared/testing-helpers.ts";
 
 // Stub Deno.serve prior to importing modules to avoid port 8000 collisions from top-level Deno.serve()
-const serveStub = stub(Deno, "serve", () => ({ finished: Promise.resolve() } as any));
+const serveStub = stub(Deno, "serve", () => ({ finished: Promise.resolve() } as unknown as ReturnType<typeof Deno.serve>));
 
 const { handler: searchWineriesHandler } = await import("../search-wineries/index.ts");
 const { handler: getWineryDetailsHandler } = await import("../get-winery-details/index.ts");

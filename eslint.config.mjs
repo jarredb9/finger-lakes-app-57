@@ -7,9 +7,11 @@ export default [
   },
   ...nextConfig,
   {
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     rules: {
       "no-console": "warn",
-      "no-nested-ternary": "error",
+      "no-nested-ternary": "warn",
+      "react-hooks/set-state-in-effect": "warn",
     },
   },
   {

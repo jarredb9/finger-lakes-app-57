@@ -9,37 +9,37 @@ const corsHeaders = {
 
 export const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders });
   }
 
-  const authHeader = req.headers.get('Authorization')
+  const authHeader = req.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Missing authorization header' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
 
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
   if (!token) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Missing authorization header' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
 
   const authClient = createClient(
     Deno.env.get('SUPABASE_URL') ?? '',
     Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     { global: { headers: { Authorization: authHeader } } }
-  )
+  );
 
-  const { data: { user }, error: authError } = await authClient.auth.getUser(token)
+  const { data: { user }, error: authError } = await authClient.auth.getUser(token);
   if (authError || !user) {
     return new Response(JSON.stringify({ error: 'Unauthorized: Invalid or expired token' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    });
   }
 
   try {
