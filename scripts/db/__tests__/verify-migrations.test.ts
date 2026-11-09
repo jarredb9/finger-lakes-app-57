@@ -4,6 +4,7 @@ import {
   ADVERSARIAL_VERIFY_FIXTURE_PATH,
   assertLocalEnvironment,
   resolveDockerHost,
+  parseTableRows,
   extractQueryRows,
   evaluateSurvivorInvariants,
   runTwoPhaseMigrationReplay,
@@ -64,7 +65,7 @@ describe('verify-migrations: assertLocalEnvironment', () => {
 });
 
 describe('verify-migrations: extractQueryRows', () => {
-  it('extracts rows from CLI JSON output surrounded by noise', () => {
+  it('extracts rows from CLI JSON output surrounded by noise (agent mode object)', () => {
     const rawOutput = `
 Target: local stack (127.0.0.1:54322) · default; pass --remote for supabase-finger-lakes (jfsxclrdxmvftxacjuqf)
 {
@@ -92,10 +93,86 @@ A new version of Supabase CLI is available: v3.1.0
     expect(rows[0].duplicate_profile_email).toBeNull();
   });
 
-  it('throws descriptive error if no rows are found in output', () => {
-    expect(() => extractQueryRows('plain string without json')).toThrow(
-      /Failed to extract JSON rows/
+  it('extracts rows from bare JSON array returned by standard CLI with -o json', () => {
+    const rawOutput = `
+Target: local stack (127.0.0.1:54322)
+[
+  {
+    "self_referential_count": 0,
+    "reciprocal_pair_count": 1,
+    "survivor_friend_status": "accepted",
+    "lower_email_conflict_count": 1,
+    "duplicate_profile_email": null
+  }
+]
+A new version of Supabase CLI is available: v3.1.0
+    `;
+
+    const rows = extractQueryRows<AdversarialSurvivorRow>(rawOutput);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].self_referential_count).toBe(0);
+    expect(rows[0].reciprocal_pair_count).toBe(1);
+    expect(rows[0].survivor_friend_status).toBe('accepted');
+    expect(rows[0].lower_email_conflict_count).toBe(1);
+    expect(rows[0].duplicate_profile_email).toBeNull();
+  });
+
+  it('extracts rows from Unicode ASCII table output (CI / terminal fallback)', () => {
+    const rawOutput = `
+┌────────────────────────┬───────────────────────┬────────────────────────┬────────────────────────────┬─────────────────────────┐
+│ self_referential_count │ reciprocal_pair_count │ survivor_friend_status │ lower_email_conflict_count │ duplicate_profile_email │
+├────────────────────────┼───────────────────────┼────────────────────────┼────────────────────────────┼─────────────────────────┤
+│ 0                      │ 1                     │ accepted               │ 1                          │ NULL                    │
+└────────────────────────┴───────────────────────┴────────────────────────┴────────────────────────────┴─────────────────────────┘
+    `;
+
+    const rows = extractQueryRows<AdversarialSurvivorRow>(rawOutput);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].self_referential_count).toBe(0);
+    expect(rows[0].reciprocal_pair_count).toBe(1);
+    expect(rows[0].survivor_friend_status).toBe('accepted');
+    expect(rows[0].lower_email_conflict_count).toBe(1);
+    expect(rows[0].duplicate_profile_email).toBeNull();
+  });
+
+  it('throws descriptive error if no valid data is found in output', () => {
+    expect(() => extractQueryRows('plain string without json or table')).toThrow(
+      /Failed to extract query rows/
     );
+  });
+});
+
+describe('verify-migrations: parseTableRows', () => {
+  it('returns empty array when output does not contain tabular structure', () => {
+    expect(parseTableRows('')).toEqual([]);
+    expect(parseTableRows('single line without delimiters')).toEqual([]);
+  });
+
+  it('correctly parses data types (integers, floats, booleans, nulls, strings)', () => {
+    const tableOutput = `
+┌────────────┬─────────────┬─────────────┬──────────┬───────────┐
+│ int_col    │ float_col   │ bool_col    │ null_col │ text_col  │
+├────────────┼─────────────┼─────────────┼──────────┼───────────┤
+│ 42         │ 3.14        │ true        │ NULL     │ hello     │
+│ -7         │ -0.5        │ false       │ null     │ world     │
+└────────────┴─────────────┴─────────────┴──────────┴───────────┘
+    `;
+    const parsed = parseTableRows(tableOutput);
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0]).toEqual({
+      int_col: 42,
+      float_col: 3.14,
+      bool_col: true,
+      null_col: null,
+      text_col: 'hello',
+    });
+    expect(parsed[1]).toEqual({
+      int_col: -7,
+      float_col: -0.5,
+      bool_col: false,
+      null_col: null,
+      text_col: 'world',
+    });
   });
 });
 
@@ -221,7 +298,7 @@ describe('verify-migrations: runTwoPhaseMigrationReplay orchestration', () => {
     );
     expect(executedCommands[2]).toBe('npx supabase migration up');
     expect(executedCommands[3]).toBe(
-      'npx supabase db query -f scripts/db/fixtures/adversarial-verify.sql'
+      'npx supabase db query -o json -f scripts/db/fixtures/adversarial-verify.sql'
     );
   });
 

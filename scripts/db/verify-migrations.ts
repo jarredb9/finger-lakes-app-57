@@ -8,7 +8,7 @@
  *   1. npx supabase db reset --version 20261026000000 --no-seed
  *   2. npx supabase db query -f scripts/db/fixtures/adversarial-seed.sql
  *   3. npx supabase migration up
- *   4. npx supabase db query -f scripts/db/fixtures/adversarial-verify.sql
+ *   4. npx supabase db query -o json -f scripts/db/fixtures/adversarial-verify.sql
  */
 
 import { execSync } from 'child_process';
@@ -153,25 +153,124 @@ export function resolveDockerHost(): string | undefined {
 }
 
 /**
- * Extracts and parses JSON rows from Supabase CLI query output.
+ * Parses Unicode or ASCII box table format output into structured row objects.
+ */
+export function parseTableRows<T = Record<string, unknown>>(rawOutput: string): T[] {
+  const lines = rawOutput
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.includes('│'));
+
+  if (lines.length < 2) {
+    return [];
+  }
+
+  // Header line contains column names delimited by '│'
+  const headerLine = lines[0];
+  const headers = headerLine
+    .split('│')
+    .slice(1, -1)
+    .map((c) => c.trim());
+
+  if (headers.length === 0) {
+    return [];
+  }
+
+  const rows: Record<string, unknown>[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    // Skip border/separator rows containing box-drawing lines
+    if (line.includes('├') || line.includes('┼') || line.includes('─')) {
+      continue;
+    }
+
+    const cells = line
+      .split('│')
+      .slice(1, -1)
+      .map((c) => c.trim());
+
+    if (cells.length !== headers.length) {
+      continue;
+    }
+
+    const row: Record<string, unknown> = {};
+    headers.forEach((header, idx) => {
+      const val = cells[idx];
+      if (val === 'NULL' || val === 'null' || val === '') {
+        row[header] = null;
+      } else if (/^-?\d+$/.test(val)) {
+        row[header] = Number(val);
+      } else if (/^-?\d+\.\d+$/.test(val)) {
+        row[header] = Number(val);
+      } else if (val.toLowerCase() === 'true') {
+        row[header] = true;
+      } else if (val.toLowerCase() === 'false') {
+        row[header] = false;
+      } else {
+        row[header] = val;
+      }
+    });
+
+    rows.push(row);
+  }
+
+  return rows as T[];
+}
+
+/**
+ * Extracts and parses rows from Supabase CLI query output.
+ * Supports bare JSON arrays, object-wrapped rows (AI agent mode), and table text fallback.
  */
 export function extractQueryRows<T = Record<string, unknown>>(rawOutput: string): T[] {
+  // 1. Try bare JSON array: [ { ... }, ... ]
+  const arrayMatch = rawOutput.match(/\[[\s\S]*?\]/);
+  if (arrayMatch) {
+    try {
+      const parsed = JSON.parse(arrayMatch[0]);
+      if (Array.isArray(parsed)) {
+        return parsed as T[];
+      }
+    } catch {
+      // Fall through to object matching
+    }
+  }
+
+  // 2. Try object JSON: { "rows": [ { ... }, ... ] }
   const jsonMatch = rawOutput.match(/\{[\s\S]*"rows"[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error(`Failed to extract JSON rows from Supabase query output: ${rawOutput}`);
-  }
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    if (!Array.isArray(parsed.rows)) {
-      throw new Error(`Parsed output missing "rows" array: ${jsonMatch[0]}`);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(parsed.rows)) {
+        return parsed.rows as T[];
+      }
+    } catch {
+      // Fall through to table fallback
     }
-    return parsed.rows as T[];
-  } catch (err) {
-    if (err instanceof Error && err.message.includes('Parsed output missing')) {
-      throw err;
-    }
-    throw new Error(`Failed to parse JSON rows from output: ${String(err)}`);
   }
+
+  // 3. Try generic object JSON: { ... }
+  const genericObjMatch = rawOutput.match(/\{[\s\S]*?\}/);
+  if (genericObjMatch) {
+    try {
+      const parsed = JSON.parse(genericObjMatch[0]);
+      if (Array.isArray(parsed.rows)) {
+        return parsed.rows as T[];
+      }
+      if (Array.isArray(parsed)) {
+        return parsed as T[];
+      }
+    } catch {
+      // Fall through to table fallback
+    }
+  }
+
+  // 4. Fallback: Parse Unicode or ASCII table output
+  const tableRows = parseTableRows<T>(rawOutput);
+  if (tableRows.length > 0) {
+    return tableRows;
+  }
+
+  throw new Error(`Failed to extract query rows from Supabase query output: ${rawOutput}`);
 }
 
 /**
@@ -339,7 +438,7 @@ export async function runTwoPhaseMigrationReplay(
     log('  ✅ Migrations applied cleanly across pre-existing dirty records.');
 
     // Step 4: Verify survivor rows match deterministic data reconciliation rules
-    const step4Cmd = `npx supabase db query -f ${verifyFixturePath}`;
+    const step4Cmd = `npx supabase db query -o json -f ${verifyFixturePath}`;
     log(`\n[4/4] Executing survivor assertion query: ${step4Cmd}...`);
     const queryOutput = executor(step4Cmd, env);
     stepsExecuted.push(step4Cmd);

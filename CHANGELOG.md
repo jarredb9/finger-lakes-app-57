@@ -47,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Pruned 10 deprecated RPCs along with legacy follow table fallback queries from database schemas and client service integrations ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 
 ### Fixed
+* Fixed Supabase CLI query output parsing in the two-phase adversarial migration replay runner to support plain JSON arrays and Unicode ASCII tables across CI and headless runners ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0014](docs/adr/0014-multi-phase-migration-verification-and-reconciliation-policy.md)).
 * Resolved unique constraint violations during migration rollout by deduplicating legacy reciprocal friendships and invalid self-friendships before creating `idx_friends_unique_pair` ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0010](docs/adr/0010-direct-table-rls-privilege-revocation-and-private-storage.md)).
 * Resolved pointer capture runtime exceptions in Server Component boundaries by applying the client directive to `pointer-capture-patch.ts` ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
 * Prevented unhandled activity ledger webhook notification dispatch failures from aborting visit and wishlist database transactions ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0010](docs/adr/0010-direct-table-rls-privilege-revocation-and-private-storage.md)).
