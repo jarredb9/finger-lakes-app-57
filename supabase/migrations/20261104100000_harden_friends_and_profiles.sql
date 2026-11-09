@@ -6,6 +6,10 @@
 -- ============================================================================
 
 -- 1. Hardening public.friends constraints & functional indexes
+-- 1.1 Remove self-referential friendships if any exist from legacy schema
+DELETE FROM public.friends
+WHERE user1_id = user2_id;
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -15,6 +19,32 @@ BEGIN
       ADD CONSTRAINT friends_user1_ne_user2 CHECK (user1_id <> user2_id);
   END IF;
 END $$;
+
+-- 1.2 Deduplicate symmetric / reciprocal friendship records before creating unique functional index
+-- Prioritize keeping 'accepted', then 'pending', then 'declined', then 'blocked', then newest updated_at/id
+WITH ranked_friends AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (
+      PARTITION BY LEAST(user1_id, user2_id), GREATEST(user1_id, user2_id)
+      ORDER BY
+        CASE status
+          WHEN 'accepted' THEN 1
+          WHEN 'pending' THEN 2
+          WHEN 'declined' THEN 3
+          WHEN 'blocked' THEN 4
+          ELSE 5
+        END ASC,
+        updated_at DESC NULLS LAST,
+        created_at DESC NULLS LAST,
+        id DESC
+    ) AS rn
+  FROM public.friends
+)
+DELETE FROM public.friends
+WHERE id IN (
+  SELECT id FROM ranked_friends WHERE rn > 1
+);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_friends_unique_pair
   ON public.friends (LEAST(user1_id, user2_id), GREATEST(user1_id, user2_id));
@@ -32,6 +62,23 @@ USING (auth.uid() = user2_id AND status = 'pending')
 WITH CHECK (status = ANY (ARRAY['accepted'::text, 'declined'::text]));
 
 -- 3. Hardening public.profiles Case-Insensitive Email Index
+-- Deduplicate case-insensitive email conflicts on public.profiles before creating unique index
+WITH ranked_profiles AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (
+      PARTITION BY LOWER(email)
+      ORDER BY id ASC
+    ) AS rn
+  FROM public.profiles
+  WHERE email IS NOT NULL
+)
+UPDATE public.profiles
+SET email = NULL
+WHERE id IN (
+  SELECT id FROM ranked_profiles WHERE rn > 1
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_profiles_lower_email
   ON public.profiles (LOWER(email))
   WHERE email IS NOT NULL;

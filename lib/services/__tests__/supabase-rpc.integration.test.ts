@@ -989,6 +989,31 @@ describe('Supabase RPC Integration Tests', () => {
         await adminClient.from('friends').delete().eq('id', pendingRow.id);
       });
 
+      it('should enforce symmetric uniqueness on friends pair via idx_friends_unique_pair', async () => {
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        const { error: insert1Error } = await adminClient.from('friends').insert({
+          user1_id: user1.id,
+          user2_id: user2.id,
+          status: 'pending'
+        });
+        expect(insert1Error).toBeNull();
+
+        // Attempt reciprocal insert (user2 -> user1)
+        const { error: insert2Error } = await adminClient.from('friends').insert({
+          user1_id: user2.id,
+          user2_id: user1.id,
+          status: 'pending'
+        });
+        expect(insert2Error).not.toBeNull();
+        expect(insert2Error?.code).toBe('23505'); // unique_violation
+
+        // Cleanup
+        await adminClient.from('friends').delete()
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+      });
+
       it('should deny direct UPDATE on profiles.email and profiles.id for authenticated role', async () => {
         // Ensure user1 profile exists with canonical email
         await adminClient.from('profiles').upsert({
