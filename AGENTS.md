@@ -8,7 +8,7 @@
 ## 2. Critical Guardrails
 1. **Production Database Safety:** Never execute migrations, DDL, or DML mutations (INSERT, UPDATE, DELETE) against the remote Supabase project (`jfsxclrdxmvftxacjuqf`) without explicit user directive and a secondary confirmation turn. Read-only queries (SELECT) are permitted for inspection.
 2. **Supabase Operations:** Prioritize Supabase MCP tools for interacting with hosted environments. Use the local CLI (`npm run db:*`) for local development.
-3. **Backwards Compatibility:** All database migrations in `supabase/migrations/*` must follow the expand-and-contract pattern to avoid breaking live running instances.
+3. **Backwards Compatibility:** All database migrations in `supabase/migrations/*` must follow the expand-and-contract pattern to avoid breaking live running instances. Any migration tightening constraints (`UNIQUE`, `CHECK`, `FOREIGN KEY`, `SET NOT NULL`) on an existing table must include a preceding idempotent data-reconciliation statement (`DELETE`/`UPDATE`) and an idempotency guard (`IF NOT EXISTS` or `DO $$`) per ADR-0014.
 4. **Git Hygiene & Commit Safety:** Do not modify `.git/` or make automated commits unless explicitly requested. Maintain atomic Red/Green commits on topic branches; always squash-merge to `main`.
 5. **Modal & Plan Approval Invariant:** A response of `User Skipped` or dismissal of `ask_question` is strictly non-affirmative. Never interpret a skipped modal as consent, approval, or a directive to proceed. Under `/plan` or any confirmation gate, you MUST halt and wait for explicit affirmative text approval before executing any code changes or commands.
 
@@ -17,7 +17,7 @@
 - **BypassSandbox Mandates:** Standard sandbox enforces read-only `.git/` and blocks host sockets. Immediately use `BypassSandbox: true` without attempting sandboxed first:
   - **Git mutations:** `git add`, `commit`, `stash`, `checkout -b`, `rebase` (read-only git stays sandboxed).
   - **Container runners:** `./scripts/containers/run-*-container.sh`, `npm run dev:container`, `build:container`.
-  - **Local DB stack:** `npm run db:start|stop|reset|status` (uses host `/run` Podman socket).
+  - **Local DB stack:** `npm run db:start|stop|reset|status|verify-migrations` (uses host `/run` Podman socket).
 - **Dev Server:**
   - Host: `npm run dev` (http://localhost:3000) or `npm run dev:real` (local Supabase stack at http://127.0.0.1:54321).
   - Container (RHEL 8 / Native Turbopack): `npm run dev:container` or `npm run dev:container:real` (requires `BypassSandbox: true`).
@@ -27,6 +27,7 @@
 - **Local DB Stack:**
   - Start: `npm run db:start` (automatically applies SELinux fix)
   - Populate Data: `npm run db:populate`
+  - Migration Verification: `npm run db:lint:migrations` / `npm run db:verify-migrations`
   - Types: `npm run db:check-types:local` / `npm run db:gen-types`
   - Edge Function Tests: `npm run test:functions`
 - **Jest Tests (RHEL 8 / Containerized):**
