@@ -283,12 +283,70 @@ export class BrowserShim {
 
         gmaps.places = gmaps.places || {};
         if (!gmaps.places.AutocompleteSessionToken) {
-          gmaps.places.AutocompleteSessionToken = function (this: any) { return this; };
+          gmaps.places.AutocompleteSessionToken = function (this: any) {
+            this.id = 'mock-session-token-' + Math.random().toString(36).substring(2, 9);
+            return this;
+          };
         }
-        if (!gmaps.places.Place) {
-          gmaps.places.Place = {
-            searchByText: () => Promise.resolve({ places: [] }),
-            searchNearby: () => Promise.resolve({ places: [] }),
+        if (!gmaps.places.Place || typeof gmaps.places.Place.searchByText !== 'function') {
+          const defaultItems: Record<string, any> = {
+            'ch-12345-mock-winery-1': { id: 'ch-12345-mock-winery-1', name: 'Mock Winery One', address: '123 Vineyard Way, NY', lat: 42.5, lng: -76.8 },
+            'ch-67890-mock-winery-2': { id: 'ch-67890-mock-winery-2', name: 'Vineyard of Illusion', address: '456 Mirage Ln, NY', lat: 42.6, lng: -76.9 },
+            'ch-abcde-mock-winery-3': { id: 'ch-abcde-mock-winery-3', name: 'The Phantom Cellar', address: '789 Ethereal Rd, NY', lat: 42.7, lng: -77.0 },
+          };
+          gmaps.places.Place = function (this: any, options?: any) {
+            const item = (options && options.id && defaultItems[options.id]) || {
+              id: (options && options.id) || defaultItems['ch-12345-mock-winery-1'].id,
+              name: (options && options.name) || defaultItems['ch-12345-mock-winery-1'].name,
+              address: (options && options.address) || defaultItems['ch-12345-mock-winery-1'].address,
+              lat: defaultItems['ch-12345-mock-winery-1'].lat,
+              lng: defaultItems['ch-12345-mock-winery-1'].lng,
+            };
+            this.id = item.id;
+            this.name = item.name;
+            this.displayName = item.name;
+            this.formattedAddress = item.address;
+            this.address = item.address;
+            this.location = {
+              lat: () => item.lat,
+              lng: () => item.lng,
+              latitude: item.lat,
+              longitude: item.lng,
+            };
+            this.rating = 4.8;
+            this.userRatingCount = 120;
+            return this;
+          };
+          gmaps.places.Place.prototype.fetchFields = async function (_req?: any) { return this; };
+          gmaps.places.Place.searchByText = () => Promise.resolve({ places: [] });
+          gmaps.places.Place.searchNearby = () => Promise.resolve({ places: [] });
+        }
+        if (!gmaps.places.AutocompleteSuggestion || typeof gmaps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions !== 'function') {
+          gmaps.places.AutocompleteSuggestion = {
+            fetchAutocompleteSuggestions: async function (req?: any) {
+              const input = (req && req.input ? req.input : '').toLowerCase();
+              const allItems = [
+                { id: 'ch-12345-mock-winery-1', name: 'Mock Winery One', address: '123 Vineyard Way, NY' },
+                { id: 'ch-67890-mock-winery-2', name: 'Vineyard of Illusion', address: '456 Mirage Ln, NY' },
+                { id: 'ch-abcde-mock-winery-3', name: 'The Phantom Cellar', address: '789 Ethereal Rd, NY' },
+              ];
+              const filtered = allItems.filter(function (item) {
+                return item.name.toLowerCase().includes(input) || item.address.toLowerCase().includes(input);
+              });
+              const matches = filtered.length > 0 ? filtered : allItems;
+              return {
+                suggestions: matches.map(function (item) {
+                  return {
+                    placePrediction: {
+                      text: { text: item.name + ', ' + item.address },
+                      mainText: { text: item.name },
+                      secondaryText: { text: item.address },
+                      toPlace: function () { return new gmaps.places.Place({ id: item.id }); },
+                    },
+                  };
+                }),
+              };
+            },
           };
         }
 

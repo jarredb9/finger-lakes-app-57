@@ -217,15 +217,89 @@ class MockGeocoder {
   }
 }
 
-class MockAutocompleteSessionToken {}
+const DEFAULT_MOCK_PLACES = [
+  { id: "ch-12345-mock-winery-1", name: "Mock Winery One", address: "123 Vineyard Way, NY", lat: 42.5, lng: -76.8 },
+  { id: "ch-67890-mock-winery-2", name: "Vineyard of Illusion", address: "456 Mirage Ln, NY", lat: 42.6, lng: -76.9 },
+  { id: "ch-abcde-mock-winery-3", name: "The Phantom Cellar", address: "789 Ethereal Rd, NY", lat: 42.7, lng: -77.0 },
+];
+
+class MockPlace {
+  public id: string;
+  public name: string;
+  public displayName: string;
+  public formattedAddress: string;
+  public address: string;
+  public location: { lat: () => number; lng: () => number; latitude: number; longitude: number };
+  public rating: number;
+  public userRatingCount: number;
+
+  constructor(options?: any) {
+    const allItems: Record<string, any> = {
+      "ch-12345-mock-winery-1": DEFAULT_MOCK_PLACES[0],
+      "ch-67890-mock-winery-2": DEFAULT_MOCK_PLACES[1],
+      "ch-abcde-mock-winery-3": DEFAULT_MOCK_PLACES[2],
+    };
+    const item = (options?.id && allItems[options.id]) || {
+      id: options?.id || DEFAULT_MOCK_PLACES[0].id,
+      name: options?.name || DEFAULT_MOCK_PLACES[0].name,
+      address: options?.address || DEFAULT_MOCK_PLACES[0].address,
+      lat: DEFAULT_MOCK_PLACES[0].lat,
+      lng: DEFAULT_MOCK_PLACES[0].lng,
+    };
+    this.id = item.id;
+    this.name = item.name;
+    this.displayName = item.name;
+    this.formattedAddress = item.address;
+    this.address = item.address;
+    this.location = {
+      lat: () => item.lat,
+      lng: () => item.lng,
+      latitude: item.lat,
+      longitude: item.lng,
+    };
+    this.rating = 4.8;
+    this.userRatingCount = 120;
+  }
+
+  async fetchFields(_req?: any) {
+    return this;
+  }
+
+  static async searchByText() { return { places: [] }; }
+  static async searchNearby() { return { places: [] }; }
+}
+
+class MockAutocompleteSuggestion {
+  static async fetchAutocompleteSuggestions(req?: any) {
+    const input = (req?.input || "").toLowerCase();
+    const filtered = DEFAULT_MOCK_PLACES.filter(
+      (item) => item.name.toLowerCase().includes(input) || item.address.toLowerCase().includes(input)
+    );
+    const matches = filtered.length > 0 ? filtered : DEFAULT_MOCK_PLACES;
+    return {
+      suggestions: matches.map((item) => ({
+        placePrediction: {
+          text: { text: `${item.name}, ${item.address}` },
+          mainText: { text: item.name },
+          secondaryText: { text: item.address },
+          toPlace: () => new MockPlace({ id: item.id }),
+        },
+      })),
+    };
+  }
+}
+
+class MockAutocompleteSessionToken {
+  public id: string;
+  constructor() {
+    this.id = "mock-session-token-" + Math.random().toString(36).substring(2, 9);
+  }
+}
 
 const mockPlaces = {
   AutocompleteSessionToken: MockAutocompleteSessionToken,
-  AutocompleteSuggestion: class MockAutocompleteSuggestion {},
-  Place: class MockPlace {
-    static async searchByText() { return { places: [] }; }
-    static async searchNearby() { return { places: [] }; }
-  },
+  AutocompleteSuggestion: MockAutocompleteSuggestion,
+  Place: MockPlace,
 };
 
 const selfImportLibrary = (name: string) => getGoogleLibrary(name as any);
@@ -245,7 +319,14 @@ function syncWindowGoogleMaps() {
     AdvancedMarkerElement: MockAdvancedMarkerElement,
     PinElement: MockPinElement,
   };
-  maps.places = maps.places || mockPlaces;
+  maps.places = maps.places || {};
+  maps.places.AutocompleteSessionToken = maps.places.AutocompleteSessionToken || MockAutocompleteSessionToken;
+  if (!maps.places.AutocompleteSuggestion || typeof maps.places.AutocompleteSuggestion.fetchAutocompleteSuggestions !== "function") {
+    maps.places.AutocompleteSuggestion = MockAutocompleteSuggestion;
+  }
+  if (!maps.places.Place || typeof maps.places.Place.searchByText !== "function") {
+    maps.places.Place = MockPlace;
+  }
   if (!maps.importLibrary) {
     maps.importLibrary = selfImportLibrary;
   }
@@ -330,6 +411,10 @@ export async function getGoogleLibrary(
 
   if (libraryCache[libraryName]) {
     return libraryCache[libraryName];
+  }
+
+  if (isGoogleMapsMockMode()) {
+    syncWindowGoogleMaps();
   }
 
   // Check if window.google.maps already has this library or importLibrary
