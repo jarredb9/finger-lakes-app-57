@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Added Podman compatibility shim translating Docker Go template syntax for Supabase CLI v3 container operations on RHEL 8.
 
 ### Changed
+* Centralized database verification environment helpers, eliminated tautological test assertions, and hardened adversarial migration seed fixtures ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0014](docs/adr/0014-multi-phase-migration-verification-and-reconciliation-policy.md)).
 * Enforced end-to-end static type safety across Supabase client factories by binding the generic Database schema to eliminate untyped table and RPC queries ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
 * Decoupled profile email addresses from SECURITY INVOKER database RPCs and trip member queries to prevent PostgREST column privilege errors ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0010](docs/adr/0010-direct-table-rls-privilege-revocation-and-private-storage.md)).
 * Enforced input boundary validations on coordinates, ratings, and website protocols within canonical winery upsert mutations ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0010](docs/adr/0010-direct-table-rls-privilege-revocation-and-private-storage.md)).
@@ -41,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Regenerated database TypeScript definitions following RPC pruning and schema hardening to maintain static compilation parity ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87)).
 
 ### Removed
+* Removed unused speculative adversarial test user constants from database migration verification scripts ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0014](docs/adr/0014-multi-phase-migration-verification-and-reconciliation-policy.md)).
 * Removed untyped module declaration shims for `react-map-gl/mapbox` to enforce concrete upstream library types across map components ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
 * Untracked accidental debug artifacts including Playwright CLI session snapshots, git commit messages, and local MCP configuration files from Git tracking ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
 * Removed the unused `pg_graphql` extension and pruned `graphql_public` from local and CI PostgREST schema configurations to eliminate public table exposure ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).

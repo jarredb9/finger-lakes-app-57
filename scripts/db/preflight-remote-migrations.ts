@@ -9,11 +9,21 @@
  * production rows without persisting any mutations.
  */
 
-import { execSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
 import { Client, type ClientConfig } from 'pg';
+import {
+  defaultCommandExecutor,
+  type CommandExecutor,
+  type EnvironmentVariables,
+} from './db-utils';
+
+export {
+  defaultCommandExecutor,
+  type CommandExecutor,
+  type EnvironmentVariables,
+};
 
 // Load environment variables from .env.local and .env
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -25,9 +35,6 @@ export interface LocalMigration {
   filePath: string;
 }
 
-export type EnvironmentVariables = NodeJS.ProcessEnv | Record<string, string | undefined>;
-
-export type CommandExecutor = (command: string, env?: EnvironmentVariables) => string;
 
 export type SqlRunner = (dbUrl: string, sql: string) => Promise<void>;
 
@@ -251,19 +258,6 @@ export function filterPendingMigrations(
     .sort((a, b) => a.version.localeCompare(b.version));
 }
 
-/**
- * Default child_process execution engine.
- */
-export const defaultCommandExecutor: CommandExecutor = (
-  command: string,
-  env?: EnvironmentVariables
-): string => {
-  return execSync(command, {
-    env: (env || process.env) as NodeJS.ProcessEnv,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-};
 
 /**
  * Resolves ClientConfig for pg.Client based on database URL and target environment.

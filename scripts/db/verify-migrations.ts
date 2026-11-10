@@ -11,9 +11,23 @@
  *   4. npx supabase db query -o json -f scripts/db/fixtures/adversarial-verify.sql
  */
 
-import { execSync } from 'child_process';
-import * as fs from 'fs';
 import * as path from 'path';
+import {
+  assertLocalEnvironment,
+  resolveDockerHost,
+  buildProcessEnv,
+  defaultCommandExecutor,
+  type CommandExecutor,
+  type EnvironmentVariables,
+} from './db-utils';
+
+export {
+  assertLocalEnvironment,
+  resolveDockerHost,
+  defaultCommandExecutor,
+  type CommandExecutor,
+  type EnvironmentVariables,
+};
 
 /**
  * Migration anchor timestamp immediately preceding 20261104100000_harden_friends_and_profiles.sql.
@@ -29,32 +43,6 @@ export const ADVERSARIAL_SEED_FIXTURE_PATH = 'scripts/db/fixtures/adversarial-se
  * Path to survivor verification query SQL fixture.
  */
 export const ADVERSARIAL_VERIFY_FIXTURE_PATH = 'scripts/db/fixtures/adversarial-verify.sql';
-
-/**
- * Deterministic test user identifiers seeded in adversarial-seed.sql.
- */
-export const ADVERSARIAL_TEST_USERS = {
-  USER_A: {
-    id: '00000000-0000-4000-8000-000000000001',
-    email: 'adversarial_a@example.com',
-    name: 'Adversarial User A',
-  },
-  USER_B: {
-    id: '00000000-0000-4000-8000-000000000002',
-    email: 'adversarial_b@example.com',
-    name: 'Adversarial User B',
-  },
-  USER_C: {
-    id: '00000000-0000-4000-8000-000000000003',
-    email: 'ConflictUser@Example.com',
-    name: 'Conflict User C',
-  },
-  USER_D: {
-    id: '00000000-0000-4000-8000-000000000004',
-    email: 'conflictuser@example.com',
-    name: 'Conflict User D',
-  },
-} as const;
 
 /**
  * SQL row shape returned by adversarial-verify.sql.
@@ -96,10 +84,6 @@ export interface ReplayReport {
   error?: string;
 }
 
-/**
- * Command executor signature supporting dependency injection in unit tests.
- */
-export type CommandExecutor = (command: string, env?: NodeJS.ProcessEnv) => string;
 
 /**
  * Options for configuring replay execution.
@@ -113,44 +97,7 @@ export interface ReplayOptions {
   silent?: boolean;
 }
 
-/**
- * Validates that target host is local to prevent accidental execution against remote environments.
- */
-export function assertLocalEnvironment(url: string): void {
-  try {
-    const parsed = new URL(url);
-    const isLocal =
-      parsed.hostname === '127.0.0.1' ||
-      parsed.hostname === 'localhost' ||
-      parsed.hostname === '0.0.0.0';
 
-    if (!isLocal) {
-      throw new Error(
-        `Safety Guardrail Triggered: Target URL ${url} is not local. Execution against remote projects is strictly prohibited by AGENTS.md.`
-      );
-    }
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message.includes('Safety Guardrail')) {
-      throw err;
-    }
-    throw new Error(`Invalid Supabase URL: ${url}`);
-  }
-}
-
-/**
- * Detects portable Docker / Podman socket location.
- */
-export function resolveDockerHost(): string | undefined {
-  if (process.env.DOCKER_HOST) {
-    return process.env.DOCKER_HOST;
-  }
-  const uid = process.getuid ? process.getuid() : 1000;
-  const podmanSock = `/run/user/${uid}/podman/podman.sock`;
-  if (fs.existsSync(podmanSock)) {
-    return `unix://${podmanSock}`;
-  }
-  return undefined;
-}
 
 /**
  * Parses Unicode or ASCII box table format output into structured row objects.
@@ -355,32 +302,7 @@ export function evaluateSurvivorInvariants(
   };
 }
 
-/**
- * Default child_process execution engine.
- */
-export const defaultCommandExecutor: CommandExecutor = (
-  command: string,
-  env?: NodeJS.ProcessEnv
-): string => {
-  return execSync(command, {
-    env: env || process.env,
-    encoding: 'utf-8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-};
 
-/**
- * Builds process environment with DOCKER_HOST and PATH prepended.
- */
-function buildProcessEnv(): NodeJS.ProcessEnv {
-  const dockerHost = resolveDockerHost();
-  const binPath = path.resolve(process.cwd(), 'scripts/bin');
-  return {
-    ...process.env,
-    PATH: process.env.PATH ? `${binPath}:${process.env.PATH}` : binPath,
-    ...(dockerHost ? { DOCKER_HOST: dockerHost } : {}),
-  };
-}
 
 /**
  * Executes two-phase adversarial migration replay and reports results.

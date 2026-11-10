@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   ANCHOR_MIGRATION_VERSION,
   ADVERSARIAL_SEED_FIXTURE_PATH,
@@ -14,12 +16,32 @@ import {
 
 describe('verify-migrations: configuration constants', () => {
   it('targets migration anchor immediately prior to 20261104100000', () => {
-    expect(ANCHOR_MIGRATION_VERSION).toBe('20261026000000');
+    const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations');
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((file) => /^\d{14}_.*\.sql$/.test(file))
+      .sort();
+
+    const anchorFile = migrationFiles.find((file) =>
+      file.startsWith(ANCHOR_MIGRATION_VERSION)
+    );
+    expect(anchorFile).toBeDefined();
+
+    const targetIndex = migrationFiles.findIndex((file) =>
+      file.startsWith('20261104100000')
+    );
+    expect(targetIndex).toBeGreaterThan(0);
+    expect(migrationFiles[targetIndex - 1]).toBe(anchorFile);
   });
 
   it('references existing fixture paths', () => {
-    expect(ADVERSARIAL_SEED_FIXTURE_PATH).toBe('scripts/db/fixtures/adversarial-seed.sql');
-    expect(ADVERSARIAL_VERIFY_FIXTURE_PATH).toBe('scripts/db/fixtures/adversarial-verify.sql');
+    const seedPath = path.resolve(process.cwd(), ADVERSARIAL_SEED_FIXTURE_PATH);
+    expect(fs.existsSync(seedPath)).toBe(true);
+    expect(fs.statSync(seedPath).size).toBeGreaterThan(0);
+
+    const verifyPath = path.resolve(process.cwd(), ADVERSARIAL_VERIFY_FIXTURE_PATH);
+    expect(fs.existsSync(verifyPath)).toBe(true);
+    expect(fs.statSync(verifyPath).size).toBeGreaterThan(0);
   });
 });
 
