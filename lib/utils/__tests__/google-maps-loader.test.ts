@@ -112,6 +112,38 @@ describe("google-maps-loader", () => {
       const placesLib = await getGoogleLibrary("places");
       expect(placesLib.AutocompleteSessionToken).toBeDefined();
 
+      const token = new placesLib.AutocompleteSessionToken();
+      expect(token).toBeDefined();
+      expect(token.id).toBeDefined();
+
+      expect(placesLib.AutocompleteSuggestion).toBeDefined();
+      expect(placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions).toBeDefined();
+
+      const res = await placesLib.AutocompleteSuggestion.fetchAutocompleteSuggestions({
+        input: "Mock Winery",
+      });
+      expect(res.suggestions).toBeDefined();
+      expect(res.suggestions.length).toBeGreaterThan(0);
+
+      const first = res.suggestions[0];
+      expect(first.placePrediction).toBeDefined();
+      expect(first.placePrediction.text.text).toContain("Mock Winery One");
+      expect(first.placePrediction.mainText.text).toBe("Mock Winery One");
+      expect(first.placePrediction.toPlace).toBeDefined();
+
+      const place = first.placePrediction.toPlace();
+      expect(place).toBeDefined();
+      expect(place.id).toBe("ch-12345-mock-winery-1");
+      expect(place.displayName).toBe("Mock Winery One");
+      expect(place.formattedAddress).toBe("123 Vineyard Way, NY");
+      expect(place.location.lat()).toBe(42.5);
+      expect(place.location.lng()).toBe(-76.8);
+      expect(place.location.latitude).toBe(42.5);
+      expect(place.location.longitude).toBe(-76.8);
+
+      const fetched = await place.fetchFields({ fields: ["displayName", "location"] });
+      expect(fetched).toBe(place);
+
       const geocodingLib = await getGoogleLibrary("geocoding");
       expect(geocodingLib.Geocoder).toBeDefined();
     });
