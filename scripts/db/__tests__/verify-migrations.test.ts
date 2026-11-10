@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   ANCHOR_MIGRATION_VERSION,
   ADVERSARIAL_SEED_FIXTURE_PATH,
@@ -11,15 +13,36 @@ import {
   type AdversarialSurvivorRow,
   type CommandExecutor,
 } from '../verify-migrations';
+import type { SqlRunner } from '../preflight-remote-migrations';
 
 describe('verify-migrations: configuration constants', () => {
   it('targets migration anchor immediately prior to 20261104100000', () => {
-    expect(ANCHOR_MIGRATION_VERSION).toBe('20261026000000');
+    const migrationsDir = path.resolve(process.cwd(), 'supabase/migrations');
+    const migrationFiles = fs
+      .readdirSync(migrationsDir)
+      .filter((file) => /^\d{14}_.*\.sql$/.test(file))
+      .sort();
+
+    const anchorFile = migrationFiles.find((file) =>
+      file.startsWith(ANCHOR_MIGRATION_VERSION)
+    );
+    expect(anchorFile).toBeDefined();
+
+    const targetIndex = migrationFiles.findIndex((file) =>
+      file.startsWith('20261104100000')
+    );
+    expect(targetIndex).toBeGreaterThan(0);
+    expect(migrationFiles[targetIndex - 1]).toBe(anchorFile);
   });
 
   it('references existing fixture paths', () => {
-    expect(ADVERSARIAL_SEED_FIXTURE_PATH).toBe('scripts/db/fixtures/adversarial-seed.sql');
-    expect(ADVERSARIAL_VERIFY_FIXTURE_PATH).toBe('scripts/db/fixtures/adversarial-verify.sql');
+    const seedPath = path.resolve(process.cwd(), ADVERSARIAL_SEED_FIXTURE_PATH);
+    expect(fs.existsSync(seedPath)).toBe(true);
+    expect(fs.statSync(seedPath).size).toBeGreaterThan(0);
+
+    const verifyPath = path.resolve(process.cwd(), ADVERSARIAL_VERIFY_FIXTURE_PATH);
+    expect(fs.existsSync(verifyPath)).toBe(true);
+    expect(fs.statSync(verifyPath).size).toBeGreaterThan(0);
   });
 });
 
@@ -273,7 +296,7 @@ describe('verify-migrations: runTwoPhaseMigrationReplay orchestration', () => {
     ],
   });
 
-  it('executes the 4-step replay sequence in exact order', async () => {
+  it('executes the 5-step replay sequence in exact order including composite rollback', async () => {
     const executedCommands: string[] = [];
     const mockExecutor: CommandExecutor = (cmd: string) => {
       executedCommands.push(cmd);
@@ -283,8 +306,18 @@ describe('verify-migrations: runTwoPhaseMigrationReplay orchestration', () => {
       return 'OK';
     };
 
+    let sqlRunnerCalled = false;
+    let sqlRunnerDbUrl = '';
+    let sqlRunnerSql = '';
+    const mockSqlRunner: SqlRunner = async (dbUrl: string, sql: string) => {
+      sqlRunnerCalled = true;
+      sqlRunnerDbUrl = dbUrl;
+      sqlRunnerSql = sql;
+    };
+
     const report = await runTwoPhaseMigrationReplay({
       executor: mockExecutor,
+      sqlRunner: mockSqlRunner,
       supabaseUrl: 'http://127.0.0.1:54321',
     });
 
@@ -300,6 +333,40 @@ describe('verify-migrations: runTwoPhaseMigrationReplay orchestration', () => {
     expect(executedCommands[3]).toBe(
       'npx supabase db query -o json -f scripts/db/fixtures/adversarial-verify.sql'
     );
+    expect(sqlRunnerCalled).toBe(true);
+    expect(sqlRunnerDbUrl).toBe('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+    expect(sqlRunnerSql.startsWith('BEGIN;')).toBe(true);
+    expect(sqlRunnerSql).toContain("SET LOCAL lock_timeout = '5s';");
+    expect(sqlRunnerSql.trim().endsWith('ROLLBACK;')).toBe(true);
+  });
+
+  it('halts replay and captures failure if composite rollback throws', async () => {
+    const executedCommands: string[] = [];
+    const mockExecutor: CommandExecutor = (cmd: string) => {
+      executedCommands.push(cmd);
+      return 'OK';
+    };
+
+    const mockSqlRunner: SqlRunner = async () => {
+      throw new Error('syntax error in composite rollback script');
+    };
+
+    const report = await runTwoPhaseMigrationReplay({
+      executor: mockExecutor,
+      sqlRunner: mockSqlRunner,
+      supabaseUrl: 'http://127.0.0.1:54321',
+    });
+
+    expect(report.allPassed).toBe(false);
+    expect(report.error).toContain('syntax error in composite rollback script');
+    expect(executedCommands).toHaveLength(2);
+    expect(executedCommands[0]).toBe(
+      'npx supabase db reset --version 20261026000000 --no-seed'
+    );
+    expect(executedCommands[1]).toBe(
+      'npx supabase db query -f scripts/db/fixtures/adversarial-seed.sql'
+    );
+    expect(executedCommands).not.toContain('npx supabase migration up');
   });
 
   it('prevents execution against remote URL before any command is run', async () => {
@@ -312,7 +379,27 @@ describe('verify-migrations: runTwoPhaseMigrationReplay orchestration', () => {
     await expect(
       runTwoPhaseMigrationReplay({
         executor: mockExecutor,
+        sqlRunner: async () => {},
         supabaseUrl: 'https://jfsxclrdxmvftxacjuqf.supabase.co',
+      })
+    ).rejects.toThrow(/Safety Guardrail Triggered/);
+
+    expect(executedCommands).toHaveLength(0);
+  });
+
+  it('prevents execution if localDbUrl is remote before any command is run', async () => {
+    const executedCommands: string[] = [];
+    const mockExecutor: CommandExecutor = (cmd: string) => {
+      executedCommands.push(cmd);
+      return 'OK';
+    };
+
+    await expect(
+      runTwoPhaseMigrationReplay({
+        executor: mockExecutor,
+        sqlRunner: async () => {},
+        supabaseUrl: 'http://127.0.0.1:54321',
+        localDbUrl: 'postgresql://postgres:postgres@jfsxclrdxmvftxacjuqf.supabase.co:5432/postgres',
       })
     ).rejects.toThrow(/Safety Guardrail Triggered/);
 
@@ -329,6 +416,7 @@ describe('verify-migrations: runTwoPhaseMigrationReplay orchestration', () => {
 
     const report = await runTwoPhaseMigrationReplay({
       executor: mockExecutor,
+      sqlRunner: async () => {},
       supabaseUrl: 'http://127.0.0.1:54321',
     });
 

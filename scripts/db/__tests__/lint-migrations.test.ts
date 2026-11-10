@@ -82,6 +82,24 @@ describe('lint-migrations: unreconciled constraint tightening detection', () => 
     expect(result.violations[0].tableName).toBe('friends');
   });
 
+  it('flags un-reconciled unnamed ALTER TABLE ... ADD CHECK', () => {
+    const sql = `ALTER TABLE public.friends ADD CHECK (user1_id <> user2_id);`;
+    const result = lintMigrationContent(sql, postBaselineFile);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0].constraintType).toBe('ADD CONSTRAINT CHECK');
+    expect(result.violations[0].tableName).toBe('friends');
+  });
+
+  it('flags un-reconciled unnamed ALTER TABLE ... ADD UNIQUE', () => {
+    const sql = `ALTER TABLE public.visits ADD UNIQUE (user_id, idempotency_key);`;
+    const result = lintMigrationContent(sql, postBaselineFile);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0].constraintType).toBe('ADD CONSTRAINT UNIQUE');
+    expect(result.violations[0].tableName).toBe('visits');
+  });
+
   it('flags un-reconciled ALTER TABLE ... ALTER COLUMN ... SET NOT NULL', () => {
     const sql = `ALTER TABLE public.profiles ALTER COLUMN bio SET NOT NULL;`;
     const result = lintMigrationContent(sql, postBaselineFile);
@@ -284,6 +302,39 @@ describe('lint-migrations: Condition 2 - Reconciliation and idempotency', () => 
     expect(result.violations).toHaveLength(1);
     expect(result.violations[0].reason).toBe('missing-reconciliation');
   });
+
+  it('enforces 1-to-1 reconciliation: flags second constraint on same table when only one reconciliation exists', () => {
+    const sql = `
+      DELETE FROM public.friends WHERE user1_id = user2_id;
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_friends_1
+        ON public.friends (user1_id);
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_friends_2
+        ON public.friends (user2_id);
+    `;
+    const result = lintMigrationContent(sql, postBaselineFile);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0].reason).toBe('missing-reconciliation');
+    expect(result.violations[0].tableName).toBe('friends');
+    expect(result.violations[0].lineNumber).toBeGreaterThan(5);
+  });
+
+  it('permits multiple constraints on same table when each has its own preceding reconciliation', () => {
+    const sql = `
+      DELETE FROM public.friends WHERE user1_id = user2_id;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_friends_1
+        ON public.friends (user1_id);
+
+      DELETE FROM public.friends WHERE user2_id IS NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_friends_2
+        ON public.friends (user2_id);
+    `;
+    const result = lintMigrationContent(sql, postBaselineFile);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
+  });
 });
 
 describe('lint-migrations: Condition 3 - Explicit Pragma Escape Hatch', () => {
@@ -404,6 +455,54 @@ describe('lint-migrations: runMigrationLinter filesystem runner', () => {
     expect(scorecard.totalViolations).toBe(0);
     expect(scorecard.postBaselineFilesCount).toBeGreaterThan(0);
     expect(scorecard.totalIgnored).toBe(2);
+  });
+});
+
+describe('lint-migrations: parser edge cases - dollar quotes and comments', () => {
+  const postBaselineFile = '20261104100000_edge_case_migration.sql';
+
+  it('does not swallow subsequent statements when a single-line DO $$ block is used', () => {
+    const sql = `
+      DO $$ BEGIN RAISE NOTICE 'starting'; END $$;
+
+      ALTER TABLE public.trips ADD CONSTRAINT trip_uniq UNIQUE (user_id, idempotency_key);
+    `;
+    const result = lintMigrationContent(sql, postBaselineFile);
+    // Should catch the subsequent un-reconciled constraint tightening, not swallow it!
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0].tableName).toBe('trips');
+    expect(result.violations[0].constraintType).toBe('ADD CONSTRAINT UNIQUE');
+  });
+
+  it('ignores $$ in line comments outside DO blocks without entering dollar-quote state', () => {
+    const sql = `
+      -- Here is a comment mentioning $$ or $tag$
+      ALTER TABLE public.trips ADD CONSTRAINT trip_uniq UNIQUE (user_id, idempotency_key);
+    `;
+    const result = lintMigrationContent(sql, postBaselineFile);
+    expect(result.passed).toBe(false);
+    expect(result.violations).toHaveLength(1);
+    expect(result.violations[0].tableName).toBe('trips');
+  });
+
+  it('ignores $$ in comments inside multi-line DO blocks without prematurely exiting dollar-quote state', () => {
+    const sql = `
+      DELETE FROM public.friends WHERE user1_id = user2_id;
+
+      DO $$
+      BEGIN
+        -- Internal comment referencing $$ delimiter syntax
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'friends_user1_ne_user2'
+        ) THEN
+          ALTER TABLE public.friends ADD CONSTRAINT friends_user1_ne_user2 CHECK (user1_id <> user2_id);
+        END IF;
+      END $$;
+    `;
+    const result = lintMigrationContent(sql, postBaselineFile);
+    expect(result.passed).toBe(true);
+    expect(result.violations).toHaveLength(0);
   });
 });
 

@@ -145,16 +145,9 @@ jobs:
         run: npm run db:verify-advisor
 
       - name: Pre-Flight Pending Migrations Against Remote (Transactional Rollback)
-        if: ${{ github.event_name == 'pull_request' }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: |
-          git fetch origin ${{ github.base_ref }} --depth=1 || true
-          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q '^supabase/migrations/'; then
-            npm run db:preflight:remote -- --skip-if-no-secret
-          else
-            echo "No migration changes in PR; skipping remote pre-flight."
-          fi
+        run: npm run db:preflight:remote -- --skip-if-no-secret
 
       - name: Run Jest tests
         run: npm run test

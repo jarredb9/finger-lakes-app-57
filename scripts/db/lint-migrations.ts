@@ -113,6 +113,7 @@ interface TableReconciliation {
   table: string;
   type: 'DELETE' | 'UPDATE';
   lineNumber: number;
+  used?: boolean;
 }
 
 interface PragmaComment {
@@ -189,33 +190,44 @@ function parseStatements(sqlContent: string): {
 
     const fullCurrentText = currentStatementLines.join('\n');
 
+    // Strip trailing line comments to inspect code for dollar quotes and semicolons
+    const codeOnly = line.replace(/--.*$/, '');
+
     // Dollar quote state tracking
     if (!inDollarQuote) {
       // Check if entering a dollar quote: $$ or $tag$
-      const dqMatch = line.match(/\$([a-zA-Z0-9_]*)\$/);
+      const dqMatch = codeOnly.match(/\$([a-zA-Z0-9_]*)\$/);
       if (dqMatch) {
-        inDollarQuote = true;
         dollarTag = dqMatch[0]; // e.g. '$$' or '$func$'
         if (/\bDO\b/i.test(fullCurrentText)) {
           isDoBlock = true;
         } else if (/\bFUNCTION\b/i.test(fullCurrentText)) {
           isFunctionBody = true;
         }
+
+        // Check if dollar quote closes on the same line after the opening tag
+        const closingIndex = codeOnly.indexOf(
+          dollarTag,
+          dqMatch.index! + dollarTag.length
+        );
+        if (closingIndex !== -1) {
+          // Closed on the same line (e.g., single-line DO $$ ... END $$;)
+          inDollarQuote = false;
+        } else {
+          inDollarQuote = true;
+        }
       }
     } else {
       // Check if exiting dollar quote
-      // Only matches if closing dollarTag appears on this line after opening
-      if (line.includes(dollarTag)) {
-        // Count occurrences on this line if start and end are on the same line
+      // Only matches if closing dollarTag appears on this line outside line comments
+      if (codeOnly.includes(dollarTag)) {
         inDollarQuote = false;
       }
     }
 
     // Statement termination: outside of dollar quotes, a semicolon ends the statement
     if (!inDollarQuote) {
-      // Remove trailing comments before checking semicolon
-      const codeOnly = line.replace(/--.*$/, '').trim();
-      if (codeOnly.endsWith(';')) {
+      if (codeOnly.trim().endsWith(';')) {
         statements.push({
           text: fullCurrentText,
           startLine: statementStartLine,
@@ -352,10 +364,10 @@ export function lintMigrationContent(
       });
     }
 
-    // Detect ALTER TABLE ... ADD CONSTRAINT
+    // Detect ALTER TABLE ... ADD CONSTRAINT (or unnamed ADD CHECK / ADD UNIQUE / ADD FOREIGN KEY)
     // Patterns: UNIQUE, CHECK, FOREIGN KEY
     const alterTableConstraintMatches = text.matchAll(
-      /\bALTER\s+TABLE\s+(?:ONLY\s+)?([^\s]+)\s+[\s\S]*?\bADD\s+CONSTRAINT\s+([a-zA-Z0-9_"]+)?\s+(UNIQUE|CHECK|FOREIGN\s+KEY)/gi
+      /\bALTER\s+TABLE\s+(?:ONLY\s+)?([^\s]+)\s+[\s\S]*?\bADD\s+(?:CONSTRAINT\s+([a-zA-Z0-9_"]+)\s+)?(UNIQUE|CHECK|FOREIGN\s+KEY)/gi
     );
     for (const match of alterTableConstraintMatches) {
       totalStatementsChecked++;
@@ -462,13 +474,19 @@ export function lintMigrationContent(
       }
     }
 
-    // Condition 2: Reconciled & Idempotent
-    const hasReconciliation = reconciledTables.some(
-      (r) => r.table === tableName && r.lineNumber <= lineNumber
+    // Condition 2: Reconciled & Idempotent (1-to-1 matching per constraint)
+    const unusedReconciliation = reconciledTables.find(
+      (r) => !r.used && r.table === tableName && r.lineNumber <= lineNumber
     );
+    const hasReconciliation = Boolean(unusedReconciliation);
 
     if (hasReconciliation && hasIdempotencyGuard) {
+      unusedReconciliation!.used = true;
       return; // Passes!
+    }
+
+    if (hasReconciliation) {
+      unusedReconciliation!.used = true;
     }
 
     // Determine violation reason

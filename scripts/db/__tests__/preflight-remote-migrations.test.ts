@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { Client } from 'pg';
 import {
   assertRemotePreflightAuthorized,
   shouldSkipIfNoSecret,
@@ -9,9 +10,14 @@ import {
   parseRemoteAppliedVersions,
   filterPendingMigrations,
   getLocalMigrations,
+  getPgClientConfig,
+  defaultSqlRunner,
+  defaultFetchRemoteAppliedVersions,
   runRemotePreflight,
   type LocalMigration,
   type CommandExecutor,
+  type SqlRunner,
+  type RemoteVersionFetcher,
 } from '../preflight-remote-migrations';
 
 describe('preflight-remote-migrations: safety guardrail', () => {
@@ -168,6 +174,19 @@ Pass --yes to accept.
     expect(versions).toEqual(['20260528000000', '20260601000000']);
   });
 
+  it('parses array JSON output even when logs contain bracketed prefixes like [dotenvx] or [INFO]', () => {
+    const rawOutput = `
+[dotenvx] 2 secrets injected
+[INFO] Connected to remote database
+[
+  { "version": "20260528000000" },
+  { "version": "20260601000000" }
+]
+    `;
+    const versions = parseRemoteAppliedVersions(rawOutput);
+    expect(versions).toEqual(['20260528000000', '20260601000000']);
+  });
+
   it('throws descriptive error if JSON cannot be parsed from output', () => {
     expect(() => parseRemoteAppliedVersions('No JSON output available')).toThrow(
       /Failed to parse applied migration versions/
@@ -223,6 +242,128 @@ describe('preflight-remote-migrations: getLocalMigrations', () => {
     expect(list[0].filename).toBe('20261104100000_first.sql');
     expect(list[1].version).toBe('20261104110000');
     expect(list[1].filename).toBe('20261104110000_second.sql');
+  });
+});
+
+describe('preflight-remote-migrations: getPgClientConfig', () => {
+  it('returns non-SSL config for localhost and 127.0.0.1', () => {
+    const configLocal = getPgClientConfig('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+    expect(configLocal.ssl).toBeUndefined();
+
+    const configHost = getPgClientConfig('postgresql://postgres:postgres@localhost:5432/postgres');
+    expect(configHost.ssl).toBeUndefined();
+  });
+
+  it('returns SSL config with rejectUnauthorized: false for hosted remote pooler hosts', () => {
+    const configRemote = getPgClientConfig('postgresql://postgres.ref:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres');
+    expect(configRemote.ssl).toEqual({ rejectUnauthorized: false });
+  });
+
+  it('respects sslmode=disable', () => {
+    const configDisabled = getPgClientConfig('postgresql://postgres:secret@db.example.com:5432/postgres?sslmode=disable');
+    expect(configDisabled.ssl).toBeUndefined();
+  });
+
+  it('enables SSL for localhost if sslmode=require is explicitly requested', () => {
+    const configRequire = getPgClientConfig('postgresql://postgres:postgres@localhost:5432/postgres?sslmode=require');
+    expect(configRequire.ssl).toEqual({ rejectUnauthorized: false });
+    expect(configRequire.connectionString).toBe('postgresql://postgres:postgres@localhost:5432/postgres');
+  });
+
+  it('strips sslmode parameter while preserving other query parameters', () => {
+    const config = getPgClientConfig('postgresql://postgres.ref:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require&connect_timeout=10');
+    expect(config.ssl).toEqual({ rejectUnauthorized: false });
+    expect(config.connectionString).toBe('postgresql://postgres.ref:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres?connect_timeout=10');
+  });
+});
+
+describe('preflight-remote-migrations: defaultFetchRemoteAppliedVersions', () => {
+  it('connects, executes schema migrations query, and returns version list in ascending order', async () => {
+    const connectSpy = jest.spyOn(Client.prototype, 'connect').mockResolvedValue(undefined as never);
+    const querySpy = jest.spyOn(Client.prototype, 'query').mockResolvedValue({
+      rows: [
+        { version: '20260528000000' },
+        { version: '20260601000000' },
+      ],
+    } as never);
+    const endSpy = jest.spyOn(Client.prototype, 'end').mockResolvedValue(undefined as never);
+
+    try {
+      const versions = await defaultFetchRemoteAppliedVersions('postgresql://postgres:secret@db.example.com:5432/postgres');
+
+      expect(connectSpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledWith(
+        'SELECT version FROM supabase_migrations.schema_migrations ORDER BY version ASC'
+      );
+      expect(endSpy).toHaveBeenCalledTimes(1);
+      expect(versions).toEqual(['20260528000000', '20260601000000']);
+    } finally {
+      connectSpy.mockRestore();
+      querySpy.mockRestore();
+      endSpy.mockRestore();
+    }
+  });
+
+  it('guarantees connection close even when query execution fails', async () => {
+    const connectSpy = jest.spyOn(Client.prototype, 'connect').mockResolvedValue(undefined as never);
+    const querySpy = jest.spyOn(Client.prototype, 'query').mockRejectedValue(new Error('Connection terminated') as never);
+    const endSpy = jest.spyOn(Client.prototype, 'end').mockResolvedValue(undefined as never);
+
+    try {
+      await expect(
+        defaultFetchRemoteAppliedVersions('postgresql://postgres:secret@db.example.com:5432/postgres')
+      ).rejects.toThrow('Connection terminated');
+
+      expect(connectSpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(endSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      connectSpy.mockRestore();
+      querySpy.mockRestore();
+      endSpy.mockRestore();
+    }
+  });
+});
+
+describe('preflight-remote-migrations: defaultSqlRunner', () => {
+  it('connects, executes simple query string, and closes connection on success', async () => {
+    const connectSpy = jest.spyOn(Client.prototype, 'connect').mockResolvedValue(undefined as never);
+    const querySpy = jest.spyOn(Client.prototype, 'query').mockResolvedValue({} as never);
+    const endSpy = jest.spyOn(Client.prototype, 'end').mockResolvedValue(undefined as never);
+
+    try {
+      await defaultSqlRunner('postgresql://postgres:secret@db.example.com:5432/postgres', 'BEGIN; SELECT 1; ROLLBACK;');
+
+      expect(connectSpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledWith('BEGIN; SELECT 1; ROLLBACK;');
+      expect(endSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      connectSpy.mockRestore();
+      querySpy.mockRestore();
+      endSpy.mockRestore();
+    }
+  });
+
+  it('guarantees connection close even when query execution fails', async () => {
+    const connectSpy = jest.spyOn(Client.prototype, 'connect').mockResolvedValue(undefined as never);
+    const querySpy = jest.spyOn(Client.prototype, 'query').mockRejectedValue(new Error('Syntax error') as never);
+    const endSpy = jest.spyOn(Client.prototype, 'end').mockResolvedValue(undefined as never);
+
+    try {
+      await expect(
+        defaultSqlRunner('postgresql://postgres:secret@db.example.com:5432/postgres', 'INVALID SQL;')
+      ).rejects.toThrow('Syntax error');
+
+      expect(connectSpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(endSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      connectSpy.mockRestore();
+      querySpy.mockRestore();
+      endSpy.mockRestore();
+    }
   });
 });
 
@@ -302,7 +443,7 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
     expect(logs.some((l) => l.includes('0 pending migrations; remote schema is up to date'))).toBe(true);
   });
 
-  it('executes rolled-back composite transaction for pending migrations', async () => {
+  it('executes rolled-back composite transaction for pending migrations via sqlRunner', async () => {
     fs.writeFileSync(path.join(tmpDir, '20260528000000_init.sql'), '-- init');
     fs.writeFileSync(
       path.join(tmpDir, '20261104100000_new.sql'),
@@ -310,19 +451,19 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
     );
 
     const commandsExecuted: string[] = [];
-    let executedSqlContent = '';
-
     const mockExecutor: CommandExecutor = (cmd: string) => {
       commandsExecuted.push(cmd);
       if (cmd.includes('SELECT version FROM supabase_migrations.schema_migrations')) {
         return JSON.stringify([{ version: '20260528000000' }]);
       }
-      // Query with --file
-      const fileMatch = cmd.match(/--file="?([^"\s]+)"?/);
-      if (fileMatch) {
-        executedSqlContent = fs.readFileSync(fileMatch[1], 'utf-8');
-      }
       return 'OK';
+    };
+
+    let executedDbUrl = '';
+    let executedSql = '';
+    const mockSqlRunner: SqlRunner = async (dbUrl: string, sql: string) => {
+      executedDbUrl = dbUrl;
+      executedSql = sql;
     };
 
     const logs: string[] = [];
@@ -331,15 +472,17 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
       argv: [],
       migrationsDir: tmpDir,
       executor: mockExecutor,
+      sqlRunner: mockSqlRunner,
       log: (msg) => logs.push(msg),
     });
 
     expect(result.success).toBe(true);
     expect(result.pendingCount).toBe(1);
-    expect(commandsExecuted).toHaveLength(2);
-    expect(executedSqlContent.startsWith('BEGIN;')).toBe(true);
-    expect(executedSqlContent).toContain('CREATE UNIQUE INDEX idx_test ON public.test (id);');
-    expect(executedSqlContent.trim().endsWith('ROLLBACK;')).toBe(true);
+    expect(commandsExecuted).toHaveLength(1);
+    expect(executedDbUrl).toBe(mockDbUrl);
+    expect(executedSql.startsWith('BEGIN;')).toBe(true);
+    expect(executedSql).toContain('CREATE UNIQUE INDEX idx_test ON public.test (id);');
+    expect(executedSql.trim().endsWith('ROLLBACK;')).toBe(true);
     expect(logs.some((l) => l.includes('Pre-flight transactional rollback succeeded'))).toBe(true);
   });
 
@@ -350,7 +493,13 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
       if (cmd.includes('SELECT version FROM supabase_migrations.schema_migrations')) {
         return JSON.stringify([]);
       }
-      throw new Error('syntax error at or near "INVALID"');
+      return 'OK';
+    };
+
+    const mockSqlRunner: SqlRunner = async () => {
+      const err = new Error('syntax error at or near "INVALID"') as Error & { detail?: string };
+      err.detail = 'Table does not exist';
+      throw err;
     };
 
     const errors: string[] = [];
@@ -359,11 +508,43 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
       argv: [],
       migrationsDir: tmpDir,
       executor: mockExecutor,
+      sqlRunner: mockSqlRunner,
       error: (msg) => errors.push(msg),
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('syntax error at or near "INVALID"');
+    expect(result.error).toContain('syntax error at or near "INVALID" (Table does not exist)');
     expect(errors.some((e) => e.includes('Remote migration pre-flight failed'))).toBe(true);
+  });
+
+  it('queries remote applied migrations directly via fetchAppliedVersions when provided', async () => {
+    fs.writeFileSync(path.join(tmpDir, '20260528000000_init.sql'), '-- init');
+    fs.writeFileSync(path.join(tmpDir, '20261104100000_new.sql'), 'CREATE TABLE public.t (id int);');
+
+    let fetcherCalledWithUrl = '';
+    const mockFetcher: RemoteVersionFetcher = async (dbUrl: string) => {
+      fetcherCalledWithUrl = dbUrl;
+      return ['20260528000000'];
+    };
+
+    let sqlRunnerCalled = false;
+    const mockSqlRunner: SqlRunner = async () => {
+      sqlRunnerCalled = true;
+    };
+
+    const logs: string[] = [];
+    const result = await runRemotePreflight({
+      env: { CI: 'true', SUPABASE_DB_URL: mockDbUrl },
+      argv: [],
+      migrationsDir: tmpDir,
+      fetchAppliedVersions: mockFetcher,
+      sqlRunner: mockSqlRunner,
+      log: (msg) => logs.push(msg),
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.pendingCount).toBe(1);
+    expect(fetcherCalledWithUrl).toBe(mockDbUrl);
+    expect(sqlRunnerCalled).toBe(true);
   });
 });

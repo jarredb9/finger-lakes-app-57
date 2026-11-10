@@ -6,11 +6,17 @@
  */
 
 import { execSync } from 'child_process';
-import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import {
+  assertLocalEnvironment,
+  resolveDockerHost,
+  buildProcessEnv,
+} from './db-utils';
+
+export { assertLocalEnvironment, resolveDockerHost };
 
 // Load environment variables from .env.local and .env
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -113,60 +119,13 @@ export const CONVERTED_SECURITY_INVOKER_RPCS = [
 ] as const;
 
 /**
- * Validates that target host is local to prevent accidental execution against remote environments.
- */
-export function assertLocalEnvironment(url: string): void {
-  try {
-    const parsed = new URL(url);
-    const isLocal =
-      parsed.hostname === '127.0.0.1' ||
-      parsed.hostname === 'localhost' ||
-      parsed.hostname === '0.0.0.0';
-
-    if (!isLocal) {
-      throw new Error(
-        `Safety Guardrail Triggered: Target URL ${url} is not local. Execution against remote projects is strictly prohibited by AGENTS.md.`
-      );
-    }
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message.includes('Safety Guardrail')) {
-      throw err;
-    }
-    throw new Error(`Invalid Supabase URL: ${url}`);
-  }
-}
-
-/**
- * Detects portable Docker / Podman socket location.
- * Respects explicit DOCKER_HOST if provided, falls back to user Podman socket
- * only if present on disk, or returns undefined for default Docker daemon.
- */
-export function resolveDockerHost(): string | undefined {
-  if (process.env.DOCKER_HOST) {
-    return process.env.DOCKER_HOST;
-  }
-  const uid = process.getuid ? process.getuid() : 1000;
-  const podmanSock = `/run/user/${uid}/podman/podman.sock`;
-  if (fs.existsSync(podmanSock)) {
-    return `unix://${podmanSock}`;
-  }
-  return undefined;
-}
-
-/**
  * Execute the SQL catalog verification script via Supabase CLI.
  */
 export async function executeSqlCatalogVerification(): Promise<{
   passed: boolean;
   error?: string;
 }> {
-  const dockerHost = resolveDockerHost();
-  const binPath = path.resolve(process.cwd(), 'scripts/bin');
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    PATH: process.env.PATH ? `${binPath}:${process.env.PATH}` : binPath,
-    ...(dockerHost ? { DOCKER_HOST: dockerHost } : {}),
-  };
+  const env = buildProcessEnv();
 
   try {
     execSync(
@@ -193,13 +152,7 @@ export async function executeCliLinter(): Promise<{
   rawOutput: string;
   violationsFound: string[];
 }> {
-  const dockerHost = resolveDockerHost();
-  const binPath = path.resolve(process.cwd(), 'scripts/bin');
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    PATH: process.env.PATH ? `${binPath}:${process.env.PATH}` : binPath,
-    ...(dockerHost ? { DOCKER_HOST: dockerHost } : {}),
-  };
+  const env = buildProcessEnv();
 
   let stdout = '';
   let stderr = '';
