@@ -11,6 +11,7 @@
  *   4. npx supabase db query -o json -f scripts/db/fixtures/adversarial-verify.sql
  */
 
+import * as fs from 'fs';
 import * as path from 'path';
 import {
   assertLocalEnvironment,
@@ -20,6 +21,12 @@ import {
   type CommandExecutor,
   type EnvironmentVariables,
 } from './db-utils';
+import {
+  buildCompositeRollbackScript,
+  defaultSqlRunner,
+  getLocalMigrations,
+  type SqlRunner,
+} from './preflight-remote-migrations';
 
 export {
   assertLocalEnvironment,
@@ -27,6 +34,7 @@ export {
   defaultCommandExecutor,
   type CommandExecutor,
   type EnvironmentVariables,
+  type SqlRunner,
 };
 
 /**
@@ -90,10 +98,13 @@ export interface ReplayReport {
  */
 export interface ReplayOptions {
   executor?: CommandExecutor;
+  sqlRunner?: SqlRunner;
+  localDbUrl?: string;
   supabaseUrl?: string;
   seedFixturePath?: string;
   verifyFixturePath?: string;
   anchorVersion?: string;
+  migrationsDir?: string;
   silent?: boolean;
 }
 
@@ -314,14 +325,22 @@ export async function runTwoPhaseMigrationReplay(
     options.supabaseUrl ||
     process.env.NEXT_PUBLIC_SUPABASE_URL ||
     'http://127.0.0.1:54321';
+  const localDbUrl =
+    options.localDbUrl ||
+    process.env.LOCAL_DB_URL ||
+    'postgresql://postgres:postgres@127.0.0.1:54322/postgres';
   const anchorVersion = options.anchorVersion || ANCHOR_MIGRATION_VERSION;
   const seedFixturePath = options.seedFixturePath || ADVERSARIAL_SEED_FIXTURE_PATH;
   const verifyFixturePath = options.verifyFixturePath || ADVERSARIAL_VERIFY_FIXTURE_PATH;
+  const migrationsDir =
+    options.migrationsDir || path.resolve(process.cwd(), 'supabase/migrations');
   const executor = options.executor || defaultCommandExecutor;
+  const sqlRunner = options.sqlRunner || defaultSqlRunner;
   const silent = !!options.silent;
 
-  // Guardrail invariant: ensure target environment is local
+  // Guardrail invariant: ensure target environments are local
   assertLocalEnvironment(supabaseUrl);
+  assertLocalEnvironment(localDbUrl);
 
   const env = buildProcessEnv();
   const stepsExecuted: string[] = [];
@@ -340,30 +359,61 @@ export async function runTwoPhaseMigrationReplay(
   try {
     // Step 1: Reset database to anchor migration without seed
     const step1Cmd = `npx supabase db reset --version ${anchorVersion} --no-seed`;
-    log(`[1/4] Replaying schema to pre-tightening anchor: ${step1Cmd}...`);
+    log(`[1/5] Replaying schema to pre-tightening anchor: ${step1Cmd}...`);
     executor(step1Cmd, env);
     stepsExecuted.push(step1Cmd);
     log('  ✅ Schema reset to anchor version successfully.');
 
     // Step 2: Inject adversarial dirty seed fixture
     const step2Cmd = `npx supabase db query -f ${seedFixturePath}`;
-    log(`\n[2/4] Injecting adversarial dirty data: ${step2Cmd}...`);
+    log(`\n[2/5] Injecting adversarial dirty data: ${step2Cmd}...`);
     executor(step2Cmd, env);
     stepsExecuted.push(step2Cmd);
     log('  ✅ Adversarial dirty fixture injected successfully.');
 
-    // Step 3: Apply post-anchor migrations
-    const step3Cmd = 'npx supabase migration up';
-    log(`\n[3/4] Running migration up against dirty rows: ${step3Cmd}...`);
-    executor(step3Cmd, env);
-    stepsExecuted.push(step3Cmd);
+    // Step 3: Test composite transactional rollback against local database
+    log(`\n[3/5] Testing composite transactional rollback against local database (BEGIN ... ROLLBACK)...`);
+    const localMigrations = getLocalMigrations(migrationsDir);
+    const postAnchorMigrations = localMigrations.filter(
+      (m) => m.version > anchorVersion
+    );
+
+    if (postAnchorMigrations.length === 0) {
+      log('  ℹ️ 0 post-anchor migrations found; skipping composite rollback pre-flight.');
+    } else {
+      log(`  📋 Identified ${postAnchorMigrations.length} post-anchor migration(s) for composite rollback:`);
+      for (const m of postAnchorMigrations) {
+        log(`     • ${m.filename}`);
+      }
+      const migrationContents = postAnchorMigrations.map((m) => ({
+        version: m.version,
+        filename: m.filename,
+        content: fs.readFileSync(m.filePath, 'utf-8'),
+      }));
+      const { script, totalNormalized } = buildCompositeRollbackScript(migrationContents);
+      if (totalNormalized > 0) {
+        log(
+          `  ⚠️ Normalized ${totalNormalized} CONCURRENTLY index operation(s) to synchronous for transactional rollback.`
+        );
+      }
+
+      await sqlRunner(localDbUrl, script);
+      log('  ✅ Composite rollback transaction completed and rolled back cleanly.');
+    }
+    stepsExecuted.push(`composite rollback preflight (${postAnchorMigrations.length} migrations)`);
+
+    // Step 4: Apply post-anchor migrations
+    const step4Cmd = 'npx supabase migration up';
+    log(`\n[4/5] Running migration up against dirty rows: ${step4Cmd}...`);
+    executor(step4Cmd, env);
+    stepsExecuted.push(step4Cmd);
     log('  ✅ Migrations applied cleanly across pre-existing dirty records.');
 
-    // Step 4: Verify survivor rows match deterministic data reconciliation rules
-    const step4Cmd = `npx supabase db query -o json -f ${verifyFixturePath}`;
-    log(`\n[4/4] Executing survivor assertion query: ${step4Cmd}...`);
-    const queryOutput = executor(step4Cmd, env);
-    stepsExecuted.push(step4Cmd);
+    // Step 5: Verify survivor rows match deterministic data reconciliation rules
+    const step5Cmd = `npx supabase db query -o json -f ${verifyFixturePath}`;
+    log(`\n[5/5] Executing survivor assertion query: ${step5Cmd}...`);
+    const queryOutput = executor(step5Cmd, env);
+    stepsExecuted.push(step5Cmd);
 
     const rows = extractQueryRows<AdversarialSurvivorRow>(queryOutput);
     const evaluation = evaluateSurvivorInvariants(rows);
@@ -418,9 +468,12 @@ export async function runTwoPhaseMigrationReplay(
       evaluation,
     };
   } catch (error: unknown) {
-    const execError = error as { stderr?: string; stdout?: string; message?: string };
+    const execError = error as { stderr?: string; stdout?: string; message?: string; detail?: string };
     const stdErrText = [execError.stderr, execError.stdout].filter(Boolean).join('\n').trim();
-    const errText = stdErrText || execError.message || String(error);
+    const errText =
+      stdErrText ||
+      (execError.message ? `${execError.message}${execError.detail ? ` (${execError.detail})` : ''}` : '') ||
+      String(error);
 
     if (!silent) {
       console.error(`\n❌ Error during two-phase migration replay: ${errText.trim()}`);
