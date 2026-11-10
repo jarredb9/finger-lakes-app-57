@@ -11,9 +11,9 @@
 
 import { execSync } from 'child_process';
 import * as fs from 'fs';
-import * as os from 'os';
 import * as path from 'path';
 import * as dotenv from 'dotenv';
+import { Client, type ClientConfig } from 'pg';
 
 // Load environment variables from .env.local and .env
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
@@ -29,10 +29,13 @@ export type EnvironmentVariables = NodeJS.ProcessEnv | Record<string, string | u
 
 export type CommandExecutor = (command: string, env?: EnvironmentVariables) => string;
 
+export type SqlRunner = (dbUrl: string, sql: string) => Promise<void>;
+
 export interface PreflightOptions {
   env?: EnvironmentVariables;
   argv?: string[];
   executor?: CommandExecutor;
+  sqlRunner?: SqlRunner;
   migrationsDir?: string;
   log?: (msg: string) => void;
   warn?: (msg: string) => void;
@@ -263,6 +266,49 @@ export const defaultCommandExecutor: CommandExecutor = (
 };
 
 /**
+ * Resolves ClientConfig for pg.Client based on database URL and target environment.
+ * Sets rejectUnauthorized: false for hosted remote databases to accommodate SSL poolers,
+ * while leaving local connections without SSL.
+ */
+export function getPgClientConfig(connectionString: string): ClientConfig {
+  try {
+    const url = new URL(connectionString);
+    const hostname = url.hostname;
+    const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
+    const sslMode = url.searchParams.get('sslmode');
+
+    if (sslMode === 'disable' || (isLocal && sslMode !== 'require')) {
+      return { connectionString };
+    }
+    return {
+      connectionString,
+      ssl: { rejectUnauthorized: false },
+    };
+  } catch {
+    return {
+      connectionString,
+      ssl: { rejectUnauthorized: false },
+    };
+  }
+}
+
+/**
+ * Default SQL runner using node-postgres (pg) Simple Query Protocol.
+ * Simple Query Protocol allows multiple commands separated by semicolons
+ * inside a single transactional block (BEGIN ... ROLLBACK;).
+ */
+export async function defaultSqlRunner(dbUrl: string, sql: string): Promise<void> {
+  const config = getPgClientConfig(dbUrl);
+  const client = new Client(config);
+  await client.connect();
+  try {
+    await client.query(sql);
+  } finally {
+    await client.end();
+  }
+}
+
+/**
  * Main orchestration function for remote transactional migration pre-flight.
  */
 export async function runRemotePreflight(
@@ -271,6 +317,7 @@ export async function runRemotePreflight(
   const env = options.env || process.env;
   const argv = options.argv || process.argv.slice(2);
   const executor = options.executor || defaultCommandExecutor;
+  const sqlRunner = options.sqlRunner || defaultSqlRunner;
   const migrationsDir =
     options.migrationsDir || path.resolve(process.cwd(), 'supabase/migrations');
   const log = options.log || console.log;
@@ -341,39 +388,25 @@ export async function runRemotePreflight(
       );
     }
 
-    // 7. Write temporary file and execute inside transaction
-    const tmpFile = path.join(
-      os.tmpdir(),
-      `preflight-remote-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`
+    // 7. Execute inside transaction using Simple Query Protocol
+    log('🚀 Executing transactional pre-flight on remote database (BEGIN ... ROLLBACK)...');
+    await sqlRunner(dbUrl, script);
+
+    log(
+      `✅ Pre-flight transactional rollback succeeded for ${pendingMigrations.length} pending migration(s). No changes persisted on remote.`
     );
 
-    try {
-      fs.writeFileSync(tmpFile, script, 'utf-8');
-
-      log('🚀 Executing transactional pre-flight on remote database (BEGIN ... ROLLBACK)...');
-      const preflightCmd = `npx supabase db query --remote="${dbUrl}" --file="${tmpFile}" --yes`;
-      executor(preflightCmd, env);
-
-      log(
-        `✅ Pre-flight transactional rollback succeeded for ${pendingMigrations.length} pending migration(s). No changes persisted on remote.`
-      );
-
-      return {
-        success: true,
-        skipped: false,
-        pendingCount: pendingMigrations.length,
-        pendingMigrations: pendingMigrations.map((p) => p.filename),
-      };
-    } finally {
-      if (fs.existsSync(tmpFile)) {
-        fs.unlinkSync(tmpFile);
-      }
-    }
+    return {
+      success: true,
+      skipped: false,
+      pendingCount: pendingMigrations.length,
+      pendingMigrations: pendingMigrations.map((p) => p.filename),
+    };
   } catch (err: unknown) {
-    const execError = err as { stderr?: string; stdout?: string; message?: string };
+    const execError = err as { stderr?: string; stdout?: string; message?: string; detail?: string };
     const errText =
       [execError.stderr, execError.stdout].filter(Boolean).join('\n').trim() ||
-      execError.message ||
+      (execError.message ? `${execError.message}${execError.detail ? ` (${execError.detail})` : ''}` : '') ||
       String(err);
 
     errorLog(`\n❌ Remote migration pre-flight failed: ${errText.trim()}`);

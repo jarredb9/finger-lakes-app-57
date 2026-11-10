@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import { Client } from 'pg';
 import {
   assertRemotePreflightAuthorized,
   shouldSkipIfNoSecret,
@@ -9,9 +10,12 @@ import {
   parseRemoteAppliedVersions,
   filterPendingMigrations,
   getLocalMigrations,
+  getPgClientConfig,
+  defaultSqlRunner,
   runRemotePreflight,
   type LocalMigration,
   type CommandExecutor,
+  type SqlRunner,
 } from '../preflight-remote-migrations';
 
 describe('preflight-remote-migrations: safety guardrail', () => {
@@ -226,6 +230,72 @@ describe('preflight-remote-migrations: getLocalMigrations', () => {
   });
 });
 
+describe('preflight-remote-migrations: getPgClientConfig', () => {
+  it('returns non-SSL config for localhost and 127.0.0.1', () => {
+    const configLocal = getPgClientConfig('postgresql://postgres:postgres@127.0.0.1:54322/postgres');
+    expect(configLocal.ssl).toBeUndefined();
+
+    const configHost = getPgClientConfig('postgresql://postgres:postgres@localhost:5432/postgres');
+    expect(configHost.ssl).toBeUndefined();
+  });
+
+  it('returns SSL config with rejectUnauthorized: false for hosted remote pooler hosts', () => {
+    const configRemote = getPgClientConfig('postgresql://postgres.ref:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres');
+    expect(configRemote.ssl).toEqual({ rejectUnauthorized: false });
+  });
+
+  it('respects sslmode=disable', () => {
+    const configDisabled = getPgClientConfig('postgresql://postgres:secret@db.example.com:5432/postgres?sslmode=disable');
+    expect(configDisabled.ssl).toBeUndefined();
+  });
+
+  it('enables SSL for localhost if sslmode=require is explicitly requested', () => {
+    const configRequire = getPgClientConfig('postgresql://postgres:postgres@localhost:5432/postgres?sslmode=require');
+    expect(configRequire.ssl).toEqual({ rejectUnauthorized: false });
+  });
+});
+
+describe('preflight-remote-migrations: defaultSqlRunner', () => {
+  it('connects, executes simple query string, and closes connection on success', async () => {
+    const connectSpy = jest.spyOn(Client.prototype, 'connect').mockResolvedValue(undefined as never);
+    const querySpy = jest.spyOn(Client.prototype, 'query').mockResolvedValue({} as never);
+    const endSpy = jest.spyOn(Client.prototype, 'end').mockResolvedValue(undefined as never);
+
+    try {
+      await defaultSqlRunner('postgresql://postgres:secret@db.example.com:5432/postgres', 'BEGIN; SELECT 1; ROLLBACK;');
+
+      expect(connectSpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledWith('BEGIN; SELECT 1; ROLLBACK;');
+      expect(endSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      connectSpy.mockRestore();
+      querySpy.mockRestore();
+      endSpy.mockRestore();
+    }
+  });
+
+  it('guarantees connection close even when query execution fails', async () => {
+    const connectSpy = jest.spyOn(Client.prototype, 'connect').mockResolvedValue(undefined as never);
+    const querySpy = jest.spyOn(Client.prototype, 'query').mockRejectedValue(new Error('Syntax error') as never);
+    const endSpy = jest.spyOn(Client.prototype, 'end').mockResolvedValue(undefined as never);
+
+    try {
+      await expect(
+        defaultSqlRunner('postgresql://postgres:secret@db.example.com:5432/postgres', 'INVALID SQL;')
+      ).rejects.toThrow('Syntax error');
+
+      expect(connectSpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(endSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      connectSpy.mockRestore();
+      querySpy.mockRestore();
+      endSpy.mockRestore();
+    }
+  });
+});
+
 describe('preflight-remote-migrations: runRemotePreflight orchestration', () => {
   let tmpDir: string;
   const mockDbUrl = 'postgresql://postgres:secret@db.supabase.co:5432/postgres';
@@ -302,7 +372,7 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
     expect(logs.some((l) => l.includes('0 pending migrations; remote schema is up to date'))).toBe(true);
   });
 
-  it('executes rolled-back composite transaction for pending migrations', async () => {
+  it('executes rolled-back composite transaction for pending migrations via sqlRunner', async () => {
     fs.writeFileSync(path.join(tmpDir, '20260528000000_init.sql'), '-- init');
     fs.writeFileSync(
       path.join(tmpDir, '20261104100000_new.sql'),
@@ -310,19 +380,19 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
     );
 
     const commandsExecuted: string[] = [];
-    let executedSqlContent = '';
-
     const mockExecutor: CommandExecutor = (cmd: string) => {
       commandsExecuted.push(cmd);
       if (cmd.includes('SELECT version FROM supabase_migrations.schema_migrations')) {
         return JSON.stringify([{ version: '20260528000000' }]);
       }
-      // Query with --file
-      const fileMatch = cmd.match(/--file="?([^"\s]+)"?/);
-      if (fileMatch) {
-        executedSqlContent = fs.readFileSync(fileMatch[1], 'utf-8');
-      }
       return 'OK';
+    };
+
+    let executedDbUrl = '';
+    let executedSql = '';
+    const mockSqlRunner: SqlRunner = async (dbUrl: string, sql: string) => {
+      executedDbUrl = dbUrl;
+      executedSql = sql;
     };
 
     const logs: string[] = [];
@@ -331,15 +401,17 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
       argv: [],
       migrationsDir: tmpDir,
       executor: mockExecutor,
+      sqlRunner: mockSqlRunner,
       log: (msg) => logs.push(msg),
     });
 
     expect(result.success).toBe(true);
     expect(result.pendingCount).toBe(1);
-    expect(commandsExecuted).toHaveLength(2);
-    expect(executedSqlContent.startsWith('BEGIN;')).toBe(true);
-    expect(executedSqlContent).toContain('CREATE UNIQUE INDEX idx_test ON public.test (id);');
-    expect(executedSqlContent.trim().endsWith('ROLLBACK;')).toBe(true);
+    expect(commandsExecuted).toHaveLength(1);
+    expect(executedDbUrl).toBe(mockDbUrl);
+    expect(executedSql.startsWith('BEGIN;')).toBe(true);
+    expect(executedSql).toContain('CREATE UNIQUE INDEX idx_test ON public.test (id);');
+    expect(executedSql.trim().endsWith('ROLLBACK;')).toBe(true);
     expect(logs.some((l) => l.includes('Pre-flight transactional rollback succeeded'))).toBe(true);
   });
 
@@ -350,7 +422,13 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
       if (cmd.includes('SELECT version FROM supabase_migrations.schema_migrations')) {
         return JSON.stringify([]);
       }
-      throw new Error('syntax error at or near "INVALID"');
+      return 'OK';
+    };
+
+    const mockSqlRunner: SqlRunner = async () => {
+      const err = new Error('syntax error at or near "INVALID"') as Error & { detail?: string };
+      err.detail = 'Table does not exist';
+      throw err;
     };
 
     const errors: string[] = [];
@@ -359,11 +437,12 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
       argv: [],
       migrationsDir: tmpDir,
       executor: mockExecutor,
+      sqlRunner: mockSqlRunner,
       error: (msg) => errors.push(msg),
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toContain('syntax error at or near "INVALID"');
+    expect(result.error).toContain('syntax error at or near "INVALID" (Table does not exist)');
     expect(errors.some((e) => e.includes('Remote migration pre-flight failed'))).toBe(true);
   });
 });
