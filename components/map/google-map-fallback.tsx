@@ -35,10 +35,14 @@ export function GoogleMapFallback({
 
   // Sync map type when mapStyle changes
   useEffect(() => {
-    if (mapRef.current?.gmap) {
-      mapRef.current.gmap.setMapTypeId(
-        mapStyle === "outdoors" ? "terrain" : "roadmap"
-      );
+    try {
+      if (mapRef.current?.gmap && typeof mapRef.current.gmap.setMapTypeId === "function") {
+        mapRef.current.gmap.setMapTypeId(
+          mapStyle === "outdoors" ? "terrain" : "roadmap"
+        );
+      }
+    } catch {
+      // Ignore style change errors if map destroyed or unsupported
     }
   }, [mapStyle]);
 
@@ -48,60 +52,78 @@ export function GoogleMapFallback({
     const container = containerRef.current;
 
     async function initMap() {
-      const mapsLib = await getGoogleLibrary("maps");
-      if (!active || !container) return;
+      try {
+        const mapsLib = await getGoogleLibrary("maps");
+        if (!active || !container) return;
 
-      const gmap = new mapsLib.Map(container, {
-        center: { lat: 42.7, lng: -76.9 },
-        zoom: 9,
-        mapId: "DEMO_MAP_ID",
-        fullscreenControl: false,
-        streetViewControl: false,
-        zoomControl: false,
-        cameraControl: false,
-        rotateControl: false,
-        mapTypeControl: false,
-      });
-
-      const adapter = new GoogleMapAdapter(gmap);
-      mapRef.current = adapter;
-      setMapAdapter(adapter);
-
-      // Apply initial style
-      gmap.setMapTypeId("roadmap");
-
-      const syncMapToStore = () => {
-        try {
-          const gbounds = gmap.getBounds();
-          if (gbounds) {
-            const ne = gbounds.getNorthEast();
-            const sw = gbounds.getSouthWest();
-            const serializableBounds = {
-              north: typeof ne.lat === "function" ? ne.lat() : ne.lat,
-              south: typeof sw.lat === "function" ? sw.lat() : sw.lat,
-              east: typeof ne.lng === "function" ? ne.lng() : ne.lng,
-              west: typeof sw.lng === "function" ? sw.lng() : sw.lng,
-            };
-            useMapStore.getState().setBounds(serializableBounds);
-            if (!useMapStore.getState().lastSearchedBounds) {
-              useMapStore.getState().setLastSearchedBounds(serializableBounds);
-            }
-          }
-          const c = gmap.getCenter();
-          if (c) {
-            const lat = typeof c.lat === "function" ? c.lat() : c.lat;
-            const lng = typeof c.lng === "function" ? c.lng() : c.lng;
-            if (typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng)) {
-              useMapStore.getState().setCenter({ lat, lng });
-            }
-          }
-        } catch {
-          // Ignore synchronization errors during map teardown or re-initialization
+        if (!mapsLib?.Map) {
+          throw new Error("Google Maps Map constructor unavailable");
         }
-      };
 
-      idleListener = gmap.addListener("idle", syncMapToStore);
-      syncMapToStore();
+        const gmap = new mapsLib.Map(container, {
+          center: { lat: 42.7, lng: -76.9 },
+          zoom: 9,
+          mapId: "DEMO_MAP_ID",
+          fullscreenControl: false,
+          streetViewControl: false,
+          zoomControl: false,
+          cameraControl: false,
+          rotateControl: false,
+          mapTypeControl: false,
+        });
+
+        const adapter = new GoogleMapAdapter(gmap);
+        mapRef.current = adapter;
+        setMapAdapter(adapter);
+
+        // Apply initial style
+        if (typeof gmap.setMapTypeId === "function") {
+          gmap.setMapTypeId("roadmap");
+        }
+
+        const syncMapToStore = () => {
+          try {
+            const gbounds = gmap.getBounds();
+            if (gbounds) {
+              const ne = gbounds.getNorthEast();
+              const sw = gbounds.getSouthWest();
+              const serializableBounds = {
+                north: typeof ne.lat === "function" ? ne.lat() : ne.lat,
+                south: typeof sw.lat === "function" ? sw.lat() : sw.lat,
+                east: typeof ne.lng === "function" ? ne.lng() : ne.lng,
+                west: typeof sw.lng === "function" ? sw.lng() : sw.lng,
+              };
+              useMapStore.getState().setBounds(serializableBounds);
+              if (!useMapStore.getState().lastSearchedBounds) {
+                useMapStore.getState().setLastSearchedBounds(serializableBounds);
+              }
+            }
+            const c = gmap.getCenter();
+            if (c) {
+              const lat = typeof c.lat === "function" ? c.lat() : c.lat;
+              const lng = typeof c.lng === "function" ? c.lng() : c.lng;
+              if (typeof lat === "number" && typeof lng === "number" && !isNaN(lat) && !isNaN(lng)) {
+                useMapStore.getState().setCenter({ lat, lng });
+              }
+            }
+          } catch {
+            // Ignore synchronization errors during map teardown or re-initialization
+          }
+        };
+
+        if (typeof gmap.addListener === "function") {
+          idleListener = gmap.addListener("idle", syncMapToStore);
+        }
+        syncMapToStore();
+      } catch (err) {
+        // Fallback: sync default Finger Lakes bounds to useMapStore so consumers aren't starved of bounds
+        const defaultBounds = { north: 43.0, south: 42.0, east: -76.0, west: -77.0 };
+        useMapStore.getState().setBounds(defaultBounds);
+        if (!useMapStore.getState().lastSearchedBounds) {
+          useMapStore.getState().setLastSearchedBounds(defaultBounds);
+        }
+        useMapStore.getState().setCenter({ lat: 42.7, lng: -76.9 });
+      }
     }
 
     initMap();
@@ -181,65 +203,85 @@ export function GoogleMapFallback({
     const clickCleanups: (() => void)[] = [];
 
     allWineries.forEach(async (winery) => {
-      const markerLib = await getGoogleLibrary("marker");
-      const mapsLib = await getGoogleLibrary("maps");
-      if (!active) return;
+      try {
+        const markerLib = await getGoogleLibrary("marker");
+        const mapsLib = await getGoogleLibrary("maps");
+        if (!active) return;
 
-      const color = PIN_COLORS[winery.type as keyof typeof PIN_COLORS] || "#4b5563";
-      const handleMarkerClick = () => {
-        onMarkerClick(winery);
-      };
+        const color = PIN_COLORS[winery.type as keyof typeof PIN_COLORS] || "#4b5563";
+        const handleMarkerClick = () => {
+          onMarkerClick(winery);
+        };
 
-      let marker: any;
-      if (markerLib?.AdvancedMarkerElement) {
-        const pinElement = new markerLib.PinElement({
-          background: color,
-          borderColor: "#ffffff",
-          glyphColor: "#ffffff",
-        });
+        let marker: any;
+        if (markerLib?.AdvancedMarkerElement) {
+          const pinElement = markerLib.PinElement
+            ? new markerLib.PinElement({
+                background: color,
+                borderColor: "#ffffff",
+                glyphColor: "#ffffff",
+              })
+            : null;
 
-        marker = new markerLib.AdvancedMarkerElement({
-          map: gmap,
-          position: { lat: winery.latitude, lng: winery.longitude },
-          title: winery.name,
-          content: pinElement,
-          gmpClickable: true,
-        });
+          marker = new markerLib.AdvancedMarkerElement({
+            map: gmap,
+            position: { lat: winery.latitude, lng: winery.longitude },
+            title: winery.name,
+            content: pinElement,
+            gmpClickable: true,
+          });
 
-        marker.addEventListener("gmp-click", handleMarkerClick);
-        clickCleanups.push(() => {
-          marker.removeEventListener?.("gmp-click", handleMarkerClick);
-        });
-      } else if (mapsLib?.Marker) {
-        marker = new mapsLib.Marker({
-          map: gmap,
-          position: { lat: winery.latitude, lng: winery.longitude },
-          title: winery.name,
-        });
-
-        const listener = marker.addListener("click", handleMarkerClick);
-        clickCleanups.push(() => {
-          if (listener && typeof listener.remove === "function") {
-            listener.remove();
+          if (marker && typeof marker.addEventListener === "function") {
+            marker.addEventListener("gmp-click", handleMarkerClick);
+            clickCleanups.push(() => {
+              try {
+                marker.removeEventListener?.("gmp-click", handleMarkerClick);
+              } catch {}
+            });
           }
-        });
-      }
+        } else if (mapsLib?.Marker) {
+          marker = new mapsLib.Marker({
+            map: gmap,
+            position: { lat: winery.latitude, lng: winery.longitude },
+            title: winery.name,
+          });
 
-      if (marker) {
-        markersRef.current.push(marker);
+          if (marker && typeof marker.addListener === "function") {
+            const listener = marker.addListener("click", handleMarkerClick);
+            clickCleanups.push(() => {
+              try {
+                if (listener && typeof listener.remove === "function") {
+                  listener.remove();
+                }
+              } catch {}
+            });
+          }
+        }
+
+        if (marker) {
+          markersRef.current.push(marker);
+        }
+      } catch {
+        // Individual marker failure should not crash React tree
       }
     });
 
     return () => {
       active = false;
-      clickCleanups.forEach((cleanup) => cleanup());
+      clickCleanups.forEach((cleanup) => {
+        try {
+          cleanup();
+        } catch {}
+      });
       markersRef.current.forEach((m) => {
-        if (typeof m.setMap === "function") {
-          m.setMap(null);
-        }
-        if ("map" in m) {
-          m.map = null;
-        }
+        try {
+          if (typeof m.setMap === "function") {
+            m.setMap(null);
+          }
+          if ("map" in m) {
+            m.map = null;
+          }
+        } catch {}
       });
       markersRef.current = [];
     };
