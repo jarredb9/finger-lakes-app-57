@@ -132,6 +132,7 @@
     "supabase": "^3.0.0",
     "tailwindcss": "^4.1.18",
     "ts-jest": "^29.4.15",
+    "tsx": "^4.19.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.54.0",
     "uuid": "^13.0.2"

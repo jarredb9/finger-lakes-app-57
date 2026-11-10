@@ -12,10 +12,12 @@ import {
   getLocalMigrations,
   getPgClientConfig,
   defaultSqlRunner,
+  defaultFetchRemoteAppliedVersions,
   runRemotePreflight,
   type LocalMigration,
   type CommandExecutor,
   type SqlRunner,
+  type RemoteVersionFetcher,
 } from '../preflight-remote-migrations';
 
 describe('preflight-remote-migrations: safety guardrail', () => {
@@ -172,6 +174,19 @@ Pass --yes to accept.
     expect(versions).toEqual(['20260528000000', '20260601000000']);
   });
 
+  it('parses array JSON output even when logs contain bracketed prefixes like [dotenvx] or [INFO]', () => {
+    const rawOutput = `
+[dotenvx] 2 secrets injected
+[INFO] Connected to remote database
+[
+  { "version": "20260528000000" },
+  { "version": "20260601000000" }
+]
+    `;
+    const versions = parseRemoteAppliedVersions(rawOutput);
+    expect(versions).toEqual(['20260528000000', '20260601000000']);
+  });
+
   it('throws descriptive error if JSON cannot be parsed from output', () => {
     expect(() => parseRemoteAppliedVersions('No JSON output available')).toThrow(
       /Failed to parse applied migration versions/
@@ -252,6 +267,62 @@ describe('preflight-remote-migrations: getPgClientConfig', () => {
   it('enables SSL for localhost if sslmode=require is explicitly requested', () => {
     const configRequire = getPgClientConfig('postgresql://postgres:postgres@localhost:5432/postgres?sslmode=require');
     expect(configRequire.ssl).toEqual({ rejectUnauthorized: false });
+    expect(configRequire.connectionString).toBe('postgresql://postgres:postgres@localhost:5432/postgres');
+  });
+
+  it('strips sslmode parameter while preserving other query parameters', () => {
+    const config = getPgClientConfig('postgresql://postgres.ref:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres?sslmode=require&connect_timeout=10');
+    expect(config.ssl).toEqual({ rejectUnauthorized: false });
+    expect(config.connectionString).toBe('postgresql://postgres.ref:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres?connect_timeout=10');
+  });
+});
+
+describe('preflight-remote-migrations: defaultFetchRemoteAppliedVersions', () => {
+  it('connects, executes schema migrations query, and returns version list in ascending order', async () => {
+    const connectSpy = jest.spyOn(Client.prototype, 'connect').mockResolvedValue(undefined as never);
+    const querySpy = jest.spyOn(Client.prototype, 'query').mockResolvedValue({
+      rows: [
+        { version: '20260528000000' },
+        { version: '20260601000000' },
+      ],
+    } as never);
+    const endSpy = jest.spyOn(Client.prototype, 'end').mockResolvedValue(undefined as never);
+
+    try {
+      const versions = await defaultFetchRemoteAppliedVersions('postgresql://postgres:secret@db.example.com:5432/postgres');
+
+      expect(connectSpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledWith(
+        'SELECT version FROM supabase_migrations.schema_migrations ORDER BY version ASC'
+      );
+      expect(endSpy).toHaveBeenCalledTimes(1);
+      expect(versions).toEqual(['20260528000000', '20260601000000']);
+    } finally {
+      connectSpy.mockRestore();
+      querySpy.mockRestore();
+      endSpy.mockRestore();
+    }
+  });
+
+  it('guarantees connection close even when query execution fails', async () => {
+    const connectSpy = jest.spyOn(Client.prototype, 'connect').mockResolvedValue(undefined as never);
+    const querySpy = jest.spyOn(Client.prototype, 'query').mockRejectedValue(new Error('Connection terminated') as never);
+    const endSpy = jest.spyOn(Client.prototype, 'end').mockResolvedValue(undefined as never);
+
+    try {
+      await expect(
+        defaultFetchRemoteAppliedVersions('postgresql://postgres:secret@db.example.com:5432/postgres')
+      ).rejects.toThrow('Connection terminated');
+
+      expect(connectSpy).toHaveBeenCalledTimes(1);
+      expect(querySpy).toHaveBeenCalledTimes(1);
+      expect(endSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      connectSpy.mockRestore();
+      querySpy.mockRestore();
+      endSpy.mockRestore();
+    }
   });
 });
 
@@ -444,5 +515,36 @@ describe('preflight-remote-migrations: runRemotePreflight orchestration', () => 
     expect(result.success).toBe(false);
     expect(result.error).toContain('syntax error at or near "INVALID" (Table does not exist)');
     expect(errors.some((e) => e.includes('Remote migration pre-flight failed'))).toBe(true);
+  });
+
+  it('queries remote applied migrations directly via fetchAppliedVersions when provided', async () => {
+    fs.writeFileSync(path.join(tmpDir, '20260528000000_init.sql'), '-- init');
+    fs.writeFileSync(path.join(tmpDir, '20261104100000_new.sql'), 'CREATE TABLE public.t (id int);');
+
+    let fetcherCalledWithUrl = '';
+    const mockFetcher: RemoteVersionFetcher = async (dbUrl: string) => {
+      fetcherCalledWithUrl = dbUrl;
+      return ['20260528000000'];
+    };
+
+    let sqlRunnerCalled = false;
+    const mockSqlRunner: SqlRunner = async () => {
+      sqlRunnerCalled = true;
+    };
+
+    const logs: string[] = [];
+    const result = await runRemotePreflight({
+      env: { CI: 'true', SUPABASE_DB_URL: mockDbUrl },
+      argv: [],
+      migrationsDir: tmpDir,
+      fetchAppliedVersions: mockFetcher,
+      sqlRunner: mockSqlRunner,
+      log: (msg) => logs.push(msg),
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.pendingCount).toBe(1);
+    expect(fetcherCalledWithUrl).toBe(mockDbUrl);
+    expect(sqlRunnerCalled).toBe(true);
   });
 });

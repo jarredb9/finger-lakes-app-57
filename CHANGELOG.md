@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Added Podman compatibility shim translating Docker Go template syntax for Supabase CLI v3 container operations on RHEL 8.
 
 ### Changed
+* Hardened remote database migration pre-flight and static reconciliation linter by enforcing 1-to-1 constraint reconciliation, supporting unnamed constraints, handling single-line dollar quotes, querying applied migrations via native `pg.Client`, and sanitizing connection string SSL parameters ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0014](docs/adr/0014-multi-phase-migration-verification-and-reconciliation-policy.md)).
 * Centralized database verification environment helpers, eliminated tautological test assertions, and hardened adversarial migration seed fixtures ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0014](docs/adr/0014-multi-phase-migration-verification-and-reconciliation-policy.md)).
 * Enforced end-to-end static type safety across Supabase client factories by binding the generic Database schema to eliminate untyped table and RPC queries ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
 * Decoupled profile email addresses from SECURITY INVOKER database RPCs and trip member queries to prevent PostgREST column privilege errors ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0010](docs/adr/0010-direct-table-rls-privilege-revocation-and-private-storage.md)).

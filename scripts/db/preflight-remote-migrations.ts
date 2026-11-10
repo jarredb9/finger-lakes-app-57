@@ -38,11 +38,14 @@ export interface LocalMigration {
 
 export type SqlRunner = (dbUrl: string, sql: string) => Promise<void>;
 
+export type RemoteVersionFetcher = (dbUrl: string) => Promise<string[]>;
+
 export interface PreflightOptions {
   env?: EnvironmentVariables;
   argv?: string[];
   executor?: CommandExecutor;
   sqlRunner?: SqlRunner;
+  fetchAppliedVersions?: RemoteVersionFetcher;
   migrationsDir?: string;
   log?: (msg: string) => void;
   warn?: (msg: string) => void;
@@ -177,11 +180,29 @@ export function buildCompositeRollbackScript(
  * Extracts applied migration versions from `supabase db query -o json` output.
  */
 export function parseRemoteAppliedVersions(rawOutput: string): string[] {
-  // Try array JSON first: [ { "version": "..." }, ... ] or []
-  const arrayMatch = rawOutput.match(/\[[\s\S]*?\]/);
-  if (arrayMatch) {
+  // Try array JSON first: test all candidate bracketed substrings
+  const arrayMatches = rawOutput.matchAll(/\[[\s\S]*?\]/g);
+  for (const match of arrayMatches) {
     try {
-      const parsed = JSON.parse(arrayMatch[0]);
+      const parsed = JSON.parse(match[0]);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item: { version?: string | number }) =>
+            item && item.version !== undefined ? String(item.version) : ''
+          )
+          .filter(Boolean);
+      }
+    } catch {
+      // Continue to next match candidate
+    }
+  }
+
+  // Try finding from first '[' to last ']' in case non-greedy match split arrays
+  const firstBracket = rawOutput.indexOf('[');
+  const lastBracket = rawOutput.lastIndexOf(']');
+  if (firstBracket !== -1 && lastBracket > firstBracket) {
+    try {
+      const parsed = JSON.parse(rawOutput.slice(firstBracket, lastBracket + 1));
       if (Array.isArray(parsed)) {
         return parsed
           .map((item: { version?: string | number }) =>
@@ -195,10 +216,10 @@ export function parseRemoteAppliedVersions(rawOutput: string): string[] {
   }
 
   // Try object JSON: { "rows": [ { "version": "..." }, ... ] }
-  const objMatch = rawOutput.match(/\{[\s\S]*\}/);
-  if (objMatch) {
+  const objMatches = rawOutput.matchAll(/\{[\s\S]*\}/g);
+  for (const match of objMatches) {
     try {
-      const parsed = JSON.parse(objMatch[0]);
+      const parsed = JSON.parse(match[0]);
       if (Array.isArray(parsed.rows)) {
         return parsed.rows
           .map((item: { version?: string | number }) =>
@@ -263,6 +284,8 @@ export function filterPendingMigrations(
  * Resolves ClientConfig for pg.Client based on database URL and target environment.
  * Sets rejectUnauthorized: false for hosted remote databases to accommodate SSL poolers,
  * while leaving local connections without SSL.
+ * Strips sslmode from connectionString URL parameters so pg-connection-string does not
+ * overwrite explicit SSL settings.
  */
 export function getPgClientConfig(connectionString: string): ClientConfig {
   try {
@@ -271,11 +294,15 @@ export function getPgClientConfig(connectionString: string): ClientConfig {
     const isLocal = hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1';
     const sslMode = url.searchParams.get('sslmode');
 
+    // Remove sslmode query parameter so pg-connection-string doesn't override our explicit ssl config
+    url.searchParams.delete('sslmode');
+    const sanitizedConnectionString = url.toString();
+
     if (sslMode === 'disable' || (isLocal && sslMode !== 'require')) {
-      return { connectionString };
+      return { connectionString: sanitizedConnectionString };
     }
     return {
-      connectionString,
+      connectionString: sanitizedConnectionString,
       ssl: { rejectUnauthorized: false },
     };
   } catch {
@@ -283,6 +310,26 @@ export function getPgClientConfig(connectionString: string): ClientConfig {
       connectionString,
       ssl: { rejectUnauthorized: false },
     };
+  }
+}
+
+/**
+ * Default applied migration version discovery using node-postgres (pg) Simple Query Protocol.
+ * Directly reads applied migration versions from supabase_migrations.schema_migrations.
+ */
+export async function defaultFetchRemoteAppliedVersions(dbUrl: string): Promise<string[]> {
+  const config = getPgClientConfig(dbUrl);
+  const client = new Client(config);
+  await client.connect();
+  try {
+    const res = await client.query<{ version: string | number }>(
+      'SELECT version FROM supabase_migrations.schema_migrations ORDER BY version ASC'
+    );
+    return res.rows
+      .map((row) => (row && row.version !== undefined ? String(row.version) : ''))
+      .filter(Boolean);
+  } finally {
+    await client.end();
   }
 }
 
@@ -312,6 +359,8 @@ export async function runRemotePreflight(
   const argv = options.argv || process.argv.slice(2);
   const executor = options.executor || defaultCommandExecutor;
   const sqlRunner = options.sqlRunner || defaultSqlRunner;
+  const fetchAppliedVersions =
+    options.fetchAppliedVersions || defaultFetchRemoteAppliedVersions;
   const migrationsDir =
     options.migrationsDir || path.resolve(process.cwd(), 'supabase/migrations');
   const log = options.log || console.log;
@@ -345,9 +394,14 @@ export async function runRemotePreflight(
     log('🔍 Discovering applied remote migrations...');
 
     // 4. Query applied remote migrations
-    const queryCmd = `npx supabase db query --remote="${dbUrl}" --read-only -o json "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version ASC"`;
-    const queryOutput = executor(queryCmd, env);
-    const appliedVersions = parseRemoteAppliedVersions(queryOutput);
+    let appliedVersions: string[];
+    if (options.executor && !options.fetchAppliedVersions) {
+      const queryCmd = `npx supabase db query --remote="${dbUrl}" --read-only -o json "SELECT version FROM supabase_migrations.schema_migrations ORDER BY version ASC"`;
+      const queryOutput = executor(queryCmd, env);
+      appliedVersions = parseRemoteAppliedVersions(queryOutput);
+    } else {
+      appliedVersions = await fetchAppliedVersions(dbUrl);
+    }
 
     // 5. Discover local migrations
     const localMigrations = getLocalMigrations(migrationsDir);
