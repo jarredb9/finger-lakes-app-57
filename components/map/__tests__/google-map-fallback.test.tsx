@@ -170,4 +170,89 @@ describe("GoogleMapFallback Component", () => {
 
     expect(mockGmap.setMapTypeId).toHaveBeenCalledWith("roadmap");
   });
+
+  it("recovers gracefully and syncs default bounds to useMapStore when getGoogleLibrary rejects or new mapsLib.Map throws", async () => {
+    (googleLoader.getGoogleLibrary as jest.Mock).mockRejectedValueOnce(
+      new Error("Failed to load maps library")
+    );
+
+    render(
+      <GoogleMapFallback
+        discoveredWineries={[sampleWinery]}
+        visitedWineries={[]}
+        wishlistWineries={[]}
+        favoriteWineries={[]}
+        filter={["all"]}
+        onMarkerClick={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("google-map-fallback")).toBeInTheDocument();
+
+    await waitFor(() => {
+      const state = useMapStore.getState();
+      expect(state.bounds).toEqual({
+        north: 43.0,
+        south: 42.0,
+        east: -76.0,
+        west: -77.0,
+      });
+      expect(state.center).toEqual({
+        lat: 42.7,
+        lng: -76.9,
+      });
+    });
+  });
+
+  it("handles initialization failure when new mapsLib.Map throws", async () => {
+    mockMapsLib.Map.mockImplementationOnce(() => {
+      throw new Error("InvalidKeyMapError");
+    });
+
+    render(
+      <GoogleMapFallback
+        discoveredWineries={[sampleWinery]}
+        visitedWineries={[]}
+        wishlistWineries={[]}
+        favoriteWineries={[]}
+        filter={["all"]}
+        onMarkerClick={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("google-map-fallback")).toBeInTheDocument();
+
+    await waitFor(() => {
+      const state = useMapStore.getState();
+      expect(state.bounds).toEqual({
+        north: 43.0,
+        south: 42.0,
+        east: -76.0,
+        west: -77.0,
+      });
+    });
+  });
+
+  it("contains marker creation failures without unmounting or crashing the component", async () => {
+    mockMarkerLib.AdvancedMarkerElement.mockImplementationOnce(() => {
+      throw new Error("Marker creation failed");
+    });
+
+    render(
+      <GoogleMapFallback
+        discoveredWineries={[sampleWinery]}
+        visitedWineries={[]}
+        wishlistWineries={[]}
+        favoriteWineries={[]}
+        filter={["all"]}
+        onMarkerClick={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("google-map-fallback")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockMapsLib.Map).toHaveBeenCalled();
+    });
+    expect(screen.getByTestId("google-map-fallback")).toBeInTheDocument();
+  });
 });

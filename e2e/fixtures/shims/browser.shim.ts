@@ -129,6 +129,180 @@ export class BrowserShim {
         window.mapboxgl = window.mapboxgl || {};
         window.mapboxgl.supported = () => true;
 
+        // Set E2E mocks flag for loader guards
+        (window as any)._E2E_MOCKS_ACTIVE = true;
+
+        // Pre-populate window.google.maps mocks synchronously on document creation
+        window.google = window.google || {};
+        const gmaps = (((window.google as any).maps = (window.google as any).maps || {}) as any);
+
+        if (!gmaps.Map) {
+          gmaps.Map = function (this: any, _container?: any, options?: any) {
+            const center = options?.center || { lat: 42.7, lng: -76.9 };
+            const latVal = typeof center.lat === "function" ? center.lat() : center.lat ?? 42.7;
+            const lngVal = typeof center.lng === "function" ? center.lng() : center.lng ?? -76.9;
+            this._center = { lat: latVal, lng: lngVal };
+            this._zoom = options?.zoom ?? 9;
+            this._mapTypeId = "roadmap";
+            this._listeners = {} as Record<string, Function[]>;
+            return this;
+          };
+          gmaps.Map.prototype.setMapTypeId = function (id: string) { this._mapTypeId = id; };
+          gmaps.Map.prototype.getStreetView = function () { return null; };
+          gmaps.Map.prototype.getZoom = function () { return this._zoom; };
+          gmaps.Map.prototype.setZoom = function (z: number) { this._zoom = z; };
+          gmaps.Map.prototype.setCenter = function (c: any) {
+            if (!c) return;
+            const lat = typeof c.lat === "function" ? c.lat() : c.lat ?? 42.7;
+            const lng = typeof c.lng === "function" ? c.lng() : c.lng ?? -76.9;
+            this._center = { lat, lng };
+          };
+          gmaps.Map.prototype.getCenter = function () {
+            const lat = this._center.lat;
+            const lng = this._center.lng;
+            return {
+              lat: () => lat,
+              lng: () => lng,
+            };
+          };
+          gmaps.Map.prototype.getBounds = function () {
+            return {
+              getNorthEast: () => ({ lat: () => 43.0, lng: () => -76.0 }),
+              getSouthWest: () => ({ lat: () => 42.0, lng: () => -77.0 }),
+              contains: () => true,
+            };
+          };
+          gmaps.Map.prototype.fitBounds = function () {};
+          gmaps.Map.prototype.addListener = function (event: string, handler: Function) {
+            this._listeners = this._listeners || {};
+            this._listeners[event] = this._listeners[event] || [];
+            this._listeners[event].push(handler);
+            return {
+              remove: () => {
+                if (this._listeners[event]) {
+                  this._listeners[event] = this._listeners[event].filter((h: Function) => h !== handler);
+                }
+              },
+            };
+          };
+        }
+
+        if (!gmaps.LatLngBounds) {
+          gmaps.LatLngBounds = function (this: any, sw?: any, ne?: any) {
+            this.sw = sw;
+            this.ne = ne;
+            return this;
+          };
+          gmaps.LatLngBounds.prototype.getNorthEast = function () {
+            const lat = typeof this.ne?.lat === "function" ? this.ne.lat() : this.ne?.lat ?? 43.0;
+            const lng = typeof this.ne?.lng === "function" ? this.ne.lng() : this.ne?.lng ?? -76.0;
+            return { lat: () => lat, lng: () => lng };
+          };
+          gmaps.LatLngBounds.prototype.getSouthWest = function () {
+            const lat = typeof this.sw?.lat === "function" ? this.sw.lat() : this.sw?.lat ?? 42.0;
+            const lng = typeof this.sw?.lng === "function" ? this.sw.lng() : this.sw?.lng ?? -77.0;
+            return { lat: () => lat, lng: () => lng };
+          };
+          gmaps.LatLngBounds.prototype.contains = function () { return true; };
+          gmaps.LatLngBounds.prototype.extend = function () { return this; };
+        }
+
+        if (!gmaps.LatLng) {
+          gmaps.LatLng = function (this: any, lat: number, lng: number) {
+            this._lat = lat;
+            this._lng = lng;
+            return this;
+          };
+          gmaps.LatLng.prototype.lat = function () { return this._lat; };
+          gmaps.LatLng.prototype.lng = function () { return this._lng; };
+        }
+
+        if (!gmaps.Marker) {
+          gmaps.Marker = function (this: any, options?: any) {
+            this.map = options?.map;
+            this.position = options?.position;
+            this.title = options?.title || "";
+            this._listeners = {} as Record<string, Function[]>;
+            return this;
+          };
+          gmaps.Marker.prototype.setMap = function (m: any) { this.map = m; };
+          gmaps.Marker.prototype.getMap = function () { return this.map; };
+          gmaps.Marker.prototype.addListener = function (event: string, handler: Function) {
+            this._listeners = this._listeners || {};
+            this._listeners[event] = this._listeners[event] || [];
+            this._listeners[event].push(handler);
+            return {
+              remove: () => {
+                if (this._listeners[event]) {
+                  this._listeners[event] = this._listeners[event].filter((h: Function) => h !== handler);
+                }
+              },
+            };
+          };
+        }
+
+        gmaps.marker = gmaps.marker || {};
+        if (!gmaps.marker.PinElement) {
+          gmaps.marker.PinElement = function (this: any, options?: any) {
+            this.options = options;
+            this.element = typeof document !== "undefined" ? document.createElement("div") : {};
+            return this;
+          };
+        }
+        if (!gmaps.marker.AdvancedMarkerElement) {
+          gmaps.marker.AdvancedMarkerElement = function (this: any, options?: any) {
+            this.map = options?.map;
+            this.position = options?.position;
+            this.title = options?.title || "";
+            this.content = options?.content;
+            this.gmpClickable = options?.gmpClickable ?? true;
+            this.element = typeof document !== "undefined" ? document.createElement("div") : {};
+            this._listeners = {} as Record<string, Function[]>;
+            return this;
+          };
+          gmaps.marker.AdvancedMarkerElement.prototype.addEventListener = function (event: string, handler: Function) {
+            this._listeners = this._listeners || {};
+            this._listeners[event] = this._listeners[event] || [];
+            this._listeners[event].push(handler);
+          };
+          gmaps.marker.AdvancedMarkerElement.prototype.removeEventListener = function (event: string, handler: Function) {
+            if (this._listeners[event]) {
+              this._listeners[event] = this._listeners[event].filter((h: Function) => h !== handler);
+            }
+          };
+          gmaps.marker.AdvancedMarkerElement.prototype.setMap = function (m: any) { this.map = m; };
+        }
+
+        if (!gmaps.Geocoder) {
+          gmaps.Geocoder = function (this: any) { return this; };
+          gmaps.Geocoder.prototype.geocode = function (_req: any, cb?: Function) {
+            if (cb) cb([], "OK");
+            return Promise.resolve({ results: [] });
+          };
+        }
+
+        gmaps.places = gmaps.places || {};
+        if (!gmaps.places.AutocompleteSessionToken) {
+          gmaps.places.AutocompleteSessionToken = function (this: any) { return this; };
+        }
+        if (!gmaps.places.Place) {
+          gmaps.places.Place = {
+            searchByText: () => Promise.resolve({ places: [] }),
+            searchNearby: () => Promise.resolve({ places: [] }),
+          };
+        }
+
+        if (!gmaps.importLibrary) {
+          gmaps.importLibrary = async function (libraryName: string) {
+            if (libraryName === "maps") return gmaps;
+            if (libraryName === "marker") return gmaps.marker;
+            if (libraryName === "places") return gmaps.places;
+            if (libraryName === "geocoding") return { Geocoder: gmaps.Geocoder };
+            if (libraryName === "core") return { LatLng: gmaps.LatLng, LatLngBounds: gmaps.LatLngBounds };
+            return gmaps;
+          };
+        }
+
         const inject = () => {
           // @ts-ignore
           if (window._E2E_SKIP_WINERY_INJECTION) return false;

@@ -192,6 +192,36 @@ describe("MapView Container Component", () => {
     expect(screen.queryByTestId("mapbox-map")).not.toBeInTheDocument();
   });
 
+  it("falls back to GoogleMapFallback when Mapbox encounters a 401 Unauthorized error with mock tokens", async () => {
+    const originalToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "pk.eyJ1IjoidGVzdCIsImEiOiJ0ZXN0In0.e2e";
+    (mapboxgl.supported as jest.Mock).mockReturnValue(true);
+
+    render(
+      <MapView
+        discoveredWineries={[sampleWinery]}
+        visitedWineries={[]}
+        wishlistWineries={[]}
+        favoriteWineries={[]}
+        filter={["all"]}
+        onMarkerClick={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("mapbox-map")).toBeInTheDocument();
+
+    act(() => {
+      lastMapProps.onError({
+        error: { status: 401, message: "Unauthorized token" },
+      });
+    });
+
+    expect(await screen.findByTestId("google-map-fallback-stub")).toBeInTheDocument();
+    expect(screen.queryByTestId("mapbox-map")).not.toBeInTheDocument();
+
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = originalToken;
+  });
+
   it("excludes NaN, non-finite, and invalid coordinates from wineriesGeoJSON generation", async () => {
     (mapboxgl.supported as jest.Mock).mockReturnValue(true);
 
