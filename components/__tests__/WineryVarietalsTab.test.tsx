@@ -48,14 +48,28 @@ describe('WineryVarietalsTab Unit Tests', () => {
     expect(screen.getByText('Dry Riesling')).toBeInTheDocument();
   });
 
-  it('falls back to default Riesling card when no varietals or matching reviews exist', () => {
+  it('displays empty state when no varietals or matching reviews exist without falling back to Finger Lakes Riesling', () => {
     render(
       <WineryVarietalsTab
         reviews={[]}
       />
     );
 
-    expect(screen.getByText('Riesling')).toBeInTheDocument();
-    expect(screen.getByText(/Signature Finger Lakes white wine/)).toBeInTheDocument();
+    expect(screen.getByTestId('empty-varietals-state')).toBeInTheDocument();
+    expect(screen.getByText(/Varietal details not yet available/i)).toBeInTheDocument();
+    expect(screen.queryByText('Riesling')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Signature Finger Lakes white wine/i)).not.toBeInTheDocument();
+  });
+
+  it('displays empty state when reviews do not mention any varietals and varietals prop is empty', () => {
+    render(
+      <WineryVarietalsTab
+        varietals={[]}
+        reviews={[{ text: 'Great views and lovely staff, highly recommend visiting.' }]}
+      />
+    );
+
+    expect(screen.getByTestId('empty-varietals-state')).toBeInTheDocument();
+    expect(screen.queryByText('Riesling')).not.toBeInTheDocument();
   });
 });

@@ -40,14 +40,7 @@ export function WineryVarietalsTab({
     );
 
     if (detected.length === 0) {
-      return [
-        {
-          name: "Riesling",
-          description: "Signature Finger Lakes white wine known for bright acidity and fruit notes.",
-          sweetness: 3,
-          body: 3,
-        },
-      ];
+      return [];
     }
 
     return detected.map((name) => ({
@@ -60,8 +53,16 @@ export function WineryVarietalsTab({
 
   return (
     <div className="space-y-4" data-testid="varietals-tab-content">
-      {/* Grape Varietal Cards */}
-      <div className="space-y-3">
+      {activeVarietals.length === 0 ? (
+        <div
+          data-testid="empty-varietals-state"
+          className="py-8 text-center text-sm text-muted-foreground"
+        >
+          Varietal details not yet available for this winery.
+        </div>
+      ) : (
+        /* Grape Varietal Cards */
+        <div className="space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
           <Wine className="w-3.5 h-3.5" />
           <span>Featured Wines & Flavor Profiles</span>
@@ -141,6 +142,7 @@ export function WineryVarietalsTab({
           })}
         </div>
       </div>
+      )}
     </div>
   );
 }
