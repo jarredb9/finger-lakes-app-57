@@ -29,15 +29,15 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Unattended Checkpoint Prompt Generation in generate-prompt.py' (Protocol in workflow.md) [commit: 2601a4b0]
 
 ## Phase 3: Task Parsing, Plan Validation, and Planning Tier (`Tier 1`)
-- [ ] Task: Write failing unit tests for track plan parsing, task status extraction, Tier 1 planning turn assertions, process group isolation, flag ordering, and idempotent plan caching (TDD Red phase)
-    - [ ] Create `scripts/__tests__/test_conductor_auto.py`
-    - [ ] Test parsing active phases, identifying incomplete tasks `[ ]`, skipped tasks, and checkpoint tasks
-    - [ ] Test Tier 1 planning prompt construction and invocation via `generate-prompt.py --plan`
-    - [ ] Test CLI flag ordering for `agy` (ensuring `--mode`, `--model`, `--dangerously-skip-permissions` precede `--print`) and prompt passing via stdin/pipe
-    - [ ] Test process group isolation (`os.setsid`) and timeout/interrupt handling
-    - [ ] Test idempotent plan caching: skip Tier 1 if plan file exists and is non-empty, unless `--force-plan` is specified
-    - [ ] Test post-plan assertions: verify markdown plan file exists and assert `git status --porcelain` contains 0 modified production/app files
-    - [ ] Confirm tests fail as expected
+- [x] Task: Write failing unit tests for track plan parsing, task status extraction, Tier 1 planning turn assertions, process group isolation, flag ordering, and idempotent plan caching (TDD Red phase) [commit: 607c095a]
+    - [x] Create `scripts/__tests__/test_conductor_auto.py`
+    - [x] Test parsing active phases, identifying incomplete tasks `[ ]`, skipped tasks, and checkpoint tasks
+    - [x] Test Tier 1 planning prompt construction and invocation via `generate-prompt.py --plan`
+    - [x] Test CLI flag ordering for `agy` (ensuring `--mode`, `--model`, `--dangerously-skip-permissions` precede `--print`) and prompt passing via stdin/pipe
+    - [x] Test process group isolation (`os.setsid`) and timeout/interrupt handling
+    - [x] Test idempotent plan caching: skip Tier 1 if plan file exists and is non-empty, unless `--force-plan` is specified
+    - [x] Test post-plan assertions: verify markdown plan file exists and assert `git status --porcelain` contains 0 modified production/app files
+    - [x] Confirm tests fail as expected
 - [ ] Task: Implement plan parsing, status extraction, process lifecycle, and Tier 1 planning dispatch in `conductor-auto.py` (TDD Green phase)
     - [ ] Create `scripts/agent/conductor-auto.py` skeleton and CLI argument parser (including `--force-plan`, `--timeout`, model flags)
     - [ ] Implement `parse_track_plan` to inspect phase headings and task list items
