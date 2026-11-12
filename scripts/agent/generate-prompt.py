@@ -10,6 +10,7 @@ Usage:
     python3 scripts/agent/generate-prompt.py 3 1             # Auto-detects active track
     python3 scripts/agent/generate-prompt.py                 # Auto-detects active track and next pending task
     python3 scripts/agent/generate-prompt.py --checkpoint -c # Task-agnostic single-session phase checkpoint prompt
+    python3 scripts/agent/generate-prompt.py --checkpoint --unattended # Unattended checkpoint prompt without modal pauses
     python3 scripts/agent/generate-prompt.py 3 1 --plan      # Outputs only the plan prompt
     python3 scripts/agent/generate-prompt.py 3 1 --exec      # Outputs only the exec prompt
     python3 scripts/agent/generate-prompt.py 3 1 --red       # Force Red phase prompt (failing tests only)
@@ -1231,6 +1232,7 @@ def build_checkpoint_prompt(
     task_num: Optional[int],
     task_desc: str,
     strategy: Dict[str, Any],
+    unattended: bool = False,
 ) -> str:
     """Builds a self-contained, diff-gated single-session Phase Checkpoint prompt."""
     track_dir = resolve_track_dir(track_name)
@@ -1275,6 +1277,24 @@ def build_checkpoint_prompt(
 
     effective_task_desc = task_desc or f"Conductor - User Manual Verification 'Phase {phase_num}: {clean_phase_name}' (Protocol in workflow.md)"
 
+    if unattended:
+        sec3_heading = "3. Domain-Aware Manual Verification (Unattended Execution Mode):"
+        sec3_content = (
+            f"   - Automated test suites are authoritative for phase closure in unattended runs.\n"
+            f"   - {manual_directive}\n"
+            f"   - Do NOT pause for user input or prompt via interactive dialogs; record the verification steps and observations directly into the git notes below."
+        )
+        sec4_heading = "4. Verbatim Phase Closure (Unattended Mode):"
+        confirmation_line = "User Confirmation: Unattended execution mode (deferred manual verification)."
+    else:
+        sec3_heading = "3. Domain-Aware Manual Verification & User Confirmation Gate:"
+        sec3_content = (
+            f"   - {manual_directive}\n"
+            f"   - Pause via `ask_question` for explicit user approval (`AGENTS.md` Guardrail #5: `User Skipped` or dismissal is strictly non-affirmative — halt immediately without committing)."
+        )
+        sec4_heading = "4. Verbatim Phase Closure (Execute ONLY After Explicit Affirmative Approval):"
+        confirmation_line = "User Confirmation: Explicitly approved via interactive modal."
+
     return f"""Execute Phase {phase_num} Checkpoint (Task {task_num}) for 'Phase {phase_num}: {clean_phase_name}' in @[{rel_track_dir}]{plan_ref_clause}.
 
 Pre-Computed Phase Scope:
@@ -1290,14 +1310,13 @@ Checkpoint Execution Directives (Self-Contained — Zero Extra Doc Reads):
    - **Warm-Session Fast Path:** If this session ALREADY executed and passed verification covering all changed files in Phase {phase_num}, AND zero non-`conductor/` code, SQL, or config files were modified after that passing test run (including during any intervening refactor/cleanup task or uncommitted edits), **SKIP re-running test containers** and cite the passing commands and results from earlier in this session.
    - **Cold-Session / Post-Edit Fallback:** If running in a fresh session OR any non-`conductor/` file changed after the last passing test run, execute ONLY these phase-scoped verification commands (use `BypassSandbox: true` for container/`db:*` runners):
 {cmd_lines}
-3. Domain-Aware Manual Verification & User Confirmation Gate:
-   - {manual_directive}
-   - Pause via `ask_question` for explicit user approval (`AGENTS.md` Guardrail #5: `User Skipped` or dismissal is strictly non-affirmative — halt immediately without committing).
-4. Verbatim Phase Closure (Execute ONLY After Explicit Affirmative Approval):
+{sec3_heading}
+{sec3_content}
+{sec4_heading}
    - Create empty checkpoint commit (`BypassSandbox: true`):
      `git commit --allow-empty -m "conductor(checkpoint): Checkpoint end of Phase {phase_num}"`
    - Capture `<full_sha>` (`git rev-parse HEAD`) and `<short_sha>` (`git rev-parse --short HEAD`), then attach verification git note (`BypassSandbox: true`):
-     `git notes add -m "Phase: Phase {phase_num}: {clean_phase_name}\\nAutomated Tests:\\n<commands & results>\\nManual Verification:\\n<summary>\\nUser Confirmation: Explicitly approved via interactive modal." <full_sha>`
+     `git notes add -m "Phase: Phase {phase_num}: {clean_phase_name}\\nAutomated Tests:\\n<commands & results>\\nManual Verification:\\n<summary>\\n{confirmation_line}" <full_sha>`
    - Update `{rel_track_dir}/plan.md` in a single edit:
      a. Append `[checkpoint: <short_sha>]` to heading `{raw_heading}` -> `{raw_heading} [checkpoint: <short_sha>]`
      b. Mark Task {task_num} complete: `- [x] Task: {effective_task_desc} [commit: <short_sha>]`
@@ -1314,6 +1333,7 @@ def build_exec_prompt(
     subtasks: Optional[List[str]] = None,
     mode: Optional[str] = None,
     exempt: Optional[str] = None,
+    unattended: bool = False,
 ) -> str:
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
@@ -1322,7 +1342,7 @@ def build_exec_prompt(
     strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode, exempt=exempt)
 
     if strategy["mode"] == "checkpoint":
-        return build_checkpoint_prompt(track_name, phase_num, task_num, task_desc, strategy)
+        return build_checkpoint_prompt(track_name, phase_num, task_num, task_desc, strategy, unattended=unattended)
 
     post_exec_ref, plan_commit_msg = extract_post_execution_info(plan_path, task_desc)
 
@@ -1391,6 +1411,7 @@ def main():
         epilog="""Examples:
   python3 scripts/agent/generate-prompt.py                 # Auto-detects track & next pending task
   python3 scripts/agent/generate-prompt.py --checkpoint -c # Copy active phase Checkpoint prompt (task-number agnostic)
+  python3 scripts/agent/generate-prompt.py --checkpoint --unattended # Unattended checkpoint prompt without modal pauses
   python3 scripts/agent/generate-prompt.py 2 --checkpoint  # Phase 2 Checkpoint prompt for active track
   python3 scripts/agent/generate-prompt.py 3 1             # Phase 3 Task 1 for active track
   python3 scripts/agent/generate-prompt.py 3 1 --plan      # Output only Phase 3 Task 1 Plan prompt
@@ -1411,6 +1432,12 @@ def main():
     parser.add_argument("--copy-plan", action="store_true", help="Copy the Plan prompt to clipboard")
     parser.add_argument("--copy-exec", action="store_true", help="Copy the Exec prompt to clipboard")
     parser.add_argument("--recovery", "-r", action="store_true", help="Generate recovery prompt for uncommitted work")
+    parser.add_argument(
+        "--unattended",
+        "-u",
+        action="store_true",
+        help="Generate unattended checkpoint prompt without interactive modal pauses",
+    )
 
     phase_group = parser.add_mutually_exclusive_group()
     phase_group.add_argument("--red", action="store_true", help="Force Red phase prompt (failing tests only, halt after test commit)")
@@ -1645,7 +1672,16 @@ def main():
             )
 
     plan_prompt = build_plan_prompt(track_name, phase_num, task_num, task_desc)
-    exec_prompt = build_exec_prompt(track_name, phase_num, task_num, task_desc, subtasks, mode, exempt=task_exempt)
+    exec_prompt = build_exec_prompt(
+        track_name,
+        phase_num,
+        task_num,
+        task_desc,
+        subtasks,
+        mode,
+        exempt=task_exempt,
+        unattended=parsed.unattended,
+    )
 
     if parsed.copy_plan or (parsed.copy and parsed.plan_only):
         copied = copy_to_clipboard(plan_prompt)
