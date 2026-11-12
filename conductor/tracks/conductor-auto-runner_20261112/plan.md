@@ -4,9 +4,9 @@
 - [x] Task: Write failing unit test for pre-existing `test_classify_phase_domain_ui_vs_database_vs_tooling` regression (TDD Red phase) [commit: 872670fb]
     - [x] Update `scripts/__tests__/test_generate_prompt.py` to decouple the domain classification test from live git history changes
     - [x] Confirm test fails cleanly on historical range mismatch
-- [ ] Task: Fix `test_classify_phase_domain_ui_vs_database_vs_tooling` in `generate-prompt.py` test suite (TDD Green phase)
-    - [ ] Mock git diff output or use relative commit revision in `test_classify_phase_domain_ui_vs_database_vs_tooling`
-    - [ ] Run test suite with `python3.11 -m unittest scripts/__tests__/test_generate_prompt.py` and confirm 100% passing baseline
+- [x] Task: Fix `test_classify_phase_domain_ui_vs_database_vs_tooling` in `generate-prompt.py` test suite (TDD Green phase) [commit: 23586e4d]
+    - [x] Mock git diff output or use relative commit revision in `test_classify_phase_domain_ui_vs_database_vs_tooling`
+    - [x] Run test suite with `python3.11 -m unittest scripts/__tests__/test_generate_prompt.py` and confirm 100% passing baseline
 - [ ] Task: Write failing unit tests for `[exempt: <category>]` task parsing and non-TDD verification strategy (TDD Red phase)
     - [ ] Add test cases in `scripts/__tests__/test_generate_prompt.py` for parsing `[exempt: ui]`, `[exempt: styling]`, `[exempt: infra]`, `[exempt: scripts]`, `[exempt: types]`, and `[exempt: docs]`
     - [ ] Add test cases verifying `infer_verification_strategy` selects the appropriate verification command (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit type (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`)
