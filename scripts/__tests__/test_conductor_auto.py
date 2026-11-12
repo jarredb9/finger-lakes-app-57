@@ -8,6 +8,15 @@ Covers Phase 3: Task Parsing, Plan Validation, and Planning Tier (Tier 1).
 - Idempotent plan caching and cache bypass (TestIdempotentPlanCache)
 - Post-plan invariant verification (TestPostPlanInvariants)
 - Tier 1 planning turn orchestration (TestTier1PlanningDispatch)
+
+Covers Phase 4: Execution Tier (Tier 2) and Supervisor Invariant Verification.
+- Tier 2 execution turn dispatch (TestTier2ExecutionDispatch)
+- Working tree cleanliness & auto-recover flow (TestWorkingTreeAndAutoRecover)
+- Red task active supervisor verification (TestSupervisorRedTaskVerification)
+- Green task active supervisor verification (TestSupervisorGreenTaskVerification)
+- Exempt task active supervisor verification (TestSupervisorExemptTaskVerification)
+- Git commit & notes auditing (TestGitCommitAndNotesAudit)
+- Tier 2 execution coordination (TestTier2ExecutionCoordination)
 """
 
 import importlib.util
@@ -572,6 +581,650 @@ class TestTier1PlanningDispatch(unittest.TestCase):
                             log_file=unittest.mock.ANY,
                         )
                         mock_invariants.assert_called_once()
+
+
+class TestTier2ExecutionDispatch(unittest.TestCase):
+    """Test suite for Tier 2 execution turn dispatch and agy subprocess invocation."""
+
+    def test_dispatch_tier2_invokes_generate_prompt_exec(self):
+        """Asserts dispatch_tier2_execution invokes generate_turn_prompt with mode='exec' and runs agy."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec prompt") as mock_gen_prompt:
+            with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Exec output", "")) as mock_run_turn:
+                with patch.object(conductor_auto, "check_working_tree_cleanliness", create=True, return_value=(True, [])):
+                    with patch.object(conductor_auto, "verify_task_execution", create=True, return_value=True):
+                        with patch.object(conductor_auto, "audit_git_commit_and_notes", create=True, return_value=True):
+                            res = dispatch_tier2_execution(
+                                "test-track",
+                                phase_num=4,
+                                task_num=1,
+                                exec_model="gemini-3.8-flash-medium",
+                            )
+                            self.assertTrue(res)
+                            mock_gen_prompt.assert_called_once_with(
+                                track="test-track",
+                                phase_num=4,
+                                task_num=1,
+                                mode="exec",
+                                cwd=unittest.mock.ANY,
+                            )
+                            mock_run_turn.assert_called_once()
+                            _, kwargs = mock_run_turn.call_args
+                            self.assertEqual(kwargs.get("mode"), "auto")
+                            self.assertEqual(kwargs.get("model"), "gemini-3.8-flash-medium")
+                            self.assertEqual(kwargs.get("timeout"), 900.0)
+                            self.assertTrue(str(kwargs.get("log_file", "")).endswith("phase-4-task-1-exec.log"))
+
+    def test_dispatch_tier2_raises_on_agy_failure(self):
+        """Asserts dispatch_tier2_execution raises ProcessExecutionError on agy non-zero exit."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+        ProcessExecutionError = get_target("ProcessExecutionError", self)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec prompt"):
+            with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(1, "", "Process failed")):
+                with self.assertRaises(ProcessExecutionError) as ctx:
+                    dispatch_tier2_execution("test-track", phase_num=4, task_num=1)
+                self.assertIn("1", str(ctx.exception))
+
+    def test_dispatch_tier2_raises_on_timeout(self):
+        """Asserts dispatch_tier2_execution propagates ProcessExecutionError on timeout."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+        ProcessExecutionError = get_target("ProcessExecutionError", self)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec prompt"):
+            with patch.object(
+                conductor_auto,
+                "run_agy_turn",
+                create=True,
+                side_effect=ProcessExecutionError("Turn timed out after 900.0s"),
+            ):
+                with self.assertRaises(ProcessExecutionError) as ctx:
+                    dispatch_tier2_execution("test-track", phase_num=4, task_num=1)
+                self.assertIn("timed out", str(ctx.exception))
+
+
+class TestWorkingTreeAndAutoRecover(unittest.TestCase):
+    """Test suite for working tree cleanliness checks and single-turn --auto-recover flow."""
+
+    @patch("subprocess.run")
+    def test_check_working_tree_cleanliness_clean_tree(self, mock_run):
+        """Asserts check_working_tree_cleanliness returns (True, []) when git status is empty."""
+        check_working_tree_cleanliness = get_target("check_working_tree_cleanliness", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "status", "--porcelain"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+        is_clean, dirty_files = check_working_tree_cleanliness()
+        self.assertTrue(is_clean)
+        self.assertEqual(dirty_files, [])
+
+    @patch("subprocess.run")
+    def test_check_working_tree_cleanliness_dirty_tree(self, mock_run):
+        """Asserts check_working_tree_cleanliness returns (False, files) when working tree has changes."""
+        check_working_tree_cleanliness = get_target("check_working_tree_cleanliness", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "status", "--porcelain"],
+            returncode=0,
+            stdout=" M scripts/agent/conductor-auto.py\n?? untracked.txt\n",
+            stderr="",
+        )
+        is_clean, dirty_files = check_working_tree_cleanliness()
+        self.assertFalse(is_clean)
+        self.assertEqual(dirty_files, ["scripts/agent/conductor-auto.py", "untracked.txt"])
+
+    def test_dispatch_recovery_turn_invokes_generate_prompt_recovery(self):
+        """Asserts dispatch_recovery_turn generates recovery prompt and dispatches agy turn."""
+        dispatch_recovery_turn = get_target("dispatch_recovery_turn", self)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Recovery prompt") as mock_gen_prompt:
+            with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Recovered", "")) as mock_run_turn:
+                res = dispatch_recovery_turn("test-track", phase_num=4, task_num=1)
+                self.assertTrue(res)
+                mock_gen_prompt.assert_called_once_with(
+                    track="test-track",
+                    phase_num=4,
+                    task_num=1,
+                    mode="recovery",
+                    cwd=unittest.mock.ANY,
+                )
+                mock_run_turn.assert_called_once()
+                _, kwargs = mock_run_turn.call_args
+                self.assertEqual(kwargs.get("mode"), "auto")
+                self.assertTrue(str(kwargs.get("log_file", "")).endswith("phase-4-task-1-recovery.log"))
+
+    def test_auto_recover_succeeds_when_clean_after_recovery(self):
+        """Asserts dispatch_tier2_execution succeeds when recovery turn cleans the dirty tree."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec"):
+            with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Done", "")):
+                with patch.object(
+                    conductor_auto,
+                    "check_working_tree_cleanliness",
+                    create=True,
+                    side_effect=[(False, ["file.ts"]), (True, [])],
+                ):
+                    with patch.object(conductor_auto, "dispatch_recovery_turn", create=True, return_value=True) as mock_recover:
+                        with patch.object(conductor_auto, "verify_task_execution", create=True, return_value=True):
+                            with patch.object(conductor_auto, "audit_git_commit_and_notes", create=True, return_value=True):
+                                res = dispatch_tier2_execution("test-track", phase_num=4, task_num=1, auto_recover=True)
+                                self.assertTrue(res)
+                                mock_recover.assert_called_once()
+
+    def test_auto_recover_fails_when_still_dirty_after_recovery(self):
+        """Asserts dispatch_tier2_execution raises SupervisorInvariantError if tree remains dirty after recovery."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec"):
+            with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Done", "")):
+                with patch.object(
+                    conductor_auto,
+                    "check_working_tree_cleanliness",
+                    create=True,
+                    return_value=(False, ["file.ts"]),
+                ):
+                    with patch.object(conductor_auto, "dispatch_recovery_turn", create=True, return_value=True):
+                        with self.assertRaises(SupervisorInvariantError):
+                            dispatch_tier2_execution("test-track", phase_num=4, task_num=1, auto_recover=True)
+
+    def test_uncommitted_changes_fail_fast_when_auto_recover_disabled(self):
+        """Asserts dispatch_tier2_execution raises SupervisorInvariantError immediately if dirty and auto_recover=False."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec"):
+            with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Done", "")):
+                with patch.object(
+                    conductor_auto,
+                    "check_working_tree_cleanliness",
+                    create=True,
+                    return_value=(False, ["file.ts"]),
+                ):
+                    with patch.object(conductor_auto, "dispatch_recovery_turn", create=True) as mock_recover:
+                        with self.assertRaises(SupervisorInvariantError):
+                            dispatch_tier2_execution("test-track", phase_num=4, task_num=1, auto_recover=False)
+                        mock_recover.assert_not_called()
+
+
+class TestSupervisorRedTaskVerification(unittest.TestCase):
+    """Test suite for Red task active supervisor verification (exit != 0, assertion parsing, zero prod diff)."""
+
+    def test_parse_test_failure_markers_jest_assertion(self):
+        """Asserts parse_test_failure_markers detects Jest expect() assertion failure."""
+        parse_test_failure_markers = get_target("parse_test_failure_markers", self)
+
+        output = "Error: expect(received).toEqual(expected)\n\nExpected: 2\nReceived: 1\n    at Object.<anonymous> (/app/tests/unit.test.ts:25:12)"
+        is_valid, reason = parse_test_failure_markers(output)
+        self.assertTrue(is_valid)
+        self.assertTrue(len(reason) > 0)
+
+    def test_parse_test_failure_markers_python_assertion(self):
+        """Asserts parse_test_failure_markers detects Python unittest FAIL / AssertionError."""
+        parse_test_failure_markers = get_target("parse_test_failure_markers", self)
+
+        output = "FAIL: test_feature (test_mod.TestClass)\nTraceback (most recent call last):\nAssertionError: False is not true"
+        is_valid, reason = parse_test_failure_markers(output)
+        self.assertTrue(is_valid)
+        self.assertTrue(len(reason) > 0)
+
+    def test_parse_test_failure_markers_rejects_jest_syntax_error(self):
+        """Asserts parse_test_failure_markers rejects Jest SyntaxError as invalid assertion failure."""
+        parse_test_failure_markers = get_target("parse_test_failure_markers", self)
+
+        output = "SyntaxError: Unexpected token 'export'\n    at Runtime.createScriptFromCode (/node_modules/jest-runtime/build/index.js:1)"
+        is_valid, reason = parse_test_failure_markers(output)
+        self.assertFalse(is_valid)
+        self.assertIn("SyntaxError", reason)
+
+    def test_parse_test_failure_markers_rejects_jest_cannot_find_module(self):
+        """Asserts parse_test_failure_markers rejects Cannot find module errors."""
+        parse_test_failure_markers = get_target("parse_test_failure_markers", self)
+
+        output = "Cannot find module './missingSeam' from 'tests/unit.test.ts'"
+        is_valid, reason = parse_test_failure_markers(output)
+        self.assertFalse(is_valid)
+        self.assertIn("Cannot find module", reason)
+
+    def test_parse_test_failure_markers_rejects_python_error_traceback(self):
+        """Asserts parse_test_failure_markers rejects Python ERROR / ImportError tracebacks."""
+        parse_test_failure_markers = get_target("parse_test_failure_markers", self)
+
+        output = "ERROR: test_feature (test_mod.TestClass)\nImportError: cannot import name 'missing_func' from 'scripts.agent'"
+        is_valid, reason = parse_test_failure_markers(output)
+        self.assertFalse(is_valid)
+        self.assertTrue("ERROR" in reason or "ImportError" in reason)
+
+    @patch("subprocess.run")
+    def test_verify_red_task_passes_on_assertion_failure_and_zero_production_diff(self, mock_run):
+        """Asserts verify_red_task passes when test exits non-zero with assertion failure and 0 prod files modified."""
+        verify_red_task = get_target("verify_red_task", self)
+
+        def run_side_effect(cmd, *args, **kwargs):
+            if isinstance(cmd, list) and cmd[0] == "git" and "diff" in cmd:
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=0,
+                    stdout="scripts/__tests__/test_conductor_auto.py\n",
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(
+                args=cmd,
+                returncode=1,
+                stdout="Error: expect(received).toEqual(expected)\nExpected: 2\nReceived: 1\n",
+                stderr="",
+            )
+
+        mock_run.side_effect = run_side_effect
+        res = verify_red_task(test_cmd="npm test", base_sha="abc1234")
+        self.assertTrue(res)
+
+    @patch("subprocess.run")
+    def test_verify_red_task_fails_when_test_exits_zero(self, mock_run):
+        """Asserts verify_red_task raises SupervisorInvariantError when test exits 0 in Red phase."""
+        verify_red_task = get_target("verify_red_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["npm", "test"],
+            returncode=0,
+            stdout="Ran 5 tests, 5 passed",
+            stderr="",
+        )
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            verify_red_task(test_cmd="npm test", base_sha="abc1234")
+        self.assertIn("Red task", str(ctx.exception))
+
+    @patch("subprocess.run")
+    def test_verify_red_task_fails_on_syntax_error(self, mock_run):
+        """Asserts verify_red_task raises SupervisorInvariantError on syntax/module crash."""
+        verify_red_task = get_target("verify_red_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["npm", "test"],
+            returncode=1,
+            stdout="SyntaxError: Unexpected identifier\n",
+            stderr="",
+        )
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            verify_red_task(test_cmd="npm test", base_sha="abc1234")
+        self.assertTrue("syntax" in str(ctx.exception).lower() or "SyntaxError" in str(ctx.exception))
+
+    @patch("subprocess.run")
+    def test_verify_red_task_fails_when_production_code_modified(self, mock_run):
+        """Asserts verify_red_task raises SupervisorInvariantError when production code was modified."""
+        verify_red_task = get_target("verify_red_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        def run_side_effect(cmd, *args, **kwargs):
+            if isinstance(cmd, list) and cmd[0] == "git" and "diff" in cmd:
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=0,
+                    stdout="scripts/__tests__/test_conductor_auto.py\nscripts/agent/conductor-auto.py\n",
+                    stderr="",
+                )
+            return subprocess.CompletedProcess(
+                args=cmd,
+                returncode=1,
+                stdout="Error: expect(received).toEqual(expected)\n",
+                stderr="",
+            )
+
+        mock_run.side_effect = run_side_effect
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            verify_red_task(test_cmd="npm test", base_sha="abc1234")
+        self.assertIn("conductor-auto.py", str(ctx.exception))
+
+
+class TestSupervisorGreenTaskVerification(unittest.TestCase):
+    """Test suite for Green task active supervisor verification (test exit 0 AND type-check exit 0)."""
+
+    @patch("subprocess.run")
+    def test_verify_green_task_passes_when_test_and_typecheck_pass(self, mock_run):
+        """Asserts verify_green_task passes when both test command and type-check succeed."""
+        verify_green_task = get_target("verify_green_task", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["cmd"],
+            returncode=0,
+            stdout="Success",
+            stderr="",
+        )
+        res = verify_green_task(test_cmd="npm test", type_check_cmd="npm run type-check")
+        self.assertTrue(res)
+
+    @patch("subprocess.run")
+    def test_verify_green_task_fails_when_test_fails(self, mock_run):
+        """Asserts verify_green_task raises SupervisorInvariantError when test command exits non-zero."""
+        verify_green_task = get_target("verify_green_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        def run_side_effect(cmd, *args, **kwargs):
+            if "type-check" in str(cmd):
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+            return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="Test failed", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            verify_green_task(test_cmd="npm test")
+        self.assertIn("test", str(ctx.exception).lower())
+
+    @patch("subprocess.run")
+    def test_verify_green_task_fails_when_typecheck_fails(self, mock_run):
+        """Asserts verify_green_task raises SupervisorInvariantError when type-check exits non-zero."""
+        verify_green_task = get_target("verify_green_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        def run_side_effect(cmd, *args, **kwargs):
+            if "type-check" in str(cmd):
+                return subprocess.CompletedProcess(args=cmd, returncode=2, stdout="Type errors", stderr="")
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="All tests passed", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            verify_green_task(test_cmd="npm test")
+        self.assertTrue("type" in str(ctx.exception).lower())
+
+
+class TestSupervisorExemptTaskVerification(unittest.TestCase):
+    """Test suite for Exempt task category-specific active supervisor verification."""
+
+    @patch("subprocess.run")
+    def test_verify_exempt_task_ui_runs_build(self, mock_run):
+        """Asserts verify_exempt_task('ui') runs npm run build and asserts exit 0."""
+        verify_exempt_task = get_target("verify_exempt_task", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(args=["npm", "run", "build"], returncode=0, stdout="", stderr="")
+        res = verify_exempt_task("ui")
+        self.assertTrue(res)
+
+    @patch("subprocess.run")
+    def test_verify_exempt_task_infra_runs_lint(self, mock_run):
+        """Asserts verify_exempt_task('infra') runs npm run lint and asserts exit 0."""
+        verify_exempt_task = get_target("verify_exempt_task", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(args=["npm", "run", "lint"], returncode=0, stdout="", stderr="")
+        res = verify_exempt_task("infra")
+        self.assertTrue(res)
+
+    @patch("subprocess.run")
+    def test_verify_exempt_task_types_runs_typecheck(self, mock_run):
+        """Asserts verify_exempt_task('types') runs npm run type-check and asserts exit 0."""
+        verify_exempt_task = get_target("verify_exempt_task", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(args=["npm", "run", "type-check"], returncode=0, stdout="", stderr="")
+        res = verify_exempt_task("types")
+        self.assertTrue(res)
+
+    @patch("subprocess.run")
+    def test_verify_exempt_task_docs_passes_on_markdown_only(self, mock_run):
+        """Asserts verify_exempt_task('docs') succeeds when only non-empty markdown files are modified."""
+        verify_exempt_task = get_target("verify_exempt_task", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            doc_file = Path(tmpdir) / "docs" / "agents" / "conductor-auto.md"
+            doc_file.parent.mkdir(parents=True, exist_ok=True)
+            doc_file.write_text("# Documentation\nNon-empty content.\n", encoding="utf-8")
+
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=["git", "diff", "--name-only", "abc1234", "HEAD"],
+                returncode=0,
+                stdout="docs/agents/conductor-auto.md\n",
+                stderr="",
+            )
+            res = verify_exempt_task("docs", base_sha="abc1234", cwd=Path(tmpdir))
+            self.assertTrue(res)
+
+    @patch("subprocess.run")
+    def test_verify_exempt_task_docs_fails_on_non_markdown_modification(self, mock_run):
+        """Asserts verify_exempt_task('docs') raises SupervisorInvariantError if non-markdown file modified."""
+        verify_exempt_task = get_target("verify_exempt_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "diff", "--name-only"],
+            returncode=0,
+            stdout="docs/doc.md\nlib/helper.ts\n",
+            stderr="",
+        )
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            verify_exempt_task("docs", base_sha="abc1234")
+        self.assertIn("lib/helper.ts", str(ctx.exception))
+
+    @patch("subprocess.run")
+    def test_verify_exempt_task_docs_fails_on_empty_file(self, mock_run):
+        """Asserts verify_exempt_task('docs') raises SupervisorInvariantError if modified markdown is empty."""
+        verify_exempt_task = get_target("verify_exempt_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            empty_file = Path(tmpdir) / "docs" / "empty.md"
+            empty_file.parent.mkdir(parents=True, exist_ok=True)
+            empty_file.write_text("", encoding="utf-8")
+
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=["git", "diff", "--name-only"],
+                returncode=0,
+                stdout="docs/empty.md\n",
+                stderr="",
+            )
+            with self.assertRaises(SupervisorInvariantError) as ctx:
+                verify_exempt_task("docs", base_sha="abc1234", cwd=Path(tmpdir))
+            self.assertTrue("empty" in str(ctx.exception).lower())
+
+
+class TestGitCommitAndNotesAudit(unittest.TestCase):
+    """Test suite for Git conventional commit, git notes metadata, and plan update auditing."""
+
+    @patch("subprocess.run")
+    def test_audit_git_commit_valid_conventional_format(self, mock_run):
+        """Asserts audit_git_commit_and_notes succeeds on valid conventional commit, complete notes, and plan update."""
+        audit_git_commit_and_notes = get_target("audit_git_commit_and_notes", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        task = TaskInfo(
+            task_num=1,
+            description="Test task",
+            status="complete",
+            status_char="x",
+            is_checkpoint=False,
+            commit_sha="1122334",
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plan_path = Path(tmpdir) / "plan.md"
+            plan_path.write_text("- [x] Task: Test task [commit: 1122334]\n", encoding="utf-8")
+
+            def run_side_effect(cmd, *args, **kwargs):
+                cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+                if "log -1 --format=%B" in cmd_str:
+                    return subprocess.CompletedProcess(
+                        args=cmd,
+                        returncode=0,
+                        stdout="feat(agent): implement tier 2 execution turn in conductor-auto.py\n",
+                        stderr="",
+                    )
+                if "notes show" in cmd_str:
+                    note = (
+                        "Task: Test task\n"
+                        "Summary: Implemented tier 2 turn.\n"
+                        "Files: scripts/agent/conductor-auto.py\n"
+                        "Rationale: Issue #162 requirements.\n"
+                    )
+                    return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=note, stderr="")
+                if "log -1" in cmd_str and "plan.md" in cmd_str:
+                    return subprocess.CompletedProcess(
+                        args=cmd,
+                        returncode=0,
+                        stdout="conductor(plan): Mark task 'Test task' as complete\n",
+                        stderr="",
+                    )
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+            mock_run.side_effect = run_side_effect
+            res = audit_git_commit_and_notes(task, "1122334", plan_path, cwd=Path(tmpdir))
+            self.assertTrue(res)
+
+    @patch("subprocess.run")
+    def test_audit_git_commit_rejects_non_conventional_message(self, mock_run):
+        """Asserts audit_git_commit_and_notes raises SupervisorInvariantError on non-conventional commit message."""
+        audit_git_commit_and_notes = get_target("audit_git_commit_and_notes", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        task = TaskInfo(task_num=1, description="Test", status="complete", status_char="x", is_checkpoint=False)
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "log", "-1", "--format=%B", "1122334"],
+            returncode=0,
+            stdout="Fixed some stuff and wrote code\n",
+            stderr="",
+        )
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            audit_git_commit_and_notes(task, "1122334", Path("dummy.md"))
+        self.assertTrue("conventional" in str(ctx.exception).lower())
+
+    @patch("subprocess.run")
+    def test_audit_git_notes_rejects_missing_metadata_fields(self, mock_run):
+        """Asserts audit_git_commit_and_notes raises SupervisorInvariantError if git note lacks required metadata."""
+        audit_git_commit_and_notes = get_target("audit_git_commit_and_notes", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        task = TaskInfo(task_num=1, description="Test", status="complete", status_char="x", is_checkpoint=False)
+
+        def run_side_effect(cmd, *args, **kwargs):
+            cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+            if "log -1 --format=%B" in cmd_str:
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=0,
+                    stdout="feat(agent): valid commit message\n",
+                    stderr="",
+                )
+            if "notes show" in cmd_str:
+                # Missing Rationale
+                note = "Task: Test task\nSummary: Implemented.\nFiles: file.py\n"
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=note, stderr="")
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            audit_git_commit_and_notes(task, "1122334", Path("dummy.md"))
+        self.assertIn("Rationale", str(ctx.exception))
+
+    @patch("subprocess.run")
+    def test_audit_plan_update_rejects_incomplete_plan_or_missing_sha(self, mock_run):
+        """Asserts audit_git_commit_and_notes raises SupervisorInvariantError if plan.md not updated with [x] and SHA."""
+        audit_git_commit_and_notes = get_target("audit_git_commit_and_notes", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        task = TaskInfo(task_num=1, description="Test task", status="pending", status_char=" ", is_checkpoint=False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plan_path = Path(tmpdir) / "plan.md"
+            plan_path.write_text("- [ ] Task: Test task\n", encoding="utf-8")
+
+            def run_side_effect(cmd, *args, **kwargs):
+                cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+                if "log -1 --format=%B" in cmd_str:
+                    return subprocess.CompletedProcess(
+                        args=cmd,
+                        returncode=0,
+                        stdout="feat(agent): valid commit message\n",
+                        stderr="",
+                    )
+                if "notes show" in cmd_str:
+                    note = "Task: Test\nSummary: S\nFiles: F\nRationale: R\n"
+                    return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=note, stderr="")
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+            mock_run.side_effect = run_side_effect
+            with self.assertRaises(SupervisorInvariantError) as ctx:
+                audit_git_commit_and_notes(task, "1122334", plan_path)
+            self.assertTrue("plan" in str(ctx.exception).lower())
+
+    @patch("subprocess.run")
+    def test_audit_plan_commit_rejects_missing_plan_commit(self, mock_run):
+        """Asserts audit_git_commit_and_notes raises SupervisorInvariantError if conductor(plan) commit is missing."""
+        audit_git_commit_and_notes = get_target("audit_git_commit_and_notes", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        task = TaskInfo(task_num=1, description="Test task", status="complete", status_char="x", is_checkpoint=False)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plan_path = Path(tmpdir) / "plan.md"
+            plan_path.write_text("- [x] Task: Test task [commit: 1122334]\n", encoding="utf-8")
+
+            def run_side_effect(cmd, *args, **kwargs):
+                cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+                if "log -1 --format=%B" in cmd_str:
+                    return subprocess.CompletedProcess(
+                        args=cmd,
+                        returncode=0,
+                        stdout="feat(agent): valid commit message\n",
+                        stderr="",
+                    )
+                if "notes show" in cmd_str:
+                    note = "Task: Test\nSummary: S\nFiles: F\nRationale: R\n"
+                    return subprocess.CompletedProcess(args=cmd, returncode=0, stdout=note, stderr="")
+                if "log -1" in cmd_str and "plan.md" in cmd_str:
+                    # Latest commit on plan.md was unrelated
+                    return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="chore: other commit\n", stderr="")
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+            mock_run.side_effect = run_side_effect
+            with self.assertRaises(SupervisorInvariantError) as ctx:
+                audit_git_commit_and_notes(task, "1122334", plan_path)
+            self.assertIn("conductor(plan)", str(ctx.exception))
+
+
+class TestTier2ExecutionCoordination(unittest.TestCase):
+    """Test suite for end-to-end Tier 2 turn coordination and fail-fast invariant pipeline."""
+
+    def test_dispatch_tier2_execution_full_pipeline_success(self):
+        """Asserts dispatch_tier2_execution coordinates all pipeline steps in sequence."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec") as mock_gen_prompt:
+            with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Done", "")) as mock_run_turn:
+                with patch.object(conductor_auto, "check_working_tree_cleanliness", create=True, return_value=(True, [])) as mock_tree:
+                    with patch.object(conductor_auto, "verify_task_execution", create=True, return_value=True) as mock_verify:
+                        with patch.object(conductor_auto, "audit_git_commit_and_notes", create=True, return_value=True) as mock_audit:
+                            res = dispatch_tier2_execution("test-track", phase_num=4, task_num=1)
+                            self.assertTrue(res)
+                            mock_gen_prompt.assert_called_once()
+                            mock_run_turn.assert_called_once()
+                            mock_tree.assert_called_once()
+                            mock_verify.assert_called_once()
+                            mock_audit.assert_called_once()
+
+    def test_dispatch_tier2_execution_halts_on_audit_failure(self):
+        """Asserts dispatch_tier2_execution halts immediately if audit fails."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec"):
+            with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Done", "")):
+                with patch.object(conductor_auto, "check_working_tree_cleanliness", create=True, return_value=(True, [])):
+                    with patch.object(conductor_auto, "verify_task_execution", create=True, return_value=True):
+                        with patch.object(
+                            conductor_auto,
+                            "audit_git_commit_and_notes",
+                            create=True,
+                            side_effect=SupervisorInvariantError("Audit failed"),
+                        ):
+                            with self.assertRaises(SupervisorInvariantError):
+                                dispatch_tier2_execution("test-track", phase_num=4, task_num=1)
 
 
 if __name__ == "__main__":
