@@ -137,26 +137,32 @@ export const handler = async (req: Request): Promise<Response> => {
       appReviews
     )
 
-    if (geminiResult.generative_summary) {
-      wineryData.generative_summary = geminiResult.generative_summary
+    const isGeminiSuccess = Boolean(
+      geminiResult.generative_summary && !geminiResult.error && !geminiResult.is_fallback
+    );
+
+    if (isGeminiSuccess) {
+      wineryData.generative_summary = geminiResult.generative_summary;
+      if (geminiResult.vibe_tags && geminiResult.vibe_tags.length > 0) {
+        wineryData.vibe_tags = geminiResult.vibe_tags;
+      }
+      if (geminiResult.varietals && geminiResult.varietals.length > 0) {
+        wineryData.varietals = geminiResult.varietals;
+      }
+      wineryData.last_enriched_at = new Date().toISOString();
     } else {
       console.warn(`[get-winery-details] Gemini enrichment failed for "${wineryData.name}" (${placeId}):`, {
         error: geminiResult.error,
         errorDetails: geminiResult.errorDetails
       });
-    }
-    if (geminiResult.vibe_tags && geminiResult.vibe_tags.length > 0) {
-      wineryData.vibe_tags = geminiResult.vibe_tags
-    }
-    if (geminiResult.varietals && geminiResult.varietals.length > 0) {
-      wineryData.varietals = geminiResult.varietals
-    }
-
-    // Only set last_enriched_at if Gemini AI enrichment succeeded to avoid getting stuck in a half-enriched state
-    if (!geminiResult.generative_summary || geminiResult.error) {
       wineryData.last_enriched_at = null;
-      if (!wineryData.generative_summary) {
-        wineryData.generative_summary = null;
+      // Do not overwrite existing genuine summary with fallback boilerplate; keep null if none exists
+      wineryData.generative_summary = winery?.generative_summary ?? null;
+      if (!wineryData.vibe_tags && geminiResult.vibe_tags?.length) {
+        wineryData.vibe_tags = geminiResult.vibe_tags;
+      }
+      if (!wineryData.varietals && geminiResult.varietals?.length) {
+        wineryData.varietals = geminiResult.varietals;
       }
     }
 
