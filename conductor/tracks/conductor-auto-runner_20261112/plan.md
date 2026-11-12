@@ -88,3 +88,6 @@
     - [ ] Test `--dry-run` flag across sample tracks and phases to verify prompt sequences, model assignments, and validation steps
     - [ ] Run full test suite with `python3.11 -m unittest discover -s scripts/__tests__` to ensure zero regressions
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Documentation & End-to-End Dry-Run Validation' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 5cd2d741
