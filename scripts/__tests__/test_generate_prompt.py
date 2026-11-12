@@ -252,6 +252,121 @@ class TestGeneratePromptModule(unittest.TestCase):
         )
         self.assertIn("no UI changes — do NOT invent `localhost:3000` browser steps", db_prompt)
 
+    def test_build_checkpoint_prompt_unattended_skips_modal_pause_and_records_notes(self):
+        """Verifies build_checkpoint_prompt with unattended=True omits ask_question and records manual steps in notes."""
+        strategy = {
+            "mode": "checkpoint",
+            "commands": [
+                "./scripts/containers/run-jest-container.sh lib/services/__tests__/tripService.test.ts",
+                "npm run type-check",
+            ],
+            "checkpoint_context": {
+                "clean_phase_name": "Test Phase",
+                "raw_heading": "## Phase 1: Test Phase",
+                "baseline_sha": "abc1234",
+                "end_sha": "def5678",
+                "changed_files": ["lib/services/tripService.ts"],
+                "domain": "backend_tooling",
+                "has_checkpoint_plan": False,
+            },
+        }
+        prompt = generate_prompt.build_checkpoint_prompt(
+            "conductor-auto-runner_20261112",
+            1,
+            3,
+            "Conductor - User Manual Verification",
+            strategy,
+            unattended=True,
+        )
+        self.assertNotIn("ask_question", prompt)
+        self.assertNotIn("Pause via `ask_question`", prompt)
+        self.assertNotIn("Execute ONLY After Explicit Affirmative Approval", prompt)
+        self.assertNotIn("Explicitly approved via interactive modal", prompt)
+        self.assertIn("Automated test suites are authoritative", prompt)
+        self.assertIn("Unattended Execution Mode", prompt)
+        self.assertIn("4. Verbatim Phase Closure (Unattended Mode):", prompt)
+        self.assertIn("User Confirmation: Unattended execution mode (deferred manual verification).", prompt)
+
+        # Check build_exec_prompt forwards unattended=True
+        exec_prompt = generate_prompt.build_exec_prompt(
+            "conductor-auto-runner_20261112",
+            1,
+            3,
+            "Conductor - User Manual Verification",
+            unattended=True,
+        )
+        self.assertNotIn("ask_question", exec_prompt)
+        self.assertIn("Unattended Execution Mode", exec_prompt)
+
+        # UI domain variant
+        ui_strategy = {
+            "mode": "checkpoint",
+            "commands": ["npm run test:container"],
+            "checkpoint_context": {
+                "clean_phase_name": "UI Phase",
+                "raw_heading": "## Phase 2: UI Phase",
+                "baseline_sha": "abc1234",
+                "end_sha": "def5678",
+                "changed_files": ["components/TripView.tsx"],
+                "domain": "ui",
+                "has_checkpoint_plan": False,
+            },
+        }
+        ui_prompt = generate_prompt.build_checkpoint_prompt(
+            "conductor-auto-runner_20261112",
+            2,
+            4,
+            "Conductor - User Manual Verification",
+            ui_strategy,
+            unattended=True,
+        )
+        self.assertNotIn("ask_question", ui_prompt)
+        self.assertIn("UI / Frontend Phase", ui_prompt)
+        self.assertIn("Automated test suites are authoritative", ui_prompt)
+
+    def test_build_checkpoint_prompt_attended_default_preserves_modal_gate(self):
+        """Verifies default unattended=False preserves interactive modal confirmation gate and ask_question."""
+        strategy = {
+            "mode": "checkpoint",
+            "commands": [
+                "./scripts/containers/run-jest-container.sh lib/services/__tests__/tripService.test.ts",
+                "npm run type-check",
+            ],
+            "checkpoint_context": {
+                "clean_phase_name": "Test Phase",
+                "raw_heading": "## Phase 1: Test Phase",
+                "baseline_sha": "abc1234",
+                "end_sha": "def5678",
+                "changed_files": ["lib/services/tripService.ts"],
+                "domain": "backend_tooling",
+                "has_checkpoint_plan": False,
+            },
+        }
+        # Explicit unattended=False
+        prompt_explicit = generate_prompt.build_checkpoint_prompt(
+            "conductor-auto-runner_20261112",
+            1,
+            3,
+            "Conductor - User Manual Verification",
+            strategy,
+            unattended=False,
+        )
+        # Default (unattended omitted)
+        prompt_default = generate_prompt.build_checkpoint_prompt(
+            "conductor-auto-runner_20261112",
+            1,
+            3,
+            "Conductor - User Manual Verification",
+            strategy,
+        )
+        for prompt in (prompt_explicit, prompt_default):
+            self.assertIn("ask_question", prompt)
+            self.assertIn("Pause via `ask_question` for explicit user approval", prompt)
+            self.assertIn("4. Verbatim Phase Closure (Execute ONLY After Explicit Affirmative Approval):", prompt)
+            self.assertIn("User Confirmation: Explicitly approved via interactive modal.", prompt)
+            self.assertNotIn("Automated test suites are authoritative", prompt)
+            self.assertNotIn("Unattended Execution Mode", prompt)
+
     def test_baseline_sha_fallback_when_prior_phase_header_lacks_checkpoint_tag(self):
         """Verifies Phase 3 baseline resolves from Phase 2's last task commit_sha when Phase 2 header lacks [checkpoint: ...]."""
         phases = generate_prompt.parse_plan_tasks("agent-resolve-quality-hardening_20261021")
@@ -514,6 +629,25 @@ class TestGeneratePromptCLI(unittest.TestCase):
             self.assertNotIn("PROMPT 1: RESEARCH & PLAN", result.stdout)
             self.assertIn("PHASE CHECKPOINT (WARM OR COLD SESSION)", result.stdout)
             self.assertIn("Warning: Phase 1 still has incomplete prior tasks: Task 2 ('Unfinished cleanup task')", result.stderr)
+
+    def test_cli_checkpoint_unattended_flag(self):
+        """Verifies CLI --checkpoint --unattended and -u flags generate non-interactive checkpoint prompts."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Verification Phase\n"
+                "- [x] Task: Completed task [commit: abc1234]\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 1: Verification Phase' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+            result_long = self.run_cli(["--track", str(tmp_path), "--phase", "1", "--checkpoint", "--unattended"])
+            result_short = self.run_cli(["--track", str(tmp_path), "--phase", "1", "--checkpoint", "-u"])
+
+            for res in (result_long, result_short):
+                self.assertEqual(res.returncode, 0, msg=res.stderr)
+                self.assertNotIn("ask_question", res.stdout)
+                self.assertIn("Unattended Execution Mode", res.stdout)
+                self.assertIn("User Confirmation: Unattended execution mode", res.stdout)
 
 
 if __name__ == "__main__":
