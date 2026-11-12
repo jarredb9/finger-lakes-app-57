@@ -7,10 +7,10 @@
 - [x] Task: Fix `test_classify_phase_domain_ui_vs_database_vs_tooling` in `generate-prompt.py` test suite (TDD Green phase) [commit: 23586e4d]
     - [x] Mock git diff output or use relative commit revision in `test_classify_phase_domain_ui_vs_database_vs_tooling`
     - [x] Run test suite with `python3.11 -m unittest scripts/__tests__/test_generate_prompt.py` and confirm 100% passing baseline
-- [ ] Task: Write failing unit tests for `[exempt: <category>]` task parsing and non-TDD verification strategy (TDD Red phase)
-    - [ ] Add test cases in `scripts/__tests__/test_generate_prompt.py` for parsing `[exempt: ui]`, `[exempt: styling]`, `[exempt: infra]`, `[exempt: scripts]`, `[exempt: types]`, and `[exempt: docs]`
-    - [ ] Add test cases verifying `infer_verification_strategy` selects the appropriate verification command (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit type (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`)
-    - [ ] Confirm tests fail with expected assertion errors
+- [x] Task: Write failing unit tests for `[exempt: <category>]` task parsing and non-TDD verification strategy (TDD Red phase) [commit: b2596440]
+    - [x] Add test cases in `scripts/__tests__/test_generate_prompt.py` for parsing `[exempt: ui]`, `[exempt: styling]`, `[exempt: infra]`, `[exempt: scripts]`, `[exempt: types]`, and `[exempt: docs]`
+    - [x] Add test cases verifying `infer_verification_strategy` selects the appropriate verification command (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit type (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`)
+    - [x] Confirm tests fail with expected assertion errors
 - [ ] Task: Implement `[exempt: <category>]` parsing and non-TDD verification strategy in `generate-prompt.py` (TDD Green phase)
     - [ ] Update `parse_plan_tasks` to extract the `[exempt: <category>]` annotation
     - [ ] Update `infer_verification_strategy` to assign non-TDD verification commands (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit types (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`)
