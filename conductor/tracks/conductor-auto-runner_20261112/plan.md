@@ -48,14 +48,14 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Task Parsing, Plan Validation, and Planning Tier' (Protocol in workflow.md) [commit: ac51a7bf]
 
 ## Phase 4: Execution Tier (`Tier 2`) and Supervisor Invariant Verification
-- [ ] Task: Write failing unit tests for Tier 2 execution turn, git tree assertions, dual-check Red task verification, Exempt checks, and `--auto-recover` flow (TDD Red phase)
-    - [ ] Test dispatching `generate-prompt.py --exec` to `agy --print --mode auto` with `gemini-3.8-flash-medium`
-    - [ ] Test working tree cleanliness assertions on clean vs dirty working trees and single-turn `--auto-recover` prompt dispatch
-    - [ ] Test active supervisor verification for Red tasks: assert exit code != 0, assert 0 production files modified, and parse runner output for assertion failure markers (Jest expect()/AssertionError vs SyntaxError/module load error; Python FAIL: vs ERROR:)
-    - [ ] Test active supervisor verification for Green tasks (asserting test command and `npm run type-check` pass)
-    - [ ] Test active supervisor verification for Exempt tasks (`ui`/`styling`, `infra`/`scripts`, `types`, `docs` git diff/existence check)
-    - [ ] Test Git commit and Git notes auditing (`git notes show <sha>`, conventional format, `plan.md` commit)
-    - [ ] Confirm tests fail as expected
+- [x] Task: Write failing unit tests for Tier 2 execution turn, git tree assertions, dual-check Red task verification, Exempt checks, and `--auto-recover` flow (TDD Red phase) [commit: 79936ad2]
+    - [x] Test dispatching `generate-prompt.py --exec` to `agy --print --mode auto` with `gemini-3.8-flash-medium`
+    - [x] Test working tree cleanliness assertions on clean vs dirty working trees and single-turn `--auto-recover` prompt dispatch
+    - [x] Test active supervisor verification for Red tasks: assert exit code != 0, assert 0 production files modified, and parse runner output for assertion failure markers (Jest expect()/AssertionError vs SyntaxError/module load error; Python FAIL: vs ERROR:)
+    - [x] Test active supervisor verification for Green tasks (asserting test command and `npm run type-check` pass)
+    - [x] Test active supervisor verification for Exempt tasks (`ui`/`styling`, `infra`/`scripts`, `types`, `docs` git diff/existence check)
+    - [x] Test Git commit and Git notes auditing (`git notes show <sha>`, conventional format, `plan.md` commit)
+    - [x] Confirm tests fail as expected
 - [ ] Task: Implement Tier 2 execution, supervisor invariant verification, dual-check Red parsing, and git notes audit in `conductor-auto.py` (TDD Green phase)
     - [ ] Implement Tier 2 dispatch loop executing tasks sequentially
     - [ ] Implement working tree audit and single-turn recovery prompt via `generate-prompt.py --recovery` on `--auto-recover`
