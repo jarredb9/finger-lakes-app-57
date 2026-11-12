@@ -284,6 +284,68 @@ def resolve_phase_baseline_sha(
     return None
 
 
+def resolve_phase_end_sha(
+    phases: Dict[int, Dict[str, Any]],
+    phase_num: Optional[int],
+    cwd: Path = PROJECT_ROOT,
+) -> str:
+    """
+    Resolves the terminal commit SHA for phase_num.
+
+    Resolution Tiers:
+    1. Phase header checkpoint tag: phases[phase_num].get("checkpoint_sha")
+    2. Last completed task or checkpoint task in phase with a valid commit_sha
+    3. Baseline SHA of the next sequential phase: resolve_phase_baseline_sha(phases, next_phase)
+    4. Fallback to "HEAD" for active/incomplete phases.
+
+    Returns:
+        Verified 7-char short SHA, full SHA, or "HEAD".
+    """
+    if phase_num is None or phase_num not in phases:
+        return "HEAD"
+
+    has_git = _verify_git_commit("HEAD", cwd) is not None
+
+    # Tier 1: Phase header checkpoint tag
+    cp_sha = phases[phase_num].get("checkpoint_sha")
+    if cp_sha:
+        if has_git:
+            verified = _verify_git_commit(cp_sha, cwd)
+            if verified:
+                return verified
+        else:
+            return cp_sha[:7]
+
+    # Tier 2: Last completed task or checkpoint task in phase with a commit_sha
+    for t in reversed(phases[phase_num].get("tasks", [])):
+        t_sha = t.get("commit_sha")
+        if t_sha:
+            if has_git:
+                verified = _verify_git_commit(t_sha, cwd)
+                if verified:
+                    return verified
+            else:
+                return t_sha[:7]
+
+    # Tier 3: Baseline SHA of the next sequential phase
+    next_phases = [p for p in sorted(phases.keys()) if p > phase_num]
+    if next_phases:
+        next_base = resolve_phase_baseline_sha(phases, next_phases[0], cwd=cwd)
+        if next_base:
+            return next_base
+
+    # Fallback to unverified tag if recorded in plan (e.g., shallow clone)
+    if cp_sha:
+        return cp_sha[:7]
+    for t in reversed(phases[phase_num].get("tasks", [])):
+        t_sha = t.get("commit_sha")
+        if t_sha:
+            return t_sha[:7]
+
+    # Tier 4: Fallback to "HEAD" for active/incomplete phases
+    return "HEAD"
+
+
 _MUTATING_CMD_RE = re.compile(
     r"\b(db:reset|db:seed|db:gen-types|db:populate|db:start|db:stop|db:restart)\b",
     re.IGNORECASE,
@@ -523,6 +585,7 @@ def collect_phase_checkpoint_context(
                         sibling_targets.append(m_clean)
 
     baseline_sha = resolve_phase_baseline_sha(phases, phase_num, cwd=cwd)
+    end_sha = resolve_phase_end_sha(phases, phase_num, cwd=cwd)
 
     # Compute changed files via git diff if baseline_sha resolves in git AND this phase has started
     phase_has_activity = any(
@@ -531,10 +594,18 @@ def collect_phase_checkpoint_context(
     )
     git_changed_files: List[str] = []
     if phase_has_activity and baseline_sha and _verify_git_commit(baseline_sha, cwd=cwd):
-        for diff_args in (
-            ["git", "diff", "--name-only", baseline_sha, "HEAD"],
-            ["git", "diff", "--name-only", "HEAD"],
-        ):
+        is_historical = (end_sha != "HEAD") and (_verify_git_commit(end_sha, cwd=cwd) is not None)
+        if is_historical:
+            diff_targets = [["git", "diff", "--name-only", baseline_sha, end_sha]]
+        elif end_sha == "HEAD":
+            diff_targets = [
+                ["git", "diff", "--name-only", baseline_sha, "HEAD"],
+                ["git", "diff", "--name-only", "HEAD"],
+            ]
+        else:
+            diff_targets = []
+
+        for diff_args in diff_targets:
             try:
                 res = subprocess.run(
                     diff_args,
@@ -612,6 +683,7 @@ def collect_phase_checkpoint_context(
 
     return {
         "baseline_sha": baseline_sha,
+        "end_sha": end_sha,
         "changed_files": changed_files,
         "sibling_plans": [ _rel_to_project(p) for _, p in sibling_plans ],
         "commands": commands,
@@ -1071,19 +1143,20 @@ def build_checkpoint_prompt(
     clean_phase_name = ctx.get("clean_phase_name", f"Phase {phase_num}")
     raw_heading = ctx.get("raw_heading", f"## Phase {phase_num}: {clean_phase_name}")
     baseline_sha = ctx.get("baseline_sha")
+    end_sha = ctx.get("end_sha", "HEAD")
     changed_files = ctx.get("changed_files", [])
     domain = ctx.get("domain", "backend_tooling")
     has_checkpoint_plan = ctx.get("has_checkpoint_plan", False)
 
     plan_ref_clause = f" and @[{plan_file}]" if has_checkpoint_plan else ""
-    range_line = f"- Git range: `{baseline_sha}..HEAD`" if baseline_sha else "- Git range: current phase commits (`git status --short`)"
+    range_line = f"- Git range: `{baseline_sha}..{end_sha}`" if baseline_sha else "- Git range: current phase commits (`git status --short`)"
     if changed_files:
         files_block = "\n".join(f"  - `{f}`" for f in changed_files[:20])
     else:
         files_block = "  - *(No code file diffs detected yet; inspect `git status --short`)*"
 
     cmd_lines = "\n".join(f"     {c}" for c in strategy["commands"])
-    diff_check_cmd = f"`git diff --name-only {baseline_sha} HEAD` and `git status --short`" if baseline_sha else "`git status --short`"
+    diff_check_cmd = f"`git diff --name-only {baseline_sha} {end_sha}` and `git status --short`" if baseline_sha else "`git status --short`"
 
     if domain == "ui":
         manual_directive = (

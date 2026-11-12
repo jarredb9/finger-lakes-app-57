@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -216,6 +217,83 @@ class TestGeneratePromptModule(unittest.TestCase):
         self.assertIsNone(phases[2]["checkpoint_sha"])
         baseline_p3 = generate_prompt.resolve_phase_baseline_sha(phases, 3)
         self.assertEqual(baseline_p3, "8314526")
+
+    def test_resolve_phase_end_sha_checkpoint_and_task_commits(self):
+        """Verifies resolve_phase_end_sha resolves from checkpoint tag, task commit, or falls back to HEAD."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            phases = {
+                1: {
+                    "checkpoint_sha": "a1b2c3d",
+                    "tasks": [
+                        {"description": "Task 1", "status": "complete", "commit_sha": "1111111"},
+                    ],
+                },
+                2: {
+                    "checkpoint_sha": None,
+                    "tasks": [
+                        {"description": "Task 2.1", "status": "complete", "commit_sha": "d4e5f6a"},
+                        {"description": "Task 2.2 Checkpoint", "status": "pending", "commit_sha": None},
+                    ],
+                },
+                3: {
+                    "checkpoint_sha": None,
+                    "tasks": [
+                        {"description": "Task 3.1", "status": "pending", "commit_sha": None},
+                    ],
+                },
+            }
+            # Phase with [checkpoint: a1b2c3d]
+            self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 1, cwd=tmp_path), "a1b2c3d")
+            # Phase lacking header tag but with task [commit: d4e5f6a]
+            self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 2, cwd=tmp_path), "d4e5f6a")
+            # Active phase lacking commits
+            self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 3, cwd=tmp_path), "HEAD")
+
+    @patch("subprocess.run")
+    @patch.object(generate_prompt, "_verify_git_commit")
+    def test_collect_phase_checkpoint_context_scopes_diff_to_end_sha_with_mock(
+        self, mock_verify, mock_subprocess
+    ):
+        """Verifies collect_phase_checkpoint_context scopes git diff to baseline_sha..end_sha for completed phase."""
+        mock_verify.side_effect = lambda rev, cwd=None: rev[:7] if rev else None
+        mock_subprocess.return_value = MagicMock(
+            returncode=0,
+            stdout="supabase/migrations/20261026000000_harden.sql\n",
+        )
+        phases = {
+            1: {
+                "name": "Client Prep",
+                "checkpoint_sha": "7128b93",
+                "tasks": [{"description": "Task 1", "status": "complete", "commit_sha": "7128b93"}],
+            },
+            2: {
+                "name": "Database Hardening",
+                "checkpoint_sha": "7f9d06c",
+                "tasks": [
+                    {"description": "Task 1", "status": "complete", "commit_sha": "99d16e1"},
+                    {"description": "Conductor - User Manual Verification", "status": "complete", "commit_sha": "7f9d06c"},
+                ],
+            },
+        }
+
+        ctx = generate_prompt.collect_phase_checkpoint_context(
+            track_name="db-security-hardening_20261026",
+            phase_num=2,
+            task_num=2,
+            phases=phases,
+        )
+
+        self.assertEqual(ctx["baseline_sha"], "7128b93")
+        self.assertEqual(ctx["end_sha"], "7f9d06c")
+        self.assertIn("supabase/migrations/20261026000000_harden.sql", ctx["changed_files"])
+        self.assertEqual(ctx["domain"], "database")
+
+        # Assert git diff ran across baseline_sha..end_sha and never HEAD
+        called_cmd_args = [call_args[0][0] for call_args in mock_subprocess.call_args_list]
+        self.assertIn(["git", "diff", "--name-only", "7128b93", "7f9d06c"], called_cmd_args)
+        self.assertNotIn(["git", "diff", "--name-only", "HEAD"], called_cmd_args)
+        self.assertNotIn(["git", "diff", "--name-only", "7128b93", "HEAD"], called_cmd_args)
 
     def test_get_preceding_context_walks_backward_past_planless_tasks(self):
         """Verifies get_preceding_context walks backward to find the nearest existing sibling plan file."""
