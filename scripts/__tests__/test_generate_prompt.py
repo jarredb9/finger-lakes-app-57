@@ -190,7 +190,17 @@ class TestGeneratePromptModule(unittest.TestCase):
             generate_prompt.classify_phase_domain(["scripts/agent-resolve/pipeline.py", "lib/services/tripService.ts"], []),
             "backend_tooling",
         )
+        self.assertEqual(
+            generate_prompt.classify_phase_domain([], [{"description": "Apply supabase/migrations and configure rls"}]),
+            "database",
+        )
+        self.assertEqual(
+            generate_prompt.classify_phase_domain([], [{"description": "Refactor components/ navigation and ui elements"}]),
+            "ui",
+        )
 
+    def test_checkpoint_prompt_preserves_database_domain_for_historical_phase(self):
+        """Regression test: Checkpoint prompt for database phase must not flip to UI due to post-phase git history bleed."""
         # Verify database phase checkpoint prompt forbids inventing localhost:3000 steps
         db_prompt = generate_prompt.build_exec_prompt(
             track_name="db-security-hardening_20261026",
