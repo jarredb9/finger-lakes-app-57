@@ -17,7 +17,7 @@
     - [x] Run test suite with `python3.11 -m unittest` and confirm all tests pass cleanly
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Test Baseline Stabilization & [exempt: <category>] Task Taxonomy' (Protocol in workflow.md) [commit: ecd9079e]
 
-## Phase 2: Unattended Checkpoint Prompt Generation in `generate-prompt.py`
+## Phase 2: Unattended Checkpoint Prompt Generation in `generate-prompt.py` [checkpoint: 2601a4b0]
 - [x] Task: Write failing unit tests for `--unattended` checkpoint prompt generation (TDD Red phase) [commit: e904ed09]
     - [x] Add test cases in `scripts/__tests__/test_generate_prompt.py` verifying `--checkpoint --unattended` output
     - [x] Assert that `--unattended` prompt skips interactive modal pauses, enforces authoritative automated test execution, and directs manual verification steps to Git notes
@@ -26,7 +26,7 @@
     - [x] Add `--unattended` CLI flag to argument parser
     - [x] Extend `build_checkpoint_prompt` to generate non-interactive unattended instructions
     - [x] Run test suite with `python3.11 -m unittest` and confirm all tests pass cleanly
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Unattended Checkpoint Prompt Generation in generate-prompt.py' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Unattended Checkpoint Prompt Generation in generate-prompt.py' (Protocol in workflow.md) [commit: 2601a4b0]
 
 ## Phase 3: Task Parsing, Plan Validation, and Planning Tier (`Tier 1`)
 - [ ] Task: Write failing unit tests for track plan parsing, task status extraction, Tier 1 planning turn assertions, process group isolation, flag ordering, and idempotent plan caching (TDD Red phase)
