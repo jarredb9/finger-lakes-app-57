@@ -28,6 +28,7 @@
     "test:e2e": "npx playwright test",
     "test:e2e:real": "E2E_REAL_DATA=true npx playwright test",
     "test:functions": "deno test --allow-all --config supabase/functions/deno.json supabase/functions/",
+    "test:gemini": "npx tsx scripts/test/verify-gemini-credentials.ts",
     "db:start": "./scripts/bin/db-docker-env.sh start",
     "db:stop": "./scripts/bin/db-docker-env.sh stop",
     "db:restart": "npm run db:stop && npm run db:start",

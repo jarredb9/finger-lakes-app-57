@@ -49,21 +49,21 @@ You MUST respond with a JSON object formatted as follows:
 }`;
 
   // Models to try in priority order
-  const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.6-flash', 'gemini-flash-latest'];
+  const models = ['gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-flash-lite-latest'];
   const errorDetails: string[] = [];
 
   for (const model of models) {
     try {
-      const isApiKey = apiKey.startsWith('AIzaSy');
-      const geminiUrl = isApiKey 
-        ? `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`
-        : `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const isOAuthToken = apiKey.startsWith('ya29.');
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (!isApiKey) {
+      if (isOAuthToken) {
         headers['Authorization'] = `Bearer ${apiKey}`;
+      } else {
+        headers['x-goog-api-key'] = apiKey;
       }
 
       const geminiResponse = await fetch(geminiUrl, {
