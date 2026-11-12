@@ -18,10 +18,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Test Baseline Stabilization & [exempt: <category>] Task Taxonomy' (Protocol in workflow.md) [commit: ecd9079e]
 
 ## Phase 2: Unattended Checkpoint Prompt Generation in `generate-prompt.py`
-- [ ] Task: Write failing unit tests for `--unattended` checkpoint prompt generation (TDD Red phase)
-    - [ ] Add test cases in `scripts/__tests__/test_generate_prompt.py` verifying `--checkpoint --unattended` output
-    - [ ] Assert that `--unattended` prompt skips interactive modal pauses, enforces authoritative automated test execution, and directs manual verification steps to Git notes
-    - [ ] Confirm tests fail with expected assertion errors
+- [x] Task: Write failing unit tests for `--unattended` checkpoint prompt generation (TDD Red phase) [commit: e904ed09]
+    - [x] Add test cases in `scripts/__tests__/test_generate_prompt.py` verifying `--checkpoint --unattended` output
+    - [x] Assert that `--unattended` prompt skips interactive modal pauses, enforces authoritative automated test execution, and directs manual verification steps to Git notes
+    - [x] Confirm tests fail with expected assertion errors
 - [ ] Task: Implement `--unattended` checkpoint prompt generation in `generate-prompt.py` (TDD Green phase)
     - [ ] Add `--unattended` CLI flag to argument parser
     - [ ] Extend `build_checkpoint_prompt` to generate non-interactive unattended instructions
