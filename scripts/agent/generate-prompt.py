@@ -135,6 +135,7 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
         r"\s*(?:\[checkpoint:\s*([a-f0-9]{7,40})\]|\[([a-f0-9]{7,40})\])\s*$",
         re.IGNORECASE,
     )
+    exempt_re = re.compile(r"\[exempt:\s*([a-zA-Z0-9_\-]+)\]", re.IGNORECASE)
     task_sha_re = re.compile(
         r"\s*(?:\(([a-f0-9]{7,40})\)|\[(?:commit:\s*|checkpoint:\s*)?([a-f0-9]{7,40})\]|([a-f0-9]{7,40}))\s*$",
         re.IGNORECASE,
@@ -180,6 +181,12 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
             if task_match:
                 status_char = task_match.group(1).lower()
                 task_desc = task_match.group(2).strip()
+                exempt_cat = None
+                exempt_match = exempt_re.search(task_desc)
+                if exempt_match:
+                    exempt_cat = exempt_match.group(1).lower()
+                    task_desc = exempt_re.sub("", task_desc).strip()
+
                 commit_sha = None
                 sha_match = task_sha_re.search(task_desc)
                 if sha_match:
@@ -193,12 +200,21 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
                         flags=re.IGNORECASE,
                     ).strip()
 
+                clean_desc = re.sub(
+                    r"\s*\[checkpoint:[^\]]+\]\s*$",
+                    "",
+                    clean_desc,
+                    flags=re.IGNORECASE,
+                ).strip()
+                clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+
                 phases[current_phase_num]["tasks"].append({
                     "status": "complete" if status_char == "x" else ("in_progress" if status_char == "~" else "pending"),
                     "description": clean_desc,
                     "subtasks": [],
                     "commit_sha": commit_sha,
                     "is_checkpoint": is_checkpoint_task(clean_desc),
+                    "exempt": exempt_cat,
                     "raw_line": line.strip(),
                 })
 
@@ -748,6 +764,7 @@ def infer_verification_strategy(
     task_desc: str = "",
     subtasks: Optional[List[str]] = None,
     mode: Optional[str] = None,
+    exempt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Infers the optimal targeted verification strategy and commit message
     by inspecting the task description, subtasks, target files, and plan document."""
@@ -802,6 +819,70 @@ def infer_verification_strategy(
     all_task_text = task_desc + "\n" + "\n".join(subtasks)
     desc_lower = all_task_text.lower()
     task_desc_lower = task_desc.lower()
+
+    # Resolve exempt category if specified via keyword argument, task_desc annotation, or plan
+    resolved_exempt: Optional[str] = None
+    if exempt and exempt.strip():
+        resolved_exempt = exempt.strip().lower()
+    else:
+        exempt_match = re.search(r"\[exempt:\s*([a-zA-Z0-9_\-]+)\]", all_task_text, re.IGNORECASE)
+        if exempt_match:
+            resolved_exempt = exempt_match.group(1).lower()
+        elif track_name and phase_num is not None and task_num is not None:
+            try:
+                p_tasks = parse_plan_tasks(track_name)
+                if phase_num in p_tasks and task_num <= len(p_tasks[phase_num]["tasks"]):
+                    resolved_exempt = p_tasks[phase_num]["tasks"][task_num - 1].get("exempt")
+            except Exception:
+                pass
+
+    if resolved_exempt:
+        clean_task_desc = re.sub(r"\s*\[exempt:[^\]]+\]", "", task_desc, flags=re.IGNORECASE).strip()
+        clean_task_desc = re.sub(
+            r"\s*(?:\(([a-f0-9]{7,40})\)|\[(?:commit:\s*|checkpoint:\s*)?([a-f0-9]{7,40})\])\s*$",
+            "",
+            clean_task_desc,
+            flags=re.IGNORECASE,
+        ).strip()
+        clean_task_desc = re.sub(r"\s+", " ", clean_task_desc).strip()
+        if not clean_task_desc:
+            clean_task_desc = f"Execute Phase {phase_num} Task {task_num}"
+
+        if resolved_exempt in ("ui", "styling"):
+            commands = ["npm run build"]
+            commit_prefix = "style("
+            cat_display = "UI" if resolved_exempt == "ui" else "Styling"
+            instruction = f"- Verify application build passes cleanly with npm run build ({cat_display} exempt task)."
+        elif resolved_exempt in ("infra", "scripts"):
+            commands = ["npm run lint"]
+            commit_prefix = "chore("
+            cat_display = "Infra" if resolved_exempt == "infra" else "Scripts"
+            instruction = f"- Verify lint checks pass cleanly with npm run lint ({cat_display} exempt task)."
+        elif resolved_exempt == "types":
+            commands = ["npm run type-check"]
+            commit_prefix = "types("
+            instruction = "- Verify TypeScript types pass cleanly with npm run type-check (Types exempt task)."
+        elif resolved_exempt == "docs":
+            commands = ["git diff --name-only"]
+            commit_prefix = "docs("
+            instruction = "- Verify documentation changes with git diff --name-only (Docs exempt task)."
+        else:
+            commands = ["npm run lint"]
+            commit_prefix = "chore("
+            instruction = f"- Verify exempt task ({resolved_exempt})."
+
+        commit_msg = f"{commit_prefix}{scope}): {clean_task_desc}"
+
+        return {
+            "commands": commands,
+            "instruction": instruction,
+            "commit_msg": commit_msg,
+            "mode": "exempt",
+            "is_red": False,
+            "is_checkpoint": False,
+            "exempt": resolved_exempt,
+            "checkpoint_context": None,
+        }
 
     is_checkpoint = (mode == "checkpoint") or (mode is None and is_checkpoint_task(task_desc))
 
@@ -1025,6 +1106,7 @@ def infer_verification_strategy(
         "mode": resolved_mode,
         "is_red": is_red,
         "is_checkpoint": is_checkpoint,
+        "exempt": None,
         "checkpoint_context": checkpoint_ctx,
     }
 
@@ -1088,7 +1170,10 @@ Gate & Planning Protocol:
 - Halt for user approval via modal before modifying any files."""
 
 
-def extract_post_execution_info(plan_file: Optional[Path]) -> Tuple[Optional[str], Optional[str]]:
+def extract_post_execution_info(
+    plan_file: Optional[Path],
+    task_desc: str = "",
+) -> Tuple[Optional[str], Optional[str]]:
     """Extracts the post-execution section reference and any explicit task commit message from the plan file.
 
     Returns:
@@ -1098,6 +1183,19 @@ def extract_post_execution_info(plan_file: Optional[Path]) -> Tuple[Optional[str
         return None, None
 
     content = plan_file.read_text(encoding="utf-8")
+
+    if task_desc:
+        clean_task = re.sub(r"\s*\[exempt:[^\]]+\]", "", task_desc, flags=re.IGNORECASE).strip()
+        clean_task = re.sub(
+            r"\s*(?:\(([a-f0-9]{7,40})\)|\[(?:commit:\s*|checkpoint:\s*)?([a-f0-9]{7,40})\])\s*$",
+            "",
+            clean_task,
+            flags=re.IGNORECASE,
+        ).strip()
+        clean_task = re.sub(r"\s+", " ", clean_task).strip()
+        if clean_task and clean_task.lower() not in content.lower():
+            return None, None
+
     match = re.search(
         r"^##\s+(?:(\d+)\.\s+)?(.*?Post-Execution.*|.*?Task Completion.*|.*?Commit Protocol.*)$",
         content,
@@ -1215,22 +1313,36 @@ def build_exec_prompt(
     task_desc: str = "",
     subtasks: Optional[List[str]] = None,
     mode: Optional[str] = None,
+    exempt: Optional[str] = None,
 ) -> str:
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
     plan_path = track_dir / f"phase-{phase_num}-task-{task_num}-plan.md" if track_dir else None
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
-    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode)
+    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode, exempt=exempt)
 
     if strategy["mode"] == "checkpoint":
         return build_checkpoint_prompt(track_name, phase_num, task_num, task_desc, strategy)
 
-    post_exec_ref, plan_commit_msg = extract_post_execution_info(plan_path)
-    commit_msg = plan_commit_msg or strategy["commit_msg"]
+    post_exec_ref, plan_commit_msg = extract_post_execution_info(plan_path, task_desc)
+
+    if strategy["mode"] == "exempt":
+        if plan_commit_msg and any(plan_commit_msg.startswith(p) for p in ["style(", "chore(", "types(", "docs("]):
+            commit_msg = plan_commit_msg
+        else:
+            commit_msg = strategy["commit_msg"]
+    else:
+        commit_msg = plan_commit_msg or strategy["commit_msg"]
 
     cmd_lines = "\n".join(f"     {c}" for c in strategy["commands"])
 
-    if strategy["mode"] == "red":
+    if strategy["mode"] == "exempt":
+        cat_suffix = f": {strategy['exempt']}" if strategy.get("exempt") else ""
+        verification_block = f"""2. Targeted Verification (Exempt{cat_suffix}):
+   - Run category-specific verification check:
+{cmd_lines}
+   - Confirm verification check passes cleanly before committing."""
+    elif strategy["mode"] == "red":
         verification_block = f"""2. Targeted Verification (Red Phase):
    - Run test runner to confirm new tests fail with expected assertions:
 {cmd_lines}
@@ -1513,7 +1625,11 @@ def main():
                 print("\n[Copied recovery prompt to clipboard]", file=sys.stderr)
         return
 
-    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode)
+    task_exempt = None
+    if phase_num in phases and task_num is not None and 1 <= task_num <= len(phases[phase_num]["tasks"]):
+        task_exempt = phases[phase_num]["tasks"][task_num - 1].get("exempt")
+
+    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode, exempt=task_exempt)
 
     # Warn if selecting a checkpoint task while earlier tasks in the same phase are still incomplete
     if strategy.get("is_checkpoint") and phase_num in phases and task_num is not None:
@@ -1529,7 +1645,7 @@ def main():
             )
 
     plan_prompt = build_plan_prompt(track_name, phase_num, task_num, task_desc)
-    exec_prompt = build_exec_prompt(track_name, phase_num, task_num, task_desc, subtasks, mode)
+    exec_prompt = build_exec_prompt(track_name, phase_num, task_num, task_desc, subtasks, mode, exempt=task_exempt)
 
     if parsed.copy_plan or (parsed.copy and parsed.plan_only):
         copied = copy_to_clipboard(plan_prompt)
