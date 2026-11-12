@@ -38,13 +38,13 @@
     - [x] Test idempotent plan caching: skip Tier 1 if plan file exists and is non-empty, unless `--force-plan` is specified
     - [x] Test post-plan assertions: verify markdown plan file exists and assert `git status --porcelain` contains 0 modified production/app files
     - [x] Confirm tests fail as expected
-- [ ] Task: Implement plan parsing, status extraction, process lifecycle, and Tier 1 planning dispatch in `conductor-auto.py` (TDD Green phase)
-    - [ ] Create `scripts/agent/conductor-auto.py` skeleton and CLI argument parser (including `--force-plan`, `--timeout`, model flags)
-    - [ ] Implement `parse_track_plan` to inspect phase headings and task list items
-    - [ ] Implement subprocess launcher with strict `agy` flag ordering, stdin prompt delivery, and `os.setsid` process group isolation
-    - [ ] Implement idempotent plan cache check and Tier 1 planning runner invoking `gemini-3.8-flash-high`
-    - [ ] Implement post-plan invariant check asserting no application code modifications occurred
-    - [ ] Confirm all unit tests pass cleanly
+- [x] Task: Implement plan parsing, status extraction, process lifecycle, and Tier 1 planning dispatch in `conductor-auto.py` (TDD Green phase) [commit: 0ddf133b]
+    - [x] Create `scripts/agent/conductor-auto.py` skeleton and CLI argument parser (including `--force-plan`, `--timeout`, model flags)
+    - [x] Implement `parse_track_plan` to inspect phase headings and task list items
+    - [x] Implement subprocess launcher with strict `agy` flag ordering, stdin prompt delivery, and `os.setsid` process group isolation
+    - [x] Implement idempotent plan cache check and Tier 1 planning runner invoking `gemini-3.8-flash-high`
+    - [x] Implement post-plan invariant check asserting no application code modifications occurred
+    - [x] Confirm all unit tests pass cleanly
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Task Parsing, Plan Validation, and Planning Tier' (Protocol in workflow.md)
 
 ## Phase 4: Execution Tier (`Tier 2`) and Supervisor Invariant Verification
