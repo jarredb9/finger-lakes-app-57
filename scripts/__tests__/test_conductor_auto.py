@@ -158,6 +158,33 @@ class TestTrackPlanParser(unittest.TestCase):
             self.assertEqual(tasks[4].status, "pending")
             self.assertTrue(tasks[4].is_checkpoint)
 
+    def test_is_checkpoint_task_classification_and_false_positives(self):
+        """Asserts is_checkpoint_task identifies verification checkpoints and avoids false positives on tasks mentioning checkpoint."""
+        is_checkpoint_task = get_target("is_checkpoint_task", self)
+
+        # Verification checkpoint forms (must return True)
+        self.assertTrue(
+            is_checkpoint_task("Conductor - User Manual Verification 'Phase 3' (Protocol in workflow.md)")
+        )
+        self.assertTrue(is_checkpoint_task("Checkpoint end of Phase 3"))
+        self.assertTrue(is_checkpoint_task("Final checkpoint"))
+        self.assertTrue(is_checkpoint_task("checkpoint: abc1234"))
+        self.assertTrue(is_checkpoint_task("User manual verification"))
+
+        # Implementation / test tasks mentioning checkpoint (must return False)
+        self.assertFalse(
+            is_checkpoint_task("Write failing unit tests for Gate 1 checkpoint, Gate 2 review dispatch")
+        )
+        self.assertFalse(
+            is_checkpoint_task("Implement Gate 1 checkpoint, Gate 2 review handling, brain snapshotting")
+        )
+        self.assertFalse(
+            is_checkpoint_task("Write failing unit tests for `--unattended` checkpoint prompt generation")
+        )
+        self.assertFalse(
+            is_checkpoint_task("Implement `--unattended` checkpoint prompt generation in generate-prompt.py")
+        )
+
     def test_get_active_phase_resolution(self):
         """Asserts get_active_phase returns the first incomplete phase or requested target phase."""
         parse_track_plan = get_target("parse_track_plan", self)

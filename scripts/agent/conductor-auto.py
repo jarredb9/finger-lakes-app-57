@@ -146,7 +146,11 @@ def is_checkpoint_task(task_desc: str) -> bool:
         "manual verification" in desc_lower
         or "protocol in workflow.md" in desc_lower
         or "checkpoint end of phase" in desc_lower
-        or "checkpoint" in desc_lower
+        or "checkpoint verification" in desc_lower
+        or desc_lower.startswith("checkpoint:")
+        or desc_lower.startswith("checkpoint ")
+        or desc_lower.endswith("checkpoint")
+        or bool(re.search(r"\bcheckpoint\s+task\b", desc_lower))
         or desc_lower.startswith("conductor - user manual verification")
     )
 
@@ -262,12 +266,7 @@ def parse_track_plan(track_path_or_name: Union[str, Path]) -> Dict[int, PhaseInf
                     commit_sha = sha_match.group(1) or sha_match.group(2) or sha_match.group(3)
                     clean_desc = task_desc[: sha_match.start()].strip()
                 else:
-                    clean_desc = re.sub(
-                        r"\s*\[checkpoint:[^\]]+\]\s*$",
-                        "",
-                        task_desc,
-                        flags=re.IGNORECASE,
-                    ).strip()
+                    clean_desc = task_desc
 
                 clean_desc = re.sub(
                     r"\s*\[checkpoint:[^\]]+\]\s*$",
