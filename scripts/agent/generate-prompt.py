@@ -831,7 +831,7 @@ def infer_verification_strategy(
         elif track_name and phase_num is not None and task_num is not None:
             try:
                 p_tasks = parse_plan_tasks(track_name)
-                if phase_num in p_tasks and task_num <= len(p_tasks[phase_num]["tasks"]):
+                if phase_num in p_tasks and 1 <= task_num <= len(p_tasks[phase_num]["tasks"]):
                     resolved_exempt = p_tasks[phase_num]["tasks"][task_num - 1].get("exempt")
             except Exception:
                 pass

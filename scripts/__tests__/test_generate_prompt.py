@@ -424,6 +424,16 @@ class TestGeneratePromptModule(unittest.TestCase):
             self.assertTrue(strategy_explicit["instruction"].startswith("- "))
             self.assertTrue(len(strategy_explicit["instruction"]) > 2)
 
+    def test_infer_verification_strategy_bounds_check_task_num(self):
+        """Verifies infer_verification_strategy guards against non-positive task_num values."""
+        strategy = generate_prompt.infer_verification_strategy(
+            track_name="conductor-auto-runner_20261112",
+            phase_num=1,
+            task_num=0,
+            task_desc="Generic task without tag",
+        )
+        self.assertIsNone(strategy.get("exempt"))
+
     def test_build_exec_prompt_formats_exempt_verification_block(self):
         """Verifies build_exec_prompt formats category-specific verification block without Red phase assertions."""
         prompt = generate_prompt.build_exec_prompt(
