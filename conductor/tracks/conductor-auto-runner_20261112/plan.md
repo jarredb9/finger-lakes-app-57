@@ -1,6 +1,6 @@
 # Implementation Plan: Autonomous Multi-Task Track Execution Runner (`conductor-auto.py`)
 
-## Phase 1: Test Baseline Stabilization & `[exempt: <category>]` Task Taxonomy
+## Phase 1: Test Baseline Stabilization & `[exempt: <category>]` Task Taxonomy [checkpoint: ecd9079e]
 - [x] Task: Write failing unit test for pre-existing `test_classify_phase_domain_ui_vs_database_vs_tooling` regression (TDD Red phase) [commit: 872670fb]
     - [x] Update `scripts/__tests__/test_generate_prompt.py` to decouple the domain classification test from live git history changes
     - [x] Confirm test fails cleanly on historical range mismatch
@@ -15,7 +15,7 @@
     - [x] Update `parse_plan_tasks` to extract the `[exempt: <category>]` annotation
     - [x] Update `infer_verification_strategy` to assign non-TDD verification commands (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit types (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`)
     - [x] Run test suite with `python3.11 -m unittest` and confirm all tests pass cleanly
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Test Baseline Stabilization & [exempt: <category>] Task Taxonomy' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Test Baseline Stabilization & [exempt: <category>] Task Taxonomy' (Protocol in workflow.md) [commit: ecd9079e]
 
 ## Phase 2: Unattended Checkpoint Prompt Generation in `generate-prompt.py`
 - [ ] Task: Write failing unit tests for `--unattended` checkpoint prompt generation (TDD Red phase)
