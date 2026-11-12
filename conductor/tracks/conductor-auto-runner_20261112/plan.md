@@ -1,9 +1,9 @@
 # Implementation Plan: Autonomous Multi-Task Track Execution Runner (`conductor-auto.py`)
 
 ## Phase 1: Test Baseline Stabilization & `[exempt: <category>]` Task Taxonomy
-- [ ] Task: Write failing unit test for pre-existing `test_classify_phase_domain_ui_vs_database_vs_tooling` regression (TDD Red phase)
-    - [ ] Update `scripts/__tests__/test_generate_prompt.py` to decouple the domain classification test from live git history changes
-    - [ ] Confirm test fails cleanly on historical range mismatch
+- [x] Task: Write failing unit test for pre-existing `test_classify_phase_domain_ui_vs_database_vs_tooling` regression (TDD Red phase) [commit: 872670fb]
+    - [x] Update `scripts/__tests__/test_generate_prompt.py` to decouple the domain classification test from live git history changes
+    - [x] Confirm test fails cleanly on historical range mismatch
 - [ ] Task: Fix `test_classify_phase_domain_ui_vs_database_vs_tooling` in `generate-prompt.py` test suite (TDD Green phase)
     - [ ] Mock git diff output or use relative commit revision in `test_classify_phase_domain_ui_vs_database_vs_tooling`
     - [ ] Run test suite with `python3.11 -m unittest scripts/__tests__/test_generate_prompt.py` and confirm 100% passing baseline
