@@ -11,10 +11,10 @@
     - [x] Add test cases in `scripts/__tests__/test_generate_prompt.py` for parsing `[exempt: ui]`, `[exempt: styling]`, `[exempt: infra]`, `[exempt: scripts]`, `[exempt: types]`, and `[exempt: docs]`
     - [x] Add test cases verifying `infer_verification_strategy` selects the appropriate verification command (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit type (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`)
     - [x] Confirm tests fail with expected assertion errors
-- [ ] Task: Implement `[exempt: <category>]` parsing and non-TDD verification strategy in `generate-prompt.py` (TDD Green phase)
-    - [ ] Update `parse_plan_tasks` to extract the `[exempt: <category>]` annotation
-    - [ ] Update `infer_verification_strategy` to assign non-TDD verification commands (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit types (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`)
-    - [ ] Run test suite with `python3.11 -m unittest` and confirm all tests pass cleanly
+- [x] Task: Implement `[exempt: <category>]` parsing and non-TDD verification strategy in `generate-prompt.py` (TDD Green phase) [commit: 97f616dd]
+    - [x] Update `parse_plan_tasks` to extract the `[exempt: <category>]` annotation
+    - [x] Update `infer_verification_strategy` to assign non-TDD verification commands (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit types (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`)
+    - [x] Run test suite with `python3.11 -m unittest` and confirm all tests pass cleanly
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Test Baseline Stabilization & [exempt: <category>] Task Taxonomy' (Protocol in workflow.md)
 
 ## Phase 2: Unattended Checkpoint Prompt Generation in `generate-prompt.py`
