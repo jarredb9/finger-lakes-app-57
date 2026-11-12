@@ -22,10 +22,10 @@
     - [x] Add test cases in `scripts/__tests__/test_generate_prompt.py` verifying `--checkpoint --unattended` output
     - [x] Assert that `--unattended` prompt skips interactive modal pauses, enforces authoritative automated test execution, and directs manual verification steps to Git notes
     - [x] Confirm tests fail with expected assertion errors
-- [ ] Task: Implement `--unattended` checkpoint prompt generation in `generate-prompt.py` (TDD Green phase)
-    - [ ] Add `--unattended` CLI flag to argument parser
-    - [ ] Extend `build_checkpoint_prompt` to generate non-interactive unattended instructions
-    - [ ] Run test suite with `python3.11 -m unittest` and confirm all tests pass cleanly
+- [x] Task: Implement `--unattended` checkpoint prompt generation in `generate-prompt.py` (TDD Green phase) [commit: b93e4a53]
+    - [x] Add `--unattended` CLI flag to argument parser
+    - [x] Extend `build_checkpoint_prompt` to generate non-interactive unattended instructions
+    - [x] Run test suite with `python3.11 -m unittest` and confirm all tests pass cleanly
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Unattended Checkpoint Prompt Generation in generate-prompt.py' (Protocol in workflow.md)
 
 ## Phase 3: Task Parsing, Plan Validation, and Planning Tier (`Tier 1`)
