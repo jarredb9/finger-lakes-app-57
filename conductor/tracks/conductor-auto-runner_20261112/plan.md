@@ -28,7 +28,7 @@
     - [x] Run test suite with `python3.11 -m unittest` and confirm all tests pass cleanly
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Unattended Checkpoint Prompt Generation in generate-prompt.py' (Protocol in workflow.md) [commit: 2601a4b0]
 
-## Phase 3: Task Parsing, Plan Validation, and Planning Tier (`Tier 1`)
+## Phase 3: Task Parsing, Plan Validation, and Planning Tier (`Tier 1`) [checkpoint: ac51a7bf]
 - [x] Task: Write failing unit tests for track plan parsing, task status extraction, Tier 1 planning turn assertions, process group isolation, flag ordering, and idempotent plan caching (TDD Red phase) [commit: 607c095a]
     - [x] Create `scripts/__tests__/test_conductor_auto.py`
     - [x] Test parsing active phases, identifying incomplete tasks `[ ]`, skipped tasks, and checkpoint tasks
@@ -45,7 +45,7 @@
     - [x] Implement idempotent plan cache check and Tier 1 planning runner invoking `gemini-3.8-flash-high`
     - [x] Implement post-plan invariant check asserting no application code modifications occurred
     - [x] Confirm all unit tests pass cleanly
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Task Parsing, Plan Validation, and Planning Tier' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Task Parsing, Plan Validation, and Planning Tier' (Protocol in workflow.md) [commit: ac51a7bf]
 
 ## Phase 4: Execution Tier (`Tier 2`) and Supervisor Invariant Verification
 - [ ] Task: Write failing unit tests for Tier 2 execution turn, git tree assertions, dual-check Red task verification, Exempt checks, and `--auto-recover` flow (TDD Red phase)
