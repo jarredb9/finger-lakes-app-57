@@ -76,6 +76,47 @@ class TestGeneratePromptModule(unittest.TestCase):
             self.assertIsNone(tasks[4]["commit_sha"])
             self.assertTrue(tasks[4]["is_checkpoint"])
 
+    def test_parse_plan_tasks_extracts_exempt_categories(self):
+        """Verifies parse_plan_tasks extracts [exempt: <category>] across all canonical categories."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Test Phase\n"
+                "- [ ] Task: Update landing page hero layout [exempt: ui]\n"
+                "- [ ] Task: Polish button hover animations [exempt: styling]\n"
+                "- [ ] Task: Configure GitHub Actions workflow [exempt: infra]\n"
+                "- [ ] Task: Add database backup utility script [exempt: scripts]\n"
+                "- [ ] Task: Update domain entity type definitions [exempt: types]\n"
+                "- [ ] Task: Document architecture decisions in ADR-0015 [exempt: docs]\n"
+                "- [ ] Task: Mixed case test [exempt: UI]\n"
+                "- [ ] Task: Standard domain feature (TDD Red phase)\n"
+                "- [x] Task: Completed chore script [exempt: scripts] [commit: a1b2c3d]\n",
+                encoding="utf-8",
+            )
+            phases = generate_prompt.parse_plan_tasks(str(tmp_path))
+            tasks = phases[1]["tasks"]
+
+            self.assertEqual(tasks[0]["exempt"], "ui")
+            self.assertEqual(tasks[0]["description"], "Update landing page hero layout")
+            self.assertEqual(tasks[1]["exempt"], "styling")
+            self.assertEqual(tasks[1]["description"], "Polish button hover animations")
+            self.assertEqual(tasks[2]["exempt"], "infra")
+            self.assertEqual(tasks[2]["description"], "Configure GitHub Actions workflow")
+            self.assertEqual(tasks[3]["exempt"], "scripts")
+            self.assertEqual(tasks[3]["description"], "Add database backup utility script")
+            self.assertEqual(tasks[4]["exempt"], "types")
+            self.assertEqual(tasks[4]["description"], "Update domain entity type definitions")
+            self.assertEqual(tasks[5]["exempt"], "docs")
+            self.assertEqual(tasks[5]["description"], "Document architecture decisions in ADR-0015")
+            self.assertEqual(tasks[6]["exempt"], "ui")
+            self.assertIsNone(tasks[7]["exempt"])
+            self.assertEqual(tasks[8]["exempt"], "scripts")
+            self.assertEqual(tasks[8]["commit_sha"], "a1b2c3d")
+            self.assertEqual(tasks[8]["description"], "Completed chore script")
+
+            for i in [0, 1, 2, 3, 4, 5, 6, 8]:
+                self.assertNotIn("[exempt:", tasks[i]["description"])
+
     def test_checkpoint_variable_task_counts_2_3_4_and_6_tasks(self):
         """Verifies --checkpoint resolves the checkpoint task across 2, 3, 4, and 6-task phases and aggregates sibling plans."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -339,6 +380,66 @@ class TestGeneratePromptModule(unittest.TestCase):
         )
         self.assertIn("instruction", strategy)
         self.assertTrue(len(strategy["instruction"]) > 0)
+
+    def test_infer_verification_strategy_exempt_categories(self):
+        """Verifies infer_verification_strategy selects non-TDD commands and commit types for all exempt categories."""
+        matrix = [
+            ("ui", "Update landing page hero layout [exempt: ui]", ["npm run build"], "style("),
+            ("styling", "Polish button hover animations [exempt: styling]", ["npm run build"], "style("),
+            ("infra", "Configure GitHub Actions workflow [exempt: infra]", ["npm run lint"], "chore("),
+            ("scripts", "Add database backup utility script [exempt: scripts]", ["npm run lint"], "chore("),
+            ("types", "Update domain entity type definitions [exempt: types]", ["npm run type-check"], "types("),
+            ("docs", "Document architecture decisions in ADR-0015 [exempt: docs]", ["git diff --name-only"], "docs("),
+        ]
+        for cat, desc, expected_cmds, expected_prefix in matrix:
+            # Test embedded tag parsing in task_desc
+            strategy = generate_prompt.infer_verification_strategy(
+                track_name="conductor-auto-runner_20261112",
+                phase_num=1,
+                task_num=1,
+                task_desc=desc,
+            )
+            self.assertEqual(strategy.get("exempt"), cat)
+            self.assertEqual(strategy["mode"], "exempt")
+            self.assertFalse(strategy["is_red"])
+            self.assertEqual(strategy["commands"], expected_cmds)
+            self.assertTrue(strategy["commit_msg"].startswith(expected_prefix))
+            self.assertTrue(strategy["instruction"].startswith("- "))
+            self.assertTrue(len(strategy["instruction"]) > 2)
+
+            # Test explicit keyword argument exempt=cat
+            clean_desc = desc.split(" [exempt:")[0]
+            strategy_explicit = generate_prompt.infer_verification_strategy(
+                track_name="conductor-auto-runner_20261112",
+                phase_num=1,
+                task_num=1,
+                task_desc=clean_desc,
+                exempt=cat,
+            )
+            self.assertEqual(strategy_explicit.get("exempt"), cat)
+            self.assertEqual(strategy_explicit["mode"], "exempt")
+            self.assertFalse(strategy_explicit["is_red"])
+            self.assertEqual(strategy_explicit["commands"], expected_cmds)
+            self.assertTrue(strategy_explicit["commit_msg"].startswith(expected_prefix))
+            self.assertTrue(strategy_explicit["instruction"].startswith("- "))
+            self.assertTrue(len(strategy_explicit["instruction"]) > 2)
+
+    def test_build_exec_prompt_formats_exempt_verification_block(self):
+        """Verifies build_exec_prompt formats category-specific verification block without Red phase assertions."""
+        prompt = generate_prompt.build_exec_prompt(
+            track_name="conductor-auto-runner_20261112",
+            phase_num=1,
+            task_num=1,
+            task_desc="Author documentation guide [exempt: docs]",
+        )
+        self.assertTrue(
+            "Targeted Verification (Exempt: docs)" in prompt or "Targeted Verification (Exempt)" in prompt,
+            "Expected exempt verification block heading in prompt",
+        )
+        self.assertIn("git diff --name-only", prompt)
+        self.assertIn("docs(conductor): Author documentation guide", prompt)
+        self.assertNotIn("(Red Phase)", prompt)
+        self.assertNotIn("run-jest-container.sh", prompt)
 
 
 class TestGeneratePromptCLI(unittest.TestCase):
