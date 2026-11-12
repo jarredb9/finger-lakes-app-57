@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased] (v3.7.1)
 
 ### Added
+* Added contract-aware mock testing, wire-format contract tests, and a preflight credential verification script for Google Gemini AI enrichment to prevent silent fallback regressions ([#159](https://github.com/jarredb9/finger-lakes-app-57/issues/159)).
+* Added database maintenance utility to reset stale enrichment timestamps and clear fallback boilerplate summaries ([#159](https://github.com/jarredb9/finger-lakes-app-57/issues/159)).
 * Implemented three-layer migration verification architecture encompassing static reconciliation linting, two-phase adversarial migration replay, and remote transactional pre-flight rollback to prevent data-dependent migration failures in CI and production deployments ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0014](docs/adr/0014-multi-phase-migration-verification-and-reconciliation-policy.md)).
 * Added automated CI/CD verification gates (lint, type-check, Edge Function tests, integration suite, and Security Advisor) along with automated production deployment for the social notification function ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93)).
 * Added exponential backoff retry logic to container image pulls in runner utilities to prevent build failures during transient network drops ([#93](https://github.com/jarredb9/finger-lakes-app-57/issues/93), [ADR-0006](docs/adr/0006-containerized-ios-pwa-emulation-testing.md)).
@@ -51,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Pruned 10 deprecated RPCs along with legacy follow table fallback queries from database schemas and client service integrations ([#87](https://github.com/jarredb9/finger-lakes-app-57/issues/87), [ADR-0007](docs/adr/0007-security-invoker-rpc-boundary-and-catalog-immutability.md)).
 
 ### Fixed
+* Resolved Gemini AI Insights enrichment failures by updating model endpoints to active 2026 models and dispatching API keys via the `x-goog-api-key` header to eliminate authorization rejection and fallback boilerplate persistence ([#159](https://github.com/jarredb9/finger-lakes-app-57/issues/159)).
 * Fixed Google Maps places autocomplete mock contract in secretless CI to resolve E2E trip creation dialog timeout across Chromium, Firefox, and WebKit runners ([#149](https://github.com/jarredb9/finger-lakes-app-57/pull/149), [#155](https://github.com/jarredb9/finger-lakes-app-57/pull/155)).
 * Guarded Google Maps fallback against live SDK network loading and unauthenticated crashes during secretless Dependabot CI and WebKit service worker test runs ([#149](https://github.com/jarredb9/finger-lakes-app-57/pull/149), [#127](https://github.com/jarredb9/finger-lakes-app-57/pull/127)).
 * Eliminated hardcoded Finger Lakes Riesling fallback for global wineries without varietals in favor of an honest empty state indicator ([#153](https://github.com/jarredb9/finger-lakes-app-57/pull/153), [#131](https://github.com/jarredb9/finger-lakes-app-57/issues/131), [ADR-0004](docs/adr/0004-global-winery-scope-and-unrestricted-user-geolocation.md)).
