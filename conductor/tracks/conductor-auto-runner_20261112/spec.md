@@ -20,34 +20,50 @@ This track authors an automated, unattended Conductor track runner (`scripts/age
   - Phase Verification / Checkpoint: `gemini-3.8-flash-medium`
   - Phase Review (`/conductor:review`): `gemini-3.8-flash-high`
   - All roles overridable via CLI flags (`--plan-model`, `--exec-model`, `--review-model`).
-- **Process Guard & Timeouts**: Enforce a default 15-minute timeout per turn (`--print-timeout 15m`), overridable via `--timeout`.
-- **Dual Logging**: Stream real-time formatted progress (task title, turn status, test results) to stdout while saving full, unredacted transcripts and tool output to `conductor/tracks/<track>/logs/phase-X-task-Y.log`.
+- **Subprocess Protocol & Flag Order**:
+  - All configuration flags (`--mode <mode>`, `--model <model>`, `--dangerously-skip-permissions`) must strictly precede the `--print` flag.
+  - Prompts are passed via stdin or piped directly (`--input-format text` / argument placed strictly after flags) to prevent flag collision and `ARG_MAX` truncation from large multi-kilobyte prompts.
+- **Process Group Isolation & Timeouts**:
+  - Subprocesses are spawned in dedicated POSIX process groups (`os.setsid`).
+  - Enforce a default 15-minute timeout per turn (`--print-timeout 15m`), overridable via `--timeout`.
+  - On timeout or `SIGINT` (Ctrl+C), the runner issues `SIGTERM` followed by `SIGKILL` to the entire process group to terminate child `agy`, container runners, and subshells, preventing orphaned background processes.
+- **Dual Logging**:
+  - Stream real-time formatted progress (task title banners, turn status lines, test summaries) to stdout.
+  - Tee full unredacted transcripts and tool output to `conductor/tracks/<track>/logs/phase-X-task-Y.log`.
+  - Conductor log files are excluded from git tracking via `*.log` in `.gitignore`.
 
 ### 2.2 Two-Tier Task Execution Loop (Plan -> Exec)
 For each incomplete task `[ ]` in the active phase:
 1. **Tier 1: Planning Turn**:
+   - **Idempotent Plan Check**: If `conductor/tracks/<track>/phase-X-task-Y-plan.md` already exists and is non-empty, the runner skips Tier 1 and proceeds directly to Tier 2 (Execution), unless `--force-plan` is specified.
    - Generates plan prompt via `scripts/agent/generate-prompt.py <track> <phase> <task> --plan`.
-   - Dispatches to `agy --print --mode plan --dangerously-skip-permissions "$PROMPT"` using `gemini-3.8-flash-high`.
+   - Dispatches to `agy --mode plan --model <plan-model> --dangerously-skip-permissions --print "$PROMPT"`.
    - **Post-Plan Assertions**:
      - Asserts that `conductor/tracks/<track>/phase-X-task-Y-plan.md` exists and is non-empty.
      - Asserts that `git status --porcelain` contains NO modified application/production files (planning must only generate the markdown blueprint).
      - **Fail-Fast**: If invariant is violated, halts immediately without launching execution.
 2. **Tier 2: Execution Turn**:
    - Generates execution prompt via `scripts/agent/generate-prompt.py <track> <phase> <task> --exec`.
-   - Dispatches to `agy --print --mode auto --dangerously-skip-permissions "$PROMPT"` using `gemini-3.8-flash-medium`.
+   - Dispatches to `agy --mode auto --model <exec-model> --dangerously-skip-permissions --print "$PROMPT"`.
    - Agent is instructed to implement changes, verify with tests, commit code with conventional commit message, attach Git notes (`Task`, `Summary`, `Files`, `Rationale`), mark task `[x]` with 7-character commit SHA in `plan.md`, and commit `plan.md`.
 
 ### 2.3 Supervisor & Invariant Gate (Post-Exec Audit)
 Immediately following Tier 2 execution, `conductor-auto.py` acts as an active supervisor before accepting the task:
-1. **Working Tree Cleanliness**: Asserts `git status --porcelain` is clean. If dirty uncommitted changes exist, halts immediately (preserving all files for developer inspection; or invokes single-turn `--recovery` if `--auto-recover` is flagged).
+1. **Working Tree Cleanliness & Recovery**:
+   - Asserts `git status --porcelain` is clean.
+   - If dirty uncommitted changes exist and `--auto-recover` is set: runner launches a single recovery turn via `generate-prompt.py --recovery` instructing the agent to resolve uncommitted files, commit code, attach Git notes, and mark `plan.md`.
+   - If uncommitted changes remain (or `--auto-recover` is unset): halts immediately with **Exit Code 1**, preserving all files for developer inspection.
 2. **Active Task-Type Test Verification**:
-   - **Red Task** (`failing test` / `(red)`): Runner independently executes the target test command and asserts that the tests **fail with assertion errors** (not syntax/compilation errors), and asserts 0 production code files were modified.
-   - **Green Task** (`implement to pass` / `(green)`): Runner independently executes the target test command and `npm run type-check` and asserts that **all tests pass cleanly**.
+   - **Red Task** (`failing test` / `(red)`): Runner independently executes the target test command and performs a **dual check**:
+     - Asserts the test command exits with a non-zero exit code.
+     - Asserts 0 production code files were modified (`git diff --name-only <base> HEAD`).
+     - Parses test runner output to assert failure was caused by assertion errors (`expect(...)`, `AssertionError`), and explicitly rejects compilation/syntax/module load errors (`SyntaxError`, `Cannot find module`, container launch failure).
+   - **Green Task** (`implement to pass` / `(green)`): Runner independently executes the target test command and `npm run type-check` and asserts that **all tests pass cleanly (exit 0)**.
    - **Exempt Task** (`[exempt: <category>]`): Runner skips test failure assertions and executes the category-specific check:
      - `[exempt: ui]` / `[exempt: styling]`: Verified via `npm run build`.
      - `[exempt: infra]` / `[exempt: scripts]`: Verified via `npm run lint`.
      - `[exempt: types]`: Verified via `npm run type-check`.
-     - `[exempt: docs]`: Verified via markdown check.
+     - `[exempt: docs]`: Verified via git diff & existence check (asserts only `.md` files modified and files are non-empty).
 3. **Plan State & Git Audit**:
    - Asserts the code commit matches Conventional Commit format (`<type>(<scope>): <desc>`).
    - Asserts Git notes are attached to the code commit (`git notes show <sha>`).
@@ -57,28 +73,35 @@ Immediately following Tier 2 execution, `conductor-auto.py` acts as an active su
 ### 2.4 Phase Boundary Hard-Stop & Review Handshake
 When all tasks in the active phase are complete:
 1. **Gate 1: Phase Verification Checkpoint Task**:
-   - Dispatches `scripts/agent/generate-prompt.py --checkpoint --unattended` to `agy --print`.
+   - Dispatches `scripts/agent/generate-prompt.py --checkpoint --unattended` to `agy --print` using `gemini-3.8-flash-medium`.
    - Agent runs phase automated test suite, generates the domain-aware manual verification checklist into the Git note, creates empty checkpoint commit `conductor(checkpoint): Checkpoint end of Phase X`, updates `plan.md` with `[checkpoint: <sha>]`, and commits `plan.md`.
    - Runner verifies clean working tree, checkpoint commit, and Git notes.
 2. **Gate 2: Unattended Phase Review**:
    - Unless `--no-review` is flagged, runner dispatches `/conductor:review` with `gemini-3.8-flash-high`.
    - Prompt override automatically confirms track scope and accepts iterative review mode (>300 lines).
-   - Captures review conversation ID from `~/.gemini/antigravity-cli/brain/`.
+   - **Conversation ID Capture**: Snapshots conversation directories in `~/.gemini/antigravity-cli/brain/` before invocation and captures the newly created directory created during the turn (with newest `transcript.jsonl` fallback).
    - Saves review report to `conductor/tracks/<track>/phase-X-review.md`.
 3. **Hard-Stop & Remediation Handshake**:
-   - If review findings contain `Critical` or `High` issues:
+   - **Severity Parsing**: Evaluates review report headings using strict regex matching (`^###\s+\[?(Critical|High)\]?`).
+   - If findings contain `Critical` or `High` issues:
      - Runner prints a terminal warning banner citing findings.
      - Runner outputs the exact interactive continuation command:
        `agy --conversation <conv-id> "Apply the review suggestions from phase-X-review.md"`
      - Exits with **Exit Code 2**.
-   - If clean: prints phase completion summary, exits with **Exit Code 0**, and halts before advancing to Phase N+1.
+   - If findings contain only `Medium` or `Low` issues:
+     - Prints a summary warning of suggestions and exits with **Exit Code 0** (phase accepted).
+   - If the review turn itself fails, times out, or crashes:
+     - Exits with **Exit Code 1**.
+   - Runner always halts at the phase boundary before advancing to Phase N+1.
 
 ### 2.5 Tooling Extensions (`scripts/agent/generate-prompt.py`)
 1. **`[exempt: <category>]` Parsing**:
    - Update `parse_plan_tasks` to extract `[exempt: <category>]` tag.
-   - Update `infer_verification_strategy` to assign appropriate non-TDD verification commands and commit types (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`).
+   - Update `infer_verification_strategy` to assign appropriate non-TDD verification commands (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit types (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`).
 2. **`--unattended` Checkpoint Flag**:
    - Update `build_checkpoint_prompt` with an `--unattended` mode that skips interactive `ask_question` pauses, makes automated test suites authoritative, and logs deferred manual verification steps into the checkpoint Git note.
+3. **Test Suite Modernization**:
+   - Fix pre-existing `test_classify_phase_domain_ui_vs_database_vs_tooling` test failure in `scripts/__tests__/test_generate_prompt.py` to ensure a green test baseline.
 
 ### 2.6 CLI Interface Specification (`conductor-auto.py`)
 ```bash
@@ -89,6 +112,7 @@ python3 scripts/agent/conductor-auto.py [track] [flags]
 - **Flags**:
   - `--phase <N>`: Target a specific phase number (defaults to active incomplete phase).
   - `--task <N>`: Run only a single task (Tier 1 Plan + Tier 2 Exec) instead of the entire phase.
+  - `--force-plan`: Force re-planning in Tier 1 even if a plan file already exists.
   - `--no-review`: Skip the Phase Review turn at the end of the phase.
   - `--auto-recover`: Attempt a single recovery turn via `generate-prompt.py --recovery` if an execution step leaves dirty uncommitted files.
   - `--timeout <duration>`: Turn timeout (default: `15m`).
@@ -97,14 +121,14 @@ python3 scripts/agent/conductor-auto.py [track] [flags]
   - `--review-model <model>`: Model for review turn (default: `gemini-3.8-flash-high`).
   - `--dry-run`: Parse tasks and print the sequence of prompts, models, and validations without invoking `agy`.
 - **Exit Codes**:
-  - `0`: Success (phase completed cleanly, review passed or skipped).
-  - `1`: Failure / Invariant violation (compilation error, test failure, dirty tree, timeout).
+  - `0`: Success (phase completed cleanly; review passed, skipped, or only Medium/Low findings).
+  - `1`: Failure / Invariant violation (compilation error, test failure, dirty tree, timeout, subprocess crash).
   - `2`: Phase completed with `Critical`/`High` review findings requiring developer resolution.
 
 ## 3. Acceptance Criteria
 - [ ] `scripts/agent/generate-prompt.py` parses `[exempt: <category>]` and supports `--unattended` checkpoint prompts.
 - [ ] `scripts/agent/conductor-auto.py` executes sequential two-tier (Plan -> Exec) turns unattended within a phase.
-- [ ] Supervisor actively verifies Red test failures, Green test passes, and Exempt build/lint checks.
+- [ ] Supervisor actively verifies Red test failures (assertion failure vs syntax error), Green test passes, and Exempt checks.
 - [ ] Preserves atomic commits, conventional scopes, and Git notes.
 - [ ] Executes Gate 1 Checkpoint and Gate 2 Review unattended, persisting logs to `conductor/tracks/<track>/logs/` and review report to `phase-X-review.md`.
 - [ ] Exits with code 2 and outputs `agy --conversation <id>` command when review findings require human attention.
