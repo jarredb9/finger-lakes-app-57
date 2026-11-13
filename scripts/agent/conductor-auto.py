@@ -15,9 +15,11 @@ Usage:
 
 import argparse
 from dataclasses import dataclass, field
+import importlib.util
 import os
 from pathlib import Path
 import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -100,24 +102,30 @@ class PhaseInfo:
 # Track & Registry Resolution
 # ---------------------------------------------------------------------------
 
-def resolve_track_dir(track_name: Optional[str]) -> Optional[Path]:
+def resolve_track_dir(
+    track_name: Optional[str],
+    cwd: Optional[Path] = None,
+) -> Optional[Path]:
     """Resolves track directory path whether active or archived."""
     if not track_name:
         return None
+    base_root = cwd or PROJECT_ROOT
     p = Path(track_name)
     if p.is_dir() and (p / "plan.md").exists():
         return p.resolve()
     if not p.is_absolute():
-        p_rel = (PROJECT_ROOT / p).resolve()
-        if p_rel.is_dir() and (p_rel / "plan.md").exists():
-            return p_rel
-    tracks_dir = (PROJECT_ROOT / "conductor" / "tracks" / track_name).resolve()
-    if tracks_dir.is_dir():
-        return tracks_dir
-    archive_dir = (PROJECT_ROOT / "conductor" / "archive" / track_name).resolve()
-    if archive_dir.is_dir():
-        return archive_dir
-    return tracks_dir
+        for root in ([base_root, PROJECT_ROOT] if cwd else [PROJECT_ROOT]):
+            p_rel = (root / p).resolve()
+            if p_rel.is_dir() and (p_rel / "plan.md").exists():
+                return p_rel
+    for root in ([base_root, PROJECT_ROOT] if cwd else [PROJECT_ROOT]):
+        tracks_dir = (root / "conductor" / "tracks" / track_name).resolve()
+        if tracks_dir.is_dir():
+            return tracks_dir
+        archive_dir = (root / "conductor" / "archive" / track_name).resolve()
+        if archive_dir.is_dir():
+            return archive_dir
+    return (base_root / "conductor" / "tracks" / track_name).resolve()
 
 
 def get_active_track() -> Optional[str]:
@@ -484,109 +492,55 @@ def check_plan_cache(
     return False, plan_path
 
 
-def _is_production_file(filepath: str) -> bool:
-    """Returns True if file modification violates planning turn purity."""
+def _normalize_repo_path(filepath: str) -> str:
+    """Normalizes a git status/diff path, resolving renames and forward slashes."""
     clean_p = filepath.strip()
     if " -> " in clean_p:
         clean_p = clean_p.split(" -> ")[-1].strip()
-    clean_p = clean_p.replace("\\", "/")
+    return clean_p.replace("\\", "/")
 
-    # Allowed metadata and conductor directories
-    if clean_p.startswith("conductor/") or clean_p.startswith(".conductor/"):
-        return False
-    if clean_p.startswith(".gemini/") or clean_p.startswith(".claude/") or clean_p.startswith(".agents/"):
-        return False
 
-    prod_prefixes = (
-        "app/", "lib/", "components/", "supabase/", "hooks/", "types/",
-        "public/", "scripts/", "pages/", "e2e/", "test/", "tests/", "styles/", "src/"
-    )
-    if clean_p.startswith(prod_prefixes):
+def _is_metadata_path(clean_p: str) -> bool:
+    """Returns True if path belongs to conductor or agent metadata directories."""
+    return clean_p.startswith(("conductor/", ".conductor/", ".gemini/", ".claude/", ".agents/"))
+
+
+def _is_test_file(clean_p: str) -> bool:
+    """Returns True if normalized path represents a test directory or test file."""
+    dir_parts = set(clean_p.split("/")[:-1])
+    if dir_parts & {"__tests__", "tests", "test", "e2e"}:
         return True
-
-    prod_extensions = (".ts", ".tsx", ".js", ".jsx", ".py", ".sql", ".css", ".html")
-    if any(clean_p.endswith(ext) for ext in prod_extensions):
-        return True
-    if clean_p in ("package.json", "package-lock.json", "tsconfig.json"):
-        return True
-
-    return False
-
-
-def assert_post_plan_invariants(
-    track_dir: Path,
-    phase_num: int,
-    task_num: int,
-    cwd: Optional[Path] = None,
-) -> None:
-    """Verifies plan file was created and porcelain git status contains 0 production changes."""
-    plan_path = Path(track_dir) / f"phase-{phase_num}-task-{task_num}-plan.md"
-    if not plan_path.exists() or plan_path.stat().st_size == 0:
-        raise PlanInvariantError(
-            f"Tier 1 plan blueprint missing or empty at {plan_path}"
-        )
-
-    res = subprocess.run(
-        ["git", "status", "--porcelain"],
-        capture_output=True,
-        text=True,
-        cwd=cwd or PROJECT_ROOT,
-    )
-    if res.returncode != 0:
-        raise ProcessExecutionError(f"git status failed: {res.stderr}")
-
-    violations = []
-    for line in res.stdout.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        file_part = line[2:].strip()
-        if " -> " in file_part:
-            file_part = file_part.split(" -> ")[-1].strip()
-        if _is_production_file(file_part):
-            violations.append(file_part)
-
-    if violations:
-        raise PlanInvariantError(
-            f"Post-plan invariant violation: modified application code detected ({', '.join(violations)}) during planning turn."
-        )
-
-
-def _is_red_task_production_violation(filepath: str) -> bool:
-    """Returns True if a modified file in Red phase belongs to production application code (violating test purity)."""
-    clean_p = filepath.strip()
-    if " -> " in clean_p:
-        clean_p = clean_p.split(" -> ")[-1].strip()
-    clean_p = clean_p.replace("\\", "/")
-
-    # Allowed in Red phase: conductor and agent metadata directories
-    if clean_p.startswith(("conductor/", ".conductor/", ".gemini/", ".agents/", ".claude/")):
-        return False
-
-    # Allowed in Red phase: test directories and test file naming conventions
-    if any(seg in clean_p for seg in ("__tests__/", "tests/", "test/", "e2e/")):
-        return False
     test_suffixes = (".test.ts", ".test.tsx", ".test.js", ".test.jsx", ".spec.ts", ".spec.tsx")
     if clean_p.endswith(test_suffixes):
-        return False
+        return True
     basename = Path(clean_p).name
-    if basename.startswith("test_") and clean_p.endswith(".py"):
-        return False
+    return basename.startswith("test_") and clean_p.endswith(".py")
 
-    # Production violation prefixes, config files, and code extensions
+
+def _matches_code_or_manifest(clean_p: str, include_test_dirs: bool) -> bool:
+    """Returns True if normalized path targets code directories, manifests, or code extensions."""
     prod_prefixes = (
         "app/", "lib/", "components/", "supabase/", "hooks/",
         "types/", "public/", "scripts/", "src/",
     )
+    if include_test_dirs:
+        prod_prefixes = prod_prefixes + ("pages/", "e2e/", "test/", "tests/", "styles/")
     if clean_p.startswith(prod_prefixes):
         return True
     if clean_p in ("package.json", "package-lock.json", "tsconfig.json"):
         return True
     prod_extensions = (".ts", ".tsx", ".js", ".jsx", ".py", ".sql", ".css")
-    if any(clean_p.endswith(ext) for ext in prod_extensions):
-        return True
+    if include_test_dirs:
+        prod_extensions = prod_extensions + (".html",)
+    return any(clean_p.endswith(ext) for ext in prod_extensions)
 
-    return False
+
+def _is_production_file(filepath: str) -> bool:
+    """Returns True if file modification violates planning turn purity."""
+    clean_p = _normalize_repo_path(filepath)
+    if _is_metadata_path(clean_p):
+        return False
+    return _matches_code_or_manifest(clean_p, include_test_dirs=True)
 
 
 def check_working_tree_cleanliness(
@@ -606,13 +560,43 @@ def check_working_tree_cleanliness(
     for line in res.stdout.splitlines():
         if not line.strip():
             continue
-        file_part = line[2:].strip()
+        file_part = line[3:].strip() if len(line) > 3 and line[2] == " " else line[2:].strip()
         if " -> " in file_part:
             file_part = file_part.split(" -> ")[-1].strip()
         if file_part:
             dirty_files.append(file_part)
 
     return len(dirty_files) == 0, dirty_files
+
+
+def assert_post_plan_invariants(
+    track_dir: Path,
+    phase_num: int,
+    task_num: int,
+    cwd: Optional[Path] = None,
+) -> None:
+    """Verifies plan file was created and porcelain git status contains 0 production changes."""
+    plan_path = Path(track_dir) / f"phase-{phase_num}-task-{task_num}-plan.md"
+    if not plan_path.exists() or plan_path.stat().st_size == 0:
+        raise PlanInvariantError(
+            f"Tier 1 plan blueprint missing or empty at {plan_path}"
+        )
+
+    _, dirty_files = check_working_tree_cleanliness(cwd=cwd)
+    violations = [f for f in dirty_files if _is_production_file(f)]
+
+    if violations:
+        raise PlanInvariantError(
+            f"Post-plan invariant violation: modified application code detected ({', '.join(violations)}) during planning turn."
+        )
+
+
+def _is_red_task_production_violation(filepath: str) -> bool:
+    """Returns True if a modified file in Red phase belongs to production application code (violating test purity)."""
+    clean_p = _normalize_repo_path(filepath)
+    if _is_metadata_path(clean_p) or _is_test_file(clean_p):
+        return False
+    return _matches_code_or_manifest(clean_p, include_test_dirs=False)
 
 
 def dispatch_recovery_turn(
@@ -692,8 +676,16 @@ def parse_test_failure_markers(
     return False, "No assertion failure markers detected in test output"
 
 
+def _split_command_segments(cmd_input: Union[str, List[str]]) -> List[List[str]]:
+    """Splits a shell command string (supporting '&&' chains and quoted args) into argv lists."""
+    if isinstance(cmd_input, list):
+        return [cmd_input]
+    segments = [seg.strip() for seg in cmd_input.split("&&") if seg.strip()]
+    return [shlex.split(seg) for seg in segments] if segments else [shlex.split(cmd_input)]
+
+
 def verify_red_task(
-    test_cmd: str,
+    test_cmd: Union[str, List[str]],
     base_sha: str,
     head_sha: str = "HEAD",
     cwd: Optional[Path] = None,
@@ -705,9 +697,14 @@ def verify_red_task(
     Raises SupervisorInvariantError on any violation.
     """
     work_dir = cwd or PROJECT_ROOT
-    cmd = test_cmd if isinstance(test_cmd, list) else test_cmd.split()
-    res = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
-    if res.returncode == 0:
+    segments = _split_command_segments(test_cmd)
+    res = None
+    for cmd in segments:
+        res = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
+        if res.returncode != 0:
+            break
+
+    if res is None or res.returncode == 0:
         raise SupervisorInvariantError(
             f"Red task test unexpectedly passed (exit code 0): {test_cmd}"
         )
@@ -739,29 +736,30 @@ def verify_red_task(
 
 
 def verify_green_task(
-    test_cmd: str,
+    test_cmd: Union[str, List[str]],
     cwd: Optional[Path] = None,
-    type_check_cmd: str = "npm run type-check",
+    type_check_cmd: Optional[str] = "npm run type-check",
 ) -> bool:
     """Performs verification for Green tasks:
-    1. Test command exits 0.
-    2. Type-check command exits 0.
+    1. Test command(s) exit 0.
+    2. Type-check command exits 0 (when configured).
     Raises SupervisorInvariantError if either fails.
     """
     work_dir = cwd or PROJECT_ROOT
-    cmd = test_cmd if isinstance(test_cmd, list) else test_cmd.split()
-    res = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
-    if res.returncode != 0:
-        raise SupervisorInvariantError(
-            f"Green task test command failed (exit code {res.returncode}): {res.stderr or res.stdout}"
-        )
+    for cmd in _split_command_segments(test_cmd):
+        res = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
+        if res.returncode != 0:
+            raise SupervisorInvariantError(
+                f"Green task test command failed (exit code {res.returncode}): {res.stderr or res.stdout}"
+            )
 
-    tc_cmd = type_check_cmd if isinstance(type_check_cmd, list) else type_check_cmd.split()
-    tc_res = subprocess.run(tc_cmd, capture_output=True, text=True, cwd=work_dir)
-    if tc_res.returncode != 0:
-        raise SupervisorInvariantError(
-            f"Green task type-check failed (exit code {tc_res.returncode}): {tc_res.stderr or tc_res.stdout}"
-        )
+    if type_check_cmd:
+        for tc_cmd in _split_command_segments(type_check_cmd):
+            tc_res = subprocess.run(tc_cmd, capture_output=True, text=True, cwd=work_dir)
+            if tc_res.returncode != 0:
+                raise SupervisorInvariantError(
+                    f"Green task type-check failed (exit code {tc_res.returncode}): {tc_res.stderr or tc_res.stdout}"
+                )
 
     return True
 
@@ -811,6 +809,10 @@ def verify_exempt_task(
         if res.returncode != 0:
             raise ProcessExecutionError(f"git diff failed: {res.stderr}")
         diff_files = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+        if not diff_files:
+            raise SupervisorInvariantError(
+                "Exempt docs task produced no modified markdown files."
+            )
         for f in diff_files:
             if not (f.endswith(".md") or f.endswith(".markdown")):
                 raise SupervisorInvariantError(
@@ -838,11 +840,19 @@ def audit_git_commit_and_notes(
     commit_sha: str,
     plan_path: Path,
     cwd: Optional[Path] = None,
+    base_sha: Optional[str] = None,
 ) -> bool:
     """Audits git commit message, git notes metadata, plan.md task mark, and plan commit.
     Raises SupervisorInvariantError on violation.
     """
     work_dir = cwd or PROJECT_ROOT
+
+    if base_sha and re.fullmatch(r"[a-f0-9]{7,40}", base_sha, re.IGNORECASE):
+        short_commit = commit_sha[:7].lower()
+        if base_sha.lower().startswith(short_commit) or commit_sha.lower().startswith(base_sha[:7].lower()):
+            raise SupervisorInvariantError(
+                f"Task commit SHA {commit_sha[:7]} matches baseline {base_sha[:7]}; no new task commit was created."
+            )
 
     log_res = subprocess.run(
         ["git", "log", "-1", "--format=%B", commit_sha],
@@ -880,6 +890,10 @@ def audit_git_commit_and_notes(
 
     if not plan_path.exists():
         raise SupervisorInvariantError(f"plan.md not found at {plan_path}")
+    if task.status != "complete":
+        raise SupervisorInvariantError(
+            f"plan.md task '{task.description}' is not marked [x] (status: {task.status})"
+        )
     plan_content = plan_path.read_text(encoding="utf-8")
     short_sha = commit_sha[:7]
     has_marked_task = any(
@@ -910,6 +924,91 @@ def audit_git_commit_and_notes(
     return True
 
 
+def _is_red_task(task_desc: str) -> bool:
+    """Returns True if task description indicates a TDD Red phase task."""
+    desc_lower = task_desc.lower().strip()
+    return (
+        desc_lower.startswith("write failing")
+        or "red phase" in desc_lower
+        or "(red)" in desc_lower
+        or "failing unit test" in desc_lower
+        or "failing test" in desc_lower
+        or "failing integration" in desc_lower
+        or desc_lower.startswith("test(")
+    )
+
+
+_GENERATE_PROMPT_MOD: Optional[Any] = None
+
+
+def _load_generate_prompt_module(work_dir: Path) -> Optional[Any]:
+    """Lazily loads scripts/agent/generate-prompt.py for verification command inference."""
+    global _GENERATE_PROMPT_MOD
+    if _GENERATE_PROMPT_MOD is not None:
+        return _GENERATE_PROMPT_MOD
+
+    candidates = [
+        work_dir / "scripts" / "agent" / "generate-prompt.py",
+        PROJECT_ROOT / "scripts" / "agent" / "generate-prompt.py",
+    ]
+    for gp_path in candidates:
+        if gp_path.exists():
+            spec = importlib.util.spec_from_file_location("conductor_generate_prompt", gp_path)
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                _GENERATE_PROMPT_MOD = mod
+                return mod
+    return None
+
+
+def _resolve_target_verification_commands(
+    track_dir: Path,
+    phase_num: int,
+    task: TaskInfo,
+    work_dir: Path,
+) -> Tuple[List[str], bool]:
+    """Resolves targeted test commands and whether the task is Python-only."""
+    is_red = _is_red_task(task.description)
+    gp = _load_generate_prompt_module(work_dir)
+    test_cmds: List[str] = []
+    is_py_only = False
+
+    if gp is not None:
+        strategy = gp.infer_verification_strategy(
+            str(track_dir),
+            phase_num,
+            task.task_num,
+            task.description,
+            task.subtasks,
+            mode="red" if is_red else "green",
+            exempt=task.exempt,
+        )
+        raw_cmds = strategy.get("commands", [])
+        for raw_c in raw_cmds:
+            filtered = gp.filter_idempotent_verification_cmd(raw_c)
+            if filtered and "type-check" not in filtered:
+                test_cmds.append(filtered)
+
+        plan_file = track_dir / f"phase-{phase_num}-task-{task.task_num}-plan.md"
+        if plan_file.exists():
+            targets, _ = gp._extract_plan_targets_and_cmds(plan_file)
+            if targets and all(t.endswith((".py", ".toml")) for t in targets):
+                is_py_only = True
+
+    if not is_py_only and test_cmds:
+        is_py_only = all(
+            any(tok in c for tok in ("python", "pytest", "unittest"))
+            and not any(tok in c for tok in (".ts", ".tsx", ".js", ".jsx", "jest", "playwright", "deno"))
+            for c in test_cmds
+        )
+
+    if not test_cmds:
+        test_cmds = ["./scripts/containers/run-jest-container.sh"]
+
+    return test_cmds, is_py_only
+
+
 def verify_task_execution(
     track_name: str,
     phase_num: int,
@@ -919,7 +1018,7 @@ def verify_task_execution(
 ) -> bool:
     """High-level supervisor router: resolves task metadata and dispatches red, green, or exempt verification."""
     work_dir = cwd or PROJECT_ROOT
-    track_dir = resolve_track_dir(track_name) or (work_dir / "conductor" / "tracks" / track_name).resolve()
+    track_dir = resolve_track_dir(track_name, cwd=work_dir) or (work_dir / "conductor" / "tracks" / track_name).resolve()
     phases = parse_track_plan(track_dir)
     phase = phases.get(phase_num)
     task = next((t for t in phase.tasks if t.task_num == task_num), None) if phase else None
@@ -931,15 +1030,25 @@ def verify_task_execution(
     if task.exempt:
         return verify_exempt_task(task.exempt, base_sha=base_sha, cwd=work_dir)
 
-    desc_lower = task.description.lower()
-    if "red phase" in desc_lower or desc_lower.startswith("test("):
+    test_cmds, is_py_only = _resolve_target_verification_commands(
+        track_dir=track_dir,
+        phase_num=phase_num,
+        task=task,
+        work_dir=work_dir,
+    )
+
+    if _is_red_task(task.description):
         return verify_red_task(
-            test_cmd="npm test",
+            test_cmd=test_cmds[0],
             base_sha=base_sha or "HEAD~1",
             cwd=work_dir,
         )
 
-    return verify_green_task(test_cmd="npm test", cwd=work_dir)
+    return verify_green_task(
+        test_cmd=" && ".join(test_cmds),
+        cwd=work_dir,
+        type_check_cmd=None if is_py_only else "npm run type-check",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1024,7 +1133,7 @@ def dispatch_tier2_execution(
     Returns True on success; raises ConductorAutoError on failure.
     """
     work_dir = cwd or PROJECT_ROOT
-    track_dir = resolve_track_dir(track_name) or (work_dir / "conductor" / "tracks" / track_name).resolve()
+    track_dir = resolve_track_dir(track_name, cwd=work_dir) or (work_dir / "conductor" / "tracks" / track_name).resolve()
     log_file = track_dir / "logs" / f"phase-{phase_num}-task-{task_num}-exec.log"
 
     head_res = subprocess.run(
@@ -1089,7 +1198,13 @@ def dispatch_tier2_execution(
     plan_path = track_dir / "plan.md"
     phase = phases.get(phase_num)
     task = next((t for t in phase.tasks if t.task_num == task_num), None) if phase else None
-    if task is None:
+    if task is not None:
+        if task.status != "complete" or not task.commit_sha:
+            raise SupervisorInvariantError(
+                f"Task {task_num} in {plan_path} was not marked [x] with [commit: <sha>]."
+            )
+        commit_sha = task.commit_sha
+    else:
         task = TaskInfo(
             task_num=task_num,
             description=f"Phase {phase_num} Task {task_num}",
@@ -1097,9 +1212,6 @@ def dispatch_tier2_execution(
             status_char="x",
             is_checkpoint=False,
         )
-
-    commit_sha = task.commit_sha
-    if not commit_sha:
         sha_res = subprocess.run(
             ["git", "rev-parse", "HEAD"],
             capture_output=True,
@@ -1113,6 +1225,7 @@ def dispatch_tier2_execution(
         commit_sha=commit_sha,
         plan_path=plan_path,
         cwd=work_dir,
+        base_sha=base_sha,
     )
     return True
 
@@ -1222,7 +1335,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     for task in pending_tasks:
         if task.is_checkpoint:
-            print(f"Phase {active_phase.phase_num} reached checkpoint task {task.task_num}. Stopping planning tier.")
+            print(f"Phase {active_phase.phase_num} reached checkpoint task {task.task_num}. Stopping task execution loop.")
             break
 
         print(f"Dispatching Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}")

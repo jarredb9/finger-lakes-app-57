@@ -1187,6 +1187,158 @@ class TestGitCommitAndNotesAudit(unittest.TestCase):
                 audit_git_commit_and_notes(task, "1122334", plan_path)
             self.assertIn("conductor(plan)", str(ctx.exception))
 
+    @patch("subprocess.run")
+    def test_audit_rejects_commit_matching_base_sha(self, mock_run):
+        """Asserts audit_git_commit_and_notes raises SupervisorInvariantError if commit SHA matches baseline."""
+        audit_git_commit_and_notes = get_target("audit_git_commit_and_notes", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        task = TaskInfo(task_num=1, description="Test task", status="complete", status_char="x", is_checkpoint=False)
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            audit_git_commit_and_notes(task, "1122334", Path("dummy.md"), base_sha="1122334abcdef")
+        self.assertIn("no new task commit", str(ctx.exception).lower())
+        mock_run.assert_not_called()
+
+    @patch("subprocess.run")
+    def test_audit_rejects_incomplete_task_status_even_if_another_line_has_sha(self, mock_run):
+        """Asserts audit_git_commit_and_notes rejects when target TaskInfo.status is not complete."""
+        audit_git_commit_and_notes = get_target("audit_git_commit_and_notes", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        task = TaskInfo(task_num=2, description="Second task", status="pending", status_char=" ", is_checkpoint=False)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plan_path = Path(tmpdir) / "plan.md"
+            plan_path.write_text("- [x] Task: First task [commit: 1122334]\n- [ ] Task: Second task\n", encoding="utf-8")
+
+            def run_side_effect(cmd, *args, **kwargs):
+                cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+                if "log -1 --format=%B" in cmd_str:
+                    return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="feat(agent): msg\n", stderr="")
+                if "notes show" in cmd_str:
+                    return subprocess.CompletedProcess(
+                        args=cmd, returncode=0, stdout="Task: T\nSummary: S\nFiles: F\nRationale: R\n", stderr=""
+                    )
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+            mock_run.side_effect = run_side_effect
+            with self.assertRaises(SupervisorInvariantError) as ctx:
+                audit_git_commit_and_notes(task, "1122334", plan_path)
+            self.assertIn("not marked [x]", str(ctx.exception))
+
+
+class TestSupervisorTaskVerificationRouter(unittest.TestCase):
+    """Test suite for verify_task_execution command resolution, Red/Green routing, and edge cases."""
+
+    def test_is_red_task_production_violation_uses_path_segments(self):
+        """Asserts directories ending in 'test' or 'e2e' (e.g. contest/) do not bypass Red production checks."""
+        is_red_violation = get_target("_is_red_task_production_violation", self)
+
+        self.assertTrue(is_red_violation("app/api/contest/route.ts"))
+        self.assertTrue(is_red_violation("lib/backtest/engine.ts"))
+        self.assertFalse(is_red_violation("app/api/__tests__/route.test.ts"))
+        self.assertFalse(is_red_violation("scripts/__tests__/test_conductor_auto.py"))
+
+    @patch("subprocess.run")
+    def test_verify_exempt_task_docs_fails_on_empty_diff(self, mock_run):
+        """Asserts verify_exempt_task('docs') raises SupervisorInvariantError when no files were modified."""
+        verify_exempt_task = get_target("verify_exempt_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "diff", "--name-only"],
+            returncode=0,
+            stdout="",
+            stderr="",
+        )
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            verify_exempt_task("docs", base_sha="abc1234")
+        self.assertIn("no modified markdown", str(ctx.exception).lower())
+
+    @patch("subprocess.run")
+    def test_verify_red_task_preserves_quoted_args_via_shlex(self, mock_run):
+        """Asserts verify_red_task splits quoted command flags using shlex rather than naive whitespace split."""
+        verify_red_task = get_target("verify_red_task", self)
+
+        def run_side_effect(cmd, *args, **kwargs):
+            if isinstance(cmd, list) and cmd[0] == "git":
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="scripts/__tests__/test_a.py\n", stderr="")
+            self.assertEqual(cmd, ["pytest", "-k", "test_a or test_b"])
+            return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="AssertionError: boom\n", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        self.assertTrue(verify_red_task('pytest -k "test_a or test_b"', base_sha="abc1234"))
+
+    def test_verify_task_execution_routes_python_red_and_green_from_task_plan(self):
+        """Asserts verify_task_execution resolves target Python commands and skips npm type-check for Python-only tasks."""
+        verify_task_execution = get_target("verify_task_execution", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "py-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Runner\n"
+                "- [ ] Task: Write failing unit tests for runner\n"
+                "- [ ] Task: Implement runner to pass tests\n",
+                encoding="utf-8",
+            )
+            (track_dir / "phase-1-task-1-plan.md").write_text(
+                "- **Path:** `scripts/__tests__/test_runner.py`\n\n"
+                "## Execution Verification Protocol\n"
+                "```bash\npython3.11 -m unittest scripts/__tests__/test_runner.py\n```\n",
+                encoding="utf-8",
+            )
+            (track_dir / "phase-1-task-2-plan.md").write_text(
+                "- **Path:** `scripts/agent/runner.py`\n\n"
+                "## Execution Verification Protocol\n"
+                "```bash\npython3.11 -m unittest scripts/__tests__/test_runner.py\n```\n",
+                encoding="utf-8",
+            )
+
+            with patch.object(conductor_auto, "verify_red_task", return_value=True) as mock_red:
+                self.assertTrue(verify_task_execution("py-track", phase_num=1, task_num=1, base_sha="abc1234", cwd=root))
+                mock_red.assert_called_once()
+                self.assertEqual(
+                    mock_red.call_args.kwargs["test_cmd"],
+                    "python3.11 -m unittest scripts/__tests__/test_runner.py",
+                )
+
+            with patch.object(conductor_auto, "verify_green_task", return_value=True) as mock_green:
+                self.assertTrue(verify_task_execution("py-track", phase_num=1, task_num=2, base_sha="abc1234", cwd=root))
+                mock_green.assert_called_once()
+                self.assertEqual(
+                    mock_green.call_args.kwargs["test_cmd"],
+                    "python3.11 -m unittest scripts/__tests__/test_runner.py",
+                )
+                self.assertIsNone(mock_green.call_args.kwargs["type_check_cmd"])
+
+    def test_verify_task_execution_routes_ts_failing_test_without_red_phase_phrase(self):
+        """Asserts 'Write failing unit tests...' routes to verify_red_task with containerized Jest and TS Green includes type-check."""
+        verify_task_execution = get_target("verify_task_execution", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "ts-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Feature\n"
+                "- [ ] Task: Write failing unit tests for `lib/__tests__/foo.test.ts`\n"
+                "- [ ] Task: Implement foo service in `lib/foo.ts`\n",
+                encoding="utf-8",
+            )
+
+            with patch.object(conductor_auto, "verify_red_task", return_value=True) as mock_red:
+                self.assertTrue(verify_task_execution("ts-track", phase_num=1, task_num=1, base_sha="abc1234", cwd=root))
+                mock_red.assert_called_once()
+                self.assertIn("run-jest-container.sh", mock_red.call_args.kwargs["test_cmd"])
+
+            with patch.object(conductor_auto, "verify_green_task", return_value=True) as mock_green:
+                self.assertTrue(verify_task_execution("ts-track", phase_num=1, task_num=2, base_sha="abc1234", cwd=root))
+                mock_green.assert_called_once()
+                self.assertEqual(mock_green.call_args.kwargs["type_check_cmd"], "npm run type-check")
+
 
 class TestTier2ExecutionCoordination(unittest.TestCase):
     """Test suite for end-to-end Tier 2 turn coordination and fail-fast invariant pipeline."""
