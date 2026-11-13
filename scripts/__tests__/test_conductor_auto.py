@@ -2178,9 +2178,10 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
 
     @patch("subprocess.Popen")
     def test_run_agy_turn_streaming_passes_print_arg_and_tees_lines_incrementally(self, mock_popen_cls):
-        """Asserts run_agy_turn(..., stream=True) passes --print <prompt>, streams stdout lines, and tees unredacted output to log_file."""
+        """Asserts run_agy_turn with TurnStreamConfig(stream=True) passes --print <prompt>, streams stdout lines, and tees unredacted output to log_file."""
         run_agy_turn = get_target("run_agy_turn", self)
         DualLogger = get_target("DualLogger", self)
+        TurnStreamConfig = get_target("TurnStreamConfig", self)
 
         mock_proc = MagicMock()
         mock_proc.stdin = None
@@ -2202,8 +2203,7 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
                 model="gemini-4-hydrogen-xhigh",
                 timeout=60.0,
                 log_file=tmp_log,
-                stream=True,
-                logger=logger,
+                stream_config=TurnStreamConfig(stream=True, logger=logger),
             )
 
             self.assertEqual(ret, 0)
@@ -2228,11 +2228,12 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
         """Asserts streaming run_agy_turn enforces timeout and terminates process group via SIGTERM."""
         run_agy_turn = get_target("run_agy_turn", self)
         ProcessExecutionError = get_target("ProcessExecutionError", self)
+        TurnStreamConfig = get_target("TurnStreamConfig", self)
         sig = inspect.signature(run_agy_turn)
         self.assertIn(
-            "stream",
+            "stream_config",
             sig.parameters,
-            "run_agy_turn does not yet accept 'stream' parameter",
+            "run_agy_turn does not yet accept 'stream_config' parameter",
         )
 
         mock_stdout = MagicMock()
@@ -2252,7 +2253,7 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
                 prompt="Run review",
                 mode="auto",
                 timeout=0.05,
-                stream=True,
+                stream_config=TurnStreamConfig(stream=True),
             )
 
         self.assertIn("timed out", str(ctx.exception).lower())
@@ -2312,6 +2313,7 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
         """Asserts real-pipe streaming emits multi-line bursts without stalling in BufferedReader before timeout."""
         run_agy_turn = get_target("run_agy_turn", self)
         DualLogger = get_target("DualLogger", self)
+        TurnStreamConfig = get_target("TurnStreamConfig", self)
 
         child_code = (
             "import sys, time; "
@@ -2335,8 +2337,7 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
                     mode="auto",
                     timeout=2.0,
                     log_file=tmp_log,
-                    stream=True,
-                    logger=logger,
+                    stream_config=TurnStreamConfig(stream=True, logger=logger),
                 )
 
             self.assertEqual(ret, 0)
@@ -2382,9 +2383,10 @@ class TestStreamJsonAndHeartbeatLogging(unittest.TestCase):
 
     @patch("subprocess.Popen")
     def test_run_agy_turn_stream_json_emits_live_progress_and_returns_clean_response(self, mock_popen_cls):
-        """Asserts stream=True passes --output-format stream-json, formats tool events live, and returns final text."""
+        """Asserts TurnStreamConfig(stream=True) passes --output-format stream-json, formats tool events live, and returns final text."""
         run_agy_turn = get_target("run_agy_turn", self)
         DualLogger = get_target("DualLogger", self)
+        TurnStreamConfig = get_target("TurnStreamConfig", self)
 
         ndjson_lines = [
             '{"event":"init","conversation_id":"conv-abc-123","init":{"model":"gemini-4-hydrogen-high"}}\n',
@@ -2415,8 +2417,7 @@ class TestStreamJsonAndHeartbeatLogging(unittest.TestCase):
                 model="gemini-4-hydrogen-high",
                 timeout=60.0,
                 log_file=tmp_log,
-                stream=True,
-                logger=logger,
+                stream_config=TurnStreamConfig(stream=True, logger=logger),
             )
 
             self.assertEqual(ret, 0)
@@ -2724,6 +2725,24 @@ class TestStreamJsonAndHeartbeatLogging(unittest.TestCase):
         self.assertEqual(default_args.heartbeat, "30s")
         custom_args = parse_args(["--heartbeat", "10s"])
         self.assertEqual(custom_args.heartbeat, "10s")
+
+    def test_main_startup_validation_errors_include_timestamps(self):
+        """Asserts early CLI validation errors in main() emit [conductor-auto] [HH:MM:SS] ERROR: prefixes."""
+        main = get_target("main", self)
+        for argv, expected_fragment in (
+            (["test-track", "--timeout", "0s"], "Invalid --timeout value"),
+            (["test-track", "--heartbeat=-5s"], "Invalid --heartbeat value"),
+            (["test-track", "--heartbeat", "bad"], "Invalid --heartbeat value"),
+            (["missing-nonexistent-track"], "Track plan not found"),
+        ):
+            err_buf = io.StringIO()
+            with contextlib.redirect_stderr(err_buf):
+                rc = main(argv)
+            self.assertEqual(rc, 1)
+            self.assertRegex(
+                err_buf.getvalue(),
+                rf"^\[conductor-auto\] \[\d{{2}}:\d{{2}}:\d{{2}}\] ERROR: .*{re.escape(expected_fragment)}",
+            )
 
 
 class TestDocsFastPathAndSkipFlags(unittest.TestCase):

@@ -9,13 +9,13 @@ Unattended multi-task execution runner for Conductor tracks, orchestrating seque
 
 ## 1. Architecture
 
-`conductor-auto.py` operates as a non-interactive supervisor around `agy` CLI subprocesses using **zero-amnesia print mode** (`agy --mode <mode> --model <model> --dangerously-skip-permissions --output-format stream-json --print <prompt>`). Every turn starts in a fresh conversation context grounded by on-disk artifacts (`plan.md`, `spec.md`, and `phase-X-task-Y-plan.md`).
+`conductor-auto.py` operates as a non-interactive supervisor around `agy` CLI subprocesses using **zero-amnesia print mode** (`agy --mode <mode> --model <model> --dangerously-skip-permissions --output-format stream-json --print-timeout <duration> --print <prompt>`). Every turn starts in a fresh conversation context grounded by on-disk artifacts (`plan.md`, `spec.md`, and `phase-X-task-Y-plan.md`).
 
 ### Key Architectural Guarantees
-- **Strict `agy` Flag Ordering:** `build_agy_command()` always places `--mode`, `--model`, `--dangerously-skip-permissions`, and `--output-format` strictly before `--print <prompt>` so multi-kilobyte prompts never collide with CLI option parsing.
-- **Process Group Isolation & Timeouts:** Each `agy` turn runs in its own POSIX process group (`start_new_session=True`) with a configurable wall-clock timeout (default `15m`). On timeout or `SIGINT`, `_terminate_process_group()` sends `SIGTERM` followed by `SIGKILL` (after a 2-second grace window) to the entire process group, preventing orphaned container or subshell processes.
-- **Live Streaming, Heartbeats & Dual Logging (`DualLogger`):** Streamed turns use `--output-format stream-json` (`_StreamJsonTracker`) to display real-time session IDs, tool invocations, durations, and live `stderr` notices, paired with a periodic `--heartbeat` status line (default `30s`) during silent intervals. Timestamped runner banners/status lines and unredacted turn transcripts (prompt, raw NDJSON stdout, live stderr, exit code) are persisted under `conductor/tracks/<track>/logs/`:
-  - `conductor-auto.log` (runner-level banners & timestamped status lines)
+- **Strict `agy` Flag Ordering:** `build_agy_command()` always places `--mode`, `--model`, `--dangerously-skip-permissions`, `--output-format`, and `--print-timeout` strictly before `--print <prompt>` so multi-kilobyte prompts never collide with CLI option parsing.
+- **Process Group Isolation & Timeouts:** Each `agy` turn runs in its own POSIX process group (`start_new_session=True`) with a configurable wall-clock timeout (default `15m`) forwarded to `agy` via `--print-timeout`. On timeout or `SIGINT`, `_terminate_process_group()` sends `SIGTERM` followed by `SIGKILL` (after a 2-second grace window) to the entire process group, preventing orphaned container or subshell processes.
+- **Live Streaming, Heartbeats & Dual Logging (`DualLogger`):** Streamed turns use `--output-format stream-json` (`_StreamJsonTracker`) to display real-time session IDs, tool invocations, durations, and live `stderr` notices, paired with a periodic `--heartbeat` status line (default `30s`) during silent intervals. Timestamped runner banners (`log_banner`), status updates (`log_status`), and errors (`log_error`) alongside unredacted turn transcripts (prompt, raw NDJSON stdout, live stderr, exit code) are persisted under `conductor/tracks/<track>/logs/`:
+  - `conductor-auto.log` (runner-level banners, status updates, and errors)
   - `phase-<N>-task-<M>-plan.log`
   - `phase-<N>-task-<M>-exec.log`
   - `phase-<N>-task-<M>-recovery.log`

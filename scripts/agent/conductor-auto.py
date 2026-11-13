@@ -157,7 +157,7 @@ class DualLogger:
         return self._stderr_stream if self._stderr_stream is not None else sys.stderr
 
     def _write_stream(self, stream: TextIO, text: str) -> None:
-        with self._lock:
+        with _STDOUT_LOCK:
             stream.write(text)
             stream.flush()
 
@@ -181,6 +181,12 @@ class DualLogger:
             except OSError:
                 pass
 
+    @staticmethod
+    def format_status(message: str) -> str:
+        """Formats a runner status line with a [conductor-auto] [HH:MM:SS] prefix."""
+        timestamp = time.strftime("%H:%M:%S")
+        return f"[conductor-auto] [{timestamp}] {message}\n"
+
     def log_banner(self, title: str, subtitle: Optional[str] = None) -> None:
         timestamp = time.strftime("%H:%M:%S")
         border = "=" * 72
@@ -193,8 +199,7 @@ class DualLogger:
         self._append_file(payload)
 
     def log_status(self, message: str) -> None:
-        timestamp = time.strftime("%H:%M:%S")
-        line = f"[conductor-auto] [{timestamp}] {message}\n"
+        line = self.format_status(message)
         self.write_stdout(line)
         self._append_file(line)
 
@@ -820,6 +825,8 @@ class _StreamJsonTracker:
             return raw_stdout
         if self.final_response:
             return self.final_response
+        # Some stream-json turns stream assistant output via text_deltas while leaving
+        # result.response empty (""); prefer accumulated deltas before returning "".
         if self.text_deltas:
             return "".join(self.text_deltas)
         if self.final_response is not None:
@@ -877,8 +884,16 @@ class _TurnOutputSink:
         if self._logger is not None:
             self._logger.log_status(msg)
             return
-        ts = time.strftime("%H:%M:%S")
-        self.emit_terminal(f"[conductor-auto] [{ts}] {msg}\n")
+        self.emit_terminal(DualLogger.format_status(msg))
+
+
+def _enforce_deadline(proc: subprocess.Popen, deadline: float, timeout: float) -> float:
+    """Returns remaining seconds before deadline or terminates the process group on timeout."""
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        _terminate_process_group(proc.pid, proc)
+        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+    return remaining
 
 
 def _drain_stdout_select(
@@ -886,22 +901,18 @@ def _drain_stdout_select(
     sink: _TurnOutputSink,
     stdout_chunks: List[str],
     start_time: float,
-    deadline: float,
     timeout: float,
     heartbeat_interval: float,
 ) -> None:
     """Drains a real file-descriptor stdout pipe via select() with heartbeat wakeups and timeout enforcement."""
     assert proc.stdout is not None
     fd = proc.stdout.fileno()
+    deadline = start_time + timeout
     decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
     pending_line = ""
     eof = False
     while not eof:
-        now = time.monotonic()
-        remaining = deadline - now
-        if remaining <= 0:
-            _terminate_process_group(proc.pid, proc)
-            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+        remaining = _enforce_deadline(proc, deadline, timeout)
 
         wait_slice = (
             min(remaining, heartbeat_interval)
@@ -910,11 +921,8 @@ def _drain_stdout_select(
         )
         ready, _, _ = select.select([fd], [], [], wait_slice)
         if not ready:
-            now_after = time.monotonic()
-            if now_after >= deadline:
-                _terminate_process_group(proc.pid, proc)
-                raise ProcessExecutionError(f"Turn timed out after {timeout}s")
-            sink.emit_heartbeat(proc.pid, now_after - start_time, timeout)
+            _enforce_deadline(proc, deadline, timeout)
+            sink.emit_heartbeat(proc.pid, time.monotonic() - start_time, timeout)
             continue
 
         raw_chunk = os.read(fd, 4096)
@@ -934,9 +942,7 @@ def _drain_stdout_select(
         for line in lines_to_emit:
             sink.emit_stdout_line(line, stdout_chunks)
 
-        if time.monotonic() > deadline:
-            _terminate_process_group(proc.pid, proc)
-            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+        _enforce_deadline(proc, deadline, timeout)
 
 
 def _drain_stdout_readline(
@@ -949,10 +955,7 @@ def _drain_stdout_readline(
     """Drains non-fd stdout streams (such as StringIO mocks) via readline()."""
     assert proc.stdout is not None
     while True:
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            _terminate_process_group(proc.pid, proc)
-            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+        _enforce_deadline(proc, deadline, timeout)
 
         line = proc.stdout.readline()
         if line == "":
@@ -960,9 +963,7 @@ def _drain_stdout_readline(
 
         sink.emit_stdout_line(line, stdout_chunks)
 
-        if time.monotonic() > deadline:
-            _terminate_process_group(proc.pid, proc)
-            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+        _enforce_deadline(proc, deadline, timeout)
 
 
 def _stream_agy_process(
@@ -1022,7 +1023,6 @@ def _stream_agy_process(
                     sink=sink,
                     stdout_chunks=stdout_chunks,
                     start_time=start_time,
-                    deadline=deadline,
                     timeout=timeout,
                     heartbeat_interval=heartbeat_interval,
                 )
@@ -1077,73 +1077,6 @@ def _stream_agy_process(
                 pass
 
 
-def _extract_stream_kwargs(
-    stream_config: Optional[TurnStreamConfig] = None,
-    stream: bool = False,
-    logger: Optional[DualLogger] = None,
-    heartbeat_interval: Optional[float] = None,
-) -> Dict[str, Any]:
-    """Extracts active stream configuration kwargs for run_agy_turn and recovery dispatchers."""
-    if stream_config is not None:
-        return {"stream_config": stream_config}
-    kwargs: Dict[str, Any] = {}
-    if stream:
-        kwargs["stream"] = True
-    if logger is not None:
-        kwargs["logger"] = logger
-    if heartbeat_interval is not None:
-        kwargs["heartbeat_interval"] = heartbeat_interval
-    return kwargs
-
-
-def _resolve_stream_config(
-    stream_config: Optional[TurnStreamConfig] = None,
-    stream: bool = False,
-    logger: Optional[DualLogger] = None,
-    heartbeat_interval: float = DEFAULT_HEARTBEAT_INTERVAL,
-) -> TurnStreamConfig:
-    """Resolves explicit TurnStreamConfig or legacy stream/logger/heartbeat arguments."""
-    if stream_config is not None:
-        return stream_config
-    return TurnStreamConfig(
-        stream=stream,
-        logger=logger,
-        heartbeat_interval=heartbeat_interval,
-    )
-
-
-def _build_turn_kwargs(
-    prompt: str,
-    mode: str,
-    model: str,
-    timeout: float,
-    cwd: Path,
-    log_file: Path,
-    stream: bool = False,
-    logger: Optional[DualLogger] = None,
-    heartbeat_interval: Optional[float] = None,
-    stream_config: Optional[TurnStreamConfig] = None,
-) -> Dict[str, Any]:
-    """Builds kwargs for run_agy_turn, forwarding stream configuration only when active."""
-    kwargs: Dict[str, Any] = {
-        "prompt": prompt,
-        "mode": mode,
-        "model": model,
-        "timeout": timeout,
-        "cwd": cwd,
-        "log_file": log_file,
-    }
-    kwargs.update(
-        _extract_stream_kwargs(
-            stream_config=stream_config,
-            stream=stream,
-            logger=logger,
-            heartbeat_interval=heartbeat_interval,
-        )
-    )
-    return kwargs
-
-
 def run_agy_turn(
     prompt: str,
     mode: str = "plan",
@@ -1151,19 +1084,11 @@ def run_agy_turn(
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
     log_file: Optional[Path] = None,
-    stream: bool = False,
-    logger: Optional[DualLogger] = None,
-    heartbeat_interval: float = DEFAULT_HEARTBEAT_INTERVAL,
     output_format: Optional[str] = None,
     stream_config: Optional[TurnStreamConfig] = None,
 ) -> Tuple[int, str, str]:
     """Runs agy subprocess turn in a dedicated process group with --print prompt delivery."""
-    resolved_cfg = _resolve_stream_config(
-        stream_config=stream_config,
-        stream=stream,
-        logger=logger,
-        heartbeat_interval=heartbeat_interval,
-    )
+    resolved_cfg = stream_config or TurnStreamConfig()
     effective_output_format = (
         output_format
         if output_format is not None
@@ -1373,9 +1298,6 @@ def dispatch_recovery_turn(
     exec_model: str = DEFAULT_EXEC_MODEL,
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
-    stream: bool = False,
-    logger: Optional[DualLogger] = None,
-    heartbeat_interval: Optional[float] = None,
     stream_config: Optional[TurnStreamConfig] = None,
 ) -> bool:
     """Dispatches a single recovery turn via generate-prompt.py --recovery to clean up uncommitted work."""
@@ -1391,18 +1313,13 @@ def dispatch_recovery_turn(
         cwd=work_dir,
     )
     ret, _stdout, stderr = run_agy_turn(
-        **_build_turn_kwargs(
-            prompt=prompt,
-            mode="auto",
-            model=exec_model,
-            timeout=timeout,
-            cwd=work_dir,
-            log_file=log_file,
-            stream=stream,
-            logger=logger,
-            heartbeat_interval=heartbeat_interval,
-            stream_config=stream_config,
-        )
+        prompt=prompt,
+        mode="auto",
+        model=exec_model,
+        timeout=timeout,
+        cwd=work_dir,
+        log_file=log_file,
+        **({"stream_config": stream_config} if stream_config is not None else {}),
     )
     if ret != 0:
         raise ProcessExecutionError(f"Recovery turn failed with exit code {ret}: {stderr.strip()}")
@@ -1840,9 +1757,6 @@ def dispatch_tier1_planning(
     force_plan: bool = False,
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
-    stream: bool = False,
-    logger: Optional[DualLogger] = None,
-    heartbeat_interval: Optional[float] = None,
     stream_config: Optional[TurnStreamConfig] = None,
 ) -> bool:
     """Coordinates Tier 1 turn: cache check -> prompt gen -> agy dispatch -> invariant audit."""
@@ -1870,18 +1784,13 @@ def dispatch_tier1_planning(
 
     log_file = track_dir / "logs" / f"phase-{phase_num}-task-{task_num}-plan.log"
     ret, stdout, stderr = run_agy_turn(
-        **_build_turn_kwargs(
-            prompt=prompt,
-            mode="plan",
-            model=plan_model,
-            timeout=timeout,
-            cwd=work_dir,
-            log_file=log_file,
-            stream=stream,
-            logger=logger,
-            heartbeat_interval=heartbeat_interval,
-            stream_config=stream_config,
-        )
+        prompt=prompt,
+        mode="plan",
+        model=plan_model,
+        timeout=timeout,
+        cwd=work_dir,
+        log_file=log_file,
+        **({"stream_config": stream_config} if stream_config is not None else {}),
     )
     if ret != 0:
         raise ProcessExecutionError(
@@ -1909,10 +1818,7 @@ def dispatch_tier2_execution(
     auto_recover: bool = False,
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
-    stream: bool = False,
-    logger: Optional[DualLogger] = None,
     skip_plan: bool = False,
-    heartbeat_interval: Optional[float] = None,
     stream_config: Optional[TurnStreamConfig] = None,
 ) -> bool:
     """Coordinates Tier 2 execution turn:
@@ -1955,18 +1861,13 @@ def dispatch_tier2_execution(
         )
 
     ret, _stdout, stderr = run_agy_turn(
-        **_build_turn_kwargs(
-            prompt=prompt,
-            mode="auto",
-            model=exec_model,
-            timeout=timeout,
-            cwd=work_dir,
-            log_file=log_file,
-            stream=stream,
-            logger=logger,
-            heartbeat_interval=heartbeat_interval,
-            stream_config=stream_config,
-        )
+        prompt=prompt,
+        mode="auto",
+        model=exec_model,
+        timeout=timeout,
+        cwd=work_dir,
+        log_file=log_file,
+        **({"stream_config": stream_config} if stream_config is not None else {}),
     )
     if ret != 0:
         raise ProcessExecutionError(
@@ -1976,23 +1877,15 @@ def dispatch_tier2_execution(
     is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
     if not is_clean:
         if auto_recover:
-            recovery_kwargs: Dict[str, Any] = {
-                "track_name": track_name,
-                "phase_num": phase_num,
-                "task_num": task_num,
-                "exec_model": exec_model,
-                "timeout": timeout,
-                "cwd": work_dir,
-            }
-            recovery_kwargs.update(
-                _extract_stream_kwargs(
-                    stream_config=stream_config,
-                    stream=stream,
-                    logger=logger,
-                    heartbeat_interval=heartbeat_interval,
-                )
+            dispatch_recovery_turn(
+                track_name=track_name,
+                phase_num=phase_num,
+                task_num=task_num,
+                exec_model=exec_model,
+                timeout=timeout,
+                cwd=work_dir,
+                **({"stream_config": stream_config} if stream_config is not None else {}),
             )
-            dispatch_recovery_turn(**recovery_kwargs)
             is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
             if not is_clean:
                 raise GitTreeDirtyError(
@@ -2126,9 +2019,6 @@ def dispatch_gate1_checkpoint(
     checkpoint_model: Optional[str] = None,
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
-    stream: bool = False,
-    logger: Optional[DualLogger] = None,
-    heartbeat_interval: Optional[float] = None,
     stream_config: Optional[TurnStreamConfig] = None,
 ) -> str:
     """Executes unattended Gate 1 phase verification checkpoint and audits commit/notes invariants."""
@@ -2155,18 +2045,13 @@ def dispatch_gate1_checkpoint(
     )
 
     ret, _stdout, stderr = run_agy_turn(
-        **_build_turn_kwargs(
-            prompt=prompt,
-            mode="auto",
-            model=model,
-            timeout=timeout,
-            cwd=work_dir,
-            log_file=log_file,
-            stream=stream,
-            logger=logger,
-            heartbeat_interval=heartbeat_interval,
-            stream_config=stream_config,
-        )
+        prompt=prompt,
+        mode="auto",
+        model=model,
+        timeout=timeout,
+        cwd=work_dir,
+        log_file=log_file,
+        **({"stream_config": stream_config} if stream_config is not None else {}),
     )
     if ret != 0:
         raise ProcessExecutionError(
@@ -2288,9 +2173,6 @@ def dispatch_gate2_review(
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
     brain_dir: Optional[Path] = None,
-    stream: bool = False,
-    logger: Optional[DualLogger] = None,
-    heartbeat_interval: Optional[float] = None,
     stream_config: Optional[TurnStreamConfig] = None,
 ) -> ReviewResult:
     """Dispatches Gate 2 unattended review, captures conversation ID, and parses severity findings."""
@@ -2306,18 +2188,13 @@ def dispatch_gate2_review(
     prompt = build_review_prompt(track_name=track_name, phase_num=phase_num, report_path=report_path)
 
     ret, stdout, stderr = run_agy_turn(
-        **_build_turn_kwargs(
-            prompt=prompt,
-            mode="auto",
-            model=model,
-            timeout=timeout,
-            cwd=work_dir,
-            log_file=log_file,
-            stream=stream,
-            logger=logger,
-            heartbeat_interval=heartbeat_interval,
-            stream_config=stream_config,
-        )
+        prompt=prompt,
+        mode="auto",
+        model=model,
+        timeout=timeout,
+        cwd=work_dir,
+        log_file=log_file,
+        **({"stream_config": stream_config} if stream_config is not None else {}),
     )
     conv_id = capture_conversation_id(before_dirs, brain_dir=brain_dir, min_mtime=start_ts - 2.0)
 
@@ -2478,6 +2355,7 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 
 def main(argv: Optional[List[str]] = None) -> int:
     """Main CLI entrypoint for conductor-auto."""
+    logger = DualLogger(log_file=None)
     args = parse_args(argv)
     models = resolve_model_config(args)
 
@@ -2486,7 +2364,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         if timeout_sec <= 0:
             raise ValueError("timeout must be positive")
     except ValueError as err:
-        print(f"Error: Invalid --timeout value '{args.timeout}': {err}", file=sys.stderr)
+        logger.log_error(f"Invalid --timeout value '{args.timeout}': {err}")
         return 1
 
     try:
@@ -2494,23 +2372,23 @@ def main(argv: Optional[List[str]] = None) -> int:
         if heartbeat_sec < 0:
             raise ValueError("heartbeat must be non-negative")
     except ValueError as err:
-        print(f"Error: Invalid --heartbeat value '{args.heartbeat}': {err}", file=sys.stderr)
+        logger.log_error(f"Invalid --heartbeat value '{args.heartbeat}': {err}")
         return 1
 
     track_name = args.track or get_active_track()
     if not track_name:
-        print("Error: No active track found and no track specified.", file=sys.stderr)
+        logger.log_error("No active track found and no track specified.")
         return 1
 
     track_dir = resolve_track_dir(track_name)
     if not track_dir or not (track_dir / "plan.md").exists():
-        print(f"Error: Track plan not found at {track_dir / 'plan.md' if track_dir else track_name}", file=sys.stderr)
+        logger.log_error(f"Track plan not found at {track_dir / 'plan.md' if track_dir else track_name}")
         return 1
 
     phases = parse_track_plan(track_dir)
     active_phase = get_active_phase(phases, target_phase=args.phase)
     if not active_phase:
-        print(f"All phases complete or phase {args.phase} not found in track {track_name}.")
+        logger.log_status(f"All phases complete or phase {args.phase} not found in track {track_name}.")
         return 0
 
     pending_tasks = get_pending_tasks(active_phase)
@@ -2518,11 +2396,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         pending_tasks = [t for t in pending_tasks if t.task_num == args.task]
 
     if not pending_tasks:
-        print(f"No pending tasks in phase {active_phase.phase_num}.")
+        logger.log_status(f"No pending tasks in phase {active_phase.phase_num}.")
         return 0
 
-    runner_log = None if args.dry_run else (track_dir / "logs" / "conductor-auto.log")
-    logger = DualLogger(log_file=runner_log)
+    logger.log_file = None if args.dry_run else (track_dir / "logs" / "conductor-auto.log")
     stream_cfg = TurnStreamConfig(
         stream=True,
         logger=logger,
