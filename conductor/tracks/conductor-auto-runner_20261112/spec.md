@@ -14,12 +14,20 @@ This track authors an automated, unattended Conductor track runner (`scripts/age
 ### 2.1 Process Model & Execution Cadence
 - **Runner Entrypoint**: `scripts/agent/conductor-auto.py [track] [flags]`
 - **Zero-Amnesia Print Mode**: Runs non-interactive turns using `agy --print --dangerously-skip-permissions` with fresh conversation contexts per turn.
-- **Model Matrix Defaults**:
-  - Planning (`--mode plan` / prompt generator `--plan`): `gemini-3.8-flash-high`
-  - Implementation (`--mode auto` / prompt generator `--exec`): `gemini-3.8-flash-medium`
-  - Phase Verification / Checkpoint: `gemini-3.8-flash-medium`
-  - Phase Review (`/conductor:review`): `gemini-3.8-flash-high`
-  - All roles overridable via CLI flags (`--plan-model`, `--exec-model`, `--review-model`).
+- **Model Matrix & Composable Configuration (`DEFAULT_MODEL_FAMILY` + `ROLE_EFFORT_MAP`)**:
+  - Centralized at the top of `scripts/agent/conductor-auto.py` to make future model generation upgrades a single-constant or zero-code change:
+    - `DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`
+    - `ROLE_EFFORT_MAP = {"plan": "xhigh", "exec": "high", "checkpoint": "medium", "review": "xhigh"}`
+  - **Derived Role Defaults**:
+    - Planning (`DEFAULT_PLAN_MODEL` / `--mode plan` / prompt generator `--plan`): `gemini-4-hydrogen-xhigh`
+    - Implementation & Recovery (`DEFAULT_EXEC_MODEL` / `--mode auto` / prompt generator `--exec` & `--recovery`): `gemini-4-hydrogen-high`
+    - Phase Verification / Checkpoint (`DEFAULT_CHECKPOINT_MODEL` / Gate 1): `gemini-4-hydrogen-medium`
+    - Phase Review (`DEFAULT_REVIEW_MODEL` / `/conductor:review` / Gate 2): `gemini-4-hydrogen-xhigh`
+  - **3-Tier Resolution Precedence (`resolve_model_config`)**:
+    1. Explicit per-role CLI flag (`--plan-model`, `--exec-model`, `--checkpoint-model`, `--review-model`)
+    2. Explicit per-role environment variable (`CONDUCTOR_PLAN_MODEL`, `CONDUCTOR_EXEC_MODEL`, `CONDUCTOR_CHECKPOINT_MODEL`, `CONDUCTOR_REVIEW_MODEL`)
+    3. Composed `<family>-<effort>` using `ROLE_EFFORT_MAP`, where `<family>` resolves from `--model-family` > `CONDUCTOR_MODEL_FAMILY` > `DEFAULT_MODEL_FAMILY` (`"gemini-4-hydrogen"`).
+  - **Architectural & Quota Rationale**: Keeps unattended multi-task execution 100% within the fast-refreshing Google AI Pro Pool A quota (`gemini-4-hydrogen-*`), leaving multi-day Pool B quota (`gemini-4-argon-*` / `Orchestrator (Argon)`) untouched for interactive sessions while preserving disk-cached `phase-X-task-Y-plan.md` blueprints required by `generate-prompt.py` for target and verification command harvesting.
 - **Subprocess Protocol & Flag Order**:
   - All configuration flags (`--mode <mode>`, `--model <model>`, `--dangerously-skip-permissions`) must strictly precede the `--print` flag.
   - Prompts are passed via stdin or piped directly (`--input-format text` / argument placed strictly after flags) to prevent flag collision and `ARG_MAX` truncation from large multi-kilobyte prompts.
@@ -73,11 +81,11 @@ Immediately following Tier 2 execution, `conductor-auto.py` acts as an active su
 ### 2.4 Phase Boundary Hard-Stop & Review Handshake
 When all tasks in the active phase are complete:
 1. **Gate 1: Phase Verification Checkpoint Task**:
-   - Dispatches `scripts/agent/generate-prompt.py --checkpoint --unattended` to `agy --print` using `gemini-3.8-flash-medium`.
+   - Dispatches `scripts/agent/generate-prompt.py --checkpoint --unattended` to `agy --print` using the resolved `checkpoint` model (`DEFAULT_CHECKPOINT_MODEL`: `gemini-4-hydrogen-medium`).
    - Agent runs phase automated test suite, generates the domain-aware manual verification checklist into the Git note, creates empty checkpoint commit `conductor(checkpoint): Checkpoint end of Phase X`, updates `plan.md` with `[checkpoint: <sha>]`, and commits `plan.md`.
    - Runner verifies clean working tree, checkpoint commit, and Git notes.
 2. **Gate 2: Unattended Phase Review**:
-   - Unless `--no-review` is flagged, runner dispatches `/conductor:review` with `gemini-3.8-flash-high`.
+   - Unless `--no-review` is flagged, runner dispatches `/conductor:review` with the resolved `review` model (`DEFAULT_REVIEW_MODEL`: `gemini-4-hydrogen-xhigh`).
    - Prompt override automatically confirms track scope and accepts iterative review mode (>300 lines).
    - **Conversation ID Capture**: Snapshots conversation directories in `~/.gemini/antigravity-cli/brain/` before invocation and captures the newly created directory created during the turn (with newest `transcript.jsonl` fallback).
    - Saves review report to `conductor/tracks/<track>/phase-X-review.md`.
@@ -116,9 +124,11 @@ python3 scripts/agent/conductor-auto.py [track] [flags]
   - `--no-review`: Skip the Phase Review turn at the end of the phase.
   - `--auto-recover`: Attempt a single recovery turn via `generate-prompt.py --recovery` if an execution step leaves dirty uncommitted files.
   - `--timeout <duration>`: Turn timeout (default: `15m`).
-  - `--plan-model <model>`: Model for planning turn (default: `gemini-3.8-flash-high`).
-  - `--exec-model <model>`: Model for execution turn (default: `gemini-3.8-flash-medium`).
-  - `--review-model <model>`: Model for review turn (default: `gemini-3.8-flash-high`).
+  - `--model-family <family>`: Base model family used to compose role defaults via `ROLE_EFFORT_MAP` (overrides `CONDUCTOR_MODEL_FAMILY`; default: `gemini-4-hydrogen`).
+  - `--plan-model <model>`: Model for Tier 1 planning turn (overrides `CONDUCTOR_PLAN_MODEL` and `--model-family`; default: `gemini-4-hydrogen-xhigh`).
+  - `--exec-model <model>`: Model for Tier 2 execution and recovery turns (overrides `CONDUCTOR_EXEC_MODEL` and `--model-family`; default: `gemini-4-hydrogen-high`).
+  - `--checkpoint-model <model>`: Model for Gate 1 phase verification checkpoint turn (overrides `CONDUCTOR_CHECKPOINT_MODEL` and `--model-family`; default: `gemini-4-hydrogen-medium`).
+  - `--review-model <model>`: Model for Gate 2 phase review turn (overrides `CONDUCTOR_REVIEW_MODEL` and `--model-family`; default: `gemini-4-hydrogen-xhigh`).
   - `--dry-run`: Parse tasks and print the sequence of prompts, models, and validations without invoking `agy`.
 - **Exit Codes**:
   - `0`: Success (phase completed cleanly; review passed, skipped, or only Medium/Low findings).
@@ -127,11 +137,12 @@ python3 scripts/agent/conductor-auto.py [track] [flags]
 
 ## 3. Acceptance Criteria
 - [ ] `scripts/agent/generate-prompt.py` parses `[exempt: <category>]` and supports `--unattended` checkpoint prompts.
+- [ ] `scripts/agent/conductor-auto.py` centralizes model configuration via `DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, and `resolve_model_config()` supporting 3-tier override precedence (per-role CLI flags > `CONDUCTOR_*` env vars > `--model-family` / `CONDUCTOR_MODEL_FAMILY` composition).
 - [ ] `scripts/agent/conductor-auto.py` executes sequential two-tier (Plan -> Exec) turns unattended within a phase.
 - [ ] Supervisor actively verifies Red test failures (assertion failure vs syntax error), Green test passes, and Exempt checks.
 - [ ] Preserves atomic commits, conventional scopes, and Git notes.
 - [ ] Executes Gate 1 Checkpoint and Gate 2 Review unattended, persisting logs to `conductor/tracks/<track>/logs/` and review report to `phase-X-review.md`.
 - [ ] Exits with code 2 and outputs `agy --conversation <id>` command when review findings require human attention.
 - [ ] Halts immediately and preserves workspace state if compilation or test verification fails.
-- [ ] Unit tests for prompt generation, parser, supervisor validations, CLI arguments, and execution flow in `scripts/__tests__/test_conductor_auto.py` and `scripts/__tests__/test_generate_prompt.py`.
+- [ ] Unit tests for prompt generation, parser, supervisor validations, composable model resolution, CLI arguments, and execution flow in `scripts/__tests__/test_conductor_auto.py` (decoupled from hardcoded model version literals via `DEFAULT_*_MODEL` constants) and `scripts/__tests__/test_generate_prompt.py`.
 - [ ] Documented in `conductor/workflow.md` and `docs/agents/conductor-auto.md`.

@@ -64,25 +64,27 @@
     - [x] Confirm all unit tests pass cleanly
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Execution Tier and Supervisor Invariant Verification' (Protocol in workflow.md) [commit: f8415b6c]
 
-## Phase 5: Phase Boundaries, Checkpoints, Review Handshake, and CLI Dual-Logging
-- [ ] Task: Write failing unit tests for Gate 1 checkpoint, Gate 2 review dispatch, brain snapshotting conversation ID capture, regex severity parsing, exit codes, and subprocess streaming (TDD Red phase)
-    - [ ] Test Gate 1 checkpoint dispatch with `--unattended` and verification of checkpoint commit / notes
-    - [ ] Test Gate 2 `/conductor:review` dispatch with prompt override and brain directory snapshotting for conversation ID extraction
+## Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging
+- [ ] Task: Write failing unit tests for composable Gemini 4 Hydrogen model resolution, Gate 1 checkpoint, Gate 2 review dispatch, brain snapshotting conversation ID capture, regex severity parsing, exit codes, and subprocess streaming (TDD Red phase)
+    - [ ] Test composable model configuration (`DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, `DEFAULT_PLAN_MODEL`, `DEFAULT_EXEC_MODEL`, `DEFAULT_CHECKPOINT_MODEL`, `DEFAULT_REVIEW_MODEL`) and 3-tier precedence in `resolve_model_config()` (per-role CLI flags > `CONDUCTOR_*_MODEL` env vars > `--model-family` / `CONDUCTOR_MODEL_FAMILY` composition), and decouple existing dispatch tests to reference `DEFAULT_*_MODEL` constants
+    - [ ] Test Gate 1 checkpoint dispatch with `--unattended`, `DEFAULT_CHECKPOINT_MODEL` (`gemini-4-hydrogen-medium`), and verification of checkpoint commit / notes
+    - [ ] Test Gate 2 `/conductor:review` dispatch with `DEFAULT_REVIEW_MODEL` (`gemini-4-hydrogen-xhigh`), prompt override, and brain directory snapshotting for conversation ID extraction
     - [ ] Test regex severity parsing (`^###\s+\[?(Critical|High)\]?`) and exit code behaviors: 0 for clean success or Medium/Low findings, 1 for failures/invariant violations/review crashes, 2 for Critical/High review findings
     - [ ] Test dual logging (stdout formatted progress + unredacted file persistence in `conductor/tracks/<track>/logs/`)
     - [ ] Test turn timeout handling with configurable `--timeout`
     - [ ] Confirm tests fail as expected
-- [ ] Task: Implement Gate 1 checkpoint, Gate 2 review handling, brain snapshotting, dual-logging tee, and CLI interface in `conductor-auto.py` (TDD Green phase)
+- [ ] Task: Implement composable Gemini 4 Hydrogen model matrix, Gate 1 checkpoint, Gate 2 review handling, brain snapshotting, dual-logging tee, and CLI interface in `conductor-auto.py` (TDD Green phase)
+    - [ ] Implement centralized `DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, `DEFAULT_*_MODEL` constants, `resolve_model_config()`, and `--model-family` / `--checkpoint-model` CLI flags, updating all turn dispatchers (`run_agy_turn`, Tier 1, Tier 2, Recovery, Gate 1, Gate 2) to use resolved defaults
     - [ ] Implement Gate 1 execution and post-checkpoint commit/notes verification
     - [ ] Implement Gate 2 unattended review dispatch, brain directory snapshotting, and report generation in `phase-X-review.md`
     - [ ] Implement strict regex severity parsing, exit code semantics (0, 1, 2), and interactive resumption command formatting (`agy --conversation <conv-id> ...`)
     - [ ] Implement streaming subprocess runner with real-time stdout updates, turn timeouts, process group cleanup, and tee logging to `conductor/tracks/<track>/logs/`
     - [ ] Confirm all unit tests pass cleanly
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Phase Boundaries, Checkpoints, Review Handshake, and CLI Dual-Logging' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging' (Protocol in workflow.md)
 
 ## Phase 6: Documentation & End-to-End Dry-Run Validation
 - [ ] Task: Author `docs/agents/conductor-auto.md` and update `conductor/workflow.md` with unattended execution guide [exempt: docs]
-    - [ ] Create `docs/agents/conductor-auto.md` detailing architecture, execution flow, CLI flags, exit codes, and model matrix
+    - [ ] Create `docs/agents/conductor-auto.md` detailing architecture, execution flow, CLI flags, exit codes, composable `gemini-4-hydrogen` model matrix (`--model-family`, `CONDUCTOR_*` env vars), and Pro quota pool separation (`Hydrogen` Pool A vs `Argon`/`Orchestrator` Pool B)
     - [ ] Update `conductor/workflow.md` to reference unattended multi-task runner workflow alongside manual prompt generation
 - [ ] Task: Validate `--dry-run` and end-to-end simulation across active and archived tracks [exempt: scripts]
     - [ ] Test `--dry-run` flag across sample tracks and phases to verify prompt sequences, model assignments, and validation steps
