@@ -32,6 +32,7 @@ import inspect
 import io
 import itertools
 import os
+import shutil
 import signal
 import subprocess
 import sys
@@ -313,14 +314,14 @@ class TestPlanningPromptGeneration(unittest.TestCase):
 
 
 class TestAgySubprocessProtocol(unittest.TestCase):
-    """Test suite for agy CLI flag ordering, stdin pipe delivery, and process group isolation."""
+    """Test suite for agy CLI flag ordering, --print prompt delivery, and process group isolation."""
 
     def test_build_agy_command_strict_flag_ordering(self):
-        """Asserts build_agy_command positions configuration flags strictly before --print."""
+        """Asserts build_agy_command positions configuration flags strictly before --print <prompt>."""
         build_agy_command = get_target("build_agy_command", self)
         DEFAULT_PLAN_MODEL = get_target("DEFAULT_PLAN_MODEL", self)
 
-        cmd = build_agy_command(mode="plan", model=DEFAULT_PLAN_MODEL)
+        cmd = build_agy_command(mode="plan", model=DEFAULT_PLAN_MODEL, prompt="Plan task 1")
 
         self.assertEqual(cmd[0], "agy")
         self.assertIn("--print", cmd)
@@ -333,15 +334,16 @@ class TestAgySubprocessProtocol(unittest.TestCase):
         model_idx = cmd.index("--model")
         skip_idx = cmd.index("--dangerously-skip-permissions")
 
-        # Configuration flags must strictly precede --print
+        # Configuration flags must strictly precede --print <prompt>
         self.assertLess(mode_idx, print_idx)
         self.assertLess(model_idx, print_idx)
         self.assertLess(skip_idx, print_idx)
-        self.assertEqual(print_idx, len(cmd) - 1)
+        self.assertEqual(print_idx, len(cmd) - 2)
+        self.assertEqual(cmd[-1], "Plan task 1")
 
     @patch("subprocess.Popen")
-    def test_run_agy_turn_stdin_prompt_delivery_and_session_isolation(self, mock_popen_cls):
-        """Asserts prompt is delivered via stdin, not argv, and session is isolated via start_new_session."""
+    def test_run_agy_turn_print_prompt_delivery_and_session_isolation(self, mock_popen_cls):
+        """Asserts prompt is passed as the --print argument with stdin closed and start_new_session=True."""
         run_agy_turn = get_target("run_agy_turn", self)
         DEFAULT_PLAN_MODEL = get_target("DEFAULT_PLAN_MODEL", self)
 
@@ -366,22 +368,16 @@ class TestAgySubprocessProtocol(unittest.TestCase):
         popen_args, popen_kwargs = mock_popen_cls.call_args
         cmd_called = popen_args[0]
 
-        # Prompt must NOT be in argv
-        self.assertNotIn(prompt_text, cmd_called)
-        # Stdin must be a pipe
-        self.assertEqual(popen_kwargs.get("stdin"), subprocess.PIPE)
+        # Prompt must be passed as the --print argument, and stdin must be closed (DEVNULL)
+        self.assertEqual(cmd_called[-2:], ["--print", prompt_text])
+        self.assertEqual(popen_kwargs.get("stdin"), subprocess.DEVNULL)
         # Must isolate process session (start_new_session=True or preexec_fn=os.setsid)
         has_session_isolation = popen_kwargs.get("start_new_session") is True or popen_kwargs.get(
             "preexec_fn"
         ) in (os.setsid, getattr(os, "setpgrp", None))
         self.assertTrue(has_session_isolation, "Popen must specify start_new_session=True or os.setsid")
 
-        # Verify prompt delivered to communicate
-        mock_proc.communicate.assert_called_once()
-        comm_input = mock_proc.communicate.call_args[1].get("input") or mock_proc.communicate.call_args[0][0]
-        if isinstance(comm_input, bytes):
-            comm_input = comm_input.decode("utf-8")
-        self.assertEqual(comm_input, prompt_text)
+        mock_proc.communicate.assert_called_once_with(timeout=900.0)
 
     @patch("os.killpg")
     @patch("os.getpgid", return_value=12345)
@@ -2179,17 +2175,13 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
             self.assertIn("[tool_call] raw unredacted payload", log_text)
 
     @patch("subprocess.Popen")
-    def test_run_agy_turn_streaming_delivers_stdin_and_tees_lines_incrementally(self, mock_popen_cls):
-        """Asserts run_agy_turn(..., stream=True) writes stdin, streams stdout lines, and tees unredacted output to log_file."""
+    def test_run_agy_turn_streaming_passes_print_arg_and_tees_lines_incrementally(self, mock_popen_cls):
+        """Asserts run_agy_turn(..., stream=True) passes --print <prompt>, streams stdout lines, and tees unredacted output to log_file."""
         run_agy_turn = get_target("run_agy_turn", self)
         DualLogger = get_target("DualLogger", self)
 
-        written_stdin: list[str] = []
-        mock_stdin = MagicMock()
-        mock_stdin.write.side_effect = lambda data: written_stdin.append(data)
-
         mock_proc = MagicMock()
-        mock_proc.stdin = mock_stdin
+        mock_proc.stdin = None
         mock_proc.stdout = io.StringIO("line 1\nline 2\n")
         mock_proc.stderr = io.StringIO("")
         mock_proc.wait.return_value = 0
@@ -2215,8 +2207,9 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
             self.assertEqual(ret, 0)
             self.assertEqual(stdout, "line 1\nline 2\n")
             self.assertEqual(stderr, "")
-            self.assertEqual("".join(written_stdin), "Run review")
-            self.assertTrue(mock_stdin.close.called)
+            popen_args, popen_kwargs = mock_popen_cls.call_args
+            self.assertEqual(popen_args[0][-2:], ["--print", "Run review"])
+            self.assertEqual(popen_kwargs.get("stdin"), subprocess.DEVNULL)
             self.assertIn("line 1", stdout_buf.getvalue())
             self.assertIn("line 2", stdout_buf.getvalue())
             log_text = tmp_log.read_text(encoding="utf-8")
@@ -2595,6 +2588,67 @@ class TestDocsFastPathAndSkipFlags(unittest.TestCase):
             self.assertIn("[DRY-RUN] Would dispatch Tier 1 planning for Phase 1 Task 1", out)
             self.assertIn("[DRY-RUN] Would dispatch Tier 2 execution", out)
             self.assertNotIn("Dispatching Tier 1 planning", out)
+
+
+class TestAgyCliContract(unittest.TestCase):
+    """Contract tests verifying build_agy_command matches the installed agy CLI binary."""
+
+    @unittest.skipUnless(shutil.which("agy"), "agy CLI not installed in environment")
+    def test_agy_help_supports_required_flags_and_modes(self):
+        """Asserts installed agy --help advertises all flags and modes used by conductor-auto."""
+        res = subprocess.run(
+            ["agy", "--help"],
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        help_text = res.stdout + res.stderr
+        for token in ("--mode", "--model", "--dangerously-skip-permissions", "--print", "plan", "auto"):
+            self.assertIn(token, help_text)
+
+    @unittest.skipUnless(shutil.which("agy"), "agy CLI not installed in environment")
+    def test_build_agy_command_passes_real_agy_flag_parser(self):
+        """Asserts agy flag.Parse accepts build_agy_command output and consumes the prompt under --print."""
+        build_agy_command = get_target("build_agy_command", self)
+        role_configs = [
+            ("plan", get_target("DEFAULT_PLAN_MODEL", self)),
+            ("auto", get_target("DEFAULT_EXEC_MODEL", self)),
+            ("auto", get_target("DEFAULT_CHECKPOINT_MODEL", self)),
+            ("auto", get_target("DEFAULT_REVIEW_MODEL", self)),
+        ]
+        probe_flag = "--__contract_probe__"
+
+        for mode, model in role_configs:
+            cmd = build_agy_command(mode=mode, model=model, prompt="contract check")
+            res = subprocess.run(
+                cmd + [probe_flag],
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            self.assertEqual(res.returncode, 2, f"Unexpected exit code for {(mode, model)}: {res.stderr}")
+            self.assertIn("flags provided but not defined: -__contract_probe__", res.stderr)
+            self.assertNotIn("flag needs an argument", res.stderr)
+
+    @unittest.skipUnless(
+        bool(shutil.which("agy")) and os.environ.get("CONDUCTOR_LIVE_AGY_TEST") == "1",
+        "Set CONDUCTOR_LIVE_AGY_TEST=1 to run live agy smoke test",
+    )
+    def test_run_agy_turn_live_smoke(self):
+        """Optional live smoke test verifying agy executes a real non-interactive print turn."""
+        run_agy_turn = get_target("run_agy_turn", self)
+        checkpoint_model = get_target("DEFAULT_CHECKPOINT_MODEL", self)
+
+        ret, stdout, stderr = run_agy_turn(
+            prompt="Reply with only the single word OK.",
+            mode="plan",
+            model=checkpoint_model,
+            timeout=60.0,
+        )
+        self.assertEqual(ret, 0, f"Live agy turn failed: {stderr}")
+        self.assertIn("OK", stdout.upper())
 
 
 if __name__ == "__main__":

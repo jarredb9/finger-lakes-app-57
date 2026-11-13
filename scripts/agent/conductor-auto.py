@@ -520,13 +520,14 @@ def generate_turn_prompt(
 def build_agy_command(
     mode: str,
     model: str,
+    prompt: str = "",
     extra_flags: Optional[List[str]] = None,
 ) -> List[str]:
-    """Builds agy CLI command ensuring configuration flags strictly precede --print."""
+    """Builds agy CLI command ensuring configuration flags strictly precede --print <prompt>."""
     cmd = ["agy", "--mode", mode, "--model", model, "--dangerously-skip-permissions"]
     if extra_flags:
         cmd.extend(extra_flags)
-    cmd.append("--print")
+    cmd.extend(["--print", prompt])
     return cmd
 
 
@@ -779,8 +780,8 @@ def run_agy_turn(
     stream: bool = False,
     logger: Optional[DualLogger] = None,
 ) -> Tuple[int, str, str]:
-    """Runs agy subprocess turn in a dedicated process group with stdin prompt delivery."""
-    cmd = build_agy_command(mode=mode, model=model)
+    """Runs agy subprocess turn in a dedicated process group with --print prompt delivery."""
+    cmd = build_agy_command(mode=mode, model=model, prompt=prompt)
     work_dir = cwd or PROJECT_ROOT
     effective_log_file = (
         Path(log_file)
@@ -790,7 +791,7 @@ def run_agy_turn(
 
     proc = subprocess.Popen(
         cmd,
-        stdin=subprocess.PIPE,
+        stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -810,7 +811,7 @@ def run_agy_turn(
         )
 
     try:
-        stdout, stderr = proc.communicate(input=prompt, timeout=timeout)
+        stdout, stderr = proc.communicate(timeout=timeout)
     except subprocess.TimeoutExpired:
         _terminate_process_group(proc.pid, proc)
         raise ProcessExecutionError(f"Turn timed out after {timeout}s")
