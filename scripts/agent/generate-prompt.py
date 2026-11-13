@@ -131,14 +131,19 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
     content = plan_path.read_text(encoding="utf-8")
     phases: Dict[int, Dict[str, Any]] = {}
     current_phase_num = None
+    in_review_fixes = False
 
     checkpoint_header_re = re.compile(
-        r"\s*(?:\[checkpoint:\s*([a-f0-9]{7,40})\]|\[([a-f0-9]{7,40})\])\s*$",
+        r"\s*`?(?:\[checkpoint:\s*`?([a-f0-9]{7,40})`?\]|\[`?([a-f0-9]{7,40})`?\])`?\s*$",
         re.IGNORECASE,
     )
     exempt_re = re.compile(r"\[exempt:\s*([a-zA-Z0-9_\-]+)\]", re.IGNORECASE)
     task_sha_re = re.compile(
-        r"\s*(?:\(([a-f0-9]{7,40})\)|\[(?:commit:\s*|checkpoint:\s*)?([a-f0-9]{7,40})\]|([a-f0-9]{7,40}))\s*$",
+        r"\s*`?(?:\(`?([a-f0-9]{7,40})`?\)|\[(?:commit:\s*|checkpoint:\s*)?`?([a-f0-9]{7,40})`?\])`?\s*$",
+        re.IGNORECASE,
+    )
+    task_sha_bare_re = re.compile(
+        r"\s+`?([a-f0-9]{7,40})`?\s*$",
         re.IGNORECASE,
     )
 
@@ -156,6 +161,11 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
             else:
                 phase_title = raw_title
 
+            if raw_num is None and re.match(r"^review\s+fixes\b", phase_title, re.IGNORECASE) and current_phase_num is not None:
+                in_review_fixes = True
+                continue
+
+            in_review_fixes = False
             raw_heading = checkpoint_header_re.sub("", line.strip()).strip()
 
             if raw_num:
@@ -167,14 +177,20 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
                 "checkpoint_sha": checkpoint_sha,
                 "raw_heading": raw_heading,
                 "tasks": [],
+                "review_fixes": [],
             }
             continue
 
         if current_phase_num is not None:
+            target_tasks = (
+                phases[current_phase_num]["review_fixes"]
+                if in_review_fixes
+                else phases[current_phase_num]["tasks"]
+            )
             # Check indented subtask first (indented by 2+ spaces or tabs before - [ ])
             subtask_match = re.match(r"^(?:\s{2,}|\t+)-\s*\[([ x~X])\]\s*(.*)", line)
-            if subtask_match and phases[current_phase_num]["tasks"]:
-                phases[current_phase_num]["tasks"][-1]["subtasks"].append(subtask_match.group(2).strip())
+            if subtask_match and target_tasks:
+                target_tasks[-1]["subtasks"].append(subtask_match.group(2).strip())
                 continue
 
             # Top-level Task item (starts at line start)
@@ -188,10 +204,17 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
                     exempt_cat = exempt_match.group(1).lower()
                     task_desc = exempt_re.sub("", task_desc).strip()
 
+                task_status = (
+                    "complete"
+                    if status_char == "x"
+                    else ("in_progress" if status_char == "~" else "pending")
+                )
                 commit_sha = None
                 sha_match = task_sha_re.search(task_desc)
+                if not sha_match and task_status == "complete":
+                    sha_match = task_sha_bare_re.search(task_desc)
                 if sha_match:
-                    commit_sha = sha_match.group(1) or sha_match.group(2) or sha_match.group(3)
+                    commit_sha = next((g for g in sha_match.groups() if g is not None), None)
                     clean_desc = task_desc[: sha_match.start()].strip()
                 else:
                     clean_desc = re.sub(
@@ -209,8 +232,8 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
                 ).strip()
                 clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
 
-                phases[current_phase_num]["tasks"].append({
-                    "status": "complete" if status_char == "x" else ("in_progress" if status_char == "~" else "pending"),
+                target_tasks.append({
+                    "status": task_status,
                     "description": clean_desc,
                     "subtasks": [],
                     "commit_sha": commit_sha,
@@ -255,6 +278,15 @@ def resolve_phase_baseline_sha(
     # Tier 1: Walk preceding phases in reverse order
     prior_phases = [p for p in sorted(phases.keys()) if p < phase_num]
     for prev_p in reversed(prior_phases):
+        for rf in reversed(phases[prev_p].get("review_fixes", [])):
+            rf_sha = rf.get("commit_sha")
+            if rf_sha:
+                verified = _verify_git_commit(rf_sha, cwd)
+                if verified:
+                    return verified
+                if not has_git:
+                    return rf_sha[:7]
+
         cp_sha = phases[prev_p].get("checkpoint_sha")
         if cp_sha:
             verified = _verify_git_commit(cp_sha, cwd)
@@ -323,6 +355,17 @@ def resolve_phase_end_sha(
 
     has_git = _verify_git_commit("HEAD", cwd) is not None
 
+    # Tier 0: Post-checkpoint review fixes attached to this phase
+    for rf in reversed(phases[phase_num].get("review_fixes", [])):
+        rf_sha = rf.get("commit_sha")
+        if rf_sha:
+            if has_git:
+                verified = _verify_git_commit(rf_sha, cwd)
+                if verified:
+                    return verified
+            else:
+                return rf_sha[:7]
+
     # Tier 1: Phase header checkpoint tag
     cp_sha = phases[phase_num].get("checkpoint_sha")
     if cp_sha:
@@ -352,6 +395,10 @@ def resolve_phase_end_sha(
             return next_base
 
     # Fallback to unverified tag if recorded in plan (e.g., shallow clone)
+    for rf in reversed(phases[phase_num].get("review_fixes", [])):
+        rf_sha = rf.get("commit_sha")
+        if rf_sha:
+            return rf_sha[:7]
     if cp_sha:
         return cp_sha[:7]
     for t in reversed(phases[phase_num].get("tasks", [])):
@@ -1144,17 +1191,61 @@ def get_preceding_context(track_name: str, phase_num: Optional[int], task_num: O
     return ""
 
 
+_TS_FILE_RE = re.compile(r"\b[a-zA-Z0-9_\-/\.]+\.tsx?\b")
+_TS_STYLE_GUARDRAIL = (
+    "TypeScript Style Guardrails (conductor/code_styleguides/typescript.md): "
+    "avoid `as` type assertions (prefer type guards/narrowing); "
+    "avoid `_`-prefixed identifiers (use parameterless `catch {}`); "
+    "use single quotes and explicit semicolons."
+)
+
+
+def _has_typescript_targets(
+    track_name: str,
+    phase_num: Optional[int],
+    task_num: Optional[int],
+    task_desc: str = "",
+    subtasks: Optional[List[str]] = None,
+    plan_file: Optional[Path] = None,
+) -> bool:
+    """Returns True if task targets or description/subtasks reference .ts or .tsx files."""
+    if plan_file and plan_file.exists():
+        targets, cmds = _extract_plan_targets_and_cmds(plan_file)
+        if any(t.endswith((".ts", ".tsx")) for t in targets):
+            return True
+        if any(_TS_FILE_RE.search(c) for c in cmds):
+            return True
+
+    resolved_subtasks = list(subtasks) if subtasks else []
+    resolved_desc = task_desc
+    if (not resolved_subtasks or not resolved_desc) and track_name and phase_num is not None and task_num is not None:
+        try:
+            p_tasks = parse_plan_tasks(track_name)
+            if phase_num in p_tasks and 1 <= task_num <= len(p_tasks[phase_num]["tasks"]):
+                t_obj = p_tasks[phase_num]["tasks"][task_num - 1]
+                if not resolved_desc:
+                    resolved_desc = t_obj.get("description", "")
+                if not resolved_subtasks:
+                    resolved_subtasks = list(t_obj.get("subtasks", []))
+        except (OSError, UnicodeDecodeError):
+            pass
+
+    combined = resolved_desc + "\n" + "\n".join(resolved_subtasks)
+    return bool(_TS_FILE_RE.search(combined))
+
+
 def build_plan_prompt(track_name: str, phase_num: Optional[int], task_num: Optional[int], task_desc: str = "") -> str:
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
+    plan_path = track_dir / f"phase-{phase_num}-task-{task_num}-plan.md" if track_dir else None
     task_focus = f" for '{task_desc}'" if task_desc else ""
     context_hint = get_preceding_context(track_name, phase_num, task_num)
     context_line = f"\n\n{context_hint}" if context_hint else ""
 
     strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc)
     if strategy.get("is_checkpoint"):
-        return f"""/conductor:implement @[{rel_track_dir}] Plan Phase {phase_num} Task {task_num} only{task_focus}.{context_line}
+        return f"""Plan Phase {phase_num} Task {task_num} only{task_focus} for @[{rel_track_dir}] using @[{rel_track_dir}/spec.md] and @[{rel_track_dir}/plan.md].{context_line}
 
 Gate & Planning Protocol (Phase Completion Verification & Checkpointing):
 - Reference the Phase Completion Verification and Checkpointing Protocol in conductor/workflow.md.
@@ -1166,9 +1257,15 @@ Gate & Planning Protocol (Phase Completion Verification & Checkpointing):
   3. Automated Verification Commands: Phase-scoped verification commands (`./scripts/containers/run-jest-container.sh`, `npm run type-check`, integration/E2E specs).
   4. Manual Verification Steps: Actionable step-by-step verification plan for the user (Frontend: dev server, localhost:3000, specific visual behaviors; Database/Backend: CLI/SQL/invariant checks).
   5. Post-Execution Protocol: Define checkpoint commit `conductor(checkpoint): Checkpoint end of Phase {phase_num}`, git notes report format, and plan.md update with `[checkpoint: <sha>]`.
-- Halt for user approval via modal before proceeding."""
+- Headless --print mode: do NOT invoke ask_question or interactive modals. Terminate your turn immediately after writing {plan_file}."""
 
-    return f"""/conductor:implement @[{rel_track_dir}] Plan Phase {phase_num} Task {task_num} only{task_focus}.{context_line}
+    ts_guardrail_line = (
+        f"\n- {_TS_STYLE_GUARDRAIL}"
+        if _has_typescript_targets(track_name, phase_num, task_num, task_desc=task_desc, plan_file=plan_path)
+        else ""
+    )
+
+    return f"""Plan Phase {phase_num} Task {task_num} only{task_focus} for @[{rel_track_dir}] using @[{rel_track_dir}/spec.md] and @[{rel_track_dir}/plan.md].{context_line}
 
 Gate & Planning Protocol:
 - Perform static code inspection focused on the target seam (no test runs or builds during planning).
@@ -1178,9 +1275,9 @@ Gate & Planning Protocol:
   2. Full TypeScript interfaces, prop types, and exported function signatures.
   3. Precise behavioral logic (formulas, state transitions, conditions, error handling, edge cases).
   4. Execution Verification Protocol with exact test commands to run (e.g. ./scripts/containers/run-jest-container.sh <test> or ./scripts/containers/run-e2e-container.sh webkit <spec>).
-  Omit verbatim multi-page code implementations; the executor will synthesize code directly using the blueprint with compiler and test feedback.
+  Omit verbatim multi-page code implementations; the executor will synthesize code directly using the blueprint with compiler and test feedback.{ts_guardrail_line}
 - In the plan's Post-Execution section, format the `git notes add` command using the standard fields: Task, Summary, Files, and Rationale.
-- Halt for user approval via modal before modifying any files."""
+- Headless --print mode: do NOT invoke ask_question or interactive modals. Terminate your turn immediately after writing {plan_file}."""
 
 
 def extract_post_execution_info(
@@ -1458,10 +1555,21 @@ def build_exec_prompt(
             post_exec_directive = f"Follow the Post-Execution section of @[{plan_file}] if present."
         post_exec_line = f"   - {post_exec_directive} Otherwise: {commit_and_plan_suffix}"
 
+    ts_guardrail_block = ""
+    if _has_typescript_targets(
+        track_name,
+        phase_num,
+        task_num,
+        task_desc=resolved_task_desc,
+        subtasks=resolved_subtasks,
+        plan_file=plan_path,
+    ):
+        ts_guardrail_block = f"\n   - {_TS_STYLE_GUARDRAIL}"
+
     return f"""{header_line}
 
 Execution Directives:
-{scope_block}
+{scope_block}{ts_guardrail_block}
 {verification_block}
 3. Post-Execution:
 {post_exec_line}
@@ -1471,10 +1579,10 @@ Execution Directives:
 def build_recovery_prompt(track_name, phase_num, task_num):
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
-    return f"""/conductor:implement @[{rel_track_dir}]
+    return f"""Recover uncommitted changes in @[{rel_track_dir}] for Phase {phase_num}, Task {task_num}.
 
-Pick up uncommitted changes in git status for Phase {phase_num}, Task {task_num}.
-Verify with tests, commit, update plan.md, and halt."""
+Headless --print mode: do NOT invoke ask_question or interactive modals.
+Inspect `git status` and `git diff`, verify changes with the task's tests, commit using Conventional Commits with git notes (Task, Summary, Files, Rationale), update {rel_track_dir}/plan.md, commit plan.md, and halt."""
 
 
 def main():

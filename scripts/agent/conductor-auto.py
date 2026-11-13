@@ -122,6 +122,7 @@ class PhaseInfo:
     raw_heading: str
     tasks: List[TaskInfo] = field(default_factory=list)
     is_complete: bool = False
+    review_fixes: List[TaskInfo] = field(default_factory=list)
 
 
 @dataclass
@@ -329,14 +330,19 @@ def parse_track_plan(track_path_or_name: Union[str, Path]) -> Dict[int, PhaseInf
     content = plan_path.read_text(encoding="utf-8")
     phases: Dict[int, PhaseInfo] = {}
     current_phase: Optional[PhaseInfo] = None
+    in_review_fixes: bool = False
 
     checkpoint_header_re = re.compile(
-        r"\s*(?:\[checkpoint:\s*([a-f0-9]{7,40})\]|\[([a-f0-9]{7,40})\])\s*$",
+        r"\s*`?(?:\[checkpoint:\s*`?([a-f0-9]{7,40})`?\]|\[`?([a-f0-9]{7,40})`?\])`?\s*$",
         re.IGNORECASE,
     )
     exempt_re = re.compile(r"\[exempt:\s*([a-zA-Z0-9_\-]+)\]", re.IGNORECASE)
     task_sha_re = re.compile(
-        r"\s*(?:\(([a-f0-9]{7,40})\)|\[(?:commit:\s*|checkpoint:\s*)?([a-f0-9]{7,40})\]|([a-f0-9]{7,40}))\s*$",
+        r"\s*`?(?:\(`?([a-f0-9]{7,40})`?\)|\[(?:commit:\s*|checkpoint:\s*)?`?([a-f0-9]{7,40})`?\])`?\s*$",
+        re.IGNORECASE,
+    )
+    task_sha_bare_re = re.compile(
+        r"\s+`?([a-f0-9]{7,40})`?\s*$",
         re.IGNORECASE,
     )
 
@@ -355,6 +361,11 @@ def parse_track_plan(track_path_or_name: Union[str, Path]) -> Dict[int, PhaseInf
             else:
                 phase_title = raw_title
 
+            if raw_num is None and re.match(r"^review\s+fixes\b", phase_title, re.IGNORECASE) and current_phase is not None:
+                in_review_fixes = True
+                continue
+
+            in_review_fixes = False
             raw_heading = checkpoint_header_re.sub("", line.strip()).strip()
 
             if raw_num:
@@ -374,10 +385,12 @@ def parse_track_plan(track_path_or_name: Union[str, Path]) -> Dict[int, PhaseInf
             continue
 
         if current_phase is not None:
+            target_tasks = current_phase.review_fixes if in_review_fixes else current_phase.tasks
+
             # Subtask check (indented by 2+ spaces or tabs before - [ ])
             subtask_match = re.match(r"^(?:\s{2,}|\t+)-\s*\[([ x~X\-])\]\s*(.*)", line)
-            if subtask_match and current_phase.tasks:
-                current_phase.tasks[-1].subtasks.append(subtask_match.group(2).strip())
+            if subtask_match and target_tasks:
+                target_tasks[-1].subtasks.append(subtask_match.group(2).strip())
                 continue
 
             # Top-level Task item
@@ -407,8 +420,10 @@ def parse_track_plan(track_path_or_name: Union[str, Path]) -> Dict[int, PhaseInf
 
                 commit_sha = None
                 sha_match = task_sha_re.search(task_desc)
+                if not sha_match and status in ("complete", "skipped"):
+                    sha_match = task_sha_bare_re.search(task_desc)
                 if sha_match:
-                    commit_sha = sha_match.group(1) or sha_match.group(2) or sha_match.group(3)
+                    commit_sha = next((g for g in sha_match.groups() if g is not None), None)
                     clean_desc = task_desc[: sha_match.start()].strip()
                 else:
                     clean_desc = task_desc
@@ -421,7 +436,7 @@ def parse_track_plan(track_path_or_name: Union[str, Path]) -> Dict[int, PhaseInf
                 ).strip()
                 clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
 
-                task_num = len(current_phase.tasks) + 1
+                task_num = len(target_tasks) + 1
                 is_cp = is_checkpoint_task(clean_desc)
 
                 task_info = TaskInfo(
@@ -435,13 +450,11 @@ def parse_track_plan(track_path_or_name: Union[str, Path]) -> Dict[int, PhaseInf
                     subtasks=[],
                     raw_line=line.strip(),
                 )
-                current_phase.tasks.append(task_info)
+                target_tasks.append(task_info)
 
     # Compute is_complete for each phase
     for phase in phases.values():
-        phase.is_complete = bool(phase.checkpoint_sha) or (
-            len(phase.tasks) > 0 and all(t.status in ("complete", "skipped") for t in phase.tasks)
-        )
+        phase.is_complete = bool(phase.checkpoint_sha)
 
     return phases
 
@@ -834,6 +847,9 @@ class _StreamJsonTracker:
         return raw_stdout
 
 
+_AGY_TELEMETRY_LINE_RE = re.compile(r"^\[\d{2}:\d{2}:\d{2}\] \[agy(?::stderr)?\] ")
+
+
 class _TurnOutputSink:
     """Thread-safe sink for turn log persistence, stream-json parsing, and live terminal output."""
 
@@ -857,7 +873,10 @@ class _TurnOutputSink:
 
     def emit_terminal(self, text: str) -> None:
         if self._logger is not None:
-            self._logger.write_stdout(text)
+            if _AGY_TELEMETRY_LINE_RE.match(text):
+                self._logger.write_raw(text, to_stdout=True)
+            else:
+                self._logger.write_stdout(text)
             return
         with _STDOUT_LOCK:
             sys.stdout.write(text)
@@ -1197,6 +1216,17 @@ def _is_metadata_path(clean_p: str) -> bool:
     return clean_p.startswith(("conductor/", ".conductor/", ".gemini/", ".claude/", ".agents/"))
 
 
+_EPHEMERAL_SUPERVISOR_RE = re.compile(
+    r"^conductor/(?:tracks|archive)/[^/]+/(?:phase-\d+-task-\d+-plan\.md|phase-\d+-review\.md|logs(?:/.*)?)$"
+)
+
+
+def _is_ephemeral_supervisor_path(filepath: str) -> bool:
+    """Returns True if filepath is a supervisor-owned ephemeral plan, review, or log path."""
+    clean_p = _normalize_repo_path(filepath).strip('"').lstrip("./")
+    return bool(_EPHEMERAL_SUPERVISOR_RE.match(clean_p))
+
+
 def _is_test_file(clean_p: str) -> bool:
     """Returns True if normalized path represents a test directory or test file."""
     dir_parts = set(clean_p.split("/")[:-1])
@@ -1255,7 +1285,7 @@ def check_working_tree_cleanliness(
         file_part = line[3:].strip() if len(line) > 3 and line[2] == " " else line[2:].strip()
         if " -> " in file_part:
             file_part = file_part.split(" -> ")[-1].strip()
-        if file_part:
+        if file_part and not _is_ephemeral_supervisor_path(file_part):
             dirty_files.append(file_part)
 
     return len(dirty_files) == 0, dirty_files
@@ -1267,19 +1297,25 @@ def assert_post_plan_invariants(
     task_num: int,
     cwd: Optional[Path] = None,
 ) -> None:
-    """Verifies plan file was created and porcelain git status contains 0 production changes."""
+    """Verifies plan file was created and no non-target dirty or untracked files exist."""
     plan_path = Path(track_dir) / f"phase-{phase_num}-task-{task_num}-plan.md"
     if not plan_path.exists() or plan_path.stat().st_size == 0:
         raise PlanInvariantError(
             f"Tier 1 plan blueprint missing or empty at {plan_path}"
         )
 
+    target_plan_name = f"phase-{phase_num}-task-{task_num}-plan.md"
     _, dirty_files = check_working_tree_cleanliness(cwd=cwd)
-    violations = [f for f in dirty_files if _is_production_file(f)]
+    violations = [
+        f
+        for f in dirty_files
+        if _normalize_repo_path(f) != target_plan_name
+        and not _normalize_repo_path(f).endswith(f"/{target_plan_name}")
+    ]
 
     if violations:
         raise PlanInvariantError(
-            f"Post-plan invariant violation: modified application code detected ({', '.join(violations)}) during planning turn."
+            f"Post-plan invariant violation: unexpected file changes detected ({', '.join(violations)}) during planning turn."
         )
 
 
@@ -1332,7 +1368,7 @@ _SYNTAX_ERROR_PATTERNS = [
     re.compile(r"\bReferenceError\b", re.IGNORECASE),
     re.compile(r"\bImportError\b", re.IGNORECASE),
     re.compile(r"\bModuleNotFoundError\b", re.IGNORECASE),
-    re.compile(r"^ERROR:\s+", re.MULTILINE),
+    re.compile(r"^ERROR:\s+\S+\s+\(", re.MULTILINE),
     re.compile(r"\bTS\d{4}:", re.IGNORECASE),
 ]
 
@@ -1343,6 +1379,8 @@ _ASSERTION_PATTERNS = [
     re.compile(r"\bAssertionError\b", re.IGNORECASE),
     re.compile(r"^FAIL:\s+", re.MULTILINE),
     re.compile(r"FAILED \(failures=", re.IGNORECASE),
+    re.compile(r"\bFAILED\s*\|\s*\d+\s+passed\s*\|\s*[1-9]\d*\s+failed\b", re.IGNORECASE),
+    re.compile(r"\.\.\.\s+FAILED\s+\(\d+m?s\)", re.IGNORECASE),
     re.compile(r"\bassert\s+", re.IGNORECASE),
 ]
 
@@ -1548,8 +1586,44 @@ def audit_git_commit_and_notes(
                 f"Task commit SHA {commit_sha[:7]} matches baseline {base_sha[:7]}; no new task commit was created."
             )
 
+    rev_res = subprocess.run(
+        ["git", "rev-parse", "--verify", f"{commit_sha}^{{commit}}"],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    if rev_res.returncode != 0:
+        raise SupervisorInvariantError(
+            f"Commit {commit_sha} does not resolve to a valid git commit: {rev_res.stderr.strip()}"
+        )
+    rev_out = rev_res.stdout.strip()
+    resolved_sha = rev_out if re.fullmatch(r"[a-f0-9]{7,40}", rev_out, re.IGNORECASE) else commit_sha
+
+    if base_sha and re.fullmatch(r"[a-f0-9]{7,40}", base_sha, re.IGNORECASE):
+        anc_base_res = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", base_sha, resolved_sha],
+            capture_output=True,
+            text=True,
+            cwd=work_dir,
+        )
+        if anc_base_res.returncode != 0:
+            raise SupervisorInvariantError(
+                f"Task commit SHA {resolved_sha[:7]} is not a descendant of baseline {base_sha[:7]} (possible reused older commit)."
+            )
+
+    anc_head_res = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", resolved_sha, "HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    if anc_head_res.returncode != 0:
+        raise SupervisorInvariantError(
+            f"Task commit SHA {resolved_sha[:7]} is not an ancestor of HEAD."
+        )
+
     log_res = subprocess.run(
-        ["git", "log", "-1", "--format=%B", commit_sha],
+        ["git", "log", "-1", "--format=%B", resolved_sha],
         capture_output=True,
         text=True,
         cwd=work_dir,
@@ -1656,6 +1730,17 @@ def _load_generate_prompt_module(work_dir: Path) -> Optional[Any]:
     return None
 
 
+_STATIC_ANALYSIS_CMD_RE = re.compile(
+    r"^(?:npm\s+run\s+(?:lint|type-check|build)(?:\s|$)|npx\s+(?:eslint|tsc)(?:\s|$)|(?:eslint|tsc)(?:\s|$)|\./scripts/containers/run-build-container\.sh(?:\s|$)|npm\s+run\s+build:container(?:\s|$))",
+    re.IGNORECASE,
+)
+
+
+def _is_static_analysis_cmd(cmd: str) -> bool:
+    """Returns True for lint, type-check, or build commands that should not run as Red test assertions."""
+    return bool(_STATIC_ANALYSIS_CMD_RE.match(cmd.strip()))
+
+
 def _resolve_target_verification_commands(
     track_dir: Path,
     phase_num: int,
@@ -1681,8 +1766,18 @@ def _resolve_target_verification_commands(
         raw_cmds = strategy.get("commands", [])
         for raw_c in raw_cmds:
             filtered = gp.filter_idempotent_verification_cmd(raw_c)
-            if filtered and "type-check" not in filtered:
-                test_cmds.append(filtered)
+            if not filtered or "type-check" in filtered:
+                continue
+            if is_red:
+                kept_segments = [
+                    seg.strip()
+                    for seg in filtered.split("&&")
+                    if seg.strip() and not _is_static_analysis_cmd(seg)
+                ]
+                if not kept_segments:
+                    continue
+                filtered = " && ".join(kept_segments)
+            test_cmds.append(filtered)
 
         plan_file = track_dir / f"phase-{phase_num}-task-{task.task_num}-plan.md"
         if plan_file.exists():
@@ -1733,7 +1828,7 @@ def verify_task_execution(
 
     if _is_red_task(task.description):
         return verify_red_task(
-            test_cmd=test_cmds[0],
+            test_cmd=" && ".join(test_cmds),
             base_sha=base_sha or "HEAD~1",
             cwd=work_dir,
         )
@@ -2076,6 +2171,43 @@ def dispatch_gate1_checkpoint(
 # Gate 2: Brain Snapshotting & Unattended Phase Review
 # ---------------------------------------------------------------------------
 
+def extract_conversation_id_from_log(log_path: Optional[Path]) -> Optional[str]:
+    """Extracts the exact conversation_id from stream-json init/result NDJSON lines in a turn log."""
+    if log_path is None:
+        return None
+    target = Path(log_path)
+    if not target.exists() or not target.is_file():
+        return None
+
+    result_cid: Optional[str] = None
+    try:
+        with open(target, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                stripped = line.strip()
+                if not stripped.startswith("{"):
+                    continue
+                try:
+                    payload = json.loads(stripped)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                event = payload.get("event")
+                if event == "init":
+                    cid = payload.get("conversation_id")
+                    if cid:
+                        return str(cid)
+                elif event == "result":
+                    res = payload.get("result")
+                    if isinstance(res, dict) and res.get("conversation_id"):
+                        result_cid = str(res["conversation_id"])
+                    elif payload.get("conversation_id"):
+                        result_cid = str(payload["conversation_id"])
+    except OSError:
+        return None
+    return result_cid
+
+
 def snapshot_brain_dirs(
     brain_dir: Optional[Path] = None,
 ) -> Set[str]:
@@ -2196,7 +2328,9 @@ def dispatch_gate2_review(
         log_file=log_file,
         **({"stream_config": stream_config} if stream_config is not None else {}),
     )
-    conv_id = capture_conversation_id(before_dirs, brain_dir=brain_dir, min_mtime=start_ts - 2.0)
+    conv_id = extract_conversation_id_from_log(log_file) or capture_conversation_id(
+        before_dirs, brain_dir=brain_dir, min_mtime=start_ts - 2.0
+    )
 
     if ret != 0:
         raise ProcessExecutionError(
@@ -2339,6 +2473,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Force Gate 2 review even on documentation-only phases.",
     )
     parser.add_argument(
+        "--review-only",
+        action="store_true",
+        default=False,
+        help="Skip task execution and Gate 1 checkpoint; run Gate 2 review directly on the target or latest checkpointed phase.",
+    )
+    parser.add_argument(
         "--auto-recover",
         action="store_true",
         default=False,
@@ -2358,6 +2498,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     logger = DualLogger(log_file=None)
     args = parse_args(argv)
     models = resolve_model_config(args)
+
+    if args.review_only and args.no_review:
+        logger.log_error("Cannot combine --review-only with --no-review.")
+        return 1
 
     try:
         timeout_sec = parse_timeout(args.timeout)
@@ -2386,18 +2530,32 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
 
     phases = parse_track_plan(track_dir)
-    active_phase = get_active_phase(phases, target_phase=args.phase)
+    if args.review_only:
+        if args.phase is not None:
+            active_phase = phases.get(args.phase)
+        else:
+            checkpointed = [phases[num] for num in sorted(phases.keys()) if phases[num].checkpoint_sha]
+            active_phase = checkpointed[-1] if checkpointed else get_active_phase(phases)
+    else:
+        active_phase = get_active_phase(phases, target_phase=args.phase)
+
     if not active_phase:
         logger.log_status(f"All phases complete or phase {args.phase} not found in track {track_name}.")
         return 0
 
-    pending_tasks = get_pending_tasks(active_phase)
-    if args.task is not None:
-        pending_tasks = [t for t in pending_tasks if t.task_num == args.task]
-
-    if not pending_tasks:
-        logger.log_status(f"No pending tasks in phase {active_phase.phase_num}.")
-        return 0
+    pending_tasks: List[TaskInfo] = []
+    if not args.review_only:
+        pending_tasks = get_pending_tasks(active_phase)
+        if args.task is not None:
+            pending_tasks = [t for t in pending_tasks if t.task_num == args.task]
+            if not pending_tasks:
+                logger.log_status(f"No pending tasks in phase {active_phase.phase_num}.")
+                return 0
+        else:
+            non_checkpoint_pending = [t for t in pending_tasks if not t.is_checkpoint]
+            if not non_checkpoint_pending and active_phase.checkpoint_sha:
+                logger.log_status(f"No pending tasks in phase {active_phase.phase_num}.")
+                return 0
 
     logger.log_file = None if args.dry_run else (track_dir / "logs" / "conductor-auto.log")
     stream_cfg = TurnStreamConfig(
@@ -2413,109 +2571,127 @@ def main(argv: Optional[List[str]] = None) -> int:
         ),
     )
 
-    for task in pending_tasks:
-        if task.is_checkpoint:
-            logger.log_status(
-                f"Phase {active_phase.phase_num} reached checkpoint task {task.task_num}. Stopping task execution loop."
-            )
-            break
-
-        skip_t1 = should_skip_tier1_plan(
-            task, force_plan=args.force_plan, skip_plan=args.skip_plan
-        )
-
-        if args.dry_run:
-            if skip_t1:
-                logger.log_status(
-                    f"[DRY-RUN] Would skip Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num} (exempt: docs / --skip-plan): {task.description}"
-                )
-            else:
-                logger.log_status(
-                    f"[DRY-RUN] Would dispatch Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num} with model {models['plan']}: {task.description}"
-                )
-            logger.log_status(f"[DRY-RUN] Would dispatch Tier 2 execution with model {models['exec']}")
-            continue
-
+    if not args.dry_run and (PROJECT_ROOT / ".git").exists():
         try:
-            if skip_t1:
+            is_clean, dirty_files = check_working_tree_cleanliness(cwd=PROJECT_ROOT)
+        except ConductorAutoError as err:
+            logger.log_error(f"Pre-flight git cleanliness check failed: {err}")
+            return 1
+        if not is_clean:
+            logger.log_error(
+                f"Pre-flight check failed: working tree contains uncommitted or untracked changes ({', '.join(dirty_files)}). "
+                "Commit, stash, or clean these files before running conductor-auto."
+            )
+            return 1
+
+    if args.review_only:
+        if args.dry_run:
+            logger.log_status(f"[DRY-RUN] Would dispatch Gate 2 review with model {models['review']}")
+            return 0
+    else:
+        for task in pending_tasks:
+            if task.is_checkpoint:
                 logger.log_status(
-                    f"Skipping Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num} (direct execution fast-path)."
+                    f"Phase {active_phase.phase_num} reached checkpoint task {task.task_num}. Stopping task execution loop."
                 )
-            else:
+                break
+
+            skip_t1 = should_skip_tier1_plan(
+                task, force_plan=args.force_plan, skip_plan=args.skip_plan
+            )
+
+            if args.dry_run:
+                if skip_t1:
+                    logger.log_status(
+                        f"[DRY-RUN] Would skip Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num} (exempt: docs / --skip-plan): {task.description}"
+                    )
+                else:
+                    logger.log_status(
+                        f"[DRY-RUN] Would dispatch Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num} with model {models['plan']}: {task.description}"
+                    )
+                logger.log_status(f"[DRY-RUN] Would dispatch Tier 2 execution with model {models['exec']}")
+                continue
+
+            try:
+                if skip_t1:
+                    logger.log_status(
+                        f"Skipping Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num} (direct execution fast-path)."
+                    )
+                else:
+                    logger.log_status(
+                        f"Dispatching Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
+                    )
+                    dispatch_tier1_planning(
+                        track_name=track_name,
+                        phase_num=active_phase.phase_num,
+                        task_num=task.task_num,
+                        plan_model=models["plan"],
+                        force_plan=args.force_plan,
+                        timeout=timeout_sec,
+                        stream_config=stream_cfg,
+                    )
                 logger.log_status(
-                    f"Dispatching Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
+                    f"Dispatching Tier 2 execution for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
                 )
-                dispatch_tier1_planning(
+                dispatch_tier2_execution(
                     track_name=track_name,
                     phase_num=active_phase.phase_num,
                     task_num=task.task_num,
-                    plan_model=models["plan"],
-                    force_plan=args.force_plan,
+                    exec_model=models["exec"],
+                    auto_recover=args.auto_recover,
                     timeout=timeout_sec,
+                    skip_plan=skip_t1,
                     stream_config=stream_cfg,
                 )
-            logger.log_status(
-                f"Dispatching Tier 2 execution for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
+            except ConductorAutoError as err:
+                logger.log_error(f"Conductor Auto Error: {err}")
+                return 1
+            except Exception as err:
+                logger.log_error(f"Unexpected error: {err}")
+                return 1
+
+        if args.task is not None:
+            return 0
+
+        skip_g2 = should_skip_gate2_review(
+            active_phase, no_review=args.no_review, force_review=args.force_review
+        )
+
+        if args.dry_run:
+            logger.log_status(f"[DRY-RUN] Would dispatch Gate 1 checkpoint with model {models['checkpoint']}")
+            if not skip_g2:
+                logger.log_status(f"[DRY-RUN] Would dispatch Gate 2 review with model {models['review']}")
+            else:
+                logger.log_status(
+                    f"[DRY-RUN] Would skip Gate 2 review for {_format_gate2_skip_reason(active_phase.phase_num, args.no_review)}"
+                )
+            return 0
+
+        try:
+            logger.log_banner(
+                f"Gate 1: Phase {active_phase.phase_num} Checkpoint",
+                f"Model: {models['checkpoint']}",
             )
-            dispatch_tier2_execution(
+            cp_sha = dispatch_gate1_checkpoint(
                 track_name=track_name,
                 phase_num=active_phase.phase_num,
-                task_num=task.task_num,
-                exec_model=models["exec"],
-                auto_recover=args.auto_recover,
+                checkpoint_model=models["checkpoint"],
                 timeout=timeout_sec,
-                skip_plan=skip_t1,
                 stream_config=stream_cfg,
             )
+            logger.log_status(f"Gate 1 checkpoint verified (SHA: {cp_sha}).")
         except ConductorAutoError as err:
-            logger.log_error(f"Conductor Auto Error: {err}")
+            logger.log_error(f"Gate 1 Checkpoint Error: {err}")
             return 1
         except Exception as err:
-            logger.log_error(f"Unexpected error: {err}")
+            logger.log_error(f"Unexpected Gate 1 error: {err}")
             return 1
 
-    if args.task is not None:
-        return 0
-
-    skip_g2 = should_skip_gate2_review(
-        active_phase, no_review=args.no_review, force_review=args.force_review
-    )
-
-    if args.dry_run:
-        logger.log_status(f"[DRY-RUN] Would dispatch Gate 1 checkpoint with model {models['checkpoint']}")
-        if not skip_g2:
-            logger.log_status(f"[DRY-RUN] Would dispatch Gate 2 review with model {models['review']}")
-        else:
+        if skip_g2:
             logger.log_status(
-                f"[DRY-RUN] Would skip Gate 2 review for {_format_gate2_skip_reason(active_phase.phase_num, args.no_review)}"
+                f"Skipping Gate 2 review for {_format_gate2_skip_reason(active_phase.phase_num, args.no_review)}. Halting at phase boundary."
             )
-        return 0
-
-    try:
-        logger.log_banner(
-            f"Gate 1: Phase {active_phase.phase_num} Checkpoint",
-            f"Model: {models['checkpoint']}",
-        )
-        cp_sha = dispatch_gate1_checkpoint(
-            track_name=track_name,
-            phase_num=active_phase.phase_num,
-            checkpoint_model=models["checkpoint"],
-            timeout=timeout_sec,
-            stream_config=stream_cfg,
-        )
-        logger.log_status(f"Gate 1 checkpoint verified (SHA: {cp_sha}).")
-    except ConductorAutoError as err:
-        logger.log_error(f"Gate 1 Checkpoint Error: {err}")
-        return 1
-    except Exception as err:
-        logger.log_error(f"Unexpected Gate 1 error: {err}")
-        return 1
-
-    if skip_g2:
-        logger.log_status(
-            f"Skipping Gate 2 review for {_format_gate2_skip_reason(active_phase.phase_num, args.no_review)}. Halting at phase boundary."
-        )
-        return 0
+            return 0
 
     try:
         logger.log_banner(

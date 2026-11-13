@@ -117,6 +117,58 @@ class TestGeneratePromptModule(unittest.TestCase):
             for i in [0, 1, 2, 3, 4, 5, 6, 8]:
                 self.assertNotIn("[exempt:", tasks[i]["description"])
 
+    def test_parse_plan_tasks_attaches_review_fixes_without_colliding_with_phase_2(self):
+        """Verifies ## Phase: Review Fixes attaches to preceding phase['review_fixes'] instead of overwriting Phase 2."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Security Lockdown [checkpoint: abc1234]\n"
+                "- [x] Task: Implement auth (1111111)\n"
+                "- [x] Task: Conductor - User Manual Verification 'Phase 1' [commit: abc1234]\n\n"
+                "## Phase: Review Fixes\n"
+                "- [x] Task: Apply review suggestions f7e9119\n"
+                "    - [x] Tighten constant-time helper\n\n"
+                "## Phase 2: Next Phase\n"
+                "- [ ] Task: Build UI\n",
+                encoding="utf-8",
+            )
+            phases = generate_prompt.parse_plan_tasks(str(tmp_path))
+
+            self.assertEqual(sorted(phases.keys()), [1, 2])
+            self.assertEqual(phases[1]["name"], "Security Lockdown")
+            self.assertEqual(phases[1]["checkpoint_sha"], "abc1234")
+            self.assertEqual(len(phases[1]["tasks"]), 2)
+            self.assertEqual(len(phases[1]["review_fixes"]), 1)
+            self.assertEqual(phases[1]["review_fixes"][0]["commit_sha"], "f7e9119")
+            self.assertEqual(phases[1]["review_fixes"][0]["subtasks"], ["Tighten constant-time helper"])
+            self.assertEqual(phases[2]["name"], "Next Phase")
+            self.assertEqual(len(phases[2]["tasks"]), 1)
+
+    def test_resolve_phase_end_sha_prefers_review_fixes_sha_over_checkpoint_sha(self):
+        """Verifies resolve_phase_end_sha returns latest review_fixes SHA when present after checkpoint_sha."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            phases = {
+                1: {
+                    "checkpoint_sha": "abc1234",
+                    "tasks": [
+                        {"description": "Task 1", "status": "complete", "commit_sha": "1111111"},
+                    ],
+                    "review_fixes": [
+                        {"description": "Apply review suggestions", "status": "complete", "commit_sha": "f7e9119"},
+                    ],
+                },
+                2: {
+                    "checkpoint_sha": None,
+                    "tasks": [
+                        {"description": "Task 2.1", "status": "pending", "commit_sha": None},
+                    ],
+                },
+            }
+            self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 1, cwd=tmp_path), "f7e9119")
+            self.assertEqual(generate_prompt.resolve_phase_baseline_sha(phases, 2, cwd=tmp_path), "f7e9119")
+
+
     def test_checkpoint_variable_task_counts_2_3_4_and_6_tasks(self):
         """Verifies --checkpoint resolves the checkpoint task across 2, 3, 4, and 6-task phases and aggregates sibling plans."""
         with tempfile.TemporaryDirectory() as tmp:
@@ -696,6 +748,99 @@ class TestGeneratePromptModule(unittest.TestCase):
             )
             self.assertIn("git diff --name-only", prompt)
             self.assertNotIn("run-jest-container.sh", prompt)
+
+    def test_build_plan_prompt_avoids_skill_bloat_and_modal_deadlock(self):
+        """Verifies build_plan_prompt omits /conductor:implement and modal halts, instructing headless termination."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Core\n"
+                "- [ ] Task: Build feature\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 1: Core' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+            std_prompt = generate_prompt.build_plan_prompt(
+                track_name=str(tmp_path),
+                phase_num=1,
+                task_num=1,
+                task_desc="Build feature",
+            )
+            cp_prompt = generate_prompt.build_plan_prompt(
+                track_name=str(tmp_path),
+                phase_num=1,
+                task_num=2,
+                task_desc="Conductor - User Manual Verification 'Phase 1: Core' (Protocol in workflow.md)",
+            )
+            for prompt in (std_prompt, cp_prompt):
+                self.assertNotIn("/conductor:implement", prompt)
+                self.assertNotIn("Halt for user approval via modal", prompt)
+                self.assertIn("Headless --print mode", prompt)
+                self.assertIn("ask_question", prompt)
+                self.assertIn("spec.md", prompt)
+                self.assertIn("plan.md", prompt)
+
+    def test_build_recovery_prompt_avoids_conductor_implement_skill(self):
+        """Verifies build_recovery_prompt omits /conductor:implement and instructs headless recovery."""
+        prompt = generate_prompt.build_recovery_prompt("social-notification-auth_20261113", 2, 1)
+        self.assertNotIn("/conductor:implement", prompt)
+        self.assertIn("Phase 2", prompt)
+        self.assertIn("Task 1", prompt)
+
+    def test_build_plan_and_exec_prompts_inject_typescript_style_guardrails_for_ts_targets(self):
+        """Verifies TS style-guide guardrails appear when target files include .ts/.tsx, and are omitted for Python-only tasks."""
+        with tempfile.TemporaryDirectory() as tmp:
+            ts_dir = Path(tmp) / "ts_track"
+            ts_dir.mkdir()
+            (ts_dir / "plan.md").write_text(
+                "## Phase 1: Auth\n"
+                "- [ ] Task: Implement guard in lib/services/auth.ts\n"
+                "    - [ ] Add type guard in lib/services/auth.ts\n",
+                encoding="utf-8",
+            )
+            (ts_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+            plan_prompt = generate_prompt.build_plan_prompt(
+                track_name=str(ts_dir),
+                phase_num=1,
+                task_num=1,
+                task_desc="Implement guard in lib/services/auth.ts",
+            )
+            self.assertIn("conductor/code_styleguides/typescript.md", plan_prompt)
+            self.assertIn("catch {}", plan_prompt)
+            self.assertIn("type assertions", plan_prompt)
+
+            (ts_dir / "phase-1-task-1-plan.md").write_text(
+                "# Plan 1.1\n- **Path:** `components/AuthCard.tsx`\n",
+                encoding="utf-8",
+            )
+            exec_prompt = generate_prompt.build_exec_prompt(
+                track_name=str(ts_dir),
+                phase_num=1,
+                task_num=1,
+                task_desc="Implement guard",
+            )
+            self.assertIn("conductor/code_styleguides/typescript.md", exec_prompt)
+            self.assertIn("catch {}", exec_prompt)
+            self.assertIn("type assertions", exec_prompt)
+
+            py_dir = Path(tmp) / "py_track"
+            py_dir.mkdir()
+            (py_dir / "plan.md").write_text(
+                "## Phase 1: Agent\n"
+                "- [ ] Task: Update scripts/agent/helper.py\n"
+                "    - [ ] Edit scripts/agent/helper.py\n",
+                encoding="utf-8",
+            )
+            (py_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+            py_plan_prompt = generate_prompt.build_plan_prompt(
+                track_name=str(py_dir),
+                phase_num=1,
+                task_num=1,
+                task_desc="Update scripts/agent/helper.py",
+            )
+            self.assertNotIn("conductor/code_styleguides/typescript.md", py_plan_prompt)
 
 
 class TestGeneratePromptCLI(unittest.TestCase):

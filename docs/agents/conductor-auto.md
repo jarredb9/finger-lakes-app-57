@@ -74,12 +74,13 @@ Immediately after Tier 2 completes, `conductor-auto.py` independently audits the
 3. **Git Commit, Notes & Plan Audit (`audit_git_commit_and_notes`):** Verifies a new commit exists beyond baseline `HEAD`, matches Conventional Commit syntax, has `git notes` containing `Task:`, `Summary:`, `Files:`, and `Rationale:`, `plan.md` marks the task `[x]` with `[commit: <7-char-sha>]`, and a `conductor(plan)` commit updated `plan.md`.
 
 ### 2.3 Phase Boundary Gates (Gate 1 & Gate 2)
-When running a full phase (without `--task`), stopping at the checkpoint task triggers two gates and always halts before Phase `N+1`:
+When running a full phase (without `--task`), stopping at the checkpoint task—or re-running a phase where all non-checkpoint tasks are `[x]` and no `[checkpoint: <sha>]` exists yet—triggers two gates and always halts before Phase `N+1`:
 - **Gate 1 (Checkpoint):** Dispatches `generate-prompt.py <track> <phase> --checkpoint --exec --unattended`. Automated test suites act as the authoritative gate (interactive `ask_question` pauses are skipped and manual steps are logged into the checkpoint Git note). Verifies a clean tree, `conductor(checkpoint): Checkpoint end of Phase <N>` commit, attached Git notes, `[checkpoint: <sha>]` in `plan.md`, and `conductor(plan)` commit.
-- **Gate 2 (Review & Remediation Handshake):** Snapshots `~/.gemini/antigravity-cli/brain/` before invoking `/conductor:review <track>` with unattended overrides (auto-confirming Phase `N` scope, accepting Iterative Review Mode if >300 lines, and saving `phase-<N>-review.md` without auto-applying fixes). Captures the newly created conversation ID (falling back to newest `transcript.jsonl` mtime) and evaluates H3 headings against `REVIEW_SEVERITY_PATTERN` (`^###\s+\[?(Critical|High)(?:\]|(?=$|[\s:]))`). If `Critical` or `High` findings exist, prints the exact interactive resume command and exits with code `2`:
+- **Gate 2 (Review & Remediation Handshake):** Snapshots `~/.gemini/antigravity-cli/brain/` before invoking `/conductor:review <track>` with unattended overrides (auto-confirming Phase `N` scope, accepting Iterative Review Mode if >300 lines, and saving `phase-<N>-review.md` without auto-applying fixes). Captures the newly created conversation ID from NDJSON turn logs (falling back to newest `transcript.jsonl` mtime) and evaluates H3 headings against `REVIEW_SEVERITY_PATTERN` (`^###\s+\[?(Critical|High)(?:\]|(?=$|[\s:]))`). If `Critical` or `High` findings exist, prints the exact interactive resume command and exits with code `2`:
   ```bash
   agy --conversation <conv-id> "Apply the review suggestions from phase-<N>-review.md"
   ```
+  Pass `--review-only` (optionally with `--phase <N>`, defaulting to the latest checkpointed phase) to skip task execution and Gate 1 and re-run Gate 2 directly after applying review fixes (cannot be combined with `--no-review`).
 
 ---
 
@@ -98,6 +99,7 @@ python3.11 scripts/agent/conductor-auto.py [track] [flags]
 | `--force-plan` | `false` | Force Tier 1 planning even if `phase-X-task-Y-plan.md` is cached or the task is `[exempt: docs]` (overrides `--skip-plan`). |
 | `--no-review` | `false` | Skip Gate 2 `/conductor:review` at the phase boundary (overrides `--force-review`). |
 | `--force-review` | `false` | Force Gate 2 `/conductor:review` even on documentation-only phases. |
+| `--review-only` | `false` | Skip task execution and Gate 1 checkpoint; run Gate 2 review directly on `--phase` or the latest checkpointed phase (incompatible with `--no-review`). |
 | `--auto-recover` | `false` | Dispatch a single `generate-prompt.py --recovery` turn if Tier 2 leaves dirty uncommitted changes. |
 | `--timeout <duration>` | `15m` | Per-turn subprocess timeout (`15m`, `900s`, `900`, `1h`). |
 | `--heartbeat <duration>` | `30s` | Heartbeat interval during silent `agy` turns (`30s`, `1m`, `0` to disable). |

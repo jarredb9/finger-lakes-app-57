@@ -270,6 +270,82 @@ class TestTrackPlanParser(unittest.TestCase):
             self.assertIn("pending", statuses)
             self.assertEqual(len(pending), 3)
 
+    def test_parse_track_plan_phase_without_checkpoint_is_incomplete_even_when_all_tasks_complete(self):
+        """Asserts a phase with all [x] tasks but no [checkpoint: <sha>] has is_complete=False."""
+        parse_track_plan = get_target("parse_track_plan", self)
+
+        plan_content = """## Phase 1: Implementation
+- [x] Task: Write failing test (1111111)
+- [x] Task: Implement feature (2222222)
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plan_file = Path(tmpdir) / "plan.md"
+            plan_file.write_text(plan_content, encoding="utf-8")
+            phases = parse_track_plan(plan_file)
+
+            self.assertIn(1, phases)
+            self.assertIsNone(phases[1].checkpoint_sha)
+            self.assertFalse(phases[1].is_complete)
+
+    def test_parse_track_plan_attaches_review_fixes_to_preceding_phase(self):
+        """Asserts ## Phase: Review Fixes attaches tasks to preceding phase.review_fixes without overwriting Phase 2."""
+        parse_track_plan = get_target("parse_track_plan", self)
+
+        plan_content = """## Phase 1: Security Lockdown [checkpoint: abc1234]
+- [x] Task: Implement auth (1111111)
+- [x] Task: Conductor - User Manual Verification 'Phase 1' [commit: abc1234]
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions f7e9119
+    - [x] Tighten constant-time helper
+
+## Phase 2: Next Phase
+- [ ] Task: Build UI
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plan_file = Path(tmpdir) / "plan.md"
+            plan_file.write_text(plan_content, encoding="utf-8")
+            phases = parse_track_plan(plan_file)
+
+            self.assertEqual(sorted(phases.keys()), [1, 2])
+            self.assertEqual(phases[1].name, "Security Lockdown")
+            self.assertEqual(phases[1].checkpoint_sha, "abc1234")
+            self.assertEqual(len(phases[1].tasks), 2)
+            self.assertEqual(len(phases[1].review_fixes), 1)
+            self.assertEqual(phases[1].review_fixes[0].commit_sha, "f7e9119")
+            self.assertEqual(phases[1].review_fixes[0].subtasks, ["Tighten constant-time helper"])
+            self.assertEqual(phases[2].name, "Next Phase")
+            self.assertEqual(len(phases[2].tasks), 1)
+
+    def test_parse_track_plan_backticked_shas_and_preserves_pending_hex_words(self):
+        """Asserts backticked SHAs are parsed on completed tasks while trailing hex words on pending/in_progress tasks are preserved."""
+        parse_track_plan = get_target("parse_track_plan", self)
+
+        plan_content = """## Phase 1: Security `[checkpoint: 7293ad8b]`
+- [x] Task: Write test (`3d421e9`)
+- [x] Task: Implement feature `[commit: 80cc4ec]`
+- [ ] Task: Handle error deadbeef
+- [~] Task: Debug cafe123
+"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            plan_file = Path(tmpdir) / "plan.md"
+            plan_file.write_text(plan_content, encoding="utf-8")
+            phases = parse_track_plan(plan_file)
+
+            p1 = phases[1]
+            self.assertEqual(p1.checkpoint_sha, "7293ad8b")
+            self.assertEqual(p1.name, "Security")
+            self.assertEqual(p1.tasks[0].commit_sha, "3d421e9")
+            self.assertEqual(p1.tasks[0].description, "Write test")
+            self.assertEqual(p1.tasks[1].commit_sha, "80cc4ec")
+            self.assertEqual(p1.tasks[1].description, "Implement feature")
+            self.assertIsNone(p1.tasks[2].commit_sha)
+            self.assertEqual(p1.tasks[2].description, "Handle error deadbeef")
+            self.assertIsNone(p1.tasks[3].commit_sha)
+            self.assertEqual(p1.tasks[3].description, "Debug cafe123")
+
+
+
 
 class TestPlanningPromptGeneration(unittest.TestCase):
     """Test suite for Tier 1 planning prompt construction via generate-prompt.py."""
@@ -544,6 +620,34 @@ class TestPostPlanInvariants(unittest.TestCase):
 
             self.assertIn("tripService.ts", str(ctx.exception))
 
+    @patch("subprocess.run")
+    def test_assert_post_plan_invariants_rejects_non_target_metadata_or_doc_mutations(self, mock_run):
+        """Asserts PlanInvariantError is raised for non-target metadata or doc changes while allowing target plan."""
+        assert_post_plan_invariants = get_target("assert_post_plan_invariants", self)
+        PlanInvariantError = get_target("PlanInvariantError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            track_dir = Path(tmpdir)
+            plan_file = track_dir / "phase-3-task-1-plan.md"
+            plan_file.write_text("# Implementation Plan\n", encoding="utf-8")
+
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=["git", "status", "--porcelain"],
+                returncode=0,
+                stdout=(
+                    " M conductor/tracks.md\n"
+                    "?? docs/foo.md\n"
+                    "?? conductor/tracks/test/phase-3-task-1-plan.md\n"
+                ),
+                stderr="",
+            )
+
+            with self.assertRaises(PlanInvariantError) as ctx:
+                assert_post_plan_invariants(track_dir, phase_num=3, task_num=1)
+
+            self.assertIn("conductor/tracks.md", str(ctx.exception))
+            self.assertIn("docs/foo.md", str(ctx.exception))
+
 
 class TestTier1PlanningDispatch(unittest.TestCase):
     """Test suite for Tier 1 planning turn orchestration."""
@@ -691,6 +795,79 @@ class TestWorkingTreeAndAutoRecover(unittest.TestCase):
         self.assertFalse(is_clean)
         self.assertEqual(dirty_files, ["scripts/agent/conductor-auto.py", "untracked.txt"])
 
+    @patch("subprocess.run")
+    def test_check_working_tree_cleanliness_ignores_ephemeral_supervisor_paths(self, mock_run):
+        """Asserts check_working_tree_cleanliness ignores ephemeral plans, reviews, and logs even when untracked."""
+        check_working_tree_cleanliness = get_target("check_working_tree_cleanliness", self)
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "status", "--porcelain"],
+            returncode=0,
+            stdout=(
+                "?? conductor/tracks/my-track/phase-1-task-1-plan.md\n"
+                "?? conductor/tracks/my-track/phase-1-review.md\n"
+                "?? conductor/tracks/my-track/logs/\n"
+                "?? conductor/tracks/my-track/logs/conductor-auto.log\n"
+            ),
+            stderr="",
+        )
+        is_clean, dirty_files = check_working_tree_cleanliness()
+        self.assertTrue(is_clean)
+        self.assertEqual(dirty_files, [])
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "status", "--porcelain"],
+            returncode=0,
+            stdout=(
+                "?? conductor/tracks/my-track/phase-1-review.md\n"
+                " M conductor/tracks/my-track/plan.md\n"
+                " M conductor/tracks.md\n"
+            ),
+            stderr="",
+        )
+        is_clean, dirty_files = check_working_tree_cleanliness()
+        self.assertFalse(is_clean)
+        self.assertEqual(
+            dirty_files,
+            ["conductor/tracks/my-track/plan.md", "conductor/tracks.md"],
+        )
+
+    def test_main_preflight_cleanliness_fails_fast_when_git_dirty_unless_dry_run(self):
+        """Asserts main() exits 1 before Tier 1 planning when .git exists and tree is dirty, unless --dry-run is set."""
+        main = get_target("main", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            (root / ".git").mkdir()
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Setup\n"
+                "- [ ] Task: Implement feature\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(
+                    conductor_auto,
+                    "check_working_tree_cleanliness",
+                    return_value=(False, ["lib/dirty.ts"]),
+                ) as mock_clean:
+                    with patch.object(conductor_auto, "dispatch_tier1_planning") as mock_t1:
+                        err_buf = io.StringIO()
+                        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err_buf):
+                            rc = main(["test-track"])
+
+                        self.assertEqual(rc, 1)
+                        mock_clean.assert_called_once_with(cwd=root)
+                        mock_t1.assert_not_called()
+                        self.assertIn("lib/dirty.ts", err_buf.getvalue())
+
+                        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                            rc_dry = main(["test-track", "--dry-run"])
+                        self.assertEqual(rc_dry, 0)
+
     def test_dispatch_recovery_turn_invokes_generate_prompt_recovery(self):
         """Asserts dispatch_recovery_turn generates recovery prompt and dispatches agy turn."""
         dispatch_recovery_turn = get_target("dispatch_recovery_turn", self)
@@ -813,6 +990,26 @@ class TestSupervisorRedTaskVerification(unittest.TestCase):
         is_valid, reason = parse_test_failure_markers(output)
         self.assertFalse(is_valid)
         self.assertTrue("ERROR" in reason or "ImportError" in reason)
+
+    def test_parse_test_failure_markers_accepts_deno_failure_and_ignores_console_error_prefix(self):
+        """Asserts Deno test failure summaries are accepted and console.error('ERROR: ...') does not override assertion failures."""
+        parse_test_failure_markers = get_target("parse_test_failure_markers", self)
+
+        deno_with_log = (
+            "ERROR: Missing webhook secret in test environment\n"
+            "rejects unauthorized requests ... FAILED (8ms)\n"
+            "FAILED | 0 passed | 3 failed (42ms)\n"
+        )
+        is_valid, reason = parse_test_failure_markers(deno_with_log)
+        self.assertTrue(is_valid, f"Expected Deno assertion failure to be accepted, got: {reason}")
+        self.assertTrue(len(reason) > 0)
+
+        # Python unittest ERROR: <test_name> (<TestCase>) must still be rejected
+        py_err = "ERROR: test_broken (tests.test_mod.TestSuite)\nKeyError: 'id'"
+        py_valid, py_reason = parse_test_failure_markers(py_err)
+        self.assertFalse(py_valid)
+        self.assertIn("ERROR:", py_reason)
+
 
     @patch("subprocess.run")
     def test_verify_red_task_passes_on_assertion_failure_and_zero_production_diff(self, mock_run):
@@ -1241,6 +1438,29 @@ class TestGitCommitAndNotesAudit(unittest.TestCase):
                 audit_git_commit_and_notes(task, "1122334", plan_path)
             self.assertIn("not marked [x]", str(ctx.exception))
 
+    @patch("subprocess.run")
+    def test_audit_rejects_reused_older_commit_via_merge_base_is_ancestor(self, mock_run):
+        """Asserts audit_git_commit_and_notes rejects a commit SHA that is not a descendant of base_sha via git merge-base --is-ancestor."""
+        audit_git_commit_and_notes = get_target("audit_git_commit_and_notes", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        task = TaskInfo(task_num=1, description="Test task", status="complete", status_char="x", is_checkpoint=False)
+
+        def run_side_effect(cmd, *args, **kwargs):
+            if cmd[:3] == ["git", "rev-parse", "--verify"]:
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="0001111222333444555666777888999aaabbbccc\n", stderr="")
+            if cmd[:3] == ["git", "merge-base", "--is-ancestor"] and cmd[3] == "abc1234":
+                # Reused older commit: base_sha is NOT an ancestor of commit_sha
+                return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="")
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        with self.assertRaises(SupervisorInvariantError) as ctx:
+            audit_git_commit_and_notes(task, "0001111", Path("dummy.md"), base_sha="abc1234")
+        self.assertIn("descendant", str(ctx.exception).lower())
+
+
 
 class TestSupervisorTaskVerificationRouter(unittest.TestCase):
     """Test suite for verify_task_execution command resolution, Red/Green routing, and edge cases."""
@@ -1352,6 +1572,55 @@ class TestSupervisorTaskVerificationRouter(unittest.TestCase):
                 self.assertTrue(verify_task_execution("ts-track", phase_num=1, task_num=2, base_sha="abc1234", cwd=root))
                 mock_green.assert_called_once()
                 self.assertEqual(mock_green.call_args.kwargs["type_check_cmd"], "npm run type-check")
+
+    def test_resolve_target_verification_commands_excludes_static_analysis_for_red_tasks(self):
+        """Asserts _resolve_target_verification_commands strips lint/type-check/build from Red commands and preserves all test runner commands."""
+        _resolve_target_verification_commands = get_target("_resolve_target_verification_commands", self)
+        verify_task_execution = get_target("verify_task_execution", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "deno-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Security\n"
+                "- [ ] Task: Write failing Deno security tests (TDD Red phase)\n",
+                encoding="utf-8",
+            )
+            (track_dir / "phase-1-task-1-plan.md").write_text(
+                "- **Path:** `supabase/functions/tests/security.test.ts`\n\n"
+                "## Execution Verification Protocol\n"
+                "```bash\n"
+                "npm run lint\n"
+                "npm run type-check\n"
+                "npm run test:functions\n"
+                "python3.12 -m pytest scripts/__tests__/test_extra.py\n"
+                "```\n",
+                encoding="utf-8",
+            )
+
+            task = TaskInfo(
+                task_num=1,
+                description="Write failing Deno security tests (TDD Red phase)",
+                status="pending",
+                status_char=" ",
+                is_checkpoint=False,
+            )
+            cmds, is_py = _resolve_target_verification_commands(track_dir, 1, task, root)
+            self.assertFalse(is_py)
+            self.assertEqual(
+                cmds,
+                ["npm run test:functions", "python3.12 -m pytest scripts/__tests__/test_extra.py"],
+            )
+
+            with patch.object(conductor_auto, "verify_red_task", return_value=True) as mock_red:
+                self.assertTrue(verify_task_execution("deno-track", phase_num=1, task_num=1, base_sha="abc1234", cwd=root))
+                self.assertEqual(
+                    mock_red.call_args.kwargs["test_cmd"],
+                    "npm run test:functions && python3.12 -m pytest scripts/__tests__/test_extra.py",
+                )
+
 
 
 class TestTier2ExecutionCoordination(unittest.TestCase):
@@ -1931,6 +2200,68 @@ class TestGate2ReviewAndBrainSnapshot(unittest.TestCase):
                 self.assertFalse(result.has_critical_or_high)
                 self.assertIn("Clean pass", report_path.read_text(encoding="utf-8"))
 
+    def test_extract_conversation_id_from_log_parses_init_and_result(self):
+        """Asserts extract_conversation_id_from_log parses conversation_id from NDJSON init or result lines."""
+        extract_conversation_id_from_log = get_target("extract_conversation_id_from_log", self)
+
+        self.assertIsNone(extract_conversation_id_from_log(None))
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            self.assertIsNone(extract_conversation_id_from_log(root / "missing.log"))
+
+            plain_log = root / "plain.log"
+            plain_log.write_text("=== AGY TURN ===\nPlain stdout\n", encoding="utf-8")
+            self.assertIsNone(extract_conversation_id_from_log(plain_log))
+
+            init_log = root / "init.log"
+            init_log.write_text(
+                '=== AGY TURN [auto] [gemini-4-hydrogen-high] ===\n'
+                'STDOUT:\n'
+                '{"event":"init","conversation_id":"conv-init-123","init":{"model":"gemini-4-hydrogen-high"}}\n'
+                '{"event":"result","result":{"conversation_id":"conv-res-999","status":"SUCCESS"}}\n',
+                encoding="utf-8",
+            )
+            self.assertEqual(extract_conversation_id_from_log(init_log), "conv-init-123")
+
+            result_only_log = root / "result_only.log"
+            result_only_log.write_text(
+                'STDOUT:\n'
+                '{"event":"result","result":{"conversation_id":"conv-res-456","status":"SUCCESS"}}\n',
+                encoding="utf-8",
+            )
+            self.assertEqual(extract_conversation_id_from_log(result_only_log), "conv-res-456")
+
+    def test_dispatch_gate2_review_prefers_ndjson_conversation_id_over_brain_dir(self):
+        """Asserts dispatch_gate2_review prefers exact NDJSON conversation_id from turn log over newer brain dirs."""
+        dispatch_gate2_review = get_target("dispatch_gate2_review", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            (track_dir / "logs").mkdir(parents=True)
+            brain_dir = root / "brain"
+            brain_dir.mkdir()
+
+            def agy_side_effect(**kwargs):
+                # Simulate a concurrent session / subagent creating a newer brain directory
+                (brain_dir / "uuid-concurrent-subagent").mkdir()
+                log_file = Path(kwargs["log_file"])
+                log_file.write_text(
+                    '{"event":"init","conversation_id":"conv-exact-log-id","init":{"model":"gemini-4-hydrogen-high"}}\n',
+                    encoding="utf-8",
+                )
+                (track_dir / "phase-5-review.md").write_text("# Review\n\n### Medium: OK\n", encoding="utf-8")
+                return (0, "OK", "")
+
+            with patch.object(conductor_auto, "run_agy_turn", side_effect=agy_side_effect):
+                result = dispatch_gate2_review(
+                    "test-track",
+                    phase_num=5,
+                    cwd=root,
+                    brain_dir=brain_dir,
+                )
+                self.assertEqual(result.conversation_id, "conv-exact-log-id")
+
 
 class TestReviewSeverityAndExitCodes(unittest.TestCase):
     """Test suite for strict review severity regex parsing and main() phase-boundary exit codes."""
@@ -2150,6 +2481,118 @@ class TestReviewSeverityAndExitCodes(unittest.TestCase):
                                 with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
                                     rc = main(["test-track"])
                                 self.assertEqual(rc, 1)
+
+
+class TestPhaseCompletionAndReviewOnly(unittest.TestCase):
+    """Test suite for phase gate advancement without checkpoint SHA and --review-only CLI mode."""
+
+    def test_main_advances_to_gate1_and_gate2_when_all_tasks_complete_without_checkpoint_sha(self):
+        """Asserts main advances to Gate 1 -> Gate 2 when all non-checkpoint tasks are [x] and checkpoint_sha is None."""
+        main = get_target("main", self)
+        ReviewResult = get_target("ReviewResult", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Implementation\n"
+                "- [x] Task: Write failing test (1111111)\n"
+                "- [x] Task: Implement feature (2222222)\n",
+                encoding="utf-8",
+            )
+
+            clean_result = ReviewResult(
+                report_path=track_dir / "phase-1-review.md",
+                conversation_id="conv-101",
+                has_critical_or_high=False,
+                findings=[],
+                exit_code=0,
+            )
+
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(conductor_auto, "dispatch_tier1_planning") as mock_t1:
+                    with patch.object(conductor_auto, "dispatch_tier2_execution") as mock_t2:
+                        with patch.object(
+                            conductor_auto, "dispatch_gate1_checkpoint", return_value="cp12345"
+                        ) as mock_g1:
+                            with patch.object(
+                                conductor_auto, "dispatch_gate2_review", return_value=clean_result
+                            ) as mock_g2:
+                                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track"])
+
+            self.assertEqual(rc, 0)
+            mock_t1.assert_not_called()
+            mock_t2.assert_not_called()
+            mock_g1.assert_called_once()
+            mock_g2.assert_called_once()
+
+    def test_main_review_only_runs_gate2_on_checkpointed_phase_and_supports_dry_run_and_rejects_no_review(self):
+        """Asserts --review-only skips task loop and Gate 1, defaults to latest checkpointed phase, supports --dry-run, and rejects --no-review."""
+        main = get_target("main", self)
+        ReviewResult = get_target("ReviewResult", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Security [checkpoint: abc1234]\n"
+                "- [x] Task: Auth (1111111)\n"
+                "- [x] Task: Conductor - User Manual Verification 'Phase 1' [commit: abc1234]\n\n"
+                "## Phase: Review Fixes\n"
+                "- [x] Task: Apply review suggestions f7e9119\n\n"
+                "## Phase 2: Next\n"
+                "- [ ] Task: Pending work\n",
+                encoding="utf-8",
+            )
+
+            clean_result = ReviewResult(
+                report_path=track_dir / "phase-1-review.md",
+                conversation_id="conv-201",
+                has_critical_or_high=False,
+                findings=[],
+                exit_code=0,
+            )
+
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                # 1. Conflicting --review-only + --no-review returns 1
+                err_buf = io.StringIO()
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err_buf):
+                    rc_conflict = main(["test-track", "--review-only", "--no-review"])
+                self.assertEqual(rc_conflict, 1)
+                self.assertIn("--review-only", err_buf.getvalue())
+
+                # 2. --review-only without --phase defaults to latest checkpointed phase (Phase 1)
+                with patch.object(conductor_auto, "dispatch_tier1_planning") as mock_t1:
+                    with patch.object(conductor_auto, "dispatch_tier2_execution") as mock_t2:
+                        with patch.object(conductor_auto, "dispatch_gate1_checkpoint") as mock_g1:
+                            with patch.object(
+                                conductor_auto, "dispatch_gate2_review", return_value=clean_result
+                            ) as mock_g2:
+                                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track", "--review-only"])
+
+                self.assertEqual(rc, 0)
+                mock_t1.assert_not_called()
+                mock_t2.assert_not_called()
+                mock_g1.assert_not_called()
+                mock_g2.assert_called_once()
+                self.assertEqual(mock_g2.call_args.kwargs.get("phase_num"), 1)
+
+                # 3. --phase 1 --review-only --dry-run
+                stdout_buf = io.StringIO()
+                with patch.object(conductor_auto, "dispatch_gate1_checkpoint") as mock_g1_dry:
+                    with patch.object(conductor_auto, "dispatch_gate2_review") as mock_g2_dry:
+                        with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(io.StringIO()):
+                            rc_dry = main(["test-track", "--phase", "1", "--review-only", "--dry-run"])
+
+                self.assertEqual(rc_dry, 0)
+                mock_g1_dry.assert_not_called()
+                mock_g2_dry.assert_not_called()
+                self.assertIn("[DRY-RUN] Would dispatch Gate 2 review", stdout_buf.getvalue())
+                self.assertNotIn("Gate 1", stdout_buf.getvalue())
 
 
 class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
@@ -2743,6 +3186,37 @@ class TestStreamJsonAndHeartbeatLogging(unittest.TestCase):
                 err_buf.getvalue(),
                 rf"^\[conductor-auto\] \[\d{{2}}:\d{{2}}:\d{{2}}\] ERROR: .*{re.escape(expected_fragment)}",
             )
+
+    def test_turn_output_sink_persists_init_and_result_telemetry_to_conductor_auto_log(self):
+        """Asserts _TurnOutputSink persists [agy] Session initialized and Turn finished lines to DualLogger's conductor-auto.log."""
+        _TurnOutputSink = get_target("_TurnOutputSink", self)
+        _StreamJsonTracker = get_target("_StreamJsonTracker", self)
+        DualLogger = get_target("DualLogger", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            logs_dir = Path(tmpdir) / "logs"
+            logs_dir.mkdir()
+            runner_log = logs_dir / "conductor-auto.log"
+            turn_log = logs_dir / "phase-1-task-1-plan.log"
+            stdout_buf = io.StringIO()
+            logger = DualLogger(log_file=runner_log, stdout_stream=stdout_buf)
+            tracker = _StreamJsonTracker()
+            chunks = []
+
+            with open(turn_log, "w", encoding="utf-8") as turn_handle:
+                sink = _TurnOutputSink(log_handle=turn_handle, logger=logger, tracker=tracker)
+                sink.emit_stdout_line(
+                    '{"event":"init","conversation_id":"conv-telemetry-1","init":{"model":"gemini-4-hydrogen-high"}}\n',
+                    chunks,
+                )
+                sink.emit_stdout_line(
+                    '{"event":"result","result":{"conversation_id":"conv-telemetry-1","status":"SUCCESS","response":"Done.","duration_seconds":1.5,"num_turns":1,"usage":{"total_tokens":250}}}\n',
+                    chunks,
+                )
+
+            runner_text = runner_log.read_text(encoding="utf-8")
+            self.assertIn("[agy] Session initialized (conversation: conv-telemetry-1, model: gemini-4-hydrogen-high)", runner_text)
+            self.assertIn("[agy] Turn finished (SUCCESS, 1.5s, turns=1, tokens=250)", runner_text)
 
 
 class TestDocsFastPathAndSkipFlags(unittest.TestCase):
