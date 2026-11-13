@@ -83,12 +83,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging' (Protocol in workflow.md) [commit: 9c537b06]
 
 ## Phase 6: Documentation & End-to-End Dry-Run Validation
-- [ ] Task: Author `docs/agents/conductor-auto.md` and update `conductor/workflow.md` with unattended execution guide [exempt: docs]
-    - [ ] Create `docs/agents/conductor-auto.md` detailing architecture, execution flow, CLI flags, exit codes, composable `gemini-4-hydrogen` model matrix (`--model-family`, `CONDUCTOR_*` env vars), and Pro quota pool separation (`Hydrogen` Pool A vs `Argon`/`Orchestrator` Pool B)
-    - [ ] Update `conductor/workflow.md` to reference unattended multi-task runner workflow alongside manual prompt generation
-- [ ] Task: Validate `--dry-run` and end-to-end simulation across active and archived tracks [exempt: scripts]
-    - [ ] Test `--dry-run` flag across sample tracks and phases to verify prompt sequences, model assignments, and validation steps
-    - [ ] Run full test suite with `python3.11 -m unittest discover -s scripts/__tests__` to ensure zero regressions
+- [ ] Task: Author `docs/agents/conductor-auto.md` and update `conductor/workflow.md` with unattended execution guide and phase structuring rules [exempt: docs]
+    - [ ] Create `docs/agents/conductor-auto.md` detailing architecture, execution flow, CLI flags (`--skip-plan`, `--force-review`, `--force-plan`, `--no-review`, `--auto-recover`, `--timeout`), exit codes, composable `gemini-4-hydrogen` model matrix (`--model-family`, `CONDUCTOR_*` env vars), Pro quota pool separation (`Hydrogen` Pool A vs `Argon`/`Orchestrator` Pool B), and `[exempt: docs]` Tier 1 / Gate 2 fast-path
+    - [ ] Update `conductor/workflow.md` to reference the unattended multi-task runner workflow alongside manual prompt generation and codify "Phase & Task Structuring Rules" (no standalone "run test suite" tasks duplicating Gate 1; right-sizing `[exempt: docs]` placement at the end of the feature phase vs dedicated final docs phase; documenting the `[exempt: docs]` Tier 1 / Gate 2 fast-path)
+    - [ ] Verify `--dry-run` output via `python3.11 scripts/agent/conductor-auto.py --dry-run` and full unit test suite via `python3.11 -m unittest discover -s scripts/__tests__`
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Documentation & End-to-End Dry-Run Validation' (Protocol in workflow.md)
 
 ## Phase: Review Fixes

@@ -43,6 +43,7 @@ This track authors an automated, unattended Conductor track runner (`scripts/age
 ### 2.2 Two-Tier Task Execution Loop (Plan -> Exec)
 For each incomplete task `[ ]` in the active phase:
 1. **Tier 1: Planning Turn**:
+   - **Documentation & Direct-Execution Fast-Path (`should_skip_tier1_plan`)**: If a task is annotated `[exempt: docs]` (or if `--skip-plan` is passed) and `--force-plan` is not set, the runner skips Tier 1 planning entirely and proceeds directly to Tier 2 (Execution).
    - **Idempotent Plan Check**: If `conductor/tracks/<track>/phase-X-task-Y-plan.md` already exists and is non-empty, the runner skips Tier 1 and proceeds directly to Tier 2 (Execution), unless `--force-plan` is specified.
    - Generates plan prompt via `scripts/agent/generate-prompt.py <track> <phase> <task> --plan`.
    - Dispatches to `agy --mode plan --model <plan-model> --dangerously-skip-permissions --print "$PROMPT"`.
@@ -51,7 +52,7 @@ For each incomplete task `[ ]` in the active phase:
      - Asserts that `git status --porcelain` contains NO modified application/production files (planning must only generate the markdown blueprint).
      - **Fail-Fast**: If invariant is violated, halts immediately without launching execution.
 2. **Tier 2: Execution Turn**:
-   - Generates execution prompt via `scripts/agent/generate-prompt.py <track> <phase> <task> --exec`.
+   - Generates execution prompt via `scripts/agent/generate-prompt.py <track> <phase> <task> --exec` (appending `--skip-plan` when Tier 1 was bypassed). When `phase-X-task-Y-plan.md` is absent on disk for an `[exempt: docs]` or `--skip-plan` task, `generate-prompt.py` references `plan.md` and `spec.md` as authoritative and inlines the task description and `subtasks` directly into `1. Scope & Blueprint:`.
    - Dispatches to `agy --mode auto --model <exec-model> --dangerously-skip-permissions --print "$PROMPT"`.
    - Agent is instructed to implement changes, verify with tests, commit code with conventional commit message, attach Git notes (`Task`, `Summary`, `Files`, `Rationale`), mark task `[x]` with 7-character commit SHA in `plan.md`, and commit `plan.md`.
 
@@ -85,7 +86,8 @@ When all tasks in the active phase are complete:
    - Agent runs phase automated test suite, generates the domain-aware manual verification checklist into the Git note, creates empty checkpoint commit `conductor(checkpoint): Checkpoint end of Phase X`, updates `plan.md` with `[checkpoint: <sha>]`, and commits `plan.md`.
    - Runner verifies clean working tree, checkpoint commit, and Git notes.
 2. **Gate 2: Unattended Phase Review**:
-   - Unless `--no-review` is flagged, runner dispatches `/conductor:review` with the resolved `review` model (`DEFAULT_REVIEW_MODEL`: `gemini-4-hydrogen-high`).
+   - **Documentation-Only Phase Fast-Path (`is_docs_only_phase` / `should_skip_gate2_review`)**: When all non-checkpoint, non-skipped tasks in the phase are `[exempt: docs]`, Gate 2 review is automatically skipped unless `--force-review` is specified.
+   - Unless `--no-review` is flagged (or auto-skipped for a documentation-only phase), runner dispatches `/conductor:review` with the resolved `review` model (`DEFAULT_REVIEW_MODEL`: `gemini-4-hydrogen-high`).
    - Prompt override automatically confirms track scope and accepts iterative review mode (>300 lines).
    - **Conversation ID Capture**: Snapshots conversation directories in `~/.gemini/antigravity-cli/brain/` before invocation and captures the newly created directory created during the turn (with newest `transcript.jsonl` fallback).
    - Saves review report to `conductor/tracks/<track>/phase-X-review.md`.
@@ -103,9 +105,10 @@ When all tasks in the active phase are complete:
    - Runner always halts at the phase boundary before advancing to Phase N+1.
 
 ### 2.5 Tooling Extensions (`scripts/agent/generate-prompt.py`)
-1. **`[exempt: <category>]` Parsing**:
+1. **`[exempt: <category>]` Parsing & Direct-Execution Blueprint Inlining**:
    - Update `parse_plan_tasks` to extract `[exempt: <category>]` tag.
    - Update `infer_verification_strategy` to assign appropriate non-TDD verification commands (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit types (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`).
+   - Update `build_exec_prompt` (and add `--skip-plan` CLI flag) so that when `phase-X-task-Y-plan.md` does not exist on disk for `[exempt: docs]` or `--skip-plan` tasks, the prompt references `plan.md` and `spec.md` directly and inlines the task description and `subtasks` under `1. Scope & Blueprint:`. Include an `--allow-empty` commit fallback instruction for verification-only exempt tasks.
 2. **`--unattended` Checkpoint Flag**:
    - Update `build_checkpoint_prompt` with an `--unattended` mode that skips interactive `ask_question` pauses, makes automated test suites authoritative, and logs deferred manual verification steps into the checkpoint Git note.
 3. **Test Suite Modernization**:
@@ -120,8 +123,10 @@ python3 scripts/agent/conductor-auto.py [track] [flags]
 - **Flags**:
   - `--phase <N>`: Target a specific phase number (defaults to active incomplete phase).
   - `--task <N>`: Run only a single task (Tier 1 Plan + Tier 2 Exec) instead of the entire phase.
-  - `--force-plan`: Force re-planning in Tier 1 even if a plan file already exists.
+  - `--force-plan`: Force re-planning in Tier 1 even if a plan file already exists or task is `[exempt: docs]`.
+  - `--skip-plan`: Skip Tier 1 planning turn and execute directly from `plan.md` task description and subtasks.
   - `--no-review`: Skip the Phase Review turn at the end of the phase.
+  - `--force-review`: Force Gate 2 review even on documentation-only phases.
   - `--auto-recover`: Attempt a single recovery turn via `generate-prompt.py --recovery` if an execution step leaves dirty uncommitted files.
   - `--timeout <duration>`: Turn timeout (default: `15m`).
   - `--model-family <family>`: Base model family used to compose role defaults via `ROLE_EFFORT_MAP` (overrides `CONDUCTOR_MODEL_FAMILY`; default: `gemini-4-hydrogen`).

@@ -686,14 +686,21 @@ def collect_phase_checkpoint_context(
             commands.append("npm run type-check")
 
         if not commands:
-            domain_guess = classify_phase_domain(changed_files, non_checkpoint_tasks)
-            if domain_guess == "database":
-                commands = ["npm run db:check-types:local"]
+            all_docs_exempt = bool(non_checkpoint_tasks) and all(
+                (t.get("exempt") or "").lower().strip() == "docs"
+                for t in non_checkpoint_tasks
+            )
+            if all_docs_exempt:
+                commands = ["git diff --name-only"]
             else:
-                commands = [
-                    "./scripts/containers/run-jest-container.sh",
-                    "npm run type-check",
-                ]
+                domain_guess = classify_phase_domain(changed_files, non_checkpoint_tasks)
+                if domain_guess == "database":
+                    commands = ["npm run db:check-types:local"]
+                else:
+                    commands = [
+                        "./scripts/containers/run-jest-container.sh",
+                        "npm run type-check",
+                    ]
 
     # Ensure type-check sits after test runners when automatically appended
     domain = classify_phase_domain(changed_files, non_checkpoint_tasks)
@@ -872,7 +879,7 @@ def infer_verification_strategy(
             commit_prefix = "chore("
             instruction = f"- Verify exempt task ({resolved_exempt})."
 
-        commit_msg = f"{commit_prefix}{scope}): {clean_task_desc}"
+        commit_msg = f"{commit_prefix}{scope}): {clean_task_desc}".replace("`", "")
 
         return {
             "commands": commands,
@@ -1103,7 +1110,7 @@ def infer_verification_strategy(
     return {
         "commands": commands,
         "instruction": instruction,
-        "commit_msg": commit_msg,
+        "commit_msg": commit_msg.replace("`", ""),
         "mode": resolved_mode,
         "is_red": is_red,
         "is_checkpoint": is_checkpoint,
@@ -1334,6 +1341,7 @@ def build_exec_prompt(
     mode: Optional[str] = None,
     exempt: Optional[str] = None,
     unattended: bool = False,
+    skip_plan: bool = False,
 ) -> str:
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
@@ -1343,6 +1351,25 @@ def build_exec_prompt(
 
     if strategy["mode"] == "checkpoint":
         return build_checkpoint_prompt(track_name, phase_num, task_num, task_desc, strategy, unattended=unattended)
+
+    has_plan_file = bool(plan_path and plan_path.exists() and plan_path.stat().st_size > 0)
+    is_docs_exempt = strategy["mode"] == "exempt" and strategy.get("exempt") == "docs"
+    use_inline_blueprint = (not has_plan_file) and (is_docs_exempt or skip_plan)
+
+    resolved_task_desc = task_desc
+    resolved_subtasks = list(subtasks) if subtasks else []
+    if use_inline_blueprint and (not resolved_task_desc or not resolved_subtasks):
+        if track_name and phase_num is not None and task_num is not None:
+            try:
+                p_tasks = parse_plan_tasks(track_name)
+                if phase_num in p_tasks and 1 <= task_num <= len(p_tasks[phase_num]["tasks"]):
+                    t_obj = p_tasks[phase_num]["tasks"][task_num - 1]
+                    if not resolved_task_desc:
+                        resolved_task_desc = t_obj.get("description", "")
+                    if not resolved_subtasks:
+                        resolved_subtasks = list(t_obj.get("subtasks", []))
+            except Exception:
+                pass
 
     post_exec_ref, plan_commit_msg = extract_post_execution_info(plan_path, task_desc)
 
@@ -1380,18 +1407,51 @@ def build_exec_prompt(
 {cmd_lines}
    - If tests fail, diagnose within the target seam, adjust implementation or fixtures, and re-verify until green."""
 
-    if post_exec_ref:
-        post_exec_directive = f"Follow {post_exec_ref} of @[{plan_file}]."
-    else:
-        post_exec_directive = f"Follow the Post-Execution section of @[{plan_file}] if present."
+    empty_commit_line = ""
+    if strategy["mode"] == "exempt":
+        empty_commit_line = (
+            "\n   - If a verification-only exempt task (e.g., scripts/infra) produced zero file modifications, "
+            "use `git commit --allow-empty -m \"...\"` so the commit SHA, Git notes, and `plan.md` audit trail remain intact."
+        )
 
-    return f"""Execute Phase {phase_num} Task {task_num} following @[{plan_file}].
+    if use_inline_blueprint:
+        header_line = f"Execute Phase {phase_num} Task {task_num} following @[{rel_track_dir}/plan.md] and @[{rel_track_dir}/spec.md]."
+        subtasks_block = ""
+        if resolved_subtasks:
+            subtasks_lines = "\n".join(f"     - {st}" for st in resolved_subtasks)
+            subtasks_block = f"\n   - Subtasks:\n{subtasks_lines}"
+        scope_block = (
+            f"1. Scope & Blueprint: Direct execution mode (Tier 1 task plan skipped). "
+            f"@[{rel_track_dir}/plan.md] and @[{rel_track_dir}/spec.md] are authoritative.\n"
+            f"   - Task: {resolved_task_desc or f'Phase {phase_num} Task {task_num}'}"
+            f"{subtasks_block}"
+        )
+        post_exec_line = (
+            f'   - Commit changes with message "{commit_msg}", record git notes (Task, Summary, Files, Rationale), '
+            f"mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.{empty_commit_line}"
+        )
+    else:
+        header_line = f"Execute Phase {phase_num} Task {task_num} following @[{plan_file}]."
+        scope_block = (
+            f"1. Scope & Blueprint: The plan blueprint in @[{plan_file}] is authoritative. "
+            f"Modify only the planned target files. You may read adjacent files or type definitions as needed to resolve imports, types, or test fixtures."
+        )
+        if post_exec_ref:
+            post_exec_directive = f"Follow {post_exec_ref} of @[{plan_file}]."
+        else:
+            post_exec_directive = f"Follow the Post-Execution section of @[{plan_file}] if present."
+        post_exec_line = (
+            f'   - {post_exec_directive} Otherwise: commit changes with message "{commit_msg}", '
+            f"record git notes (Task, Summary, Files, Rationale), mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.{empty_commit_line}"
+        )
+
+    return f"""{header_line}
 
 Execution Directives:
-1. Scope & Blueprint: The plan blueprint in @[{plan_file}] is authoritative. Modify only the planned target files. You may read adjacent files or type definitions as needed to resolve imports, types, or test fixtures.
+{scope_block}
 {verification_block}
 3. Post-Execution:
-   - {post_exec_directive} Otherwise: commit changes with message "{commit_msg}", record git notes (Task, Summary, Files, Rationale), mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.
+{post_exec_line}
 4. Output a brief completion summary and halt."""
 
 
@@ -1437,6 +1497,11 @@ def main():
         "-u",
         action="store_true",
         help="Generate unattended checkpoint prompt without interactive modal pauses",
+    )
+    parser.add_argument(
+        "--skip-plan",
+        action="store_true",
+        help="Generate direct execution prompt from plan.md/spec.md without requiring a Tier 1 task plan file",
     )
 
     phase_group = parser.add_mutually_exclusive_group()
@@ -1681,6 +1746,7 @@ def main():
         mode,
         exempt=task_exempt,
         unattended=parsed.unattended,
+        skip_plan=parsed.skip_plan,
     )
 
     if parsed.copy_plan or (parsed.copy and parsed.plan_only):
