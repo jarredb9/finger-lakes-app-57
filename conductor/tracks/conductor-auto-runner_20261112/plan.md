@@ -56,12 +56,12 @@
     - [x] Test active supervisor verification for Exempt tasks (`ui`/`styling`, `infra`/`scripts`, `types`, `docs` git diff/existence check)
     - [x] Test Git commit and Git notes auditing (`git notes show <sha>`, conventional format, `plan.md` commit)
     - [x] Confirm tests fail as expected
-- [ ] Task: Implement Tier 2 execution, supervisor invariant verification, dual-check Red parsing, and git notes audit in `conductor-auto.py` (TDD Green phase)
-    - [ ] Implement Tier 2 dispatch loop executing tasks sequentially
-    - [ ] Implement working tree audit and single-turn recovery prompt via `generate-prompt.py --recovery` on `--auto-recover`
-    - [ ] Implement active verification engine running target test commands, output parsing for assertion markers, and type-checks based on task category
-    - [ ] Implement git commit and note auditor verifying task commit SHA, note metadata, and plan update
-    - [ ] Confirm all unit tests pass cleanly
+- [x] Task: Implement Tier 2 execution, supervisor invariant verification, dual-check Red parsing, and git notes audit in `conductor-auto.py` (TDD Green phase) [commit: d356b6e9]
+    - [x] Implement Tier 2 dispatch loop executing tasks sequentially
+    - [x] Implement working tree audit and single-turn recovery prompt via `generate-prompt.py --recovery` on `--auto-recover`
+    - [x] Implement active verification engine running target test commands, output parsing for assertion markers, and type-checks based on task category
+    - [x] Implement git commit and note auditor verifying task commit SHA, note metadata, and plan update
+    - [x] Confirm all unit tests pass cleanly
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Execution Tier and Supervisor Invariant Verification' (Protocol in workflow.md)
 
 ## Phase 5: Phase Boundaries, Checkpoints, Review Handshake, and CLI Dual-Logging
