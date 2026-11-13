@@ -32,11 +32,13 @@ import inspect
 import io
 import itertools
 import os
+import re
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -2437,13 +2439,12 @@ class TestStreamJsonAndHeartbeatLogging(unittest.TestCase):
             self.assertIn('"tool_name":"run_command"', log_text)
 
     def test_run_agy_turn_streaming_emits_heartbeat_and_live_stderr_during_silence(self):
-        """Asserts streaming select loop wakes on heartbeat_interval to log progress and flushes stderr live."""
-        run_agy_turn = get_target("run_agy_turn", self)
+        """Asserts _stream_agy_process wakes on heartbeat_interval to log progress and flushes stderr live."""
+        _stream_agy_process = get_target("_stream_agy_process", self)
         DualLogger = get_target("DualLogger", self)
 
         child_code = (
             "import sys, time; "
-            "_ = sys.stdin.read(); "
             "sys.stderr.write('early stderr notice\\n'); sys.stderr.flush(); "
             "time.sleep(0.18); "
             "sys.stdout.write('{\"event\":\"result\",\"result\":{\"status\":\"SUCCESS\",\"response\":\"Finished\"}}\\n'); "
@@ -2454,20 +2455,24 @@ class TestStreamJsonAndHeartbeatLogging(unittest.TestCase):
             stdout_buf = io.StringIO()
             logger = DualLogger(log_file=tmp_log, stdout_stream=stdout_buf)
 
-            with patch.object(
-                conductor_auto,
-                "build_agy_command",
-                return_value=[sys.executable, "-c", child_code],
-            ):
-                ret, stdout, stderr = run_agy_turn(
-                    prompt="hello",
-                    mode="auto",
-                    timeout=5.0,
-                    log_file=tmp_log,
-                    stream=True,
-                    logger=logger,
-                    heartbeat_interval=0.05,
-                )
+            proc = subprocess.Popen(
+                [sys.executable, "-c", child_code],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                start_new_session=True,
+            )
+            ret, stdout, stderr = _stream_agy_process(
+                proc=proc,
+                prompt="hello",
+                mode="auto",
+                model="test-model",
+                timeout=5.0,
+                effective_log_file=tmp_log,
+                logger=logger,
+                heartbeat_interval=0.05,
+            )
 
             self.assertEqual(ret, 0)
             self.assertEqual(stdout, "Finished")
@@ -2476,6 +2481,240 @@ class TestStreamJsonAndHeartbeatLogging(unittest.TestCase):
             self.assertIn("Still running", out_text)
             self.assertIn("early stderr notice", out_text)
             self.assertIn("Finished", out_text)
+
+    def test_stream_json_tracker_empty_result_response_falls_back_to_text_deltas(self):
+        """Asserts _StreamJsonTracker falls back to accumulated text_deltas when result.response is empty."""
+        _StreamJsonTracker = get_target("_StreamJsonTracker", self)
+        tracker = _StreamJsonTracker()
+        tracker.process_line(
+            '{"event":"step_update","step_update":{"state":"ACTIVE","step_type":"agent_response","text_delta":"Hello "}}\n'
+        )
+        tracker.process_line(
+            '{"event":"step_update","step_update":{"state":"DONE","step_type":"agent_response","text_delta":"world"}}\n'
+        )
+        tracker.process_line(
+            '{"event":"result","result":{"status":"SUCCESS","response":""}}\n'
+        )
+        self.assertEqual(tracker.get_clean_stdout("raw"), "Hello world")
+
+    def test_stream_agy_process_joins_stderr_after_proc_wait_and_locks_stdout(self):
+        """Asserts _stream_agy_process waits for proc exit before joining stderr_thread and locks stdout when logger is None."""
+        _stream_agy_process = get_target("_stream_agy_process", self)
+        stdout_lock = get_target("_STDOUT_LOCK", self)
+        self.assertTrue(hasattr(stdout_lock, "acquire"))
+
+        r_err, w_err = os.pipe()
+        err_reader = os.fdopen(r_err, "r", encoding="utf-8")
+
+        class _LateStderrProc:
+            pid = 99999
+            stdin = None
+            stdout = io.StringIO("plain output\n")
+            stderr = err_reader
+            returncode = None
+
+            def wait(self, timeout=None):
+                os.write(w_err, b"late stderr after stdout eof\n")
+                os.close(w_err)
+                self.returncode = 0
+                return 0
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_log = Path(tmpdir) / "logs" / "late-stderr.log"
+            stdout_buf = io.StringIO()
+            start = time.monotonic()
+            with contextlib.redirect_stdout(stdout_buf):
+                rc, stdout, stderr = _stream_agy_process(
+                    proc=_LateStderrProc(),
+                    prompt="check late stderr",
+                    mode="auto",
+                    model="test-model",
+                    timeout=5.0,
+                    effective_log_file=tmp_log,
+                    logger=None,
+                    heartbeat_interval=0.0,
+                )
+            elapsed = time.monotonic() - start
+
+            self.assertEqual(rc, 0)
+            self.assertEqual(stdout, "plain output\n")
+            self.assertIn("late stderr after stdout eof", stderr)
+            self.assertLess(elapsed, 1.0)
+            self.assertIn("late stderr after stdout eof", stdout_buf.getvalue())
+            self.assertIn("late stderr after stdout eof", tmp_log.read_text(encoding="utf-8"))
+
+    @patch("subprocess.Popen")
+    def test_build_agy_command_and_run_agy_turn_forward_print_timeout(self, mock_popen_cls):
+        """Asserts build_agy_command and run_agy_turn forward --print-timeout <duration> strictly before --print."""
+        build_agy_command = get_target("build_agy_command", self)
+        run_agy_turn = get_target("run_agy_turn", self)
+        DEFAULT_EXEC_MODEL = get_target("DEFAULT_EXEC_MODEL", self)
+
+        cmd = build_agy_command(
+            mode="auto",
+            model=DEFAULT_EXEC_MODEL,
+            prompt="Execute task",
+            output_format="stream-json",
+            print_timeout="900s",
+        )
+        self.assertIn("--print-timeout", cmd)
+        pt_idx = cmd.index("--print-timeout")
+        self.assertEqual(cmd[pt_idx + 1], "900s")
+        self.assertLess(pt_idx, cmd.index("--print"))
+
+        mock_proc = MagicMock()
+        mock_proc.communicate.return_value = ("ok", "")
+        mock_proc.returncode = 0
+        mock_proc.pid = 4242
+        mock_popen_cls.return_value = mock_proc
+
+        run_agy_turn(
+            prompt="Execute task",
+            mode="auto",
+            model=DEFAULT_EXEC_MODEL,
+            timeout=900.0,
+        )
+        called_cmd = mock_popen_cls.call_args[0][0]
+        self.assertIn("--print-timeout", called_cmd)
+        called_pt_idx = called_cmd.index("--print-timeout")
+        self.assertEqual(called_cmd[called_pt_idx + 1], "900s")
+        self.assertLess(called_pt_idx, called_cmd.index("--print"))
+
+    def test_dual_logger_log_banner_and_log_error_include_timestamps_and_streams(self):
+        """Asserts DualLogger.log_banner and log_error include [HH:MM:SS], write to stdout/stderr, and persist to log_file."""
+        DualLogger = get_target("DualLogger", self)
+        stdout_buf = io.StringIO()
+        stderr_buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_log = Path(tmpdir) / "logs" / "conductor-auto.log"
+            logger = DualLogger(
+                log_file=tmp_log,
+                stdout_stream=stdout_buf,
+                stderr_stream=stderr_buf,
+            )
+            logger.write_stdout("raw stdout line\n")
+            logger.log_banner("Phase 5 Task 1", "Model: gemini-4-hydrogen-high")
+            logger.log_error("Something went wrong")
+
+            stdout_text = stdout_buf.getvalue()
+            stderr_text = stderr_buf.getvalue()
+            log_text = tmp_log.read_text(encoding="utf-8")
+
+            self.assertIn("raw stdout line\n", stdout_text)
+            self.assertRegex(stdout_text, r"  \[\d{2}:\d{2}:\d{2}\] Phase 5 Task 1")
+            self.assertRegex(
+                stderr_text,
+                r"^\[conductor-auto\] \[\d{2}:\d{2}:\d{2}\] ERROR: Something went wrong\n$",
+            )
+            self.assertNotIn("Something went wrong", stdout_text)
+            self.assertRegex(log_text, r"  \[\d{2}:\d{2}:\d{2}\] Phase 5 Task 1")
+            self.assertRegex(
+                log_text,
+                r"\[conductor-auto\] \[\d{2}:\d{2}:\d{2}\] ERROR: Something went wrong\n",
+            )
+
+    def test_main_logs_errors_to_conductor_auto_log_and_propagates_heartbeat(self):
+        """Asserts main() propagates --heartbeat via TurnStreamConfig and logs execution errors to conductor-auto.log."""
+        main = get_target("main", self)
+        TurnStreamConfig = get_target("TurnStreamConfig", self)
+        ReviewResult = get_target("ReviewResult", self)
+        ProcessExecutionError = get_target("ProcessExecutionError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 5: Boundaries\n"
+                "- [ ] Task: Implement boundaries\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+
+            clean_result = ReviewResult(
+                report_path=track_dir / "phase-5-review.md",
+                conversation_id="conv-201",
+                has_critical_or_high=False,
+                findings=[],
+                exit_code=0,
+            )
+
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(conductor_auto, "dispatch_tier1_planning", return_value=True) as mock_t1:
+                    with patch.object(conductor_auto, "dispatch_tier2_execution", return_value=True) as mock_t2:
+                        with patch.object(
+                            conductor_auto, "dispatch_gate1_checkpoint", create=True, return_value="sha1234"
+                        ) as mock_g1:
+                            with patch.object(
+                                conductor_auto, "dispatch_gate2_review", create=True, return_value=clean_result
+                            ) as mock_g2:
+                                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track", "--heartbeat", "15s"])
+
+                                self.assertEqual(rc, 0)
+                                for mock_fn in (mock_t1, mock_t2, mock_g1, mock_g2):
+                                    cfg = mock_fn.call_args.kwargs.get("stream_config")
+                                    self.assertIsInstance(cfg, TurnStreamConfig)
+                                    self.assertTrue(cfg.stream)
+                                    self.assertEqual(cfg.heartbeat_interval, 15.0)
+                                    self.assertIsNotNone(cfg.logger)
+
+                err_buf = io.StringIO()
+                with patch.object(conductor_auto, "dispatch_tier1_planning", return_value=True):
+                    with patch.object(
+                        conductor_auto,
+                        "dispatch_tier2_execution",
+                        side_effect=ProcessExecutionError("boom during exec"),
+                    ):
+                        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(err_buf):
+                            rc_err = main(["test-track", "--heartbeat", "15s"])
+
+                self.assertEqual(rc_err, 1)
+                runner_log = track_dir / "logs" / "conductor-auto.log"
+                self.assertTrue(runner_log.exists())
+                log_text = runner_log.read_text(encoding="utf-8")
+                self.assertRegex(
+                    log_text,
+                    r"\[conductor-auto\] \[\d{2}:\d{2}:\d{2}\] ERROR: Conductor Auto Error: boom during exec",
+                )
+                self.assertIn("boom during exec", err_buf.getvalue())
+
+    def test_dispatch_tier2_execution_propagates_stream_config_to_recovery(self):
+        """Asserts dispatch_tier2_execution forwards TurnStreamConfig to dispatch_recovery_turn when --auto-recover runs."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+        TurnStreamConfig = get_target("TurnStreamConfig", self)
+        DualLogger = get_target("DualLogger", self)
+
+        logger = DualLogger(stdout_stream=io.StringIO())
+        stream_cfg = TurnStreamConfig(stream=True, logger=logger, heartbeat_interval=12.0)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", return_value="# Exec"):
+            with patch.object(conductor_auto, "run_agy_turn", return_value=(0, "ok", "")) as mock_turn:
+                with patch.object(
+                    conductor_auto,
+                    "check_working_tree_cleanliness",
+                    side_effect=[(False, ["dirty.py"]), (True, [])],
+                ):
+                    with patch.object(
+                        conductor_auto, "dispatch_recovery_turn", return_value=True
+                    ) as mock_recover:
+                        with patch.object(conductor_auto, "verify_task_execution", return_value=True):
+                            with patch.object(
+                                conductor_auto,
+                                "parse_track_plan",
+                                return_value={},
+                            ):
+                                res = dispatch_tier2_execution(
+                                    "test-track",
+                                    phase_num=4,
+                                    task_num=1,
+                                    auto_recover=True,
+                                    stream_config=stream_cfg,
+                                )
+
+        self.assertTrue(res)
+        self.assertEqual(mock_turn.call_args.kwargs.get("stream_config"), stream_cfg)
+        self.assertEqual(mock_recover.call_args.kwargs.get("stream_config"), stream_cfg)
 
     def test_parse_args_accepts_heartbeat_flag(self):
         """Asserts parse_args accepts --heartbeat duration string and defaults to 30s."""
@@ -2763,7 +3002,7 @@ class TestAgyCliContract(unittest.TestCase):
         """Asserts agy flag.Parse accepts build_agy_command output and consumes the prompt under --print."""
         build_agy_command = get_target("build_agy_command", self)
         role_configs = [
-            ("plan", get_target("DEFAULT_PLAN_MODEL", self), None),
+            ("plan", get_target("DEFAULT_PLAN_MODEL", self), "stream-json"),
             ("auto", get_target("DEFAULT_EXEC_MODEL", self), "stream-json"),
             ("auto", get_target("DEFAULT_CHECKPOINT_MODEL", self), "stream-json"),
             ("auto", get_target("DEFAULT_REVIEW_MODEL", self), "stream-json"),
@@ -2776,6 +3015,7 @@ class TestAgyCliContract(unittest.TestCase):
                 model=model,
                 prompt="contract check",
                 output_format=output_format,
+                print_timeout="900s",
             )
             res = subprocess.run(
                 cmd + [probe_flag],
