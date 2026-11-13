@@ -18,6 +18,7 @@ import codecs
 from dataclasses import dataclass, field
 import importlib.util
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -132,26 +133,41 @@ class ReviewResult:
     exit_code: int = 0
 
 
+_STDOUT_LOCK = threading.Lock()
+
+
 class DualLogger:
-    """Formats progress banners/status lines to stdout and tees unredacted output to a log file."""
+    """Formats progress banners/status/error lines to terminal streams and tees unredacted output to a log file."""
 
     def __init__(
         self,
         log_file: Optional[Path] = None,
         stdout_stream: Optional[TextIO] = None,
+        stderr_stream: Optional[TextIO] = None,
     ) -> None:
         self.log_file: Optional[Path] = Path(log_file) if log_file is not None else None
         self._stdout_stream: Optional[TextIO] = stdout_stream
+        self._stderr_stream: Optional[TextIO] = stderr_stream
         self._lock = threading.Lock()
 
     def _get_stdout(self) -> TextIO:
         return self._stdout_stream if self._stdout_stream is not None else sys.stdout
 
-    def _write_stdout(self, text: str) -> None:
+    def _get_stderr(self) -> TextIO:
+        return self._stderr_stream if self._stderr_stream is not None else sys.stderr
+
+    def _write_stream(self, stream: TextIO, text: str) -> None:
         with self._lock:
-            stream = self._get_stdout()
             stream.write(text)
             stream.flush()
+
+    def write_stdout(self, text: str) -> None:
+        """Thread-safely writes and flushes text to the configured stdout stream."""
+        self._write_stream(self._get_stdout(), text)
+
+    def write_stderr(self, text: str) -> None:
+        """Thread-safely writes and flushes text to the configured stderr stream."""
+        self._write_stream(self._get_stderr(), text)
 
     def _append_file(self, text: str) -> None:
         if self.log_file is None:
@@ -166,25 +182,42 @@ class DualLogger:
                 pass
 
     def log_banner(self, title: str, subtitle: Optional[str] = None) -> None:
+        timestamp = time.strftime("%H:%M:%S")
         border = "=" * 72
-        lines = [f"\n{border}", f"  {title}"]
+        lines = [f"\n{border}", f"  [{timestamp}] {title}"]
         if subtitle:
             lines.append(f"  {subtitle}")
         lines.append(f"{border}\n")
         payload = "\n".join(lines)
-        self._write_stdout(payload)
+        self.write_stdout(payload)
         self._append_file(payload)
 
     def log_status(self, message: str) -> None:
         timestamp = time.strftime("%H:%M:%S")
         line = f"[conductor-auto] [{timestamp}] {message}\n"
-        self._write_stdout(line)
+        self.write_stdout(line)
+        self._append_file(line)
+
+    def log_error(self, message: str) -> None:
+        """Logs a timestamped error line to stderr and persists it to the runner log file."""
+        timestamp = time.strftime("%H:%M:%S")
+        line = f"[conductor-auto] [{timestamp}] ERROR: {message}\n"
+        self.write_stderr(line)
         self._append_file(line)
 
     def write_raw(self, chunk: str, to_stdout: bool = False) -> None:
         self._append_file(chunk)
         if to_stdout:
-            self._write_stdout(chunk)
+            self.write_stdout(chunk)
+
+
+@dataclass(frozen=True)
+class TurnStreamConfig:
+    """Groups streaming, dual-logging, and heartbeat options for an agy turn."""
+
+    stream: bool = False
+    logger: Optional[DualLogger] = None
+    heartbeat_interval: float = DEFAULT_HEARTBEAT_INTERVAL
 
 
 # ---------------------------------------------------------------------------
@@ -530,11 +563,14 @@ def build_agy_command(
     prompt: str = "",
     extra_flags: Optional[List[str]] = None,
     output_format: Optional[str] = None,
+    print_timeout: Optional[str] = None,
 ) -> List[str]:
     """Builds agy CLI command ensuring configuration flags strictly precede --print <prompt>."""
     cmd = ["agy", "--mode", mode, "--model", model, "--dangerously-skip-permissions"]
     if output_format:
         cmd.extend(["--output-format", output_format])
+    if print_timeout:
+        cmd.extend(["--print-timeout", print_timeout])
     if extra_flags:
         cmd.extend(extra_flags)
     cmd.extend(["--print", prompt])
@@ -782,11 +818,151 @@ class _StreamJsonTracker:
         """Returns extracted assistant response text when stream-json was active, else raw_stdout."""
         if not self.saw_stream_json:
             return raw_stdout
-        if self.final_response is not None:
+        if self.final_response:
             return self.final_response
         if self.text_deltas:
             return "".join(self.text_deltas)
+        if self.final_response is not None:
+            return self.final_response
         return raw_stdout
+
+
+class _TurnOutputSink:
+    """Thread-safe sink for turn log persistence, stream-json parsing, and live terminal output."""
+
+    def __init__(
+        self,
+        log_handle: Optional[TextIO],
+        logger: Optional[DualLogger],
+        tracker: _StreamJsonTracker,
+    ) -> None:
+        self._log_handle = log_handle
+        self._log_lock = threading.Lock()
+        self._logger = logger
+        self.tracker = tracker
+
+    def write_log(self, text: str) -> None:
+        if self._log_handle is None:
+            return
+        with self._log_lock:
+            self._log_handle.write(text)
+            self._log_handle.flush()
+
+    def emit_terminal(self, text: str) -> None:
+        if self._logger is not None:
+            self._logger.write_stdout(text)
+            return
+        with _STDOUT_LOCK:
+            sys.stdout.write(text)
+            sys.stdout.flush()
+
+    def emit_stdout_line(self, line: str, stdout_chunks: List[str]) -> None:
+        stdout_chunks.append(line)
+        self.write_log(line)
+        for term_line in self.tracker.process_line(line):
+            self.emit_terminal(term_line)
+
+    def emit_stderr_line(self, err_line: str, stderr_chunks: List[str]) -> None:
+        stderr_chunks.append(err_line)
+        self.write_log(f"[STDERR] {err_line}")
+        stripped_err = err_line.rstrip("\r\n")
+        if stripped_err:
+            self.emit_terminal(f"[{time.strftime('%H:%M:%S')}] [agy:stderr] {stripped_err}\n")
+
+    def emit_heartbeat(self, pid: int, elapsed: float, timeout: float) -> None:
+        msg = (
+            f"Still running (pid={pid}, elapsed={_format_duration(elapsed)}"
+            f"/{_format_duration(timeout)}, state={self.tracker.last_activity})"
+        )
+        if self._logger is not None:
+            self._logger.log_status(msg)
+            return
+        ts = time.strftime("%H:%M:%S")
+        self.emit_terminal(f"[conductor-auto] [{ts}] {msg}\n")
+
+
+def _drain_stdout_select(
+    proc: subprocess.Popen,
+    sink: _TurnOutputSink,
+    stdout_chunks: List[str],
+    start_time: float,
+    deadline: float,
+    timeout: float,
+    heartbeat_interval: float,
+) -> None:
+    """Drains a real file-descriptor stdout pipe via select() with heartbeat wakeups and timeout enforcement."""
+    assert proc.stdout is not None
+    fd = proc.stdout.fileno()
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    pending_line = ""
+    eof = False
+    while not eof:
+        now = time.monotonic()
+        remaining = deadline - now
+        if remaining <= 0:
+            _terminate_process_group(proc.pid, proc)
+            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+        wait_slice = (
+            min(remaining, heartbeat_interval)
+            if heartbeat_interval and heartbeat_interval > 0
+            else remaining
+        )
+        ready, _, _ = select.select([fd], [], [], wait_slice)
+        if not ready:
+            now_after = time.monotonic()
+            if now_after >= deadline:
+                _terminate_process_group(proc.pid, proc)
+                raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+            sink.emit_heartbeat(proc.pid, now_after - start_time, timeout)
+            continue
+
+        raw_chunk = os.read(fd, 4096)
+        if not raw_chunk:
+            eof = True
+            decoded = decoder.decode(b"", final=True)
+        else:
+            decoded = decoder.decode(raw_chunk, final=False)
+
+        pending_line += decoded
+        lines_to_emit = pending_line.splitlines(keepends=True)
+        if not eof and lines_to_emit and not lines_to_emit[-1].endswith("\n"):
+            pending_line = lines_to_emit.pop()
+        else:
+            pending_line = ""
+
+        for line in lines_to_emit:
+            sink.emit_stdout_line(line, stdout_chunks)
+
+        if time.monotonic() > deadline:
+            _terminate_process_group(proc.pid, proc)
+            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+
+def _drain_stdout_readline(
+    proc: subprocess.Popen,
+    sink: _TurnOutputSink,
+    stdout_chunks: List[str],
+    deadline: float,
+    timeout: float,
+) -> None:
+    """Drains non-fd stdout streams (such as StringIO mocks) via readline()."""
+    assert proc.stdout is not None
+    while True:
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            _terminate_process_group(proc.pid, proc)
+            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+        line = proc.stdout.readline()
+        if line == "":
+            break
+
+        sink.emit_stdout_line(line, stdout_chunks)
+
+        if time.monotonic() > deadline:
+            _terminate_process_group(proc.pid, proc)
+            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
 
 
 def _stream_agy_process(
@@ -803,40 +979,14 @@ def _stream_agy_process(
     start_time = time.monotonic()
     deadline = start_time + timeout
     log_handle = _open_turn_log(effective_log_file)
-    log_lock = threading.Lock()
     stdout_chunks: List[str] = []
     stderr_chunks: List[str] = []
     stderr_thread: Optional[threading.Thread] = None
     tracker = _StreamJsonTracker()
-
-    def _write_log(text: str) -> None:
-        if log_handle is None:
-            return
-        with log_lock:
-            log_handle.write(text)
-            log_handle.flush()
-
-    def _emit_terminal(text: str) -> None:
-        if logger is not None:
-            logger._write_stdout(text)
-        else:
-            sys.stdout.write(text)
-            sys.stdout.flush()
-
-    def _emit_heartbeat(elapsed: float) -> None:
-        msg = (
-            f"Still running (pid={proc.pid}, elapsed={_format_duration(elapsed)}"
-            f"/{_format_duration(timeout)}, state={tracker.last_activity})"
-        )
-        if logger is not None:
-            logger.log_status(msg)
-        else:
-            ts = time.strftime("%H:%M:%S")
-            sys.stdout.write(f"[conductor-auto] [{ts}] {msg}\n")
-            sys.stdout.flush()
+    sink = _TurnOutputSink(log_handle=log_handle, logger=logger, tracker=tracker)
 
     try:
-        _write_log(
+        sink.write_log(
             f"=== AGY TURN [{mode}] [{model}] ===\n"
             f"PROMPT:\n{prompt}\n"
             f"STDOUT:\n"
@@ -858,11 +1008,7 @@ def _stream_agy_process(
             def _drain_stderr() -> None:
                 try:
                     for err_line in proc.stderr:
-                        stderr_chunks.append(err_line)
-                        _write_log(f"[STDERR] {err_line}")
-                        stripped_err = err_line.rstrip("\r\n")
-                        if stripped_err:
-                            _emit_terminal(f"[{time.strftime('%H:%M:%S')}] [agy:stderr] {stripped_err}\n")
+                        sink.emit_stderr_line(err_line, stderr_chunks)
                 except Exception:
                     pass
 
@@ -870,75 +1016,33 @@ def _stream_agy_process(
             stderr_thread.start()
 
         if proc.stdout is not None:
-            def _emit_stream_line(line: str) -> None:
-                stdout_chunks.append(line)
-                _write_log(line)
-                for term_line in tracker.process_line(line):
-                    _emit_terminal(term_line)
-
-            use_select = _has_real_fd(proc.stdout)
-            if use_select:
-                fd = proc.stdout.fileno()
-                decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
-                pending_line = ""
-                eof = False
-                while not eof:
-                    now = time.monotonic()
-                    remaining = deadline - now
-                    if remaining <= 0:
-                        _terminate_process_group(proc.pid, proc)
-                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
-
-                    wait_slice = (
-                        min(remaining, heartbeat_interval)
-                        if heartbeat_interval and heartbeat_interval > 0
-                        else remaining
-                    )
-                    ready, _, _ = select.select([fd], [], [], wait_slice)
-                    if not ready:
-                        now_after = time.monotonic()
-                        if now_after >= deadline:
-                            _terminate_process_group(proc.pid, proc)
-                            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
-                        _emit_heartbeat(now_after - start_time)
-                        continue
-
-                    raw_chunk = os.read(fd, 4096)
-                    if not raw_chunk:
-                        eof = True
-                        decoded = decoder.decode(b"", final=True)
-                    else:
-                        decoded = decoder.decode(raw_chunk, final=False)
-
-                    pending_line += decoded
-                    lines_to_emit = pending_line.splitlines(keepends=True)
-                    if not eof and lines_to_emit and not lines_to_emit[-1].endswith("\n"):
-                        pending_line = lines_to_emit.pop()
-                    else:
-                        pending_line = ""
-
-                    for line in lines_to_emit:
-                        _emit_stream_line(line)
-
-                    if time.monotonic() > deadline:
-                        _terminate_process_group(proc.pid, proc)
-                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+            if _has_real_fd(proc.stdout):
+                _drain_stdout_select(
+                    proc=proc,
+                    sink=sink,
+                    stdout_chunks=stdout_chunks,
+                    start_time=start_time,
+                    deadline=deadline,
+                    timeout=timeout,
+                    heartbeat_interval=heartbeat_interval,
+                )
             else:
-                while True:
-                    remaining = deadline - time.monotonic()
-                    if remaining <= 0:
-                        _terminate_process_group(proc.pid, proc)
-                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+                _drain_stdout_readline(
+                    proc=proc,
+                    sink=sink,
+                    stdout_chunks=stdout_chunks,
+                    deadline=deadline,
+                    timeout=timeout,
+                )
 
-                    line = proc.stdout.readline()
-                    if line == "":
-                        break
-
-                    _emit_stream_line(line)
-
-                    if time.monotonic() > deadline:
-                        _terminate_process_group(proc.pid, proc)
-                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+        remaining = max(0.0, deadline - time.monotonic())
+        try:
+            wait_rc = proc.wait(timeout=remaining)
+        except subprocess.TimeoutExpired:
+            _terminate_process_group(proc.pid, proc)
+            if stderr_thread is not None:
+                stderr_thread.join(timeout=0.5)
+            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
 
         if stderr_thread is not None:
             stderr_thread.join(timeout=2.0)
@@ -946,24 +1050,14 @@ def _stream_agy_process(
             try:
                 rem_err = proc.stderr.read()
                 if rem_err:
-                    stderr_chunks.append(rem_err)
-                    _write_log(f"[STDERR] {rem_err}")
-                    for err_line in rem_err.splitlines():
-                        if err_line:
-                            _emit_terminal(f"[{time.strftime('%H:%M:%S')}] [agy:stderr] {err_line}\n")
+                    for err_line in rem_err.splitlines(keepends=True):
+                        sink.emit_stderr_line(err_line, stderr_chunks)
             except Exception:
                 pass
 
-        remaining = max(0.0, deadline - time.monotonic())
-        try:
-            wait_rc = proc.wait(timeout=remaining)
-        except subprocess.TimeoutExpired:
-            _terminate_process_group(proc.pid, proc)
-            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
-
         rc = proc.returncode if proc.returncode is not None else wait_rc
         stderr_text = "".join(stderr_chunks)
-        _write_log(f"\nSTDERR:\n{stderr_text}\nEXIT CODE: {rc}\n\n")
+        sink.write_log(f"\nSTDERR:\n{stderr_text}\nEXIT CODE: {rc}\n\n")
 
         return rc, tracker.get_clean_stdout("".join(stdout_chunks)), stderr_text
     except KeyboardInterrupt:
@@ -983,6 +1077,41 @@ def _stream_agy_process(
                 pass
 
 
+def _extract_stream_kwargs(
+    stream_config: Optional[TurnStreamConfig] = None,
+    stream: bool = False,
+    logger: Optional[DualLogger] = None,
+    heartbeat_interval: Optional[float] = None,
+) -> Dict[str, Any]:
+    """Extracts active stream configuration kwargs for run_agy_turn and recovery dispatchers."""
+    if stream_config is not None:
+        return {"stream_config": stream_config}
+    kwargs: Dict[str, Any] = {}
+    if stream:
+        kwargs["stream"] = True
+    if logger is not None:
+        kwargs["logger"] = logger
+    if heartbeat_interval is not None:
+        kwargs["heartbeat_interval"] = heartbeat_interval
+    return kwargs
+
+
+def _resolve_stream_config(
+    stream_config: Optional[TurnStreamConfig] = None,
+    stream: bool = False,
+    logger: Optional[DualLogger] = None,
+    heartbeat_interval: float = DEFAULT_HEARTBEAT_INTERVAL,
+) -> TurnStreamConfig:
+    """Resolves explicit TurnStreamConfig or legacy stream/logger/heartbeat arguments."""
+    if stream_config is not None:
+        return stream_config
+    return TurnStreamConfig(
+        stream=stream,
+        logger=logger,
+        heartbeat_interval=heartbeat_interval,
+    )
+
+
 def _build_turn_kwargs(
     prompt: str,
     mode: str,
@@ -993,8 +1122,9 @@ def _build_turn_kwargs(
     stream: bool = False,
     logger: Optional[DualLogger] = None,
     heartbeat_interval: Optional[float] = None,
+    stream_config: Optional[TurnStreamConfig] = None,
 ) -> Dict[str, Any]:
-    """Builds kwargs for run_agy_turn, forwarding stream/logger/heartbeat only when active."""
+    """Builds kwargs for run_agy_turn, forwarding stream configuration only when active."""
     kwargs: Dict[str, Any] = {
         "prompt": prompt,
         "mode": mode,
@@ -1003,12 +1133,14 @@ def _build_turn_kwargs(
         "cwd": cwd,
         "log_file": log_file,
     }
-    if stream:
-        kwargs["stream"] = True
-    if logger is not None:
-        kwargs["logger"] = logger
-    if heartbeat_interval is not None:
-        kwargs["heartbeat_interval"] = heartbeat_interval
+    kwargs.update(
+        _extract_stream_kwargs(
+            stream_config=stream_config,
+            stream=stream,
+            logger=logger,
+            heartbeat_interval=heartbeat_interval,
+        )
+    )
     return kwargs
 
 
@@ -1023,20 +1155,39 @@ def run_agy_turn(
     logger: Optional[DualLogger] = None,
     heartbeat_interval: float = DEFAULT_HEARTBEAT_INTERVAL,
     output_format: Optional[str] = None,
+    stream_config: Optional[TurnStreamConfig] = None,
 ) -> Tuple[int, str, str]:
     """Runs agy subprocess turn in a dedicated process group with --print prompt delivery."""
-    effective_output_format = output_format if output_format is not None else ("stream-json" if stream else None)
+    resolved_cfg = _resolve_stream_config(
+        stream_config=stream_config,
+        stream=stream,
+        logger=logger,
+        heartbeat_interval=heartbeat_interval,
+    )
+    effective_output_format = (
+        output_format
+        if output_format is not None
+        else ("stream-json" if resolved_cfg.stream else None)
+    )
+    print_timeout_arg = (
+        f"{int(math.ceil(timeout))}s" if timeout and timeout > 0 else None
+    )
     cmd = build_agy_command(
         mode=mode,
         model=model,
         prompt=prompt,
         output_format=effective_output_format,
+        print_timeout=print_timeout_arg,
     )
     work_dir = cwd or PROJECT_ROOT
     effective_log_file = (
         Path(log_file)
         if log_file is not None
-        else (logger.log_file if logger is not None and logger.log_file is not None else None)
+        else (
+            resolved_cfg.logger.log_file
+            if resolved_cfg.logger is not None and resolved_cfg.logger.log_file is not None
+            else None
+        )
     )
 
     proc = subprocess.Popen(
@@ -1049,9 +1200,11 @@ def run_agy_turn(
         start_new_session=True,
     )
 
-    if stream:
-        if logger is not None and effective_log_file is not None:
-            logger.log_status(f"Turn started (pid={proc.pid}, log={effective_log_file})")
+    if resolved_cfg.stream:
+        if resolved_cfg.logger is not None and effective_log_file is not None:
+            resolved_cfg.logger.log_status(
+                f"Turn started (pid={proc.pid}, log={effective_log_file})"
+            )
         return _stream_agy_process(
             proc=proc,
             prompt=prompt,
@@ -1059,8 +1212,8 @@ def run_agy_turn(
             model=model,
             timeout=timeout,
             effective_log_file=effective_log_file,
-            logger=logger,
-            heartbeat_interval=heartbeat_interval,
+            logger=resolved_cfg.logger,
+            heartbeat_interval=resolved_cfg.heartbeat_interval,
         )
 
     try:
@@ -1223,6 +1376,7 @@ def dispatch_recovery_turn(
     stream: bool = False,
     logger: Optional[DualLogger] = None,
     heartbeat_interval: Optional[float] = None,
+    stream_config: Optional[TurnStreamConfig] = None,
 ) -> bool:
     """Dispatches a single recovery turn via generate-prompt.py --recovery to clean up uncommitted work."""
     work_dir = cwd or PROJECT_ROOT
@@ -1247,6 +1401,7 @@ def dispatch_recovery_turn(
             stream=stream,
             logger=logger,
             heartbeat_interval=heartbeat_interval,
+            stream_config=stream_config,
         )
     )
     if ret != 0:
@@ -1688,6 +1843,7 @@ def dispatch_tier1_planning(
     stream: bool = False,
     logger: Optional[DualLogger] = None,
     heartbeat_interval: Optional[float] = None,
+    stream_config: Optional[TurnStreamConfig] = None,
 ) -> bool:
     """Coordinates Tier 1 turn: cache check -> prompt gen -> agy dispatch -> invariant audit."""
     work_dir = cwd or PROJECT_ROOT
@@ -1724,6 +1880,7 @@ def dispatch_tier1_planning(
             stream=stream,
             logger=logger,
             heartbeat_interval=heartbeat_interval,
+            stream_config=stream_config,
         )
     )
     if ret != 0:
@@ -1756,6 +1913,7 @@ def dispatch_tier2_execution(
     logger: Optional[DualLogger] = None,
     skip_plan: bool = False,
     heartbeat_interval: Optional[float] = None,
+    stream_config: Optional[TurnStreamConfig] = None,
 ) -> bool:
     """Coordinates Tier 2 execution turn:
     1. Captures base HEAD SHA.
@@ -1807,6 +1965,7 @@ def dispatch_tier2_execution(
             stream=stream,
             logger=logger,
             heartbeat_interval=heartbeat_interval,
+            stream_config=stream_config,
         )
     )
     if ret != 0:
@@ -1825,12 +1984,14 @@ def dispatch_tier2_execution(
                 "timeout": timeout,
                 "cwd": work_dir,
             }
-            if stream:
-                recovery_kwargs["stream"] = True
-            if logger is not None:
-                recovery_kwargs["logger"] = logger
-            if heartbeat_interval is not None:
-                recovery_kwargs["heartbeat_interval"] = heartbeat_interval
+            recovery_kwargs.update(
+                _extract_stream_kwargs(
+                    stream_config=stream_config,
+                    stream=stream,
+                    logger=logger,
+                    heartbeat_interval=heartbeat_interval,
+                )
+            )
             dispatch_recovery_turn(**recovery_kwargs)
             is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
             if not is_clean:
@@ -1968,6 +2129,7 @@ def dispatch_gate1_checkpoint(
     stream: bool = False,
     logger: Optional[DualLogger] = None,
     heartbeat_interval: Optional[float] = None,
+    stream_config: Optional[TurnStreamConfig] = None,
 ) -> str:
     """Executes unattended Gate 1 phase verification checkpoint and audits commit/notes invariants."""
     work_dir = cwd or PROJECT_ROOT
@@ -2003,6 +2165,7 @@ def dispatch_gate1_checkpoint(
             stream=stream,
             logger=logger,
             heartbeat_interval=heartbeat_interval,
+            stream_config=stream_config,
         )
     )
     if ret != 0:
@@ -2128,6 +2291,7 @@ def dispatch_gate2_review(
     stream: bool = False,
     logger: Optional[DualLogger] = None,
     heartbeat_interval: Optional[float] = None,
+    stream_config: Optional[TurnStreamConfig] = None,
 ) -> ReviewResult:
     """Dispatches Gate 2 unattended review, captures conversation ID, and parses severity findings."""
     work_dir = cwd or PROJECT_ROOT
@@ -2152,6 +2316,7 @@ def dispatch_gate2_review(
             stream=stream,
             logger=logger,
             heartbeat_interval=heartbeat_interval,
+            stream_config=stream_config,
         )
     )
     conv_id = capture_conversation_id(before_dirs, brain_dir=brain_dir, min_mtime=start_ts - 2.0)
@@ -2358,10 +2523,10 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     runner_log = None if args.dry_run else (track_dir / "logs" / "conductor-auto.log")
     logger = DualLogger(log_file=runner_log)
-    hb_kwargs: Dict[str, Any] = (
-        {"heartbeat_interval": heartbeat_sec}
-        if heartbeat_sec != DEFAULT_HEARTBEAT_INTERVAL
-        else {}
+    stream_cfg = TurnStreamConfig(
+        stream=True,
+        logger=logger,
+        heartbeat_interval=heartbeat_sec,
     )
     logger.log_banner(
         f"Conductor Auto: {track_name} (Phase {active_phase.phase_num})",
@@ -2410,9 +2575,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     plan_model=models["plan"],
                     force_plan=args.force_plan,
                     timeout=timeout_sec,
-                    stream=True,
-                    logger=logger,
-                    **hb_kwargs,
+                    stream_config=stream_cfg,
                 )
             logger.log_status(
                 f"Dispatching Tier 2 execution for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
@@ -2424,16 +2587,14 @@ def main(argv: Optional[List[str]] = None) -> int:
                 exec_model=models["exec"],
                 auto_recover=args.auto_recover,
                 timeout=timeout_sec,
-                stream=True,
-                logger=logger,
                 skip_plan=skip_t1,
-                **hb_kwargs,
+                stream_config=stream_cfg,
             )
         except ConductorAutoError as err:
-            print(f"Conductor Auto Error: {err}", file=sys.stderr)
+            logger.log_error(f"Conductor Auto Error: {err}")
             return 1
         except Exception as err:
-            print(f"Unexpected error: {err}", file=sys.stderr)
+            logger.log_error(f"Unexpected error: {err}")
             return 1
 
     if args.task is not None:
@@ -2463,16 +2624,14 @@ def main(argv: Optional[List[str]] = None) -> int:
             phase_num=active_phase.phase_num,
             checkpoint_model=models["checkpoint"],
             timeout=timeout_sec,
-            stream=True,
-            logger=logger,
-            **hb_kwargs,
+            stream_config=stream_cfg,
         )
         logger.log_status(f"Gate 1 checkpoint verified (SHA: {cp_sha}).")
     except ConductorAutoError as err:
-        print(f"Gate 1 Checkpoint Error: {err}", file=sys.stderr)
+        logger.log_error(f"Gate 1 Checkpoint Error: {err}")
         return 1
     except Exception as err:
-        print(f"Unexpected Gate 1 error: {err}", file=sys.stderr)
+        logger.log_error(f"Unexpected Gate 1 error: {err}")
         return 1
 
     if skip_g2:
@@ -2491,15 +2650,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             phase_num=active_phase.phase_num,
             review_model=models["review"],
             timeout=timeout_sec,
-            stream=True,
-            logger=logger,
-            **hb_kwargs,
+            stream_config=stream_cfg,
         )
     except ConductorAutoError as err:
-        print(f"Gate 2 Review Error: {err}", file=sys.stderr)
+        logger.log_error(f"Gate 2 Review Error: {err}")
         return 1
     except Exception as err:
-        print(f"Unexpected Gate 2 error: {err}", file=sys.stderr)
+        logger.log_error(f"Unexpected Gate 2 error: {err}")
         return 1
 
     if review_result.has_critical_or_high or review_result.exit_code == 2:
@@ -2508,11 +2665,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             f"Report: {review_result.report_path}",
         )
         for finding in review_result.findings:
-            print(f"  - {finding}", file=sys.stderr)
+            logger.log_error(f"Finding: {finding}")
         resume_cmd = format_resume_command(
             review_result.conversation_id, active_phase.phase_num
         )
-        print(f"\nTo resume and apply review fixes, run:\n  {resume_cmd}\n", file=sys.stderr)
+        logger.log_error(f"To resume and apply review fixes, run: {resume_cmd}")
         return 2
 
     has_med_low = False

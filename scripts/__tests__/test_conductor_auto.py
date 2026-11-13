@@ -2699,18 +2699,19 @@ class TestStreamJsonAndHeartbeatLogging(unittest.TestCase):
                         conductor_auto, "dispatch_recovery_turn", return_value=True
                     ) as mock_recover:
                         with patch.object(conductor_auto, "verify_task_execution", return_value=True):
-                            with patch.object(
-                                conductor_auto,
-                                "parse_track_plan",
-                                return_value={},
-                            ):
-                                res = dispatch_tier2_execution(
-                                    "test-track",
-                                    phase_num=4,
-                                    task_num=1,
-                                    auto_recover=True,
-                                    stream_config=stream_cfg,
-                                )
+                            with patch.object(conductor_auto, "audit_git_commit_and_notes", return_value=True):
+                                with patch.object(
+                                    conductor_auto,
+                                    "parse_track_plan",
+                                    return_value={},
+                                ):
+                                    res = dispatch_tier2_execution(
+                                        "test-track",
+                                        phase_num=4,
+                                        task_num=1,
+                                        auto_recover=True,
+                                        stream_config=stream_cfg,
+                                    )
 
         self.assertTrue(res)
         self.assertEqual(mock_turn.call_args.kwargs.get("stream_config"), stream_cfg)
