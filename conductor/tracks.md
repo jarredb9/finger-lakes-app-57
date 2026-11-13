@@ -40,6 +40,7 @@
 | **db-security-hardening_20261026** | Database Security Hardening, RLS Lockdown, and SECURITY INVOKER Conversion (Issue #87) | [x] Archived | [Plan](./archive/db-security-hardening_20261026/plan.md) |
 | **postgrest-rls-storage-hardening_20261104** | PostgREST Direct Table RLS, Storage Policies, Trip/Friend Membership Validation, and Webhook Hardening (Issue #93) | [x] Archived | [Plan](./archive/postgrest-rls-storage-hardening_20261104/plan.md) |
 | **conductor-auto-runner_20261112** | Autonomous Multi-Task Track Execution Runner using agy Print Mode (Issue #162) | [x] Archived | [Plan](./archive/conductor-auto-runner_20261112/plan.md) |
+| **social-notification-auth_20261113** | Require caller authorization and stop friend-graph disclosure in send-social-notification (Issue #150) | [ ] New | [Plan](./tracks/social-notification-auth_20261113/plan.md) |
 
 
 
