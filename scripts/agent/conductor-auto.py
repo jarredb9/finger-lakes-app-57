@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+import codecs
 from dataclasses import dataclass, field
 import importlib.util
 import os
@@ -60,7 +61,7 @@ DEFAULT_REVIEW_MODEL: str = f"{DEFAULT_MODEL_FAMILY}-{ROLE_EFFORT_MAP['review']}
 
 DEFAULT_BRAIN_DIR: Path = Path.home() / ".gemini" / "antigravity-cli" / "brain"
 
-REVIEW_SEVERITY_PATTERN: str = r"^###\s+\[?(Critical|High)\]?"
+REVIEW_SEVERITY_PATTERN: str = r"^###\s+\[?(Critical|High)(?:\]|(?=$|[\s:]))"
 
 
 # ---------------------------------------------------------------------------
@@ -584,23 +585,7 @@ def _stream_agy_process(
             stderr_thread.start()
 
         if proc.stdout is not None:
-            use_select = _has_real_fd(proc.stdout)
-            while True:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    _terminate_process_group(proc.pid, proc)
-                    raise ProcessExecutionError(f"Turn timed out after {timeout}s")
-
-                if use_select:
-                    ready, _, _ = select.select([proc.stdout], [], [], remaining)
-                    if not ready:
-                        _terminate_process_group(proc.pid, proc)
-                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
-
-                line = proc.stdout.readline()
-                if line == "":
-                    break
-
+            def _emit_stream_line(line: str) -> None:
                 stdout_chunks.append(line)
                 if logger is not None:
                     logger._write_stdout(line)
@@ -612,9 +597,59 @@ def _stream_agy_process(
                     log_handle.write(line)
                     log_handle.flush()
 
-                if time.monotonic() > deadline:
-                    _terminate_process_group(proc.pid, proc)
-                    raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+            use_select = _has_real_fd(proc.stdout)
+            if use_select:
+                fd = proc.stdout.fileno()
+                decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+                pending_line = ""
+                eof = False
+                while not eof:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        _terminate_process_group(proc.pid, proc)
+                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+                    ready, _, _ = select.select([fd], [], [], remaining)
+                    if not ready:
+                        _terminate_process_group(proc.pid, proc)
+                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+                    raw_chunk = os.read(fd, 4096)
+                    if not raw_chunk:
+                        eof = True
+                        decoded = decoder.decode(b"", final=True)
+                    else:
+                        decoded = decoder.decode(raw_chunk, final=False)
+
+                    pending_line += decoded
+                    lines_to_emit = pending_line.splitlines(keepends=True)
+                    if not eof and lines_to_emit and not lines_to_emit[-1].endswith("\n"):
+                        pending_line = lines_to_emit.pop()
+                    else:
+                        pending_line = ""
+
+                    for line in lines_to_emit:
+                        _emit_stream_line(line)
+
+                    if time.monotonic() > deadline:
+                        _terminate_process_group(proc.pid, proc)
+                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+            else:
+                while True:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        _terminate_process_group(proc.pid, proc)
+                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+                    line = proc.stdout.readline()
+                    if line == "":
+                        break
+
+                    _emit_stream_line(line)
+
+                    if time.monotonic() > deadline:
+                        _terminate_process_group(proc.pid, proc)
+                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
 
         if stderr_thread is not None:
             stderr_thread.join(timeout=2.0)
@@ -644,6 +679,12 @@ def _stream_agy_process(
         _terminate_process_group(proc.pid, proc)
         raise
     finally:
+        for pipe in (proc.stdout, proc.stderr):
+            if pipe is not None:
+                try:
+                    pipe.close()
+                except Exception:
+                    pass
         if log_handle is not None:
             try:
                 log_handle.close()
@@ -1768,6 +1809,7 @@ def dispatch_gate2_review(
     log_file = track_dir / "logs" / f"phase-{phase_num}-review.log"
     report_path = track_dir / f"phase-{phase_num}-review.md"
 
+    prior_mtime_ns = report_path.stat().st_mtime_ns if report_path.exists() else None
     before_dirs = snapshot_brain_dirs(brain_dir=brain_dir)
     start_ts = time.time()
     prompt = build_review_prompt(track_name=track_name, phase_num=phase_num, report_path=report_path)
@@ -1791,7 +1833,12 @@ def dispatch_gate2_review(
             f"Gate 2 review turn failed with exit code {ret}: {stderr.strip()}"
         )
 
-    if report_path.exists() and report_path.stat().st_size > 0:
+    report_fresh = (
+        report_path.exists()
+        and report_path.stat().st_size > 0
+        and (prior_mtime_ns is None or report_path.stat().st_mtime_ns != prior_mtime_ns)
+    )
+    if report_fresh:
         report_text = report_path.read_text(encoding="utf-8")
     elif stdout and stdout.strip():
         report_path.parent.mkdir(parents=True, exist_ok=True)

@@ -1904,6 +1904,35 @@ class TestGate2ReviewAndBrainSnapshot(unittest.TestCase):
                         brain_dir=brain_dir,
                     )
 
+    def test_dispatch_gate2_review_ignores_stale_report_and_uses_stdout_fallback(self):
+        """Asserts dispatch_gate2_review ignores an untouched pre-existing report and falls back to stdout."""
+        dispatch_gate2_review = get_target("dispatch_gate2_review", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            brain_dir = root / "brain"
+            brain_dir.mkdir()
+            report_path = track_dir / "phase-5-review.md"
+            report_path.write_text("### [Critical] Stale issue\n", encoding="utf-8")
+            os.utime(report_path, (1000.0, 1000.0))
+
+            with patch.object(
+                conductor_auto,
+                "run_agy_turn",
+                return_value=(0, "## Review Report\n\n### Medium: Clean pass\n", ""),
+            ):
+                result = dispatch_gate2_review(
+                    "test-track",
+                    phase_num=5,
+                    cwd=root,
+                    brain_dir=brain_dir,
+                )
+                self.assertEqual(result.exit_code, 0)
+                self.assertFalse(result.has_critical_or_high)
+                self.assertIn("Clean pass", report_path.read_text(encoding="utf-8"))
+
 
 class TestReviewSeverityAndExitCodes(unittest.TestCase):
     """Test suite for strict review severity regex parsing and main() phase-boundary exit codes."""
@@ -1929,6 +1958,9 @@ class TestReviewSeverityAndExitCodes(unittest.TestCase):
         report = (
             "## Critical Summary\n\n"
             "No Critical or High issues detected in High-traffic path.\n\n"
+            "### High-Level Overview\nDetails\n\n"
+            "### Highlights\nDetails\n\n"
+            "### Criticality Assessment\nDetails\n\n"
             "### Medium: Minor cleanup\nDetails\n\n"
             "### Low: Typo\nDetails\n"
         )
@@ -2280,6 +2312,43 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
                                 self.assertEqual(mock_t2.call_args.kwargs.get("timeout"), 1200.0)
                                 self.assertEqual(mock_g1.call_args.kwargs.get("timeout"), 1200.0)
                                 self.assertEqual(mock_g2.call_args.kwargs.get("timeout"), 1200.0)
+
+    def test_run_agy_turn_streaming_real_pipe_multiline_burst_does_not_stall(self):
+        """Asserts real-pipe streaming emits multi-line bursts without stalling in BufferedReader before timeout."""
+        run_agy_turn = get_target("run_agy_turn", self)
+        DualLogger = get_target("DualLogger", self)
+
+        child_code = (
+            "import sys, time; "
+            "_ = sys.stdin.read(); "
+            "sys.stdout.write('line 1\\nline 2\\n'); sys.stdout.flush(); "
+            "time.sleep(0.05); "
+            "sys.stdout.write('line 3\\n'); sys.stdout.flush()"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_log = Path(tmpdir) / "logs" / "real-pipe.log"
+            stdout_buf = io.StringIO()
+            logger = DualLogger(log_file=tmp_log, stdout_stream=stdout_buf)
+
+            with patch.object(
+                conductor_auto,
+                "build_agy_command",
+                return_value=[sys.executable, "-c", child_code],
+            ):
+                ret, stdout, stderr = run_agy_turn(
+                    prompt="hello",
+                    mode="auto",
+                    timeout=2.0,
+                    log_file=tmp_log,
+                    stream=True,
+                    logger=logger,
+                )
+
+            self.assertEqual(ret, 0)
+            self.assertEqual(stderr, "")
+            self.assertEqual(stdout, "line 1\nline 2\nline 3\n")
+            self.assertIn("line 2\n", stdout_buf.getvalue())
+            self.assertIn("line 3\n", tmp_log.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
