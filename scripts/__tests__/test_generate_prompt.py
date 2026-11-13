@@ -566,6 +566,108 @@ class TestGeneratePromptModule(unittest.TestCase):
         self.assertNotIn("(Red Phase)", prompt)
         self.assertNotIn("run-jest-container.sh", prompt)
 
+    def test_build_exec_prompt_docs_exempt_without_plan_file_inlines_subtasks(self):
+        """Verifies build_exec_prompt for [exempt: docs] without a task plan file inlines subtasks and references plan.md/spec.md."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 6: Documentation\n"
+                "- [ ] Task: Author docs/agents/conductor-auto.md and update workflow.md [exempt: docs]\n"
+                "    - [ ] Create docs/agents/conductor-auto.md with CLI reference\n"
+                "    - [ ] Update conductor/workflow.md with phase structuring rules\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=6,
+                task_num=1,
+                task_desc="Author docs/agents/conductor-auto.md and update workflow.md",
+                subtasks=[
+                    "Create docs/agents/conductor-auto.md with CLI reference",
+                    "Update conductor/workflow.md with phase structuring rules",
+                ],
+                exempt="docs",
+            )
+            self.assertNotIn("phase-6-task-1-plan.md", prompt)
+            self.assertIn("plan.md]", prompt)
+            self.assertIn("spec.md]", prompt)
+            self.assertIn("Create docs/agents/conductor-auto.md with CLI reference", prompt)
+            self.assertIn("Update conductor/workflow.md with phase structuring rules", prompt)
+
+    def test_build_exec_prompt_docs_exempt_with_existing_plan_file_uses_plan_path(self):
+        """Verifies build_exec_prompt for [exempt: docs] still references phase-X-task-Y-plan.md when it exists on disk."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 6: Documentation\n"
+                "- [ ] Task: Author docs [exempt: docs]\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "phase-6-task-1-plan.md").write_text(
+                "# Plan 6.1\nNon-empty blueprint.\n",
+                encoding="utf-8",
+            )
+
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=6,
+                task_num=1,
+                task_desc="Author docs",
+                exempt="docs",
+            )
+            self.assertIn("phase-6-task-1-plan.md", prompt)
+
+    def test_build_exec_prompt_skip_plan_inlines_subtasks_for_non_docs_task(self):
+        """Verifies skip_plan=True inlines task description and subtasks when plan file is absent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Scripts\n"
+                "- [ ] Task: Add helper script [exempt: scripts]\n"
+                "    - [ ] Create scripts/helper.sh\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=1,
+                task_num=1,
+                task_desc="Add helper script",
+                subtasks=["Create scripts/helper.sh"],
+                exempt="scripts",
+                skip_plan=True,
+            )
+            self.assertNotIn("phase-1-task-1-plan.md", prompt)
+            self.assertIn("plan.md]", prompt)
+            self.assertIn("spec.md]", prompt)
+            self.assertIn("Create scripts/helper.sh", prompt)
+            self.assertIn("--allow-empty", prompt)
+
+    def test_checkpoint_prompt_docs_only_phase_without_explicit_cmds_avoids_jest_container(self):
+        """Verifies checkpoint prompt for a pure [exempt: docs] phase without explicit test commands uses git diff instead of Jest container."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 6: Documentation\n"
+                "- [x] Task: Author docs/agents/guide.md [exempt: docs] [commit: abc1234]\n"
+                "    - [x] Document architecture and flags\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 6: Documentation' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=6,
+                task_num=2,
+                task_desc="Conductor - User Manual Verification 'Phase 6: Documentation' (Protocol in workflow.md)",
+                mode="checkpoint",
+                unattended=True,
+            )
+            self.assertIn("git diff --name-only", prompt)
+            self.assertNotIn("run-jest-container.sh", prompt)
+
 
 class TestGeneratePromptCLI(unittest.TestCase):
     def run_cli(self, args):
@@ -648,6 +750,23 @@ class TestGeneratePromptCLI(unittest.TestCase):
                 self.assertNotIn("ask_question", res.stdout)
                 self.assertIn("Unattended Execution Mode", res.stdout)
                 self.assertIn("User Confirmation: Unattended execution mode", res.stdout)
+
+    def test_cli_exec_skip_plan_flag(self):
+        """Verifies CLI --exec --skip-plan generates an inline blueprint prompt when task plan is absent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Setup\n"
+                "- [ ] Task: Configure linting [exempt: infra]\n"
+                "    - [ ] Update eslint config\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "spec.md").write_text("# Spec\n", encoding="utf-8")
+            res = self.run_cli(["--track", str(tmp_path), "1", "1", "--exec", "--skip-plan"])
+            self.assertEqual(res.returncode, 0, msg=res.stderr)
+            self.assertNotIn("phase-1-task-1-plan.md", res.stdout)
+            self.assertIn("Update eslint config", res.stdout)
+            self.assertIn("--allow-empty", res.stdout)
 
 
 if __name__ == "__main__":

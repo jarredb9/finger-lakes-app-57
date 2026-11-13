@@ -2351,5 +2351,225 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
             self.assertIn("line 3\n", tmp_log.read_text(encoding="utf-8"))
 
 
+class TestDocsFastPathAndSkipFlags(unittest.TestCase):
+    """Test suite for [exempt: docs] Tier 1 & Gate 2 fast-path and --skip-plan / --force-review flags."""
+
+    def test_should_skip_tier1_plan_matrix(self):
+        """Asserts should_skip_tier1_plan skips for [exempt: docs] or --skip-plan unless --force-plan is set."""
+        should_skip_tier1_plan = get_target("should_skip_tier1_plan", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        docs_task = TaskInfo(
+            task_num=1,
+            description="Author docs",
+            status="pending",
+            status_char=" ",
+            is_checkpoint=False,
+            exempt="docs",
+        )
+        scripts_task = TaskInfo(
+            task_num=2,
+            description="Update script",
+            status="pending",
+            status_char=" ",
+            is_checkpoint=False,
+            exempt="scripts",
+        )
+        tdd_task = TaskInfo(
+            task_num=3,
+            description="Write failing test",
+            status="pending",
+            status_char=" ",
+            is_checkpoint=False,
+            exempt=None,
+        )
+
+        # Default behavior: only exempt=docs skips Tier 1
+        self.assertTrue(should_skip_tier1_plan(docs_task))
+        self.assertFalse(should_skip_tier1_plan(scripts_task))
+        self.assertFalse(should_skip_tier1_plan(tdd_task))
+
+        # --force-plan overrides everything
+        self.assertFalse(should_skip_tier1_plan(docs_task, force_plan=True))
+        self.assertFalse(should_skip_tier1_plan(tdd_task, force_plan=True, skip_plan=True))
+
+        # --skip-plan skips Tier 1 for any task when force_plan is False
+        self.assertTrue(should_skip_tier1_plan(scripts_task, skip_plan=True))
+        self.assertTrue(should_skip_tier1_plan(tdd_task, skip_plan=True))
+
+    def test_is_docs_only_phase_and_should_skip_gate2_review(self):
+        """Asserts is_docs_only_phase and should_skip_gate2_review identify docs-only phases and honor flags."""
+        is_docs_only_phase = get_target("is_docs_only_phase", self)
+        should_skip_gate2_review = get_target("should_skip_gate2_review", self)
+        PhaseInfo = get_target("PhaseInfo", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        docs_phase = PhaseInfo(
+            phase_num=6,
+            name="Documentation",
+            checkpoint_sha=None,
+            raw_heading="## Phase 6: Documentation",
+            tasks=[
+                TaskInfo(1, "Author docs", "pending", " ", False, exempt="docs"),
+                TaskInfo(2, "Skipped chore", "skipped", "-", False, exempt="scripts"),
+                TaskInfo(3, "Conductor - User Manual Verification", "pending", " ", True),
+            ],
+        )
+        mixed_phase = PhaseInfo(
+            phase_num=6,
+            name="Mixed",
+            checkpoint_sha=None,
+            raw_heading="## Phase 6: Mixed",
+            tasks=[
+                TaskInfo(1, "Author docs", "pending", " ", False, exempt="docs"),
+                TaskInfo(2, "Run script validation", "pending", " ", False, exempt="scripts"),
+                TaskInfo(3, "Conductor - User Manual Verification", "pending", " ", True),
+            ],
+        )
+        empty_phase = PhaseInfo(
+            phase_num=7,
+            name="Checkpoint Only",
+            checkpoint_sha=None,
+            raw_heading="## Phase 7: Checkpoint Only",
+            tasks=[
+                TaskInfo(1, "Conductor - User Manual Verification", "pending", " ", True),
+            ],
+        )
+
+        self.assertTrue(is_docs_only_phase(docs_phase))
+        self.assertFalse(is_docs_only_phase(mixed_phase))
+        self.assertFalse(is_docs_only_phase(empty_phase))
+
+        # Gate 2 skip logic
+        self.assertTrue(should_skip_gate2_review(docs_phase))
+        self.assertFalse(should_skip_gate2_review(docs_phase, force_review=True))
+        self.assertTrue(should_skip_gate2_review(docs_phase, no_review=True, force_review=True))
+        self.assertFalse(should_skip_gate2_review(mixed_phase))
+        self.assertTrue(should_skip_gate2_review(mixed_phase, no_review=True))
+
+    def test_parse_args_accepts_skip_plan_and_force_review(self):
+        """Asserts parse_args supports --skip-plan and --force-review flags."""
+        parse_args = get_target("parse_args", self)
+
+        default_args = parse_args([])
+        self.assertFalse(default_args.skip_plan)
+        self.assertFalse(default_args.force_review)
+
+        flagged_args = parse_args(["--skip-plan", "--force-review"])
+        self.assertTrue(flagged_args.skip_plan)
+        self.assertTrue(flagged_args.force_review)
+
+    def test_main_docs_only_phase_skips_tier1_and_gate2_by_default(self):
+        """Asserts main auto-skips Tier 1 planning and Gate 2 review for a docs-only phase (2-turn fast-path)."""
+        main = get_target("main", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 6: Documentation\n"
+                "- [ ] Task: Author docs/agents/conductor-auto.md [exempt: docs]\n"
+                "    - [ ] Document CLI flags and fast-path\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 6' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+
+            stdout_buf = io.StringIO()
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(conductor_auto, "dispatch_tier1_planning", return_value=True) as mock_t1:
+                    with patch.object(conductor_auto, "dispatch_tier2_execution", return_value=True) as mock_t2:
+                        with patch.object(
+                            conductor_auto, "dispatch_gate1_checkpoint", return_value="sha1234"
+                        ) as mock_g1:
+                            with patch.object(
+                                conductor_auto, "dispatch_gate2_review"
+                            ) as mock_g2:
+                                with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track"])
+
+            self.assertEqual(rc, 0)
+            mock_t1.assert_not_called()
+            mock_t2.assert_called_once()
+            self.assertTrue(mock_t2.call_args.kwargs.get("skip_plan"))
+            mock_g1.assert_called_once()
+            mock_g2.assert_not_called()
+
+            out = stdout_buf.getvalue()
+            self.assertIn("Skipping Tier 1 planning for Phase 6 Task 1", out)
+            self.assertIn("Skipping Gate 2 review for Phase 6", out)
+            self.assertIn("--force-review", out)
+
+    def test_main_docs_only_phase_respects_force_plan_and_force_review(self):
+        """Asserts --force-plan and --force-review override the docs-only fast-path."""
+        main = get_target("main", self)
+        ReviewResult = get_target("ReviewResult", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 6: Documentation\n"
+                "- [ ] Task: Author docs/agents/conductor-auto.md [exempt: docs]\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 6' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+
+            clean_result = ReviewResult(
+                report_path=track_dir / "phase-6-review.md",
+                conversation_id="conv-600",
+                has_critical_or_high=False,
+                findings=[],
+                exit_code=0,
+            )
+
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(conductor_auto, "dispatch_tier1_planning", return_value=True) as mock_t1:
+                    with patch.object(conductor_auto, "dispatch_tier2_execution", return_value=True) as mock_t2:
+                        with patch.object(
+                            conductor_auto, "dispatch_gate1_checkpoint", return_value="sha1234"
+                        ) as mock_g1:
+                            with patch.object(
+                                conductor_auto, "dispatch_gate2_review", return_value=clean_result
+                            ) as mock_g2:
+                                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track", "--force-plan", "--force-review"])
+
+            self.assertEqual(rc, 0)
+            mock_t1.assert_called_once()
+            mock_t2.assert_called_once()
+            mock_g1.assert_called_once()
+            mock_g2.assert_called_once()
+
+    def test_main_dry_run_docs_only_phase_logs_2_turn_fast_path(self):
+        """Asserts --dry-run on a docs-only phase logs Tier 1 skip and Gate 2 auto-skip."""
+        main = get_target("main", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 6: Documentation\n"
+                "- [ ] Task: Author docs/agents/conductor-auto.md [exempt: docs]\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 6' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+
+            stdout_buf = io.StringIO()
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(io.StringIO()):
+                    rc = main(["test-track", "--dry-run"])
+
+            self.assertEqual(rc, 0)
+            out = stdout_buf.getvalue()
+            self.assertIn("[DRY-RUN] Would skip Tier 1 planning for Phase 6 Task 1", out)
+            self.assertIn("[DRY-RUN] Would dispatch Tier 2 execution", out)
+            self.assertIn("[DRY-RUN] Would dispatch Gate 1 checkpoint", out)
+            self.assertIn("[DRY-RUN] Would skip Gate 2 review", out)
+            self.assertIn("--force-review", out)
+
+
 if __name__ == "__main__":
     unittest.main()
