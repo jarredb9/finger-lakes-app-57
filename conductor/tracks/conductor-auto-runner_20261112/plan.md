@@ -65,14 +65,14 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Execution Tier and Supervisor Invariant Verification' (Protocol in workflow.md) [commit: f8415b6c]
 
 ## Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging
-- [ ] Task: Write failing unit tests for composable Gemini 4 Hydrogen model resolution, Gate 1 checkpoint, Gate 2 review dispatch, brain snapshotting conversation ID capture, regex severity parsing, exit codes, and subprocess streaming (TDD Red phase)
-    - [ ] Test composable model configuration (`DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, `DEFAULT_PLAN_MODEL`, `DEFAULT_EXEC_MODEL`, `DEFAULT_CHECKPOINT_MODEL`, `DEFAULT_REVIEW_MODEL`) and 3-tier precedence in `resolve_model_config()` (per-role CLI flags > `CONDUCTOR_*_MODEL` env vars > `--model-family` / `CONDUCTOR_MODEL_FAMILY` composition), and decouple existing dispatch tests to reference `DEFAULT_*_MODEL` constants
-    - [ ] Test Gate 1 checkpoint dispatch with `--unattended`, `DEFAULT_CHECKPOINT_MODEL` (`gemini-4-hydrogen-medium`), and verification of checkpoint commit / notes
-    - [ ] Test Gate 2 `/conductor:review` dispatch with `DEFAULT_REVIEW_MODEL` (`gemini-4-hydrogen-xhigh`), prompt override, and brain directory snapshotting for conversation ID extraction
-    - [ ] Test regex severity parsing (`^###\s+\[?(Critical|High)\]?`) and exit code behaviors: 0 for clean success or Medium/Low findings, 1 for failures/invariant violations/review crashes, 2 for Critical/High review findings
-    - [ ] Test dual logging (stdout formatted progress + unredacted file persistence in `conductor/tracks/<track>/logs/`)
-    - [ ] Test turn timeout handling with configurable `--timeout`
-    - [ ] Confirm tests fail as expected
+- [x] Task: Write failing unit tests for composable Gemini 4 Hydrogen model resolution, Gate 1 checkpoint, Gate 2 review dispatch, brain snapshotting conversation ID capture, regex severity parsing, exit codes, and subprocess streaming (TDD Red phase) [commit: b5766169]
+    - [x] Test composable model configuration (`DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, `DEFAULT_PLAN_MODEL`, `DEFAULT_EXEC_MODEL`, `DEFAULT_CHECKPOINT_MODEL`, `DEFAULT_REVIEW_MODEL`) and 3-tier precedence in `resolve_model_config()` (per-role CLI flags > `CONDUCTOR_*_MODEL` env vars > `--model-family` / `CONDUCTOR_MODEL_FAMILY` composition), and decouple existing dispatch tests to reference `DEFAULT_*_MODEL` constants
+    - [x] Test Gate 1 checkpoint dispatch with `--unattended`, `DEFAULT_CHECKPOINT_MODEL` (`gemini-4-hydrogen-medium`), and verification of checkpoint commit / notes
+    - [x] Test Gate 2 `/conductor:review` dispatch with `DEFAULT_REVIEW_MODEL` (`gemini-4-hydrogen-xhigh`), prompt override, and brain directory snapshotting for conversation ID extraction
+    - [x] Test regex severity parsing (`^###\s+\[?(Critical|High)\]?`) and exit code behaviors: 0 for clean success or Medium/Low findings, 1 for failures/invariant violations/review crashes, 2 for Critical/High review findings
+    - [x] Test dual logging (stdout formatted progress + unredacted file persistence in `conductor/tracks/<track>/logs/`)
+    - [x] Test turn timeout handling with configurable `--timeout`
+    - [x] Confirm tests fail as expected
 - [ ] Task: Implement composable Gemini 4 Hydrogen model matrix, Gate 1 checkpoint, Gate 2 review handling, brain snapshotting, dual-logging tee, and CLI interface in `conductor-auto.py` (TDD Green phase)
     - [ ] Implement centralized `DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, `DEFAULT_*_MODEL` constants, `resolve_model_config()`, and `--model-family` / `--checkpoint-model` CLI flags, updating all turn dispatchers (`run_agy_turn`, Tier 1, Tier 2, Recovery, Gate 1, Gate 2) to use resolved defaults
     - [ ] Implement Gate 1 execution and post-checkpoint commit/notes verification
