@@ -2344,6 +2344,148 @@ class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
             self.assertIn("line 3\n", tmp_log.read_text(encoding="utf-8"))
 
 
+class TestStreamJsonAndHeartbeatLogging(unittest.TestCase):
+    """Test suite for agy stream-json progress formatting, live stderr, timestamps, and heartbeats."""
+
+    def test_dual_logger_log_status_includes_timestamp(self):
+        """Asserts DualLogger.log_status prefixes messages with [conductor-auto] [HH:MM:SS]."""
+        DualLogger = get_target("DualLogger", self)
+        stdout_buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_log = Path(tmpdir) / "logs" / "runner.log"
+            logger = DualLogger(log_file=tmp_log, stdout_stream=stdout_buf)
+            logger.log_status("Starting phase")
+
+            out = stdout_buf.getvalue()
+            self.assertRegex(out, r"^\[conductor-auto\] \[\d{2}:\d{2}:\d{2}\] Starting phase\n$")
+            self.assertEqual(tmp_log.read_text(encoding="utf-8"), out)
+
+    def test_build_agy_command_supports_output_format_before_print(self):
+        """Asserts build_agy_command places --output-format <fmt> strictly before --print <prompt>."""
+        build_agy_command = get_target("build_agy_command", self)
+        DEFAULT_EXEC_MODEL = get_target("DEFAULT_EXEC_MODEL", self)
+
+        cmd = build_agy_command(
+            mode="auto",
+            model=DEFAULT_EXEC_MODEL,
+            prompt="Execute task",
+            output_format="stream-json",
+        )
+        self.assertIn("--output-format", cmd)
+        fmt_idx = cmd.index("--output-format")
+        self.assertEqual(cmd[fmt_idx + 1], "stream-json")
+        print_idx = cmd.index("--print")
+        self.assertLess(fmt_idx, print_idx)
+        self.assertEqual(cmd[-2:], ["--print", "Execute task"])
+
+    @patch("subprocess.Popen")
+    def test_run_agy_turn_stream_json_emits_live_progress_and_returns_clean_response(self, mock_popen_cls):
+        """Asserts stream=True passes --output-format stream-json, formats tool events live, and returns final text."""
+        run_agy_turn = get_target("run_agy_turn", self)
+        DualLogger = get_target("DualLogger", self)
+
+        ndjson_lines = [
+            '{"event":"init","conversation_id":"conv-abc-123","init":{"model":"gemini-4-hydrogen-high"}}\n',
+            '{"event":"step_update","step_update":{"conversation_id":"conv-abc-123","step_index":1,"state":"ACTIVE","step_type":"tool","tool_name":"run_command","tool_info":{"name":"run_command","parameters":{"CommandLine":"npm test"}}}}\n',
+            '{"event":"step_update","step_update":{"conversation_id":"conv-abc-123","step_index":1,"state":"DONE","step_type":"tool","tool_name":"run_command","duration_seconds":1.42}}\n',
+            '{"event":"step_update","step_update":{"conversation_id":"conv-abc-123","step_index":2,"state":"ACTIVE","step_type":"agent_response","text_delta":"All "}}\n',
+            '{"event":"step_update","step_update":{"conversation_id":"conv-abc-123","step_index":2,"state":"DONE","step_type":"agent_response","text_delta":"done."}}\n',
+            '{"event":"result","result":{"conversation_id":"conv-abc-123","status":"SUCCESS","response":"All done.","duration_seconds":2.5,"num_turns":1,"usage":{"total_tokens":500}}}\n',
+        ]
+
+        mock_proc = MagicMock()
+        mock_proc.stdin = None
+        mock_proc.stdout = io.StringIO("".join(ndjson_lines))
+        mock_proc.stderr = io.StringIO("warning: sample stderr\n")
+        mock_proc.wait.return_value = 0
+        mock_proc.returncode = 0
+        mock_proc.pid = 77777
+        mock_popen_cls.return_value = mock_proc
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_log = Path(tmpdir) / "logs" / "turn.log"
+            stdout_buf = io.StringIO()
+            logger = DualLogger(log_file=tmp_log, stdout_stream=stdout_buf)
+
+            ret, stdout, stderr = run_agy_turn(
+                prompt="Run tests",
+                mode="auto",
+                model="gemini-4-hydrogen-high",
+                timeout=60.0,
+                log_file=tmp_log,
+                stream=True,
+                logger=logger,
+            )
+
+            self.assertEqual(ret, 0)
+            self.assertEqual(stdout, "All done.")
+            self.assertIn("warning: sample stderr", stderr)
+
+            cmd_called = mock_popen_cls.call_args[0][0]
+            self.assertIn("--output-format", cmd_called)
+            self.assertEqual(cmd_called[cmd_called.index("--output-format") + 1], "stream-json")
+
+            out_text = stdout_buf.getvalue()
+            self.assertIn("conv-abc-123", out_text)
+            self.assertIn("run_command", out_text)
+            self.assertIn("npm test", out_text)
+            self.assertIn("All done.", out_text)
+            self.assertIn("warning: sample stderr", out_text)
+
+            log_text = tmp_log.read_text(encoding="utf-8")
+            self.assertIn('"event":"init"', log_text)
+            self.assertIn('"tool_name":"run_command"', log_text)
+
+    def test_run_agy_turn_streaming_emits_heartbeat_and_live_stderr_during_silence(self):
+        """Asserts streaming select loop wakes on heartbeat_interval to log progress and flushes stderr live."""
+        run_agy_turn = get_target("run_agy_turn", self)
+        DualLogger = get_target("DualLogger", self)
+
+        child_code = (
+            "import sys, time; "
+            "_ = sys.stdin.read(); "
+            "sys.stderr.write('early stderr notice\\n'); sys.stderr.flush(); "
+            "time.sleep(0.18); "
+            "sys.stdout.write('{\"event\":\"result\",\"result\":{\"status\":\"SUCCESS\",\"response\":\"Finished\"}}\\n'); "
+            "sys.stdout.flush()"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_log = Path(tmpdir) / "logs" / "heartbeat.log"
+            stdout_buf = io.StringIO()
+            logger = DualLogger(log_file=tmp_log, stdout_stream=stdout_buf)
+
+            with patch.object(
+                conductor_auto,
+                "build_agy_command",
+                return_value=[sys.executable, "-c", child_code],
+            ):
+                ret, stdout, stderr = run_agy_turn(
+                    prompt="hello",
+                    mode="auto",
+                    timeout=5.0,
+                    log_file=tmp_log,
+                    stream=True,
+                    logger=logger,
+                    heartbeat_interval=0.05,
+                )
+
+            self.assertEqual(ret, 0)
+            self.assertEqual(stdout, "Finished")
+            self.assertIn("early stderr notice", stderr)
+            out_text = stdout_buf.getvalue()
+            self.assertIn("Still running", out_text)
+            self.assertIn("early stderr notice", out_text)
+            self.assertIn("Finished", out_text)
+
+    def test_parse_args_accepts_heartbeat_flag(self):
+        """Asserts parse_args accepts --heartbeat duration string and defaults to 30s."""
+        parse_args = get_target("parse_args", self)
+        default_args = parse_args([])
+        self.assertEqual(default_args.heartbeat, "30s")
+        custom_args = parse_args(["--heartbeat", "10s"])
+        self.assertEqual(custom_args.heartbeat, "10s")
+
+
 class TestDocsFastPathAndSkipFlags(unittest.TestCase):
     """Test suite for [exempt: docs] Tier 1 & Gate 2 fast-path and --skip-plan / --force-review flags."""
 
@@ -2604,7 +2746,16 @@ class TestAgyCliContract(unittest.TestCase):
             timeout=5,
         )
         help_text = res.stdout + res.stderr
-        for token in ("--mode", "--model", "--dangerously-skip-permissions", "--print", "plan", "auto"):
+        for token in (
+            "--mode",
+            "--model",
+            "--dangerously-skip-permissions",
+            "--output-format",
+            "stream-json",
+            "--print",
+            "plan",
+            "auto",
+        ):
             self.assertIn(token, help_text)
 
     @unittest.skipUnless(shutil.which("agy"), "agy CLI not installed in environment")
@@ -2612,15 +2763,20 @@ class TestAgyCliContract(unittest.TestCase):
         """Asserts agy flag.Parse accepts build_agy_command output and consumes the prompt under --print."""
         build_agy_command = get_target("build_agy_command", self)
         role_configs = [
-            ("plan", get_target("DEFAULT_PLAN_MODEL", self)),
-            ("auto", get_target("DEFAULT_EXEC_MODEL", self)),
-            ("auto", get_target("DEFAULT_CHECKPOINT_MODEL", self)),
-            ("auto", get_target("DEFAULT_REVIEW_MODEL", self)),
+            ("plan", get_target("DEFAULT_PLAN_MODEL", self), None),
+            ("auto", get_target("DEFAULT_EXEC_MODEL", self), "stream-json"),
+            ("auto", get_target("DEFAULT_CHECKPOINT_MODEL", self), "stream-json"),
+            ("auto", get_target("DEFAULT_REVIEW_MODEL", self), "stream-json"),
         ]
         probe_flag = "--__contract_probe__"
 
-        for mode, model in role_configs:
-            cmd = build_agy_command(mode=mode, model=model, prompt="contract check")
+        for mode, model, output_format in role_configs:
+            cmd = build_agy_command(
+                mode=mode,
+                model=model,
+                prompt="contract check",
+                output_format=output_format,
+            )
             res = subprocess.run(
                 cmd + [probe_flag],
                 stdin=subprocess.DEVNULL,

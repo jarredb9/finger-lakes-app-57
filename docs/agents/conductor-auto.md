@@ -9,12 +9,13 @@ Unattended multi-task execution runner for Conductor tracks, orchestrating seque
 
 ## 1. Architecture
 
-`conductor-auto.py` operates as a non-interactive supervisor around `agy` CLI subprocesses using **zero-amnesia print mode** (`agy --mode <mode> --model <model> --dangerously-skip-permissions --print <prompt>`). Every turn starts in a fresh conversation context grounded by on-disk artifacts (`plan.md`, `spec.md`, and `phase-X-task-Y-plan.md`).
+`conductor-auto.py` operates as a non-interactive supervisor around `agy` CLI subprocesses using **zero-amnesia print mode** (`agy --mode <mode> --model <model> --dangerously-skip-permissions --output-format stream-json --print <prompt>`). Every turn starts in a fresh conversation context grounded by on-disk artifacts (`plan.md`, `spec.md`, and `phase-X-task-Y-plan.md`).
 
 ### Key Architectural Guarantees
-- **Strict `agy` Flag Ordering:** `build_agy_command()` always places `--mode`, `--model`, and `--dangerously-skip-permissions` strictly before `--print <prompt>` so multi-kilobyte prompts never collide with CLI option parsing.
+- **Strict `agy` Flag Ordering:** `build_agy_command()` always places `--mode`, `--model`, `--dangerously-skip-permissions`, and `--output-format` strictly before `--print <prompt>` so multi-kilobyte prompts never collide with CLI option parsing.
 - **Process Group Isolation & Timeouts:** Each `agy` turn runs in its own POSIX process group (`start_new_session=True`) with a configurable wall-clock timeout (default `15m`). On timeout or `SIGINT`, `_terminate_process_group()` sends `SIGTERM` followed by `SIGKILL` (after a 2-second grace window) to the entire process group, preventing orphaned container or subshell processes.
-- **Dual Logging (`DualLogger`):** Real-time banners, status lines, and streamed stdout appear in the terminal while full unredacted turn transcripts (prompt, stdout, stderr, exit code) are appended to `conductor/tracks/<track>/logs/`:
+- **Live Streaming, Heartbeats & Dual Logging (`DualLogger`):** Streamed turns use `--output-format stream-json` (`_StreamJsonTracker`) to display real-time session IDs, tool invocations, durations, and live `stderr` notices, paired with a periodic `--heartbeat` status line (default `30s`) during silent intervals. Timestamped runner banners/status lines and unredacted turn transcripts (prompt, raw NDJSON stdout, live stderr, exit code) are persisted under `conductor/tracks/<track>/logs/`:
+  - `conductor-auto.log` (runner-level banners & timestamped status lines)
   - `phase-<N>-task-<M>-plan.log`
   - `phase-<N>-task-<M>-exec.log`
   - `phase-<N>-task-<M>-recovery.log`
@@ -99,6 +100,7 @@ python3.11 scripts/agent/conductor-auto.py [track] [flags]
 | `--force-review` | `false` | Force Gate 2 `/conductor:review` even on documentation-only phases. |
 | `--auto-recover` | `false` | Dispatch a single `generate-prompt.py --recovery` turn if Tier 2 leaves dirty uncommitted changes. |
 | `--timeout <duration>` | `15m` | Per-turn subprocess timeout (`15m`, `900s`, `900`, `1h`). |
+| `--heartbeat <duration>` | `30s` | Heartbeat interval during silent `agy` turns (`30s`, `1m`, `0` to disable). |
 | `--model-family <family>` | `gemini-4-hydrogen` | Base model family composed with `ROLE_EFFORT_MAP`. |
 | `--plan-model <model>` | `gemini-4-hydrogen-high` | Override model for Tier 1 planning turns. |
 | `--exec-model <model>` | `gemini-4-hydrogen-high` | Override model for Tier 2 execution and `--auto-recover` turns. |

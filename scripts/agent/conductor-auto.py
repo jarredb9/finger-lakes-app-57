@@ -17,6 +17,7 @@ import argparse
 import codecs
 from dataclasses import dataclass, field
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -60,6 +61,8 @@ DEFAULT_CHECKPOINT_MODEL: str = f"{DEFAULT_MODEL_FAMILY}-{ROLE_EFFORT_MAP['check
 DEFAULT_REVIEW_MODEL: str = f"{DEFAULT_MODEL_FAMILY}-{ROLE_EFFORT_MAP['review']}"
 
 DEFAULT_BRAIN_DIR: Path = Path.home() / ".gemini" / "antigravity-cli" / "brain"
+
+DEFAULT_HEARTBEAT_INTERVAL: float = 30.0
 
 REVIEW_SEVERITY_PATTERN: str = r"^###\s+\[?(Critical|High)(?:\]|(?=$|[\s:]))"
 
@@ -139,25 +142,28 @@ class DualLogger:
     ) -> None:
         self.log_file: Optional[Path] = Path(log_file) if log_file is not None else None
         self._stdout_stream: Optional[TextIO] = stdout_stream
+        self._lock = threading.Lock()
 
     def _get_stdout(self) -> TextIO:
         return self._stdout_stream if self._stdout_stream is not None else sys.stdout
 
     def _write_stdout(self, text: str) -> None:
-        stream = self._get_stdout()
-        stream.write(text)
-        stream.flush()
+        with self._lock:
+            stream = self._get_stdout()
+            stream.write(text)
+            stream.flush()
 
     def _append_file(self, text: str) -> None:
         if self.log_file is None:
             return
-        try:
-            self.log_file.parent.mkdir(parents=True, exist_ok=True)
-            with open(self.log_file, "a", encoding="utf-8") as f:
-                f.write(text)
-                f.flush()
-        except OSError:
-            pass
+        with self._lock:
+            try:
+                self.log_file.parent.mkdir(parents=True, exist_ok=True)
+                with open(self.log_file, "a", encoding="utf-8") as f:
+                    f.write(text)
+                    f.flush()
+            except OSError:
+                pass
 
     def log_banner(self, title: str, subtitle: Optional[str] = None) -> None:
         border = "=" * 72
@@ -170,7 +176,8 @@ class DualLogger:
         self._append_file(payload)
 
     def log_status(self, message: str) -> None:
-        line = f"[conductor-auto] {message}\n"
+        timestamp = time.strftime("%H:%M:%S")
+        line = f"[conductor-auto] [{timestamp}] {message}\n"
         self._write_stdout(line)
         self._append_file(line)
 
@@ -522,9 +529,12 @@ def build_agy_command(
     model: str,
     prompt: str = "",
     extra_flags: Optional[List[str]] = None,
+    output_format: Optional[str] = None,
 ) -> List[str]:
     """Builds agy CLI command ensuring configuration flags strictly precede --print <prompt>."""
     cmd = ["agy", "--mode", mode, "--model", model, "--dangerously-skip-permissions"]
+    if output_format:
+        cmd.extend(["--output-format", output_format])
     if extra_flags:
         cmd.extend(extra_flags)
     cmd.extend(["--print", prompt])
@@ -589,6 +599,196 @@ def _open_turn_log(log_path: Optional[Path]) -> Optional[TextIO]:
         return None
 
 
+def _format_duration(seconds: float) -> str:
+    """Formats elapsed seconds cleanly as '45s' or '2m05s'."""
+    total = max(0, int(seconds))
+    mins, secs = divmod(total, 60)
+    if mins == 0:
+        return f"{secs}s"
+    hours, mins = divmod(mins, 60)
+    if hours == 0:
+        return f"{mins}m{secs:02d}s"
+    return f"{hours}h{mins:02d}m{secs:02d}s"
+
+
+def _summarize_tool_params(params: Any, max_len: int = 72) -> str:
+    """Extracts a concise, single-line parameter hint from a stream-json tool_info dict."""
+    if not isinstance(params, dict) or not params:
+        return ""
+    priority_keys = (
+        "CommandLine",
+        "Path",
+        "TargetFile",
+        "AbsolutePath",
+        "DirectoryPath",
+        "SearchPath",
+        "Query",
+        "Pattern",
+        "Url",
+        "toolSummary",
+    )
+    val: Any = None
+    for key in priority_keys:
+        if key in params and params[key] is not None:
+            val = params[key]
+            break
+    if val is None:
+        for candidate in params.values():
+            if isinstance(candidate, (str, int, float, bool)):
+                val = candidate
+                break
+    if val is None:
+        return ""
+    text = re.sub(r"\s+", " ", str(val)).strip()
+    if len(text) > max_len:
+        text = text[: max_len - 3] + "..."
+    return text
+
+
+class _StreamJsonTracker:
+    """Incrementally parses agy --output-format stream-json NDJSON lines into live terminal updates."""
+
+    _KNOWN_EVENTS = frozenset({"init", "step_update", "result", "error"})
+
+    def __init__(self) -> None:
+        self.saw_stream_json: bool = False
+        self.conversation_id: Optional[str] = None
+        self.final_response: Optional[str] = None
+        self.text_deltas: List[str] = []
+        self.last_activity: str = "starting"
+        self._init_logged: bool = False
+
+    def process_line(self, line: str) -> List[str]:
+        """Processes one stdout line; returns formatted terminal lines (or passes plain text through)."""
+        stripped = line.strip()
+        if not stripped.startswith("{"):
+            return [line]
+        try:
+            payload = json.loads(stripped)
+        except json.JSONDecodeError:
+            return [line]
+
+        if not isinstance(payload, dict) or payload.get("event") not in self._KNOWN_EVENTS:
+            return [line]
+
+        self.saw_stream_json = True
+        ts = time.strftime("%H:%M:%S")
+        event = payload.get("event")
+
+        if event == "init":
+            return self._handle_init(payload, ts)
+        if event == "step_update":
+            return self._handle_step_update(payload.get("step_update") or {}, ts)
+        if event == "result":
+            return self._handle_result(payload.get("result") or {}, ts)
+        if event == "error":
+            self.last_activity = "error"
+            err_msg = payload.get("message") or payload.get("error") or stripped
+            return [f"[{ts}] [agy] error: {err_msg}\n"]
+        return []
+
+    def _handle_init(self, payload: Dict[str, Any], ts: str) -> List[str]:
+        cid = payload.get("conversation_id")
+        if cid:
+            self.conversation_id = str(cid)
+        init_info = payload.get("init") if isinstance(payload.get("init"), dict) else {}
+        model = init_info.get("model", "unknown")
+        self.last_activity = "initialized"
+        if self._init_logged:
+            return []
+        self._init_logged = True
+        cid_display = self.conversation_id or "unknown"
+        return [f"[{ts}] [agy] Session initialized (conversation: {cid_display}, model: {model})\n"]
+
+    def _handle_step_update(self, su: Dict[str, Any], ts: str) -> List[str]:
+        if not isinstance(su, dict):
+            return []
+        step_type = su.get("step_type", "")
+        state = su.get("state", "")
+        step_idx = su.get("step_index")
+
+        if step_type == "tool":
+            tool_info = su.get("tool_info") if isinstance(su.get("tool_info"), dict) else {}
+            tool_name = su.get("tool_name") or tool_info.get("name") or "tool"
+            if state == "ACTIVE":
+                summary = _summarize_tool_params(tool_info.get("parameters"))
+                self.last_activity = f"tool:{tool_name}"
+                detail = f" ({summary})" if summary else ""
+                return [f"[{ts}] [agy] -> tool: {tool_name}{detail}\n"]
+            if state == "DONE":
+                dur = su.get("duration_seconds")
+                dur_str = f" ({dur:.1f}s)" if isinstance(dur, (int, float)) else ""
+                self.last_activity = f"tool:{tool_name}:done"
+                return [f"[{ts}] [agy] <- tool: {tool_name} done{dur_str}\n"]
+            return []
+
+        if step_type == "agent_response":
+            delta = su.get("text_delta")
+            if isinstance(delta, str) and delta:
+                self.text_deltas.append(delta)
+            if state == "ACTIVE":
+                self.last_activity = "responding"
+                return []
+            if state == "DONE":
+                dur = su.get("duration_seconds")
+                usage = su.get("usage") if isinstance(su.get("usage"), dict) else {}
+                total_tokens = usage.get("total_tokens")
+                parts: List[str] = []
+                if isinstance(dur, (int, float)):
+                    parts.append(f"{dur:.1f}s")
+                if isinstance(total_tokens, int):
+                    parts.append(f"{total_tokens} tokens")
+                self.last_activity = "responded"
+                if parts:
+                    idx_label = f"step {step_idx}" if step_idx is not None else "step"
+                    return [f"[{ts}] [agy] {idx_label}: agent_response ({', '.join(parts)})\n"]
+            return []
+
+        if state == "DONE" and step_type:
+            self.last_activity = step_type
+        return []
+
+    def _handle_result(self, res: Dict[str, Any], ts: str) -> List[str]:
+        if not isinstance(res, dict):
+            return []
+        cid = res.get("conversation_id")
+        if cid and not self.conversation_id:
+            self.conversation_id = str(cid)
+        status = res.get("status", "DONE")
+        dur = res.get("duration_seconds")
+        num_turns = res.get("num_turns")
+        usage = res.get("usage") if isinstance(res.get("usage"), dict) else {}
+        total_tokens = usage.get("total_tokens")
+
+        meta: List[str] = [str(status)]
+        if isinstance(dur, (int, float)):
+            meta.append(f"{dur:.1f}s")
+        if isinstance(num_turns, int):
+            meta.append(f"turns={num_turns}")
+        if isinstance(total_tokens, int):
+            meta.append(f"tokens={total_tokens}")
+
+        self.last_activity = f"finished:{status}"
+        lines = [f"[{ts}] [agy] Turn finished ({', '.join(meta)})\n"]
+
+        response = res.get("response")
+        if isinstance(response, str):
+            self.final_response = response
+            if response:
+                lines.append(response if response.endswith("\n") else f"{response}\n")
+        return lines
+
+    def get_clean_stdout(self, raw_stdout: str) -> str:
+        """Returns extracted assistant response text when stream-json was active, else raw_stdout."""
+        if not self.saw_stream_json:
+            return raw_stdout
+        if self.final_response is not None:
+            return self.final_response
+        if self.text_deltas:
+            return "".join(self.text_deltas)
+        return raw_stdout
+
+
 def _stream_agy_process(
     proc: subprocess.Popen,
     prompt: str,
@@ -597,21 +797,50 @@ def _stream_agy_process(
     timeout: float,
     effective_log_file: Optional[Path],
     logger: Optional[DualLogger],
+    heartbeat_interval: float = DEFAULT_HEARTBEAT_INTERVAL,
 ) -> Tuple[int, str, str]:
-    """Streams agy subprocess stdout/stderr incrementally with wall-clock timeout enforcement."""
+    """Streams agy subprocess stdout/stderr incrementally with heartbeats and timeout enforcement."""
     start_time = time.monotonic()
     deadline = start_time + timeout
     log_handle = _open_turn_log(effective_log_file)
+    log_lock = threading.Lock()
     stdout_chunks: List[str] = []
     stderr_chunks: List[str] = []
     stderr_thread: Optional[threading.Thread] = None
+    tracker = _StreamJsonTracker()
+
+    def _write_log(text: str) -> None:
+        if log_handle is None:
+            return
+        with log_lock:
+            log_handle.write(text)
+            log_handle.flush()
+
+    def _emit_terminal(text: str) -> None:
+        if logger is not None:
+            logger._write_stdout(text)
+        else:
+            sys.stdout.write(text)
+            sys.stdout.flush()
+
+    def _emit_heartbeat(elapsed: float) -> None:
+        msg = (
+            f"Still running (pid={proc.pid}, elapsed={_format_duration(elapsed)}"
+            f"/{_format_duration(timeout)}, state={tracker.last_activity})"
+        )
+        if logger is not None:
+            logger.log_status(msg)
+        else:
+            ts = time.strftime("%H:%M:%S")
+            sys.stdout.write(f"[conductor-auto] [{ts}] {msg}\n")
+            sys.stdout.flush()
 
     try:
-        if log_handle is not None:
-            log_handle.write(f"=== AGY TURN [{mode}] [{model}] ===\n")
-            log_handle.write(f"PROMPT:\n{prompt}\n")
-            log_handle.write("STDOUT:\n")
-            log_handle.flush()
+        _write_log(
+            f"=== AGY TURN [{mode}] [{model}] ===\n"
+            f"PROMPT:\n{prompt}\n"
+            f"STDOUT:\n"
+        )
 
         if proc.stdin is not None:
             try:
@@ -630,6 +859,10 @@ def _stream_agy_process(
                 try:
                     for err_line in proc.stderr:
                         stderr_chunks.append(err_line)
+                        _write_log(f"[STDERR] {err_line}")
+                        stripped_err = err_line.rstrip("\r\n")
+                        if stripped_err:
+                            _emit_terminal(f"[{time.strftime('%H:%M:%S')}] [agy:stderr] {stripped_err}\n")
                 except Exception:
                     pass
 
@@ -639,15 +872,9 @@ def _stream_agy_process(
         if proc.stdout is not None:
             def _emit_stream_line(line: str) -> None:
                 stdout_chunks.append(line)
-                if logger is not None:
-                    logger._write_stdout(line)
-                else:
-                    sys.stdout.write(line)
-                    sys.stdout.flush()
-
-                if log_handle is not None:
-                    log_handle.write(line)
-                    log_handle.flush()
+                _write_log(line)
+                for term_line in tracker.process_line(line):
+                    _emit_terminal(term_line)
 
             use_select = _has_real_fd(proc.stdout)
             if use_select:
@@ -656,15 +883,25 @@ def _stream_agy_process(
                 pending_line = ""
                 eof = False
                 while not eof:
-                    remaining = deadline - time.monotonic()
+                    now = time.monotonic()
+                    remaining = deadline - now
                     if remaining <= 0:
                         _terminate_process_group(proc.pid, proc)
                         raise ProcessExecutionError(f"Turn timed out after {timeout}s")
 
-                    ready, _, _ = select.select([fd], [], [], remaining)
+                    wait_slice = (
+                        min(remaining, heartbeat_interval)
+                        if heartbeat_interval and heartbeat_interval > 0
+                        else remaining
+                    )
+                    ready, _, _ = select.select([fd], [], [], wait_slice)
                     if not ready:
-                        _terminate_process_group(proc.pid, proc)
-                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+                        now_after = time.monotonic()
+                        if now_after >= deadline:
+                            _terminate_process_group(proc.pid, proc)
+                            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+                        _emit_heartbeat(now_after - start_time)
+                        continue
 
                     raw_chunk = os.read(fd, 4096)
                     if not raw_chunk:
@@ -710,6 +947,10 @@ def _stream_agy_process(
                 rem_err = proc.stderr.read()
                 if rem_err:
                     stderr_chunks.append(rem_err)
+                    _write_log(f"[STDERR] {rem_err}")
+                    for err_line in rem_err.splitlines():
+                        if err_line:
+                            _emit_terminal(f"[{time.strftime('%H:%M:%S')}] [agy:stderr] {err_line}\n")
             except Exception:
                 pass
 
@@ -722,11 +963,9 @@ def _stream_agy_process(
 
         rc = proc.returncode if proc.returncode is not None else wait_rc
         stderr_text = "".join(stderr_chunks)
-        if log_handle is not None:
-            log_handle.write(f"\nSTDERR:\n{stderr_text}\nEXIT CODE: {rc}\n\n")
-            log_handle.flush()
+        _write_log(f"\nSTDERR:\n{stderr_text}\nEXIT CODE: {rc}\n\n")
 
-        return rc, "".join(stdout_chunks), stderr_text
+        return rc, tracker.get_clean_stdout("".join(stdout_chunks)), stderr_text
     except KeyboardInterrupt:
         _terminate_process_group(proc.pid, proc)
         raise
@@ -753,8 +992,9 @@ def _build_turn_kwargs(
     log_file: Path,
     stream: bool = False,
     logger: Optional[DualLogger] = None,
+    heartbeat_interval: Optional[float] = None,
 ) -> Dict[str, Any]:
-    """Builds kwargs for run_agy_turn, forwarding stream/logger only when active."""
+    """Builds kwargs for run_agy_turn, forwarding stream/logger/heartbeat only when active."""
     kwargs: Dict[str, Any] = {
         "prompt": prompt,
         "mode": mode,
@@ -767,6 +1007,8 @@ def _build_turn_kwargs(
         kwargs["stream"] = True
     if logger is not None:
         kwargs["logger"] = logger
+    if heartbeat_interval is not None:
+        kwargs["heartbeat_interval"] = heartbeat_interval
     return kwargs
 
 
@@ -779,9 +1021,17 @@ def run_agy_turn(
     log_file: Optional[Path] = None,
     stream: bool = False,
     logger: Optional[DualLogger] = None,
+    heartbeat_interval: float = DEFAULT_HEARTBEAT_INTERVAL,
+    output_format: Optional[str] = None,
 ) -> Tuple[int, str, str]:
     """Runs agy subprocess turn in a dedicated process group with --print prompt delivery."""
-    cmd = build_agy_command(mode=mode, model=model, prompt=prompt)
+    effective_output_format = output_format if output_format is not None else ("stream-json" if stream else None)
+    cmd = build_agy_command(
+        mode=mode,
+        model=model,
+        prompt=prompt,
+        output_format=effective_output_format,
+    )
     work_dir = cwd or PROJECT_ROOT
     effective_log_file = (
         Path(log_file)
@@ -800,6 +1050,8 @@ def run_agy_turn(
     )
 
     if stream:
+        if logger is not None and effective_log_file is not None:
+            logger.log_status(f"Turn started (pid={proc.pid}, log={effective_log_file})")
         return _stream_agy_process(
             proc=proc,
             prompt=prompt,
@@ -808,6 +1060,7 @@ def run_agy_turn(
             timeout=timeout,
             effective_log_file=effective_log_file,
             logger=logger,
+            heartbeat_interval=heartbeat_interval,
         )
 
     try:
@@ -969,6 +1222,7 @@ def dispatch_recovery_turn(
     cwd: Optional[Path] = None,
     stream: bool = False,
     logger: Optional[DualLogger] = None,
+    heartbeat_interval: Optional[float] = None,
 ) -> bool:
     """Dispatches a single recovery turn via generate-prompt.py --recovery to clean up uncommitted work."""
     work_dir = cwd or PROJECT_ROOT
@@ -992,6 +1246,7 @@ def dispatch_recovery_turn(
             log_file=log_file,
             stream=stream,
             logger=logger,
+            heartbeat_interval=heartbeat_interval,
         )
     )
     if ret != 0:
@@ -1432,6 +1687,7 @@ def dispatch_tier1_planning(
     cwd: Optional[Path] = None,
     stream: bool = False,
     logger: Optional[DualLogger] = None,
+    heartbeat_interval: Optional[float] = None,
 ) -> bool:
     """Coordinates Tier 1 turn: cache check -> prompt gen -> agy dispatch -> invariant audit."""
     work_dir = cwd or PROJECT_ROOT
@@ -1467,6 +1723,7 @@ def dispatch_tier1_planning(
             log_file=log_file,
             stream=stream,
             logger=logger,
+            heartbeat_interval=heartbeat_interval,
         )
     )
     if ret != 0:
@@ -1498,6 +1755,7 @@ def dispatch_tier2_execution(
     stream: bool = False,
     logger: Optional[DualLogger] = None,
     skip_plan: bool = False,
+    heartbeat_interval: Optional[float] = None,
 ) -> bool:
     """Coordinates Tier 2 execution turn:
     1. Captures base HEAD SHA.
@@ -1548,6 +1806,7 @@ def dispatch_tier2_execution(
             log_file=log_file,
             stream=stream,
             logger=logger,
+            heartbeat_interval=heartbeat_interval,
         )
     )
     if ret != 0:
@@ -1570,6 +1829,8 @@ def dispatch_tier2_execution(
                 recovery_kwargs["stream"] = True
             if logger is not None:
                 recovery_kwargs["logger"] = logger
+            if heartbeat_interval is not None:
+                recovery_kwargs["heartbeat_interval"] = heartbeat_interval
             dispatch_recovery_turn(**recovery_kwargs)
             is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
             if not is_clean:
@@ -1706,6 +1967,7 @@ def dispatch_gate1_checkpoint(
     cwd: Optional[Path] = None,
     stream: bool = False,
     logger: Optional[DualLogger] = None,
+    heartbeat_interval: Optional[float] = None,
 ) -> str:
     """Executes unattended Gate 1 phase verification checkpoint and audits commit/notes invariants."""
     work_dir = cwd or PROJECT_ROOT
@@ -1740,6 +2002,7 @@ def dispatch_gate1_checkpoint(
             log_file=log_file,
             stream=stream,
             logger=logger,
+            heartbeat_interval=heartbeat_interval,
         )
     )
     if ret != 0:
@@ -1864,6 +2127,7 @@ def dispatch_gate2_review(
     brain_dir: Optional[Path] = None,
     stream: bool = False,
     logger: Optional[DualLogger] = None,
+    heartbeat_interval: Optional[float] = None,
 ) -> ReviewResult:
     """Dispatches Gate 2 unattended review, captures conversation ID, and parses severity findings."""
     work_dir = cwd or PROJECT_ROOT
@@ -1887,6 +2151,7 @@ def dispatch_gate2_review(
             log_file=log_file,
             stream=stream,
             logger=logger,
+            heartbeat_interval=heartbeat_interval,
         )
     )
     conv_id = capture_conversation_id(before_dirs, brain_dir=brain_dir, min_mtime=start_ts - 2.0)
@@ -1990,6 +2255,11 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         help="Turn timeout duration (e.g. 15m, 900s, 900; default: 15m).",
     )
     parser.add_argument(
+        "--heartbeat",
+        default="30s",
+        help="Heartbeat interval during silent agy turns (e.g. 30s, 1m, 0 to disable; default: 30s).",
+    )
+    parser.add_argument(
         "--model-family",
         default=None,
         help=f"Base model family for effort composition (default: {DEFAULT_MODEL_FAMILY}).",
@@ -2054,6 +2324,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"Error: Invalid --timeout value '{args.timeout}': {err}", file=sys.stderr)
         return 1
 
+    try:
+        heartbeat_sec = parse_timeout(getattr(args, "heartbeat", "30s"))
+        if heartbeat_sec < 0:
+            raise ValueError("heartbeat must be non-negative")
+    except ValueError as err:
+        print(f"Error: Invalid --heartbeat value '{args.heartbeat}': {err}", file=sys.stderr)
+        return 1
+
     track_name = args.track or get_active_track()
     if not track_name:
         print("Error: No active track found and no track specified.", file=sys.stderr)
@@ -2078,7 +2356,13 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"No pending tasks in phase {active_phase.phase_num}.")
         return 0
 
-    logger = DualLogger()
+    runner_log = None if args.dry_run else (track_dir / "logs" / "conductor-auto.log")
+    logger = DualLogger(log_file=runner_log)
+    hb_kwargs: Dict[str, Any] = (
+        {"heartbeat_interval": heartbeat_sec}
+        if heartbeat_sec != DEFAULT_HEARTBEAT_INTERVAL
+        else {}
+    )
     logger.log_banner(
         f"Conductor Auto: {track_name} (Phase {active_phase.phase_num})",
         (
@@ -2128,6 +2412,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     timeout=timeout_sec,
                     stream=True,
                     logger=logger,
+                    **hb_kwargs,
                 )
             logger.log_status(
                 f"Dispatching Tier 2 execution for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
@@ -2142,6 +2427,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 stream=True,
                 logger=logger,
                 skip_plan=skip_t1,
+                **hb_kwargs,
             )
         except ConductorAutoError as err:
             print(f"Conductor Auto Error: {err}", file=sys.stderr)
@@ -2179,6 +2465,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             timeout=timeout_sec,
             stream=True,
             logger=logger,
+            **hb_kwargs,
         )
         logger.log_status(f"Gate 1 checkpoint verified (SHA: {cp_sha}).")
     except ConductorAutoError as err:
@@ -2206,6 +2493,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             timeout=timeout_sec,
             stream=True,
             logger=logger,
+            **hb_kwargs,
         )
     except ConductorAutoError as err:
         print(f"Gate 2 Review Error: {err}", file=sys.stderr)
