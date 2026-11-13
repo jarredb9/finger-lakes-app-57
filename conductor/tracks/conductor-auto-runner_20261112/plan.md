@@ -97,3 +97,6 @@
 - [x] Task: Apply review suggestions 6e763b99
 - [x] Task: Fix agy --print prompt delivery and add CLI contract tests 1a2776f0
 - [x] Task: Add live stream-json progress, heartbeat timer, and timestamped logging 0ca144de
+- [x] Task: Update spec.md and sync GitHub issue #162 for live stream-json, --heartbeat, conductor-auto.log, and --print contract [exempt: docs] 127c0ab7
+- [ ] Task: Write failing unit tests for stream-json empty-response fallback, stderr join order, --print-timeout forwarding, timestamped banner/error logging, and CLI heartbeat propagation (TDD Red phase)
+- [ ] Task: Fix stream-json fallback, stderr join/locking, --print-timeout, and banner/error logging, and refactor TurnStreamConfig and _TurnOutputSink (TDD Green phase)
