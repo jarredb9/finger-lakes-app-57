@@ -46,11 +46,9 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │ Tier 1: Production Integrity, Secrets & Database/Edge Security (P0)    │
-│ Database PostgREST RLS & storage (#93), Edge Function caller auth and  │
-│ social webhook authorization (#134, #150), private review isolation    │
-│ (#135), and client cache poisoning (#73, #75). (Resolved: #97 CI       │
-│ secrets, #87 RLS/RPCs; Closed: #94 decomposed into #134, #135, #150,   │
-│ #151, #152).                                                           │
+│ Edge Function caller auth and social webhook authorization (#134,      │
+│ #150), private review isolation (#135), and client cache poisoning     │
+│ (#73, #75).                                                            │
 ├────────────────────────────────────────────────────────────────────────┤
 │ Tier 2: Broken Core User Flows, Web & Client Perimeter Hardening (P1)  │
 │ Dead-end 404s on winery share URLs (#41), open redirects & reset host  │
@@ -64,18 +62,19 @@ Issues are ranked by balancing user impact, data integrity risk, architectural d
 ├────────────────────────────────────────────────────────────────────────┤
 │ Tier 3: Core UX Enablers & Milestone v3.8.0 Alignment                 │
 │ Planning friction (#50), map layout overlays (#89, #92), multi-trip    │
-│ modal badges (#109), batch signed photo URLs (#130), global varietal   │
-│ empty state (#131), Amenity decoupling (#74), viewport search &        │
-│ enrichment-aware discovery filtering (#47, #122), static Q&A           │
-│ keyword dictionaries extraction (#145).                                │
+│ modal badges (#109), batch signed photo URLs (#130), Amenity           │
+│ decoupling (#74), viewport search & enrichment-aware discovery         │
+│ filtering (#47, #122), static Q&A keyword dictionaries extraction      │
+│ (#145).                                                                │
 ├────────────────────────────────────────────────────────────────────────┤
 │ Tier 4: Foundational Architecture, Scalability & Technical Debt        │
 │ Places SDK deferral & boot auth waterfalls (#133), store resets &      │
 │ workstation env isolation in tests (#141), window store/E2E gating     │
-│ (#142), test fixtures consolidation (#146), placeId sanitization       │
-│ (#152), coordinate standardizations (#61), Postgres RLS InitPlan &    │
-│ hot-path indexing (#121), TypeScript (#52), Jest ESM transpilation    │
-│ (#115), component decomposition (#31).                                 │
+│ (#142), test fixtures & directory consolidation (#146, #171), placeId  │
+│ sanitization (#152), coordinate standardizations (#61), Postgres RLS   │
+│ InitPlan & hot-path indexing (#121), TypeScript (#52), Jest ESM        │
+│ transpilation (#115), lib/supabase consolidation (#172), component     │
+│ decomposition & domain grouping (#31, #173).                           │
 ├────────────────────────────────────────────────────────────────────────┤
 │ Tier 5: Strategic Platform Capabilities (Milestone v3.9.0)            │
 │ App Router authenticated layout refactor (#143), viewport-bounded      │
@@ -175,58 +174,56 @@ Milestone v3.7.0 Release Gate
  └── Tag v3.7.0 & bump package.json version -> Closes Milestone v3.7.0 (0 open issues)
  │
 Milestone v3.7.1 - Security Hardening & Production Defense (CURRENT ACTIVE FOCUS)
- ├── [x] Step 1: Fix #97 (CI & Runner Security) -> Merged via PR #102
- ├── [x] Step 2: Fix #87 (Database Security Part 1) -> Merged via PR #111
- ├── [~] Step 3: Finish #93 (Database Security Part 2 + profiles.email caller alignment) -> Topology C [Conductor Track]
- ├── Step 4: Fix #134 (Require authentication on search-wineries and get-winery-details Edge Functions) [P0] -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 5: Fix #150 (Require caller authorization and stop friend-graph disclosure in send-social-notification) [P0] -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 6: Fix #135 (Prevent private visit note leakage to Gemini and public summary fallback) [P0] -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 7: Fix #151 (Defend against prompt injection and validate Gemini summary schema in enrichment pipeline) [P1] -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 8: Fix #73 (Amenities v3 Cache Migration) -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 9: Fix #75 (PWA Hours Bug) -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 10: Fix #136 (Harden web auth perimeter and remove mock password-reset backdoor) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 11: Fix #95 (Web Route Hardening: Open redirects & Host header poisoning) -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 12: Fix #96 (Client Stability & Storage Privacy) -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 13: Implement #88 (HaveIBeenPwned Leaked Password Check) -> Topology B [Standard /plan Session: 2 Agents]
- └── Step 14: Fix #152 (Sanitize and validate placeId parameter in get-winery-details) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 1: Fix #134 (Require authentication on search-wineries and get-winery-details Edge Functions) [P0] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 2: Fix #150 (Require caller authorization and stop friend-graph disclosure in send-social-notification) [P0] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 3: Fix #135 (Prevent private visit note leakage to Gemini and public summary fallback) [P0] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 4: Fix #151 (Defend against prompt injection and validate Gemini summary schema in enrichment pipeline) [P1] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 5: Fix #73 (Amenities v3 Cache Migration) -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 6: Fix #75 (PWA Hours Bug) -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 7: Fix #136 (Harden web auth perimeter and remove mock password-reset backdoor) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 8: Fix #95 (Web Route Hardening: Open redirects & Host header poisoning) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 9: Fix #96 (Client Stability & Storage Privacy) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 10: Implement #88 (HaveIBeenPwned Leaked Password Check) -> Topology B [Standard /plan Session: 2 Agents]
+ └── Step 11: Fix #152 (Sanitize and validate placeId parameter in get-winery-details) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
  │
 Milestone v3.8.0 - Component Decomposition, Performance & UI Modernization (LOCKED UNTIL v3.7.1 TAGGED)
- ├── Step 15: Fix #139 (Replace external gravatar/pravatar call in TripCardPresentational to stop PII leak) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 16: Fix #140 (Route app/api/wineries upsert through validated catalog RPCs) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 17: Fix #137 (Normalize useTripStore slices to eliminate state drift) [P1] -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 18: Fix #138 (Eliminate wineryStore 16x manual fan-out into mapStore) [P1] -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 19: Grill & Fix #123 (SyncService 5xx Timers & Cross-Tab Replay Lock) -> Topology B [/grill-with-docs -> Execute]
- ├── Step 20: Grill & Fix #119 (Collaborative Trip Realtime & RLS Alignment) -> Topology B [/grill-with-docs -> Execute]
- ├── Step 21: Fix #41 (Deep Linking 404) -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 22: Fix #128 (Use exact count in visitFetchHelpers to prevent false zero totalPages [ADR-0003]) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 23: Fix #129 (Route visit edit action to edit modal tab instead of detouring in GlobalVisitHistory) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 24: Fix #130 (Batch signed photo URL resolution to prevent N+1 queries in visit lists) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 25: Fix #131 (Remove hardcoded Finger Lakes 'Riesling' fallback on global winery varietals) [P2] -> Topology D [Autonomous Overnight: 1 Headless Agent]
- ├── Step 26: Implement #50 (WineryModal Upcoming Trips Checklist) -> Topology A [Standard /plan Session: 1 Agent]
- ├── Step 27: Merge #89 (PR #99) / Execute #92 (MapOverlayLayout Slot Architecture) -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 28: Implement #109 (WineryModal Multi-Trip Badges) -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 29: Grill & Implement #74 (Visitor Amenities & Vibe Tags), #47 (Search This Area), & #122 (Enrichment-Aware Filters) -> Topology B [/grill-with-docs -> Execute]
- ├── Step 30: Fix #133 (Defer Google Places SDK loading and eliminate boot auth waterfalls in AuthProvider) [P2] -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 31: Fix #141 (Add useSyncStore to jest.setup.ts store resets and isolate workstation env) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 32: Fix #142 (Gate E2E and debug store attachments on window out of production builds) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 33: Refactor #145 (Extract static keyword dictionaries from WineryQnA.tsx into pure constants) [P3] -> Topology D [Autonomous Overnight: 1 Headless Agent]
- ├── Step 34: Refactor #146 (Migrate legacy dataFactory.ts importers to lib/test-utils/fixtures.ts) [P3] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 35: Execute #61 (Coordinate standardizations: Topology D) & Grill #121 (RLS InitPlan 0003 & FK Indexes 0001: Topology B)
- ├── Step 36: Execute #52 (TypeScript Epic PRs 2–4) -> Topology C [Conductor Track: Multiple Phased Agents]
- ├── Step 37: Execute #115 (Jest ESM Transpilation & Major UI/Auth Dependency Migrations) -> Topology B [Standard /plan Session: 2 Agents]
- └── Step 38: Execute #31 (Component Decomposition) -> Topology C [Conductor Track: Multiple Phased Agents]
+ ├── Step 12: Fix #139 (Replace external gravatar/pravatar call in TripCardPresentational to stop PII leak) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 13: Fix #140 (Route app/api/wineries upsert through validated catalog RPCs) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 14: Fix #137 (Normalize useTripStore slices to eliminate state drift) [P1] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 15: Fix #138 (Eliminate wineryStore 16x manual fan-out into mapStore) [P1] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 16: Grill & Fix #123 (SyncService 5xx Timers & Cross-Tab Replay Lock) -> Topology B [/grill-with-docs -> Execute]
+ ├── Step 17: Grill & Fix #119 (Collaborative Trip Realtime & RLS Alignment) -> Topology B [/grill-with-docs -> Execute]
+ ├── Step 18: Fix #41 (Deep Linking 404) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 19: Fix #128 (Use exact count in visitFetchHelpers to prevent false zero totalPages [ADR-0003]) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 20: Fix #129 (Route visit edit action to edit modal tab instead of detouring in GlobalVisitHistory) [P1] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 21: Fix #130 (Batch signed photo URL resolution to prevent N+1 queries in visit lists) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 22: Implement #50 (WineryModal Upcoming Trips Checklist) -> Topology A [Standard /plan Session: 1 Agent]
+ ├── Step 23: Merge #89 (PR #99) / Execute #92 (MapOverlayLayout Slot Architecture) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 24: Implement #109 (WineryModal Multi-Trip Badges) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 25: Grill & Implement #74 (Visitor Amenities & Vibe Tags), #47 (Search This Area), & #122 (Enrichment-Aware Filters) -> Topology B [/grill-with-docs -> Execute]
+ ├── Step 26: Fix #133 (Defer Google Places SDK loading and eliminate boot auth waterfalls in AuthProvider) [P2] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 27: Fix #141 (Add useSyncStore to jest.setup.ts store resets and isolate workstation env) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 28: Fix #142 (Gate E2E and debug store attachments on window out of production builds) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 29: Refactor #145 (Extract static keyword dictionaries from WineryQnA.tsx into pure constants) [P3] -> Topology D [Autonomous Overnight: 1 Headless Agent]
+ ├── Step 30: Refactor #146 (Migrate legacy dataFactory.ts importers to lib/test-utils/fixtures.ts) & #171 (Consolidate root __tests__ and lib/__tests__ stragglers into colocated test directories) [P3] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 31: Execute #61 (Coordinate standardizations: Topology D) & Grill #121 (RLS InitPlan 0003 & FK Indexes 0001: Topology B)
+ ├── Step 32: Execute #52 (TypeScript Epic PRs 2–4) -> Topology C [Conductor Track: Multiple Phased Agents]
+ ├── Step 33: Execute #115 (Jest ESM Transpilation & Major UI/Auth Dependency Migrations) -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 34: Refactor #172 (Fold top-level utils/supabase into lib/supabase and standardize lib module naming) [P3] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 35: Execute #31 (Component Decomposition) -> Topology C [Conductor Track: Multiple Phased Agents]
+ └── Step 36: Refactor #173 (Group remaining flat components by domain, colocate __tests__, and enforce kebab-case filenames [Blocked by #31]) [P3] -> Topology B [Standard /plan Session: 2 Agents]
  │
 Milestone v3.9.0 - Platform Feature Expansions (FUTURE QUEUE)
- ├── Step 39: Refactor #143 (Introduce app/(authenticated)/layout.tsx to eliminate AppShell remounts) [P2] -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 40: Execute #132 (Implement viewport-bounded get_map_markers query [ADR-0011]) [P1] -> Topology C [Conductor Track]
- ├── Step 41: Refactor #144 (Drop 3 deprecated tables [follows, follow_requests, visit_participants] and 5 dead RPCs from public schema) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
- ├── Step 42: Fix #147 (Wire GoogleMapAdapter into MapProvider or remove dead adapter) [P2] -> Topology B [Standard /plan Session: 2 Agents]
- ├── Step 43: Grill & Implement #118 (Day-Trip Companion Lifecycle [ADR-0012]: Schedule Warnings, Road Trip Legs & Visit Completion) -> Topology C [Conductor Track]
- ├── Step 44: Implement #32 (Google OAuth & Account Linking) -> Topology C [Conductor Track: Multiple Phased Agents]
- ├── Step 45: Implement #34 (Winery Lifecycle / Rebranding) -> Topology C [Conductor Track: Multiple Phased Agents]
- └── Step 46: Implement #13 (Mapbox Markers & PostGIS Regions) -> Topology C [Conductor Track: Multiple Phased Agents]
+ ├── Step 37: Refactor #143 (Introduce app/(authenticated)/layout.tsx to eliminate AppShell remounts) [P2] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 38: Execute #132 (Implement viewport-bounded get_map_markers query [ADR-0011]) [P1] -> Topology C [Conductor Track]
+ ├── Step 39: Refactor #144 (Drop 3 deprecated tables [follows, follow_requests, visit_participants] and 5 dead RPCs from public schema) [P2] -> Topology A [Targeted TDD Fix Session: 1 Agent]
+ ├── Step 40: Fix #147 (Wire GoogleMapAdapter into MapProvider or remove dead adapter) [P2] -> Topology B [Standard /plan Session: 2 Agents]
+ ├── Step 41: Grill & Implement #118 (Day-Trip Companion Lifecycle [ADR-0012]: Schedule Warnings, Road Trip Legs & Visit Completion) -> Topology C [Conductor Track]
+ ├── Step 42: Implement #32 (Google OAuth & Account Linking) -> Topology C [Conductor Track: Multiple Phased Agents]
+ ├── Step 43: Implement #34 (Winery Lifecycle / Rebranding) -> Topology C [Conductor Track: Multiple Phased Agents]
+ └── Step 44: Implement #13 (Mapbox Markers & PostGIS Regions) -> Topology C [Conductor Track: Multiple Phased Agents]
  │
 Milestone v3.10.0 - Social Discovery, Tasting & Recommendations (BACKLOG QUEUE)
- ├── Step 47: Grill & Implement #125 (Wine-Level Tasting Records Within a Visit) -> Topology C [Conductor Track]
- └── Step 48: Implement #46 (Social Tagging), #45 (Taste Profiles), & #48 (Community Feed) -> Topology C [Conductor Track: Multiple Phased Agents]
+ ├── Step 45: Grill & Implement #125 (Wine-Level Tasting Records Within a Visit) -> Topology C [Conductor Track]
+ └── Step 46: Implement #46 (Social Tagging), #45 (Taste Profiles), & #48 (Community Feed) -> Topology C [Conductor Track: Multiple Phased Agents]
 ```
