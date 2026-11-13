@@ -22,3 +22,6 @@
     - [x] Add `[functions.send-social-notification]` with `verify_jwt = false` (and inline comment noting in-handler constant-time Bearer validation for both JWT `service_role_key` and opaque webhook secrets) to `supabase/config.toml` and `supabase/config.ci.toml`.
     - [x] Verify configuration syntax and run `npm run lint` and `npm run test:functions`.
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Edge Function Security, Ledger Verification & Privacy Lockdown' (Protocol in workflow.md) [commit: 7293ad8b]
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions f7e9119
