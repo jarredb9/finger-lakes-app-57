@@ -19,11 +19,14 @@ import importlib.util
 import os
 from pathlib import Path
 import re
+import select
 import shlex
 import signal
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Tuple, Union
+import threading
+import time
+from typing import Any, Dict, List, Mapping, Optional, Set, TextIO, Tuple, Union
 
 
 # ---------------------------------------------------------------------------
@@ -40,6 +43,24 @@ def find_project_root() -> Path:
 
 
 PROJECT_ROOT = find_project_root()
+
+DEFAULT_MODEL_FAMILY: str = "gemini-4-hydrogen"
+
+ROLE_EFFORT_MAP: Dict[str, str] = {
+    "plan": "xhigh",
+    "exec": "high",
+    "checkpoint": "medium",
+    "review": "xhigh",
+}
+
+DEFAULT_PLAN_MODEL: str = f"{DEFAULT_MODEL_FAMILY}-{ROLE_EFFORT_MAP['plan']}"
+DEFAULT_EXEC_MODEL: str = f"{DEFAULT_MODEL_FAMILY}-{ROLE_EFFORT_MAP['exec']}"
+DEFAULT_CHECKPOINT_MODEL: str = f"{DEFAULT_MODEL_FAMILY}-{ROLE_EFFORT_MAP['checkpoint']}"
+DEFAULT_REVIEW_MODEL: str = f"{DEFAULT_MODEL_FAMILY}-{ROLE_EFFORT_MAP['review']}"
+
+DEFAULT_BRAIN_DIR: Path = Path.home() / ".gemini" / "antigravity-cli" / "brain"
+
+REVIEW_SEVERITY_PATTERN: str = r"^###\s+\[?(Critical|High)\]?"
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +117,66 @@ class PhaseInfo:
     raw_heading: str
     tasks: List[TaskInfo] = field(default_factory=list)
     is_complete: bool = False
+
+
+@dataclass
+class ReviewResult:
+    report_path: Path
+    conversation_id: Optional[str]
+    has_critical_or_high: bool
+    findings: List[str] = field(default_factory=list)
+    exit_code: int = 0
+
+
+class DualLogger:
+    """Formats progress banners/status lines to stdout and tees unredacted output to a log file."""
+
+    def __init__(
+        self,
+        log_file: Optional[Path] = None,
+        stdout_stream: Optional[TextIO] = None,
+    ) -> None:
+        self.log_file: Optional[Path] = Path(log_file) if log_file is not None else None
+        self._stdout_stream: Optional[TextIO] = stdout_stream
+
+    def _get_stdout(self) -> TextIO:
+        return self._stdout_stream if self._stdout_stream is not None else sys.stdout
+
+    def _write_stdout(self, text: str) -> None:
+        stream = self._get_stdout()
+        stream.write(text)
+        stream.flush()
+
+    def _append_file(self, text: str) -> None:
+        if self.log_file is None:
+            return
+        try:
+            self.log_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.log_file, "a", encoding="utf-8") as f:
+                f.write(text)
+                f.flush()
+        except OSError:
+            pass
+
+    def log_banner(self, title: str, subtitle: Optional[str] = None) -> None:
+        border = "=" * 72
+        lines = [f"\n{border}", f"  {title}"]
+        if subtitle:
+            lines.append(f"  {subtitle}")
+        lines.append(f"{border}\n")
+        payload = "\n".join(lines)
+        self._write_stdout(payload)
+        self._append_file(payload)
+
+    def log_status(self, message: str) -> None:
+        line = f"[conductor-auto] {message}\n"
+        self._write_stdout(line)
+        self._append_file(line)
+
+    def write_raw(self, chunk: str, to_stdout: bool = False) -> None:
+        self._append_file(chunk)
+        if to_stdout:
+            self._write_stdout(chunk)
 
 
 # ---------------------------------------------------------------------------
@@ -344,8 +425,9 @@ def get_pending_tasks(phase: PhaseInfo) -> List[TaskInfo]:
 def generate_turn_prompt(
     track: str,
     phase_num: int,
-    task_num: int,
+    task_num: Optional[int] = None,
     mode: str = "plan",
+    unattended: bool = False,
     cwd: Optional[Path] = None,
 ) -> str:
     """Invokes scripts/agent/generate-prompt.py via subprocess to obtain turn prompt."""
@@ -354,15 +436,21 @@ def generate_turn_prompt(
     if not gen_script.exists():
         gen_script = PROJECT_ROOT / "scripts" / "agent" / "generate-prompt.py"
 
-    mode_flag = f"--{mode.lstrip('-')}"
+    normalized_mode = mode.lstrip("-")
+    mode_flag = f"--{normalized_mode}"
     cmd = [
         sys.executable,
         str(gen_script),
         str(track),
         str(phase_num),
-        str(task_num),
-        mode_flag,
     ]
+    if task_num is not None:
+        cmd.append(str(task_num))
+    cmd.append(mode_flag)
+    if normalized_mode == "checkpoint":
+        cmd.append("--exec")
+    if unattended:
+        cmd.append("--unattended")
 
     res = subprocess.run(
         cmd,
@@ -426,17 +514,187 @@ def _terminate_process_group(pid: int, proc: Optional[subprocess.Popen] = None) 
                 pass
 
 
+def _has_real_fd(stream_obj: Any) -> bool:
+    """Returns True if stream_obj exposes a non-negative integer OS file descriptor."""
+    if stream_obj is None or not hasattr(stream_obj, "fileno"):
+        return False
+    try:
+        fd = stream_obj.fileno()
+        return isinstance(fd, int) and not isinstance(fd, bool) and fd >= 0
+    except Exception:
+        return False
+
+
+def _open_turn_log(log_path: Optional[Path]) -> Optional[TextIO]:
+    """Opens a turn log file for appending, creating parent directories safely."""
+    if log_path is None:
+        return None
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        return open(log_path, "a", encoding="utf-8")
+    except OSError:
+        return None
+
+
+def _stream_agy_process(
+    proc: subprocess.Popen,
+    prompt: str,
+    mode: str,
+    model: str,
+    timeout: float,
+    effective_log_file: Optional[Path],
+    logger: Optional[DualLogger],
+) -> Tuple[int, str, str]:
+    """Streams agy subprocess stdout/stderr incrementally with wall-clock timeout enforcement."""
+    start_time = time.monotonic()
+    deadline = start_time + timeout
+    log_handle = _open_turn_log(effective_log_file)
+    stdout_chunks: List[str] = []
+    stderr_chunks: List[str] = []
+    stderr_thread: Optional[threading.Thread] = None
+
+    try:
+        if log_handle is not None:
+            log_handle.write(f"=== AGY TURN [{mode}] [{model}] ===\n")
+            log_handle.write(f"PROMPT:\n{prompt}\n")
+            log_handle.write("STDOUT:\n")
+            log_handle.flush()
+
+        if proc.stdin is not None:
+            try:
+                proc.stdin.write(prompt)
+                proc.stdin.flush()
+            except BrokenPipeError:
+                pass
+            finally:
+                try:
+                    proc.stdin.close()
+                except Exception:
+                    pass
+
+        if proc.stderr is not None and _has_real_fd(proc.stderr):
+            def _drain_stderr() -> None:
+                try:
+                    for err_line in proc.stderr:
+                        stderr_chunks.append(err_line)
+                except Exception:
+                    pass
+
+            stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+            stderr_thread.start()
+
+        if proc.stdout is not None:
+            use_select = _has_real_fd(proc.stdout)
+            while True:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    _terminate_process_group(proc.pid, proc)
+                    raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+                if use_select:
+                    ready, _, _ = select.select([proc.stdout], [], [], remaining)
+                    if not ready:
+                        _terminate_process_group(proc.pid, proc)
+                        raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+                line = proc.stdout.readline()
+                if line == "":
+                    break
+
+                stdout_chunks.append(line)
+                if logger is not None:
+                    logger._write_stdout(line)
+                else:
+                    sys.stdout.write(line)
+                    sys.stdout.flush()
+
+                if log_handle is not None:
+                    log_handle.write(line)
+                    log_handle.flush()
+
+                if time.monotonic() > deadline:
+                    _terminate_process_group(proc.pid, proc)
+                    raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+        if stderr_thread is not None:
+            stderr_thread.join(timeout=2.0)
+        elif proc.stderr is not None:
+            try:
+                rem_err = proc.stderr.read()
+                if rem_err:
+                    stderr_chunks.append(rem_err)
+            except Exception:
+                pass
+
+        remaining = max(0.0, deadline - time.monotonic())
+        try:
+            wait_rc = proc.wait(timeout=remaining)
+        except subprocess.TimeoutExpired:
+            _terminate_process_group(proc.pid, proc)
+            raise ProcessExecutionError(f"Turn timed out after {timeout}s")
+
+        rc = proc.returncode if proc.returncode is not None else wait_rc
+        stderr_text = "".join(stderr_chunks)
+        if log_handle is not None:
+            log_handle.write(f"\nSTDERR:\n{stderr_text}\nEXIT CODE: {rc}\n\n")
+            log_handle.flush()
+
+        return rc, "".join(stdout_chunks), stderr_text
+    except KeyboardInterrupt:
+        _terminate_process_group(proc.pid, proc)
+        raise
+    finally:
+        if log_handle is not None:
+            try:
+                log_handle.close()
+            except Exception:
+                pass
+
+
+def _build_turn_kwargs(
+    prompt: str,
+    mode: str,
+    model: str,
+    timeout: float,
+    cwd: Path,
+    log_file: Path,
+    stream: bool = False,
+    logger: Optional[DualLogger] = None,
+) -> Dict[str, Any]:
+    """Builds kwargs for run_agy_turn, forwarding stream/logger only when active."""
+    kwargs: Dict[str, Any] = {
+        "prompt": prompt,
+        "mode": mode,
+        "model": model,
+        "timeout": timeout,
+        "cwd": cwd,
+        "log_file": log_file,
+    }
+    if stream:
+        kwargs["stream"] = True
+    if logger is not None:
+        kwargs["logger"] = logger
+    return kwargs
+
+
 def run_agy_turn(
     prompt: str,
     mode: str = "plan",
-    model: str = "gemini-3.8-flash-high",
+    model: str = DEFAULT_PLAN_MODEL,
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
     log_file: Optional[Path] = None,
+    stream: bool = False,
+    logger: Optional[DualLogger] = None,
 ) -> Tuple[int, str, str]:
     """Runs agy subprocess turn in a dedicated process group with stdin prompt delivery."""
     cmd = build_agy_command(mode=mode, model=model)
     work_dir = cwd or PROJECT_ROOT
+    effective_log_file = (
+        Path(log_file)
+        if log_file is not None
+        else (logger.log_file if logger is not None and logger.log_file is not None else None)
+    )
 
     proc = subprocess.Popen(
         cmd,
@@ -448,6 +706,17 @@ def run_agy_turn(
         start_new_session=True,
     )
 
+    if stream:
+        return _stream_agy_process(
+            proc=proc,
+            prompt=prompt,
+            mode=mode,
+            model=model,
+            timeout=timeout,
+            effective_log_file=effective_log_file,
+            logger=logger,
+        )
+
     try:
         stdout, stderr = proc.communicate(input=prompt, timeout=timeout)
     except subprocess.TimeoutExpired:
@@ -457,18 +726,17 @@ def run_agy_turn(
         _terminate_process_group(proc.pid, proc)
         raise
 
-    if log_file:
-        try:
-            log_path = Path(log_file)
-            log_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(log_path, "a", encoding="utf-8") as f:
-                f.write(f"=== AGY TURN [{mode}] [{model}] ===\n")
-                f.write(f"PROMPT:\n{prompt}\n")
-                f.write(f"STDOUT:\n{stdout}\n")
-                f.write(f"STDERR:\n{stderr}\n")
-                f.write(f"EXIT CODE: {proc.returncode}\n\n")
-        except OSError:
-            pass
+    if effective_log_file:
+        log_handle = _open_turn_log(effective_log_file)
+        if log_handle is not None:
+            try:
+                log_handle.write(f"=== AGY TURN [{mode}] [{model}] ===\n")
+                log_handle.write(f"PROMPT:\n{prompt}\n")
+                log_handle.write(f"STDOUT:\n{stdout}\n")
+                log_handle.write(f"STDERR:\n{stderr}\n")
+                log_handle.write(f"EXIT CODE: {proc.returncode}\n\n")
+            finally:
+                log_handle.close()
 
     return proc.returncode, stdout, stderr
 
@@ -603,13 +871,15 @@ def dispatch_recovery_turn(
     track_name: str,
     phase_num: int,
     task_num: int,
-    exec_model: str = "gemini-3.8-flash-medium",
+    exec_model: str = DEFAULT_EXEC_MODEL,
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
+    stream: bool = False,
+    logger: Optional[DualLogger] = None,
 ) -> bool:
     """Dispatches a single recovery turn via generate-prompt.py --recovery to clean up uncommitted work."""
     work_dir = cwd or PROJECT_ROOT
-    track_dir = resolve_track_dir(track_name) or (work_dir / "conductor" / "tracks" / track_name).resolve()
+    track_dir = resolve_track_dir(track_name, cwd=work_dir) or (work_dir / "conductor" / "tracks" / track_name).resolve()
     log_file = track_dir / "logs" / f"phase-{phase_num}-task-{task_num}-recovery.log"
 
     prompt = generate_turn_prompt(
@@ -620,12 +890,16 @@ def dispatch_recovery_turn(
         cwd=work_dir,
     )
     ret, _stdout, stderr = run_agy_turn(
-        prompt=prompt,
-        mode="auto",
-        model=exec_model,
-        timeout=timeout,
-        cwd=work_dir,
-        log_file=log_file,
+        **_build_turn_kwargs(
+            prompt=prompt,
+            mode="auto",
+            model=exec_model,
+            timeout=timeout,
+            cwd=work_dir,
+            log_file=log_file,
+            stream=stream,
+            logger=logger,
+        )
     )
     if ret != 0:
         raise ProcessExecutionError(f"Recovery turn failed with exit code {ret}: {stderr.strip()}")
@@ -1059,14 +1333,16 @@ def dispatch_tier1_planning(
     track_name: str,
     phase_num: int,
     task_num: int,
-    plan_model: str = "gemini-3.8-flash-high",
+    plan_model: str = DEFAULT_PLAN_MODEL,
     force_plan: bool = False,
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
+    stream: bool = False,
+    logger: Optional[DualLogger] = None,
 ) -> bool:
     """Coordinates Tier 1 turn: cache check -> prompt gen -> agy dispatch -> invariant audit."""
     work_dir = cwd or PROJECT_ROOT
-    track_dir = resolve_track_dir(track_name)
+    track_dir = resolve_track_dir(track_name, cwd=work_dir)
     if not track_dir:
         track_dir = (work_dir / "conductor" / "tracks" / track_name).resolve()
 
@@ -1089,12 +1365,16 @@ def dispatch_tier1_planning(
 
     log_file = track_dir / "logs" / f"phase-{phase_num}-task-{task_num}-plan.log"
     ret, stdout, stderr = run_agy_turn(
-        prompt=prompt,
-        mode="plan",
-        model=plan_model,
-        timeout=timeout,
-        cwd=work_dir,
-        log_file=log_file,
+        **_build_turn_kwargs(
+            prompt=prompt,
+            mode="plan",
+            model=plan_model,
+            timeout=timeout,
+            cwd=work_dir,
+            log_file=log_file,
+            stream=stream,
+            logger=logger,
+        )
     )
     if ret != 0:
         raise ProcessExecutionError(
@@ -1118,10 +1398,12 @@ def dispatch_tier2_execution(
     track_name: str,
     phase_num: int,
     task_num: int,
-    exec_model: str = "gemini-3.8-flash-medium",
+    exec_model: str = DEFAULT_EXEC_MODEL,
     auto_recover: bool = False,
     timeout: float = 900.0,
     cwd: Optional[Path] = None,
+    stream: bool = False,
+    logger: Optional[DualLogger] = None,
 ) -> bool:
     """Coordinates Tier 2 execution turn:
     1. Captures base HEAD SHA.
@@ -1153,12 +1435,16 @@ def dispatch_tier2_execution(
     )
 
     ret, _stdout, stderr = run_agy_turn(
-        prompt=prompt,
-        mode="auto",
-        model=exec_model,
-        timeout=timeout,
-        cwd=work_dir,
-        log_file=log_file,
+        **_build_turn_kwargs(
+            prompt=prompt,
+            mode="auto",
+            model=exec_model,
+            timeout=timeout,
+            cwd=work_dir,
+            log_file=log_file,
+            stream=stream,
+            logger=logger,
+        )
     )
     if ret != 0:
         raise ProcessExecutionError(
@@ -1168,14 +1454,19 @@ def dispatch_tier2_execution(
     is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
     if not is_clean:
         if auto_recover:
-            dispatch_recovery_turn(
-                track_name=track_name,
-                phase_num=phase_num,
-                task_num=task_num,
-                exec_model=exec_model,
-                timeout=timeout,
-                cwd=work_dir,
-            )
+            recovery_kwargs: Dict[str, Any] = {
+                "track_name": track_name,
+                "phase_num": phase_num,
+                "task_num": task_num,
+                "exec_model": exec_model,
+                "timeout": timeout,
+                "cwd": work_dir,
+            }
+            if stream:
+                recovery_kwargs["stream"] = True
+            if logger is not None:
+                recovery_kwargs["logger"] = logger
+            dispatch_recovery_turn(**recovery_kwargs)
             is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
             if not is_clean:
                 raise GitTreeDirtyError(
@@ -1231,8 +1522,322 @@ def dispatch_tier2_execution(
 
 
 # ---------------------------------------------------------------------------
+# Gate 1: Phase Checkpoint Execution & Audit
+# ---------------------------------------------------------------------------
+
+def verify_checkpoint_commit_and_notes(
+    phase_num: int,
+    plan_path: Path,
+    cwd: Optional[Path] = None,
+    base_sha: Optional[str] = None,
+) -> str:
+    """Verifies [checkpoint: <sha>], checkpoint commit message, git notes, and conductor(plan) commit."""
+    work_dir = cwd or PROJECT_ROOT
+    if not plan_path.exists():
+        raise SupervisorInvariantError(f"plan.md not found at {plan_path}")
+
+    phases = parse_track_plan(plan_path)
+    phase = phases.get(phase_num)
+    if phase is None or not phase.checkpoint_sha:
+        raise SupervisorInvariantError(
+            f"Phase {phase_num} missing [checkpoint: <sha>] tag in {plan_path}"
+        )
+
+    cp_sha = phase.checkpoint_sha
+    if base_sha and re.fullmatch(r"[a-f0-9]{7,40}", base_sha, re.IGNORECASE):
+        short_cp = cp_sha[:7].lower()
+        if base_sha.lower().startswith(short_cp) or cp_sha.lower().startswith(base_sha[:7].lower()):
+            raise SupervisorInvariantError(
+                f"Checkpoint SHA {short_cp} matches baseline {base_sha[:7]}; no new checkpoint commit was created."
+            )
+
+    log_res = subprocess.run(
+        ["git", "log", "-1", "--format=%B", cp_sha],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    if log_res.returncode != 0:
+        raise SupervisorInvariantError(
+            f"Failed to inspect checkpoint commit {cp_sha}: {log_res.stderr}"
+        )
+    lines = [line.strip() for line in log_res.stdout.splitlines() if line.strip()]
+    first_line = lines[0] if lines else ""
+    expected_prefix = f"conductor(checkpoint): Checkpoint end of Phase {phase_num}"
+    if not first_line.startswith(expected_prefix):
+        raise SupervisorInvariantError(
+            f"Checkpoint commit {cp_sha} message '{first_line}' does not start with '{expected_prefix}'"
+        )
+
+    notes_res = subprocess.run(
+        ["git", "notes", "show", cp_sha],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    if notes_res.returncode != 0 or not notes_res.stdout.strip():
+        raise SupervisorInvariantError(
+            f"Git notes missing or empty on checkpoint commit {cp_sha}"
+        )
+
+    plan_log_res = subprocess.run(
+        ["git", "log", "-1", "--pretty=%B", "--", str(plan_path)],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    if plan_log_res.returncode != 0 or "conductor(plan)" not in plan_log_res.stdout:
+        raise SupervisorInvariantError(
+            f"Missing conductor(plan) commit updating {plan_path} with checkpoint SHA {cp_sha}"
+        )
+
+    return cp_sha
+
+
+def dispatch_gate1_checkpoint(
+    track_name: str,
+    phase_num: int,
+    checkpoint_model: Optional[str] = None,
+    timeout: float = 900.0,
+    cwd: Optional[Path] = None,
+    stream: bool = False,
+    logger: Optional[DualLogger] = None,
+) -> str:
+    """Executes unattended Gate 1 phase verification checkpoint and audits commit/notes invariants."""
+    work_dir = cwd or PROJECT_ROOT
+    track_dir = resolve_track_dir(track_name, cwd=work_dir) or (work_dir / "conductor" / "tracks" / track_name).resolve()
+    model = checkpoint_model or DEFAULT_CHECKPOINT_MODEL
+    log_file = track_dir / "logs" / f"phase-{phase_num}-checkpoint.log"
+
+    head_res = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    base_sha = head_res.stdout.strip() if head_res.returncode == 0 else None
+
+    prompt = generate_turn_prompt(
+        track=track_name,
+        phase_num=phase_num,
+        task_num=None,
+        mode="checkpoint",
+        unattended=True,
+        cwd=work_dir,
+    )
+
+    ret, _stdout, stderr = run_agy_turn(
+        **_build_turn_kwargs(
+            prompt=prompt,
+            mode="auto",
+            model=model,
+            timeout=timeout,
+            cwd=work_dir,
+            log_file=log_file,
+            stream=stream,
+            logger=logger,
+        )
+    )
+    if ret != 0:
+        raise ProcessExecutionError(
+            f"Gate 1 checkpoint turn failed with exit code {ret}: {stderr.strip()}"
+        )
+
+    is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
+    if not is_clean:
+        raise GitTreeDirtyError(
+            f"Working tree contains uncommitted changes after Gate 1 checkpoint: {', '.join(dirty_files)}"
+        )
+
+    return verify_checkpoint_commit_and_notes(
+        phase_num=phase_num,
+        plan_path=track_dir / "plan.md",
+        cwd=work_dir,
+        base_sha=base_sha,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Gate 2: Brain Snapshotting & Unattended Phase Review
+# ---------------------------------------------------------------------------
+
+def snapshot_brain_dirs(
+    brain_dir: Optional[Path] = None,
+) -> Set[str]:
+    """Returns set of existing conversation directory names inside brain_dir."""
+    target = Path(brain_dir) if brain_dir is not None else DEFAULT_BRAIN_DIR
+    if not target.exists() or not target.is_dir():
+        return set()
+    return {p.name for p in target.iterdir() if p.is_dir()}
+
+
+def capture_conversation_id(
+    before_dirs: Set[str],
+    brain_dir: Optional[Path] = None,
+    min_mtime: Optional[float] = None,
+) -> Optional[str]:
+    """Identifies the conversation ID created during a turn via new dir diff or transcript.jsonl fallback."""
+    target = Path(brain_dir) if brain_dir is not None else DEFAULT_BRAIN_DIR
+    if not target.exists() or not target.is_dir():
+        return None
+
+    new_dirs = snapshot_brain_dirs(target) - before_dirs
+    if new_dirs:
+        candidates = [target / d for d in new_dirs if (target / d).is_dir()]
+        if min_mtime is not None:
+            filtered = [c for c in candidates if c.stat().st_mtime >= min_mtime]
+            if filtered:
+                candidates = filtered
+        if candidates:
+            newest = max(candidates, key=lambda p: p.stat().st_mtime)
+            return newest.name
+
+    transcript_candidates: List[Tuple[float, str]] = []
+    for entry in target.iterdir():
+        if not entry.is_dir():
+            continue
+        for rel in (
+            entry / ".system_generated" / "logs" / "transcript.jsonl",
+            entry / "transcript.jsonl",
+        ):
+            if rel.exists() and rel.is_file():
+                mtime = rel.stat().st_mtime
+                if min_mtime is None or mtime >= min_mtime:
+                    transcript_candidates.append((mtime, entry.name))
+
+    if transcript_candidates:
+        transcript_candidates.sort(key=lambda item: item[0], reverse=True)
+        return transcript_candidates[0][1]
+
+    return None
+
+
+def build_review_prompt(
+    track_name: str,
+    phase_num: int,
+    report_path: Path,
+) -> str:
+    """Builds unattended /conductor:review prompt scoped to a specific track phase."""
+    return (
+        f"/conductor:review {track_name}\n\n"
+        f"UNATTENDED / NON-INTERACTIVE REVIEW OVERRIDES:\n"
+        f"- Scope strictly to track `{track_name}`, Phase {phase_num}. Auto-confirm scope without any `ask_question` modal pauses.\n"
+        f"- If the phase diff exceeds 300 lines, automatically accept Iterative Review Mode without pausing for confirmation.\n"
+        f"- Write the full structured markdown review report to `{report_path}`.\n"
+        f"- Preserve canonical finding severity headings (`### [Critical]`, `### [High]`, `### [Medium]`, `### [Low]`).\n"
+        f"- Halt cleanly after saving `{report_path}`. Do NOT auto-apply fixes and do NOT prompt interactively at Section 3.1.\n"
+    )
+
+
+def parse_review_severity(
+    report_text: str,
+) -> Tuple[bool, List[str]]:
+    """Matches strict H3 Critical/High headings using REVIEW_SEVERITY_PATTERN."""
+    pattern = re.compile(REVIEW_SEVERITY_PATTERN, re.IGNORECASE)
+    findings = [
+        line.strip()
+        for line in report_text.splitlines()
+        if pattern.match(line.strip())
+    ]
+    return len(findings) > 0, findings
+
+
+def format_resume_command(
+    conv_id: Optional[str],
+    phase_num: int,
+) -> str:
+    """Formats the exact agy --conversation resumption command for Critical/High review findings."""
+    cid = conv_id or "<conversation-id>"
+    return f'agy --conversation {cid} "Apply the review suggestions from phase-{phase_num}-review.md"'
+
+
+def dispatch_gate2_review(
+    track_name: str,
+    phase_num: int,
+    review_model: Optional[str] = None,
+    timeout: float = 900.0,
+    cwd: Optional[Path] = None,
+    brain_dir: Optional[Path] = None,
+    stream: bool = False,
+    logger: Optional[DualLogger] = None,
+) -> ReviewResult:
+    """Dispatches Gate 2 unattended review, captures conversation ID, and parses severity findings."""
+    work_dir = cwd or PROJECT_ROOT
+    track_dir = resolve_track_dir(track_name, cwd=work_dir) or (work_dir / "conductor" / "tracks" / track_name).resolve()
+    model = review_model or DEFAULT_REVIEW_MODEL
+    log_file = track_dir / "logs" / f"phase-{phase_num}-review.log"
+    report_path = track_dir / f"phase-{phase_num}-review.md"
+
+    before_dirs = snapshot_brain_dirs(brain_dir=brain_dir)
+    start_ts = time.time()
+    prompt = build_review_prompt(track_name=track_name, phase_num=phase_num, report_path=report_path)
+
+    ret, stdout, stderr = run_agy_turn(
+        **_build_turn_kwargs(
+            prompt=prompt,
+            mode="auto",
+            model=model,
+            timeout=timeout,
+            cwd=work_dir,
+            log_file=log_file,
+            stream=stream,
+            logger=logger,
+        )
+    )
+    conv_id = capture_conversation_id(before_dirs, brain_dir=brain_dir, min_mtime=start_ts - 2.0)
+
+    if ret != 0:
+        raise ProcessExecutionError(
+            f"Gate 2 review turn failed with exit code {ret}: {stderr.strip()}"
+        )
+
+    if report_path.exists() and report_path.stat().st_size > 0:
+        report_text = report_path.read_text(encoding="utf-8")
+    elif stdout and stdout.strip():
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(stdout, encoding="utf-8")
+        report_text = stdout
+    else:
+        raise ProcessExecutionError(
+            f"Gate 2 review produced no report at {report_path} and empty stdout."
+        )
+
+    has_crit_high, findings = parse_review_severity(report_text)
+    return ReviewResult(
+        report_path=report_path,
+        conversation_id=conv_id,
+        has_critical_or_high=has_crit_high,
+        findings=findings,
+        exit_code=2 if has_crit_high else 0,
+    )
+
+
+# ---------------------------------------------------------------------------
 # CLI Argument Parser & Entrypoint
 # ---------------------------------------------------------------------------
+
+def resolve_model_config(
+    args: Optional[argparse.Namespace] = None,
+    env: Optional[Mapping[str, str]] = None,
+) -> Dict[str, str]:
+    """Resolves model configuration with 3-tier precedence:
+    1. Explicit per-role CLI flags (--plan-model, --exec-model, --checkpoint-model, --review-model)
+    2. Per-role environment variables (CONDUCTOR_PLAN_MODEL, CONDUCTOR_EXEC_MODEL, etc.)
+    3. Composed <family>-<effort> fallback (--model-family > CONDUCTOR_MODEL_FAMILY > DEFAULT_MODEL_FAMILY)
+    """
+    env_map = os.environ if env is None else env
+    family = (
+        (getattr(args, "model_family", None) if args is not None else None)
+        or env_map.get("CONDUCTOR_MODEL_FAMILY")
+        or DEFAULT_MODEL_FAMILY
+    )
+    config: Dict[str, str] = {"family": family}
+    for role, effort in ROLE_EFFORT_MAP.items():
+        cli_val = getattr(args, f"{role}_model", None) if args is not None else None
+        env_val = env_map.get(f"CONDUCTOR_{role.upper()}_MODEL")
+        config[role] = cli_val or env_val or f"{family}-{effort}"
+    return config
+
 
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     """Configures and parses CLI arguments."""
@@ -1265,23 +1870,33 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--timeout",
-        default="900s",
-        help="Turn timeout duration (e.g. 15m, 900s, 900; default: 900s).",
+        default="15m",
+        help="Turn timeout duration (e.g. 15m, 900s, 900; default: 15m).",
+    )
+    parser.add_argument(
+        "--model-family",
+        default=None,
+        help=f"Base model family for effort composition (default: {DEFAULT_MODEL_FAMILY}).",
     )
     parser.add_argument(
         "--plan-model",
-        default="gemini-3.8-flash-high",
-        help="Model to use for Tier 1 planning (default: gemini-3.8-flash-high).",
+        default=None,
+        help=f"Model to use for Tier 1 planning (default: {DEFAULT_PLAN_MODEL}).",
     )
     parser.add_argument(
         "--exec-model",
-        default="gemini-3.8-flash-medium",
-        help="Model to use for Tier 2 execution (default: gemini-3.8-flash-medium).",
+        default=None,
+        help=f"Model to use for Tier 2 execution (default: {DEFAULT_EXEC_MODEL}).",
+    )
+    parser.add_argument(
+        "--checkpoint-model",
+        default=None,
+        help=f"Model to use for Gate 1 checkpoint (default: {DEFAULT_CHECKPOINT_MODEL}).",
     )
     parser.add_argument(
         "--review-model",
-        default="gemini-3.8-flash-high",
-        help="Model to use for Gate 2 review (default: gemini-3.8-flash-high).",
+        default=None,
+        help=f"Model to use for Gate 2 review (default: {DEFAULT_REVIEW_MODEL}).",
     )
     parser.add_argument(
         "--no-review",
@@ -1307,6 +1922,16 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
 def main(argv: Optional[List[str]] = None) -> int:
     """Main CLI entrypoint for conductor-auto."""
     args = parse_args(argv)
+    models = resolve_model_config(args)
+
+    try:
+        timeout_sec = parse_timeout(args.timeout)
+        if timeout_sec <= 0:
+            raise ValueError("timeout must be positive")
+    except ValueError as err:
+        print(f"Error: Invalid --timeout value '{args.timeout}': {err}", file=sys.stderr)
+        return 1
+
     track_name = args.track or get_active_track()
     if not track_name:
         print("Error: No active track found and no track specified.", file=sys.stderr)
@@ -1324,24 +1949,35 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
 
     pending_tasks = get_pending_tasks(active_phase)
-    if args.task:
+    if args.task is not None:
         pending_tasks = [t for t in pending_tasks if t.task_num == args.task]
 
     if not pending_tasks:
         print(f"No pending tasks in phase {active_phase.phase_num}.")
         return 0
 
-    timeout_sec = parse_timeout(args.timeout)
+    logger = DualLogger()
+    logger.log_banner(
+        f"Conductor Auto: {track_name} (Phase {active_phase.phase_num})",
+        (
+            f"Family: {models['family']} | plan={models['plan']} | exec={models['exec']} "
+            f"| checkpoint={models['checkpoint']} | review={models['review']}"
+        ),
+    )
 
     for task in pending_tasks:
         if task.is_checkpoint:
-            print(f"Phase {active_phase.phase_num} reached checkpoint task {task.task_num}. Stopping task execution loop.")
+            logger.log_status(
+                f"Phase {active_phase.phase_num} reached checkpoint task {task.task_num}. Stopping task execution loop."
+            )
             break
 
-        print(f"Dispatching Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}")
+        logger.log_status(
+            f"Dispatching Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
+        )
         if args.dry_run:
-            print(f"[DRY-RUN] Would dispatch Tier 1 planning with model {args.plan_model}")
-            print(f"[DRY-RUN] Would dispatch Tier 2 execution with model {args.exec_model}")
+            logger.log_status(f"[DRY-RUN] Would dispatch Tier 1 planning with model {models['plan']}")
+            logger.log_status(f"[DRY-RUN] Would dispatch Tier 2 execution with model {models['exec']}")
             continue
 
         try:
@@ -1349,18 +1985,24 @@ def main(argv: Optional[List[str]] = None) -> int:
                 track_name=track_name,
                 phase_num=active_phase.phase_num,
                 task_num=task.task_num,
-                plan_model=args.plan_model,
+                plan_model=models["plan"],
                 force_plan=args.force_plan,
                 timeout=timeout_sec,
+                stream=True,
+                logger=logger,
             )
-            print(f"Dispatching Tier 2 execution for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}")
+            logger.log_status(
+                f"Dispatching Tier 2 execution for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
+            )
             dispatch_tier2_execution(
                 track_name=track_name,
                 phase_num=active_phase.phase_num,
                 task_num=task.task_num,
-                exec_model=args.exec_model,
+                exec_model=models["exec"],
                 auto_recover=args.auto_recover,
                 timeout=timeout_sec,
+                stream=True,
+                logger=logger,
             )
         except ConductorAutoError as err:
             print(f"Conductor Auto Error: {err}", file=sys.stderr)
@@ -1369,6 +2011,92 @@ def main(argv: Optional[List[str]] = None) -> int:
             print(f"Unexpected error: {err}", file=sys.stderr)
             return 1
 
+    if args.task is not None:
+        return 0
+
+    if args.dry_run:
+        logger.log_status(f"[DRY-RUN] Would dispatch Gate 1 checkpoint with model {models['checkpoint']}")
+        if not args.no_review:
+            logger.log_status(f"[DRY-RUN] Would dispatch Gate 2 review with model {models['review']}")
+        else:
+            logger.log_status("[DRY-RUN] Would skip Gate 2 review (--no-review)")
+        return 0
+
+    try:
+        logger.log_banner(
+            f"Gate 1: Phase {active_phase.phase_num} Checkpoint",
+            f"Model: {models['checkpoint']}",
+        )
+        cp_sha = dispatch_gate1_checkpoint(
+            track_name=track_name,
+            phase_num=active_phase.phase_num,
+            checkpoint_model=models["checkpoint"],
+            timeout=timeout_sec,
+            stream=True,
+            logger=logger,
+        )
+        logger.log_status(f"Gate 1 checkpoint verified (SHA: {cp_sha}).")
+    except ConductorAutoError as err:
+        print(f"Gate 1 Checkpoint Error: {err}", file=sys.stderr)
+        return 1
+    except Exception as err:
+        print(f"Unexpected Gate 1 error: {err}", file=sys.stderr)
+        return 1
+
+    if args.no_review:
+        logger.log_status(
+            f"Skipping Gate 2 review for Phase {active_phase.phase_num} (--no-review). Halting at phase boundary."
+        )
+        return 0
+
+    try:
+        logger.log_banner(
+            f"Gate 2: Phase {active_phase.phase_num} Review",
+            f"Model: {models['review']}",
+        )
+        review_result = dispatch_gate2_review(
+            track_name=track_name,
+            phase_num=active_phase.phase_num,
+            review_model=models["review"],
+            timeout=timeout_sec,
+            stream=True,
+            logger=logger,
+        )
+    except ConductorAutoError as err:
+        print(f"Gate 2 Review Error: {err}", file=sys.stderr)
+        return 1
+    except Exception as err:
+        print(f"Unexpected Gate 2 error: {err}", file=sys.stderr)
+        return 1
+
+    if review_result.has_critical_or_high or review_result.exit_code == 2:
+        logger.log_banner(
+            f"REVIEW BLOCKED: Critical/High findings in Phase {active_phase.phase_num}",
+            f"Report: {review_result.report_path}",
+        )
+        for finding in review_result.findings:
+            print(f"  - {finding}", file=sys.stderr)
+        resume_cmd = format_resume_command(
+            review_result.conversation_id, active_phase.phase_num
+        )
+        print(f"\nTo resume and apply review fixes, run:\n  {resume_cmd}\n", file=sys.stderr)
+        return 2
+
+    has_med_low = False
+    if review_result.report_path.exists():
+        report_content = review_result.report_path.read_text(encoding="utf-8")
+        if re.search(r"^###\s+\[?(Medium|Low)\]?", report_content, re.MULTILINE | re.IGNORECASE):
+            has_med_low = True
+
+    if has_med_low:
+        logger.log_status(
+            f"Phase {active_phase.phase_num} review passed with non-blocking Medium/Low suggestions "
+            f"(see {review_result.report_path})."
+        )
+    else:
+        logger.log_status(
+            f"Phase {active_phase.phase_num} review passed cleanly (see {review_result.report_path})."
+        )
     return 0
 
 
