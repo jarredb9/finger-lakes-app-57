@@ -15,20 +15,39 @@ interface WebhookPayload {
   };
 }
 
+/** Authoritative row shape queried from `public.activity_ledger`. */
 export interface ActivityLedgerRecord {
   id: string;
   user_id: string;
   privacy_level: "public" | "friends_only" | "private" | string;
 }
 
+/** Sanitized HTTP response payload returned when notification evaluation succeeds. */
 export interface SocialNotificationResponse {
   success: true;
   count: number;
   message?: string;
 }
 
+/** Error payload returned by `send-social-notification`. */
 export interface SocialErrorResponse {
   error: string;
+}
+
+function isActivityLedgerRecord(row: unknown): row is ActivityLedgerRecord {
+  if (!row || typeof row !== "object") {
+    return false;
+  }
+  const id = Reflect.get(row, "id");
+  const userId = Reflect.get(row, "user_id");
+  const privacyLevel = Reflect.get(row, "privacy_level");
+  return (
+    typeof id === "string" &&
+    id.length > 0 &&
+    typeof userId === "string" &&
+    userId.length > 0 &&
+    typeof privacyLevel === "string"
+  );
 }
 
 function jsonResponse(
@@ -41,6 +60,7 @@ function jsonResponse(
   });
 }
 
+/** Handles activity ledger webhook requests and dispatches social notifications. */
 export const handler = async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -64,7 +84,7 @@ export const handler = async (req: Request): Promise<Response> => {
     let payload: WebhookPayload;
     try {
       payload = await req.json();
-    } catch (_e) {
+    } catch {
       return jsonResponse({ error: "Invalid JSON payload" }, 400);
     }
 
@@ -78,10 +98,13 @@ export const handler = async (req: Request): Promise<Response> => {
       return jsonResponse({ error: "Missing id in record" }, 400);
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    );
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")?.trim();
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")?.trim();
+    if (!supabaseUrl || !serviceRoleKey) {
+      return jsonResponse({ error: "Server configuration error" }, 500);
+    }
+
+    const supabaseClient = createClient(supabaseUrl, serviceRoleKey);
 
     const { data: ledgerRow, error: ledgerError } = await supabaseClient
       .from("activity_ledger")
@@ -90,16 +113,21 @@ export const handler = async (req: Request): Promise<Response> => {
       .maybeSingle();
 
     if (ledgerError) {
+      const status = ledgerError.code === "22P02" ? 400 : 500;
       return jsonResponse(
         { error: `Failed to verify activity: ${ledgerError.message}` },
-        500,
+        status,
       );
     }
 
-    const ledgerActivity = ledgerRow as ActivityLedgerRecord | null;
-    if (!ledgerActivity) {
+    if (!ledgerRow) {
       return jsonResponse({ error: "Activity not found" }, 404);
     }
+
+    if (!isActivityLedgerRecord(ledgerRow)) {
+      return jsonResponse({ error: "Malformed activity_ledger record" }, 500);
+    }
+    const ledgerActivity = ledgerRow;
 
     if (
       record.user_id !== undefined &&
@@ -114,10 +142,6 @@ export const handler = async (req: Request): Promise<Response> => {
 
     const actorId = ledgerActivity.user_id;
     const activityPrivacy = ledgerActivity.privacy_level;
-
-    if (!actorId) {
-      return jsonResponse({ error: "Malformed activity_ledger record" }, 500);
-    }
 
     // Enforce authoritative activity privacy before querying social graph tables.
     if (activityPrivacy === "private") {
@@ -157,7 +181,10 @@ export const handler = async (req: Request): Promise<Response> => {
       .eq("following_id", actorId);
 
     if (followersError) {
-      throw followersError;
+      return jsonResponse(
+        { error: `Failed to fetch followers: ${followersError.message}` },
+        500,
+      );
     }
 
     // Query public.friends to find accepted mutual friends.
@@ -174,8 +201,18 @@ export const handler = async (req: Request): Promise<Response> => {
         .eq("status", "accepted"),
     ]);
 
-    if (friends1Res.error) throw friends1Res.error;
-    if (friends2Res.error) throw friends2Res.error;
+    if (friends1Res.error) {
+      return jsonResponse(
+        { error: `Failed to fetch friends: ${friends1Res.error.message}` },
+        500,
+      );
+    }
+    if (friends2Res.error) {
+      return jsonResponse(
+        { error: `Failed to fetch friends: ${friends2Res.error.message}` },
+        500,
+      );
+    }
 
     const recipientSet = new Set<string>();
 
@@ -212,8 +249,12 @@ export const handler = async (req: Request): Promise<Response> => {
 
     return jsonResponse({ success: true, count: recipientIds.length });
   } catch (err) {
-    const error = err instanceof Error ? err : new Error(String(err));
-    return jsonResponse({ error: error.message }, 400);
+    const message = err instanceof Error
+      ? err.message
+      : typeof err === "object" && err !== null && "message" in err
+      ? String(Reflect.get(err, "message"))
+      : String(err);
+    return jsonResponse({ error: message }, 500);
   }
 };
 

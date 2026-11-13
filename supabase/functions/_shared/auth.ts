@@ -1,7 +1,16 @@
 const textEncoder = new TextEncoder();
 
 interface SubtleCryptoWithTimingSafe extends SubtleCrypto {
-  timingSafeEqual?: (a: BufferSource, b: BufferSource) => boolean;
+  timingSafeEqual: (a: BufferSource, b: BufferSource) => boolean;
+}
+
+function hasTimingSafeEqual(
+  subtle: SubtleCrypto,
+): subtle is SubtleCryptoWithTimingSafe {
+  return (
+    "timingSafeEqual" in subtle &&
+    typeof Reflect.get(subtle, "timingSafeEqual") === "function"
+  );
 }
 
 /**
@@ -17,9 +26,8 @@ export async function constantTimeEqual(a: string, b: string): Promise<boolean> 
   const digestA = new Uint8Array(digestBufferA);
   const digestB = new Uint8Array(digestBufferB);
 
-  const subtle = crypto.subtle as SubtleCryptoWithTimingSafe;
-  if (typeof subtle.timingSafeEqual === "function") {
-    return subtle.timingSafeEqual(digestA, digestB);
+  if (hasTimingSafeEqual(crypto.subtle)) {
+    return crypto.subtle.timingSafeEqual(digestA, digestB);
   }
 
   let diff = digestA.length ^ digestB.length;
