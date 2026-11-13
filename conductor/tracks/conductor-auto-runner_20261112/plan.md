@@ -82,12 +82,12 @@
     - [x] Confirm all unit tests pass cleanly
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging' (Protocol in workflow.md) [commit: 9c537b06]
 
-## Phase 6: Documentation & End-to-End Dry-Run Validation
+## Phase 6: Documentation & End-to-End Dry-Run Validation [checkpoint: 83c3b196]
 - [x] Task: Author `docs/agents/conductor-auto.md` and update `conductor/workflow.md` with unattended execution guide and phase structuring rules [exempt: docs] [commit: f8bdb88]
     - [x] Create `docs/agents/conductor-auto.md` detailing architecture, execution flow, CLI flags (`--skip-plan`, `--force-review`, `--force-plan`, `--no-review`, `--auto-recover`, `--timeout`), exit codes, composable `gemini-4-hydrogen` model matrix (`--model-family`, `CONDUCTOR_*` env vars), Pro quota pool separation (`Hydrogen` Pool A vs `Argon`/`Orchestrator` Pool B), and `[exempt: docs]` Tier 1 / Gate 2 fast-path
     - [x] Update `conductor/workflow.md` to reference the unattended multi-task runner workflow alongside manual prompt generation and codify "Phase & Task Structuring Rules" (no standalone "run test suite" tasks duplicating Gate 1; right-sizing `[exempt: docs]` placement at the end of the feature phase vs dedicated final docs phase; documenting the `[exempt: docs]` Tier 1 / Gate 2 fast-path)
     - [x] Verify `--dry-run` output via `python3.11 scripts/agent/conductor-auto.py --dry-run` and full unit test suite via `python3.11 -m unittest discover -s scripts/__tests__`
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: Documentation & End-to-End Dry-Run Validation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 6: Documentation & End-to-End Dry-Run Validation' (Protocol in workflow.md) [commit: 83c3b196]
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions 5cd2d741
