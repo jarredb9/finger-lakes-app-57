@@ -5,12 +5,12 @@
 
 ## Phase 1: Edge Function Security, Ledger Verification & Privacy Lockdown (Strict TDD)
 
-- [ ] Task: Write failing Deno security and privacy tests for send-social-notification (TDD Red phase)
-    - [ ] Expand `supabase/functions/tests/security-privacy.test.ts` to assert Bearer token acceptance for `WEBHOOK_SECRET`, `INTERNAL_WEBHOOK_SECRET`, and `SUPABASE_SERVICE_ROLE_KEY`, plus `401 Unauthorized` rejection on missing, malformed, or partial/prefix-mismatch tokens.
-    - [ ] Add Deno unit tests (in `supabase/functions/tests/security-privacy.test.ts` or `supabase/functions/_shared/auth.test.ts`) verifying constant-time secret comparison behavior across differing token lengths.
-    - [ ] Add tests in `supabase/functions/tests/security-privacy.test.ts` and `supabase/functions/send-social-notification/index.test.ts` asserting `400` on missing `payload.record.id`, `404` when `activity_ledger` has no matching row (verifying `profiles`, `follows`, and `friends` are never queried), `400` on `record.user_id` mismatch against the ledger row, and authoritative DB `user_id`/`privacy_level` enforcement.
-    - [ ] Update `supabase/functions/send-social-notification/index.test.ts` and add assertions in `supabase/functions/tests/security-privacy.test.ts` verifying responses return `{ success: true, count }` (and `{ success: true, count: 0, message }` when skipped) and strictly omit `notified` and all recipient UUIDs.
-    - [ ] Execute `npm run test:functions` and confirm expected test failures (Red).
+- [x] Task: Write failing Deno security and privacy tests for send-social-notification (TDD Red phase) (3d421e9)
+    - [x] Expand `supabase/functions/tests/security-privacy.test.ts` to assert Bearer token acceptance for `WEBHOOK_SECRET`, `INTERNAL_WEBHOOK_SECRET`, and `SUPABASE_SERVICE_ROLE_KEY`, plus `401 Unauthorized` rejection on missing, malformed, or partial/prefix-mismatch tokens.
+    - [x] Add Deno unit tests (in `supabase/functions/tests/security-privacy.test.ts` or `supabase/functions/_shared/auth.test.ts`) verifying constant-time secret comparison behavior across differing token lengths.
+    - [x] Add tests in `supabase/functions/tests/security-privacy.test.ts` and `supabase/functions/send-social-notification/index.test.ts` asserting `400` on missing `payload.record.id`, `404` when `activity_ledger` has no matching row (verifying `profiles`, `follows`, and `friends` are never queried), `400` on `record.user_id` mismatch against the ledger row, and authoritative DB `user_id`/`privacy_level` enforcement.
+    - [x] Update `supabase/functions/send-social-notification/index.test.ts` and add assertions in `supabase/functions/tests/security-privacy.test.ts` verifying responses return `{ success: true, count }` (and `{ success: true, count: 0, message }` when skipped) and strictly omit `notified` and all recipient UUIDs.
+    - [x] Execute `npm run test:functions` and confirm expected test failures (Red).
 - [ ] Task: Implement constant-time auth, activity_ledger verification, and sanitized responses in send-social-notification (TDD Green phase)
     - [ ] Create `supabase/functions/_shared/auth.ts` with a constant-time Bearer secret verification helper (hashing inputs to fixed-length SHA-256 digests and comparing with `crypto.subtle.timingSafeEqual` across all configured secrets without early-return length leaks).
     - [ ] Update `supabase/functions/send-social-notification/index.ts` to validate `Authorization: Bearer <token>` against `INTERNAL_WEBHOOK_SECRET`, `WEBHOOK_SECRET`, and `SUPABASE_SERVICE_ROLE_KEY` via the constant-time helper, returning `401` on failure.
