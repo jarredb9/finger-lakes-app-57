@@ -29,15 +29,17 @@ This track authors an automated, unattended Conductor track runner (`scripts/age
     3. Composed `<family>-<effort>` using `ROLE_EFFORT_MAP`, where `<family>` resolves from `--model-family` > `CONDUCTOR_MODEL_FAMILY` > `DEFAULT_MODEL_FAMILY` (`"gemini-4-hydrogen"`).
   - **Architectural & Quota Rationale**: Keeps unattended multi-task execution 100% within the fast-refreshing Google AI Pro Pool A quota (`gemini-4-hydrogen-*`), leaving multi-day Pool B quota (`gemini-4-argon-*` / `Orchestrator (Argon)`) untouched for interactive sessions while preserving disk-cached `phase-X-task-Y-plan.md` blueprints required by `generate-prompt.py` for target and verification command harvesting.
 - **Subprocess Protocol & Flag Order**:
-  - All configuration flags (`--mode <mode>`, `--model <model>`, `--dangerously-skip-permissions`) must strictly precede the `--print` flag.
-  - Prompts are passed via stdin or piped directly (`--input-format text` / argument placed strictly after flags) to prevent flag collision and `ARG_MAX` truncation from large multi-kilobyte prompts.
-- **Process Group Isolation & Timeouts**:
-  - Subprocesses are spawned in dedicated POSIX process groups (`os.setsid`).
-  - Enforce a default 15-minute timeout per turn (`--print-timeout 15m`), overridable via `--timeout`.
+  - All configuration flags (`--mode <mode>`, `--model <model>`, `--dangerously-skip-permissions`, `--output-format stream-json`, `--print-timeout <duration>`) must strictly precede `--print <prompt>`.
+  - Prompts are delivered as the explicit argument to `--print <prompt>` with `stdin=subprocess.DEVNULL` (matching `agy`'s `--print` string flag contract).
+- **Process Group Isolation, Timeouts & Heartbeats**:
+  - Subprocesses are spawned in dedicated POSIX process groups (`os.setsid` / `start_new_session=True`).
+  - Enforce a default 15-minute timeout per turn (`900s`), overridable via `--timeout <duration>`, and forward `--print-timeout <duration>` to `agy` alongside supervisor wall-clock timeout enforcement.
+  - Emit periodic `--heartbeat <duration>` (default `30s`, `0` to disable) status lines showing PID, elapsed/total duration, and last observed activity during silent intervals.
   - On timeout or `SIGINT` (Ctrl+C), the runner issues `SIGTERM` followed by `SIGKILL` to the entire process group to terminate child `agy`, container runners, and subshells, preventing orphaned background processes.
 - **Dual Logging**:
-  - Stream real-time formatted progress (task title banners, turn status lines, test summaries) to stdout.
-  - Tee full unredacted transcripts and tool output to `conductor/tracks/<track>/logs/phase-X-task-Y.log`.
+  - Streamed turns pass `--output-format stream-json` and parse NDJSON events incrementally via `_StreamJsonTracker` to display real-time session IDs, tool calls, durations, and final responses, while forwarding live `[agy:stderr]` lines.
+  - Format runner banners (`log_banner`), status updates (`log_status`), and errors (`log_error`) with `[HH:MM:SS]` timestamps, persisting runner-level output to `conductor/tracks/<track>/logs/conductor-auto.log`.
+  - Tee full unredacted transcripts (prompt, raw NDJSON stdout, stderr, exit code) to per-turn log files (`conductor/tracks/<track>/logs/phase-X-task-Y-{plan,exec,recovery}.log`, `phase-X-checkpoint.log`, `phase-X-review.log`).
   - Conductor log files are excluded from git tracking via `*.log` in `.gitignore`.
 
 ### 2.2 Two-Tier Task Execution Loop (Plan -> Exec)
@@ -46,14 +48,14 @@ For each incomplete task `[ ]` in the active phase:
    - **Documentation & Direct-Execution Fast-Path (`should_skip_tier1_plan`)**: If a task is annotated `[exempt: docs]` (or if `--skip-plan` is passed) and `--force-plan` is not set, the runner skips Tier 1 planning entirely and proceeds directly to Tier 2 (Execution).
    - **Idempotent Plan Check**: If `conductor/tracks/<track>/phase-X-task-Y-plan.md` already exists and is non-empty, the runner skips Tier 1 and proceeds directly to Tier 2 (Execution), unless `--force-plan` is specified.
    - Generates plan prompt via `scripts/agent/generate-prompt.py <track> <phase> <task> --plan`.
-   - Dispatches to `agy --mode plan --model <plan-model> --dangerously-skip-permissions --print "$PROMPT"`.
+   - Dispatches to `agy --mode plan --model <plan-model> --dangerously-skip-permissions --output-format stream-json --print-timeout <duration> --print "$PROMPT"`.
    - **Post-Plan Assertions**:
      - Asserts that `conductor/tracks/<track>/phase-X-task-Y-plan.md` exists and is non-empty.
      - Asserts that `git status --porcelain` contains NO modified application/production files (planning must only generate the markdown blueprint).
      - **Fail-Fast**: If invariant is violated, halts immediately without launching execution.
 2. **Tier 2: Execution Turn**:
    - Generates execution prompt via `scripts/agent/generate-prompt.py <track> <phase> <task> --exec` (appending `--skip-plan` when Tier 1 was bypassed). When `phase-X-task-Y-plan.md` is absent on disk for an `[exempt: docs]` or `--skip-plan` task, `generate-prompt.py` references `plan.md` and `spec.md` as authoritative and inlines the task description and `subtasks` directly into `1. Scope & Blueprint:`.
-   - Dispatches to `agy --mode auto --model <exec-model> --dangerously-skip-permissions --print "$PROMPT"`.
+   - Dispatches to `agy --mode auto --model <exec-model> --dangerously-skip-permissions --output-format stream-json --print-timeout <duration> --print "$PROMPT"`.
    - Agent is instructed to implement changes, verify with tests, commit code with conventional commit message, attach Git notes (`Task`, `Summary`, `Files`, `Rationale`), mark task `[x]` with 7-character commit SHA in `plan.md`, and commit `plan.md`.
 
 ### 2.3 Supervisor & Invariant Gate (Post-Exec Audit)
@@ -131,6 +133,7 @@ python3 scripts/agent/conductor-auto.py [track] [flags]
   - `--force-review`: Force Gate 2 review even on documentation-only phases.
   - `--auto-recover`: Attempt a single recovery turn via `generate-prompt.py --recovery` if an execution step leaves dirty uncommitted files.
   - `--timeout <duration>`: Turn timeout (default: `15m`).
+  - `--heartbeat <duration>`: Heartbeat interval during silent `agy` turns (e.g. `30s`, `1m`, `0` to disable; default: `30s`).
   - `--model-family <family>`: Base model family used to compose role defaults via `ROLE_EFFORT_MAP` (overrides `CONDUCTOR_MODEL_FAMILY`; default: `gemini-4-hydrogen`).
   - `--plan-model <model>`: Model for Tier 1 planning turn (overrides `CONDUCTOR_PLAN_MODEL` and `--model-family`; default: `gemini-4-hydrogen-high`).
   - `--exec-model <model>`: Model for Tier 2 execution and recovery turns (overrides `CONDUCTOR_EXEC_MODEL` and `--model-family`; default: `gemini-4-hydrogen-high`).
