@@ -47,7 +47,7 @@
     - [x] Confirm all unit tests pass cleanly
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Task Parsing, Plan Validation, and Planning Tier' (Protocol in workflow.md) [commit: ac51a7bf]
 
-## Phase 4: Execution Tier (`Tier 2`) and Supervisor Invariant Verification
+## Phase 4: Execution Tier (`Tier 2`) and Supervisor Invariant Verification [checkpoint: f8415b6c]
 - [x] Task: Write failing unit tests for Tier 2 execution turn, git tree assertions, dual-check Red task verification, Exempt checks, and `--auto-recover` flow (TDD Red phase) [commit: 79936ad2]
     - [x] Test dispatching `generate-prompt.py --exec` to `agy --print --mode auto` with `gemini-3.8-flash-medium`
     - [x] Test working tree cleanliness assertions on clean vs dirty working trees and single-turn `--auto-recover` prompt dispatch
@@ -62,7 +62,7 @@
     - [x] Implement active verification engine running target test commands, output parsing for assertion markers, and type-checks based on task category
     - [x] Implement git commit and note auditor verifying task commit SHA, note metadata, and plan update
     - [x] Confirm all unit tests pass cleanly
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Execution Tier and Supervisor Invariant Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Execution Tier and Supervisor Invariant Verification' (Protocol in workflow.md) [commit: f8415b6c]
 
 ## Phase 5: Phase Boundaries, Checkpoints, Review Handshake, and CLI Dual-Logging
 - [ ] Task: Write failing unit tests for Gate 1 checkpoint, Gate 2 review dispatch, brain snapshotting conversation ID capture, regex severity parsing, exit codes, and subprocess streaming (TDD Red phase)
