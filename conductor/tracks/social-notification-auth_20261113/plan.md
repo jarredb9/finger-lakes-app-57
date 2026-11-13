@@ -3,7 +3,7 @@
 **Tracking:** Issue [#150](https://github.com/jarredb9/finger-lakes-app-57/issues/150)  
 **Specification Reference:** [spec.md](./spec.md)  
 
-## Phase 1: Edge Function Security, Ledger Verification & Privacy Lockdown (Strict TDD)
+## Phase 1: Edge Function Security, Ledger Verification & Privacy Lockdown (Strict TDD) [checkpoint: 7293ad8b]
 
 - [x] Task: Write failing Deno security and privacy tests for send-social-notification (TDD Red phase) (3d421e9)
     - [x] Expand `supabase/functions/tests/security-privacy.test.ts` to assert Bearer token acceptance for `WEBHOOK_SECRET`, `INTERNAL_WEBHOOK_SECRET`, and `SUPABASE_SERVICE_ROLE_KEY`, plus `401 Unauthorized` rejection on missing, malformed, or partial/prefix-mismatch tokens.
@@ -21,4 +21,4 @@
 - [x] Task: Configure Edge Function gateway settings in Supabase config [exempt: infra] (50d691d)
     - [x] Add `[functions.send-social-notification]` with `verify_jwt = false` (and inline comment noting in-handler constant-time Bearer validation for both JWT `service_role_key` and opaque webhook secrets) to `supabase/config.toml` and `supabase/config.ci.toml`.
     - [x] Verify configuration syntax and run `npm run lint` and `npm run test:functions`.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Edge Function Security, Ledger Verification & Privacy Lockdown' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Edge Function Security, Ledger Verification & Privacy Lockdown' (Protocol in workflow.md) [commit: 7293ad8b]
