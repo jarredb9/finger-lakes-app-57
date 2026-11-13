@@ -419,6 +419,11 @@ def get_pending_tasks(phase: PhaseInfo) -> List[TaskInfo]:
     return [t for t in phase.tasks if t.status in ("pending", "in_progress")]
 
 
+def _is_docs_exempt_task(task: TaskInfo) -> bool:
+    """Returns True when a TaskInfo carries the [exempt: docs] category."""
+    return (task.exempt or "").lower().strip() == "docs"
+
+
 def should_skip_tier1_plan(
     task: TaskInfo,
     force_plan: bool = False,
@@ -429,7 +434,7 @@ def should_skip_tier1_plan(
         return False
     if skip_plan:
         return True
-    if (task.exempt or "").lower().strip() == "docs":
+    if _is_docs_exempt_task(task):
         return True
     return False
 
@@ -437,7 +442,7 @@ def should_skip_tier1_plan(
 def is_docs_only_phase(phase: PhaseInfo) -> bool:
     """Returns True if all active (non-checkpoint, non-skipped) tasks in the phase are [exempt: docs]."""
     active_tasks = [t for t in phase.tasks if not t.is_checkpoint and t.status != "skipped"]
-    return bool(active_tasks) and all((t.exempt or "").lower().strip() == "docs" for t in active_tasks)
+    return bool(active_tasks) and all(_is_docs_exempt_task(t) for t in active_tasks)
 
 
 def should_skip_gate2_review(
@@ -453,6 +458,13 @@ def should_skip_gate2_review(
     if is_docs_only_phase(phase):
         return True
     return False
+
+
+def _format_gate2_skip_reason(phase_num: int, no_review: bool) -> str:
+    """Returns the human-readable reason Gate 2 review was skipped for a phase."""
+    if no_review:
+        return f"Phase {phase_num} (--no-review)"
+    return f"Phase {phase_num} (documentation-only phase; pass --force-review to override)"
 
 
 # ---------------------------------------------------------------------------
@@ -1507,16 +1519,23 @@ def dispatch_tier2_execution(
     )
     base_sha = head_res.stdout.strip() if head_res.returncode == 0 else "HEAD~1"
 
-    gen_kwargs: Dict[str, Any] = {
-        "track": track_name,
-        "phase_num": phase_num,
-        "task_num": task_num,
-        "mode": "exec",
-        "cwd": work_dir,
-    }
     if skip_plan:
-        gen_kwargs["skip_plan"] = True
-    prompt = generate_turn_prompt(**gen_kwargs)
+        prompt = generate_turn_prompt(
+            track=track_name,
+            phase_num=phase_num,
+            task_num=task_num,
+            mode="exec",
+            cwd=work_dir,
+            skip_plan=True,
+        )
+    else:
+        prompt = generate_turn_prompt(
+            track=track_name,
+            phase_num=phase_num,
+            task_num=task_num,
+            mode="exec",
+            cwd=work_dir,
+        )
 
     ret, _stdout, stderr = run_agy_turn(
         **_build_turn_kwargs(
@@ -2083,13 +2102,11 @@ def main(argv: Optional[List[str]] = None) -> int:
                 logger.log_status(
                     f"[DRY-RUN] Would skip Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num} (exempt: docs / --skip-plan): {task.description}"
                 )
-                logger.log_status(f"[DRY-RUN] Would dispatch Tier 2 execution with model {models['exec']}")
             else:
                 logger.log_status(
-                    f"Dispatching Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
+                    f"[DRY-RUN] Would dispatch Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num} with model {models['plan']}: {task.description}"
                 )
-                logger.log_status(f"[DRY-RUN] Would dispatch Tier 1 planning with model {models['plan']}")
-                logger.log_status(f"[DRY-RUN] Would dispatch Tier 2 execution with model {models['exec']}")
+            logger.log_status(f"[DRY-RUN] Would dispatch Tier 2 execution with model {models['exec']}")
             continue
 
         try:
@@ -2114,19 +2131,17 @@ def main(argv: Optional[List[str]] = None) -> int:
             logger.log_status(
                 f"Dispatching Tier 2 execution for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}"
             )
-            t2_kwargs: Dict[str, Any] = {
-                "track_name": track_name,
-                "phase_num": active_phase.phase_num,
-                "task_num": task.task_num,
-                "exec_model": models["exec"],
-                "auto_recover": args.auto_recover,
-                "timeout": timeout_sec,
-                "stream": True,
-                "logger": logger,
-            }
-            if skip_t1:
-                t2_kwargs["skip_plan"] = True
-            dispatch_tier2_execution(**t2_kwargs)
+            dispatch_tier2_execution(
+                track_name=track_name,
+                phase_num=active_phase.phase_num,
+                task_num=task.task_num,
+                exec_model=models["exec"],
+                auto_recover=args.auto_recover,
+                timeout=timeout_sec,
+                stream=True,
+                logger=logger,
+                skip_plan=skip_t1,
+            )
         except ConductorAutoError as err:
             print(f"Conductor Auto Error: {err}", file=sys.stderr)
             return 1
@@ -2145,11 +2160,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         logger.log_status(f"[DRY-RUN] Would dispatch Gate 1 checkpoint with model {models['checkpoint']}")
         if not skip_g2:
             logger.log_status(f"[DRY-RUN] Would dispatch Gate 2 review with model {models['review']}")
-        elif args.no_review:
-            logger.log_status("[DRY-RUN] Would skip Gate 2 review (--no-review)")
         else:
             logger.log_status(
-                f"[DRY-RUN] Would skip Gate 2 review for Phase {active_phase.phase_num} (documentation-only phase; pass --force-review to override)"
+                f"[DRY-RUN] Would skip Gate 2 review for {_format_gate2_skip_reason(active_phase.phase_num, args.no_review)}"
             )
         return 0
 
@@ -2175,14 +2188,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
 
     if skip_g2:
-        if args.no_review:
-            logger.log_status(
-                f"Skipping Gate 2 review for Phase {active_phase.phase_num} (--no-review). Halting at phase boundary."
-            )
-        else:
-            logger.log_status(
-                f"Skipping Gate 2 review for Phase {active_phase.phase_num} (documentation-only phase; pass --force-review to override). Halting at phase boundary."
-            )
+        logger.log_status(
+            f"Skipping Gate 2 review for {_format_gate2_skip_reason(active_phase.phase_num, args.no_review)}. Halting at phase boundary."
+        )
         return 0
 
     try:

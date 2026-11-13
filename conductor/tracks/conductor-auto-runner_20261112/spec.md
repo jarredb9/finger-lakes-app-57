@@ -108,9 +108,11 @@ When all tasks in the active phase are complete:
 1. **`[exempt: <category>]` Parsing & Direct-Execution Blueprint Inlining**:
    - Update `parse_plan_tasks` to extract `[exempt: <category>]` tag.
    - Update `infer_verification_strategy` to assign appropriate non-TDD verification commands (`npm run build`, `npm run lint`, `npm run type-check`, markdown diff/existence check) and commit types (`style(...)`, `chore(...)`, `types(...)`, `docs(...)`).
-   - Update `build_exec_prompt` (and add `--skip-plan` CLI flag) so that when `phase-X-task-Y-plan.md` does not exist on disk for `[exempt: docs]` or `--skip-plan` tasks, the prompt references `plan.md` and `spec.md` directly and inlines the task description and `subtasks` under `1. Scope & Blueprint:`. Include an `--allow-empty` commit fallback instruction for verification-only exempt tasks.
-2. **`--unattended` Checkpoint Flag**:
+   - Strip backticks from resolved commit messages in both `infer_verification_strategy` and `build_exec_prompt` (including `plan_commit_msg` extracted from `phase-X-task-Y-plan.md`) to prevent shell command substitution.
+   - Update `build_exec_prompt` (and add `--skip-plan` CLI flag) so that when `phase-X-task-Y-plan.md` does not exist on disk for `[exempt: docs]` or `--skip-plan` tasks, the prompt references `plan.md` and `spec.md` directly and inlines the task description and `subtasks` under `1. Scope & Blueprint:`. Include an `--allow-empty` commit fallback instruction only for non-docs exempt tasks (consistent with §2.3.2's requirement that `[exempt: docs]` modifies non-empty `.md` files).
+2. **`--unattended` Checkpoint Flag & Docs-Only Checkpoint Fallback**:
    - Update `build_checkpoint_prompt` with an `--unattended` mode that skips interactive `ask_question` pauses, makes automated test suites authoritative, and logs deferred manual verification steps into the checkpoint Git note.
+   - Default `collect_phase_checkpoint_context` verification commands to `["git diff --name-only"]` for pure `[exempt: docs]` phases that declare no explicit test commands.
 3. **Test Suite Modernization**:
    - Fix pre-existing `test_classify_phase_domain_ui_vs_database_vs_tooling` test failure in `scripts/__tests__/test_generate_prompt.py` to ensure a green test baseline.
 

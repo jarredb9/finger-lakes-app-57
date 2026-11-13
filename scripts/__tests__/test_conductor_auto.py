@@ -2570,6 +2570,32 @@ class TestDocsFastPathAndSkipFlags(unittest.TestCase):
             self.assertIn("[DRY-RUN] Would skip Gate 2 review", out)
             self.assertIn("--force-review", out)
 
+    def test_main_dry_run_non_docs_phase_prefixes_all_logs_with_dry_run(self):
+        """Asserts --dry-run on a standard TDD task prefixes both Tier 1 and Tier 2 logs with [DRY-RUN]."""
+        main = get_target("main", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Implementation\n"
+                "- [ ] Task: Implement feature X\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+
+            stdout_buf = io.StringIO()
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(io.StringIO()):
+                    rc = main(["test-track", "--dry-run"])
+
+            self.assertEqual(rc, 0)
+            out = stdout_buf.getvalue()
+            self.assertIn("[DRY-RUN] Would dispatch Tier 1 planning for Phase 1 Task 1", out)
+            self.assertIn("[DRY-RUN] Would dispatch Tier 2 execution", out)
+            self.assertNotIn("Dispatching Tier 1 planning", out)
+
 
 if __name__ == "__main__":
     unittest.main()

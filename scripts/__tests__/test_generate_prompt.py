@@ -595,6 +595,35 @@ class TestGeneratePromptModule(unittest.TestCase):
             self.assertIn("spec.md]", prompt)
             self.assertIn("Create docs/agents/conductor-auto.md with CLI reference", prompt)
             self.assertIn("Update conductor/workflow.md with phase structuring rules", prompt)
+            self.assertNotIn("--allow-empty", prompt)
+
+    def test_build_exec_prompt_strips_backticks_from_plan_commit_msg(self):
+        """Verifies build_exec_prompt strips backticks from explicit plan_commit_msg extracted from phase-X-task-Y-plan.md."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Agent Tooling\n"
+                "- [ ] Task: Update foo.py\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "phase-1-task-1-plan.md").write_text(
+                "# Plan 1.1\n"
+                "Task: Update foo.py\n\n"
+                "## 3. Post-Execution\n"
+                "```bash\n"
+                'git commit -m "feat(agent): update `foo.py`"\n'
+                "```\n",
+                encoding="utf-8",
+            )
+
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=1,
+                task_num=1,
+                task_desc="Update foo.py",
+            )
+            self.assertIn('commit changes with message "feat(agent): update foo.py"', prompt)
+            self.assertNotIn("`foo.py`", prompt)
 
     def test_build_exec_prompt_docs_exempt_with_existing_plan_file_uses_plan_path(self):
         """Verifies build_exec_prompt for [exempt: docs] still references phase-X-task-Y-plan.md when it exists on disk."""

@@ -522,6 +522,11 @@ def classify_phase_domain(changed_files: List[str], non_checkpoint_tasks: List[D
     return "backend_tooling"
 
 
+def _is_docs_exempt(exempt: Optional[str]) -> bool:
+    """Returns True when an exempt category resolves to 'docs'."""
+    return (exempt or "").lower().strip() == "docs"
+
+
 def collect_phase_checkpoint_context(
     track_name: str,
     phase_num: Optional[int],
@@ -687,7 +692,7 @@ def collect_phase_checkpoint_context(
 
         if not commands:
             all_docs_exempt = bool(non_checkpoint_tasks) and all(
-                (t.get("exempt") or "").lower().strip() == "docs"
+                _is_docs_exempt(t.get("exempt"))
                 for t in non_checkpoint_tasks
             )
             if all_docs_exempt:
@@ -1343,6 +1348,12 @@ def build_exec_prompt(
     unattended: bool = False,
     skip_plan: bool = False,
 ) -> str:
+    """Builds the Tier 2 execution prompt (or phase checkpoint prompt) for a Conductor task.
+
+    Resolves the task's verification strategy, inlines plan/spec blueprints when Tier 1 planning
+    is bypassed (`[exempt: docs]` or `skip_plan=True` without an on-disk task plan), sanitizes
+    the commit message, and returns the formatted execution directive string.
+    """
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
     plan_path = track_dir / f"phase-{phase_num}-task-{task_num}-plan.md" if track_dir else None
@@ -1353,7 +1364,7 @@ def build_exec_prompt(
         return build_checkpoint_prompt(track_name, phase_num, task_num, task_desc, strategy, unattended=unattended)
 
     has_plan_file = bool(plan_path and plan_path.exists() and plan_path.stat().st_size > 0)
-    is_docs_exempt = strategy["mode"] == "exempt" and strategy.get("exempt") == "docs"
+    is_docs_exempt = strategy["mode"] == "exempt" and _is_docs_exempt(strategy.get("exempt"))
     use_inline_blueprint = (not has_plan_file) and (is_docs_exempt or skip_plan)
 
     resolved_task_desc = task_desc
@@ -1368,8 +1379,11 @@ def build_exec_prompt(
                         resolved_task_desc = t_obj.get("description", "")
                     if not resolved_subtasks:
                         resolved_subtasks = list(t_obj.get("subtasks", []))
-            except Exception:
-                pass
+            except (OSError, UnicodeDecodeError) as err:
+                print(
+                    f"Warning: failed to load plan tasks for {track_name}: {err}",
+                    file=sys.stderr,
+                )
 
     post_exec_ref, plan_commit_msg = extract_post_execution_info(plan_path, task_desc)
 
@@ -1380,6 +1394,7 @@ def build_exec_prompt(
             commit_msg = strategy["commit_msg"]
     else:
         commit_msg = plan_commit_msg or strategy["commit_msg"]
+    commit_msg = commit_msg.replace("`", "")
 
     cmd_lines = "\n".join(f"     {c}" for c in strategy["commands"])
 
@@ -1408,12 +1423,16 @@ def build_exec_prompt(
    - If tests fail, diagnose within the target seam, adjust implementation or fixtures, and re-verify until green."""
 
     empty_commit_line = ""
-    if strategy["mode"] == "exempt":
+    if strategy["mode"] == "exempt" and not is_docs_exempt:
         empty_commit_line = (
             "\n   - If a verification-only exempt task (e.g., scripts/infra) produced zero file modifications, "
             "use `git commit --allow-empty -m \"...\"` so the commit SHA, Git notes, and `plan.md` audit trail remain intact."
         )
 
+    commit_and_plan_suffix = (
+        f'commit changes with message "{commit_msg}", record git notes (Task, Summary, Files, Rationale), '
+        f"mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.{empty_commit_line}"
+    )
     if use_inline_blueprint:
         header_line = f"Execute Phase {phase_num} Task {task_num} following @[{rel_track_dir}/plan.md] and @[{rel_track_dir}/spec.md]."
         subtasks_block = ""
@@ -1426,10 +1445,7 @@ def build_exec_prompt(
             f"   - Task: {resolved_task_desc or f'Phase {phase_num} Task {task_num}'}"
             f"{subtasks_block}"
         )
-        post_exec_line = (
-            f'   - Commit changes with message "{commit_msg}", record git notes (Task, Summary, Files, Rationale), '
-            f"mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.{empty_commit_line}"
-        )
+        post_exec_line = f"   - {commit_and_plan_suffix[:1].upper()}{commit_and_plan_suffix[1:]}"
     else:
         header_line = f"Execute Phase {phase_num} Task {task_num} following @[{plan_file}]."
         scope_block = (
@@ -1440,10 +1456,7 @@ def build_exec_prompt(
             post_exec_directive = f"Follow {post_exec_ref} of @[{plan_file}]."
         else:
             post_exec_directive = f"Follow the Post-Execution section of @[{plan_file}] if present."
-        post_exec_line = (
-            f'   - {post_exec_directive} Otherwise: commit changes with message "{commit_msg}", '
-            f"record git notes (Task, Summary, Files, Rationale), mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.{empty_commit_line}"
-        )
+        post_exec_line = f"   - {post_exec_directive} Otherwise: {commit_and_plan_suffix}"
 
     return f"""{header_line}
 
