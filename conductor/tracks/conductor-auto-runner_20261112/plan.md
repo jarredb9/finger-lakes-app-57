@@ -64,7 +64,7 @@
     - [x] Confirm all unit tests pass cleanly
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Execution Tier and Supervisor Invariant Verification' (Protocol in workflow.md) [commit: f8415b6c]
 
-## Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging
+## Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging [checkpoint: 9c537b06]
 - [x] Task: Write failing unit tests for composable Gemini 4 Hydrogen model resolution, Gate 1 checkpoint, Gate 2 review dispatch, brain snapshotting conversation ID capture, regex severity parsing, exit codes, and subprocess streaming (TDD Red phase) [commit: b5766169]
     - [x] Test composable model configuration (`DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, `DEFAULT_PLAN_MODEL`, `DEFAULT_EXEC_MODEL`, `DEFAULT_CHECKPOINT_MODEL`, `DEFAULT_REVIEW_MODEL`) and 3-tier precedence in `resolve_model_config()` (per-role CLI flags > `CONDUCTOR_*_MODEL` env vars > `--model-family` / `CONDUCTOR_MODEL_FAMILY` composition), and decouple existing dispatch tests to reference `DEFAULT_*_MODEL` constants
     - [x] Test Gate 1 checkpoint dispatch with `--unattended`, `DEFAULT_CHECKPOINT_MODEL` (`gemini-4-hydrogen-medium`), and verification of checkpoint commit / notes
@@ -80,7 +80,7 @@
     - [x] Implement strict regex severity parsing, exit code semantics (0, 1, 2), and interactive resumption command formatting (`agy --conversation <conv-id> ...`)
     - [x] Implement streaming subprocess runner with real-time stdout updates, turn timeouts, process group cleanup, and tee logging to `conductor/tracks/<track>/logs/`
     - [x] Confirm all unit tests pass cleanly
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging' (Protocol in workflow.md) [commit: 9c537b06]
 
 ## Phase 6: Documentation & End-to-End Dry-Run Validation
 - [ ] Task: Author `docs/agents/conductor-auto.md` and update `conductor/workflow.md` with unattended execution guide [exempt: docs]
