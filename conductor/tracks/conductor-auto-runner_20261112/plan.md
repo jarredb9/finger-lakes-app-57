@@ -68,7 +68,7 @@
 - [x] Task: Write failing unit tests for composable Gemini 4 Hydrogen model resolution, Gate 1 checkpoint, Gate 2 review dispatch, brain snapshotting conversation ID capture, regex severity parsing, exit codes, and subprocess streaming (TDD Red phase) [commit: b5766169]
     - [x] Test composable model configuration (`DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, `DEFAULT_PLAN_MODEL`, `DEFAULT_EXEC_MODEL`, `DEFAULT_CHECKPOINT_MODEL`, `DEFAULT_REVIEW_MODEL`) and 3-tier precedence in `resolve_model_config()` (per-role CLI flags > `CONDUCTOR_*_MODEL` env vars > `--model-family` / `CONDUCTOR_MODEL_FAMILY` composition), and decouple existing dispatch tests to reference `DEFAULT_*_MODEL` constants
     - [x] Test Gate 1 checkpoint dispatch with `--unattended`, `DEFAULT_CHECKPOINT_MODEL` (`gemini-4-hydrogen-medium`), and verification of checkpoint commit / notes
-    - [x] Test Gate 2 `/conductor:review` dispatch with `DEFAULT_REVIEW_MODEL` (`gemini-4-hydrogen-xhigh`), prompt override, and brain directory snapshotting for conversation ID extraction
+    - [x] Test Gate 2 `/conductor:review` dispatch with `DEFAULT_REVIEW_MODEL` (`gemini-4-hydrogen-high`), prompt override, and brain directory snapshotting for conversation ID extraction
     - [x] Test regex severity parsing (`^###\s+\[?(Critical|High)\]?`) and exit code behaviors: 0 for clean success or Medium/Low findings, 1 for failures/invariant violations/review crashes, 2 for Critical/High review findings
     - [x] Test dual logging (stdout formatted progress + unredacted file persistence in `conductor/tracks/<track>/logs/`)
     - [x] Test turn timeout handling with configurable `--timeout`

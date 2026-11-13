@@ -48,10 +48,10 @@ PROJECT_ROOT = find_project_root()
 DEFAULT_MODEL_FAMILY: str = "gemini-4-hydrogen"
 
 ROLE_EFFORT_MAP: Dict[str, str] = {
-    "plan": "xhigh",
+    "plan": "high",
     "exec": "high",
     "checkpoint": "medium",
-    "review": "xhigh",
+    "review": "high",
 }
 
 DEFAULT_PLAN_MODEL: str = f"{DEFAULT_MODEL_FAMILY}-{ROLE_EFFORT_MAP['plan']}"

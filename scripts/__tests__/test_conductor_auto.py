@@ -1410,12 +1410,12 @@ class TestModelMatrixAndResolution(unittest.TestCase):
         self.assertEqual(DEFAULT_MODEL_FAMILY, "gemini-4-hydrogen")
         self.assertEqual(
             ROLE_EFFORT_MAP,
-            {"plan": "xhigh", "exec": "high", "checkpoint": "medium", "review": "xhigh"},
+            {"plan": "high", "exec": "high", "checkpoint": "medium", "review": "high"},
         )
-        self.assertEqual(DEFAULT_PLAN_MODEL, "gemini-4-hydrogen-xhigh")
+        self.assertEqual(DEFAULT_PLAN_MODEL, "gemini-4-hydrogen-high")
         self.assertEqual(DEFAULT_EXEC_MODEL, "gemini-4-hydrogen-high")
         self.assertEqual(DEFAULT_CHECKPOINT_MODEL, "gemini-4-hydrogen-medium")
-        self.assertEqual(DEFAULT_REVIEW_MODEL, "gemini-4-hydrogen-xhigh")
+        self.assertEqual(DEFAULT_REVIEW_MODEL, "gemini-4-hydrogen-high")
 
     def test_resolve_model_config_defaults_with_empty_args_and_env(self):
         """Asserts resolve_model_config composes Gemini 4 Hydrogen defaults when no overrides exist."""
@@ -1450,10 +1450,10 @@ class TestModelMatrixAndResolution(unittest.TestCase):
             cfg,
             {
                 "family": "gemini-4-argon",
-                "plan": "gemini-4-argon-xhigh",
+                "plan": "gemini-4-argon-high",
                 "exec": "gemini-4-argon-high",
                 "checkpoint": "gemini-4-argon-medium",
-                "review": "gemini-4-argon-xhigh",
+                "review": "gemini-4-argon-high",
             },
         )
 
@@ -1468,10 +1468,10 @@ class TestModelMatrixAndResolution(unittest.TestCase):
             cfg,
             {
                 "family": "gemini-4.5-pro",
-                "plan": "gemini-4.5-pro-xhigh",
+                "plan": "gemini-4.5-pro-high",
                 "exec": "gemini-4.5-pro-high",
                 "checkpoint": "gemini-4.5-pro-medium",
-                "review": "gemini-4.5-pro-xhigh",
+                "review": "gemini-4.5-pro-high",
             },
         )
 
@@ -1489,10 +1489,10 @@ class TestModelMatrixAndResolution(unittest.TestCase):
             },
         )
         self.assertEqual(cfg["family"], "gemini-4-argon")
-        self.assertEqual(cfg["plan"], "gemini-4-argon-xhigh")
+        self.assertEqual(cfg["plan"], "gemini-4-argon-high")
         self.assertEqual(cfg["exec"], "custom-exec")
         self.assertEqual(cfg["checkpoint"], "custom-cp")
-        self.assertEqual(cfg["review"], "gemini-4-argon-xhigh")
+        self.assertEqual(cfg["review"], "gemini-4-argon-high")
 
     def test_resolve_model_config_per_role_cli_flags_override_env_vars(self):
         """Asserts explicit per-role CLI flags take highest precedence over env vars and family composition."""
