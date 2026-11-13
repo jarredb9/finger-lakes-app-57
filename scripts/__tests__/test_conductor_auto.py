@@ -17,14 +17,26 @@ Covers Phase 4: Execution Tier (Tier 2) and Supervisor Invariant Verification.
 - Exempt task active supervisor verification (TestSupervisorExemptTaskVerification)
 - Git commit & notes auditing (TestGitCommitAndNotesAudit)
 - Tier 2 execution coordination (TestTier2ExecutionCoordination)
+
+Covers Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging.
+- Composable Gemini 4 Hydrogen model matrix & 3-tier resolution (TestModelMatrixAndResolution)
+- Gate 1 unattended checkpoint dispatch & commit/notes audit (TestGate1CheckpointDispatch)
+- Gate 2 unattended review dispatch & brain directory snapshotting (TestGate2ReviewAndBrainSnapshot)
+- Strict regex severity parsing & phase boundary exit codes (TestReviewSeverityAndExitCodes)
+- Subprocess streaming, configurable --timeout, & DualLogger teeing (TestSubprocessStreamingAndDualLogging)
 """
 
+import contextlib
 import importlib.util
+import inspect
+import io
+import itertools
 import os
 import signal
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from typing import Any, Callable
@@ -306,8 +318,9 @@ class TestAgySubprocessProtocol(unittest.TestCase):
     def test_build_agy_command_strict_flag_ordering(self):
         """Asserts build_agy_command positions configuration flags strictly before --print."""
         build_agy_command = get_target("build_agy_command", self)
+        DEFAULT_PLAN_MODEL = get_target("DEFAULT_PLAN_MODEL", self)
 
-        cmd = build_agy_command(mode="plan", model="gemini-3.8-flash-high")
+        cmd = build_agy_command(mode="plan", model=DEFAULT_PLAN_MODEL)
 
         self.assertEqual(cmd[0], "agy")
         self.assertIn("--print", cmd)
@@ -330,6 +343,7 @@ class TestAgySubprocessProtocol(unittest.TestCase):
     def test_run_agy_turn_stdin_prompt_delivery_and_session_isolation(self, mock_popen_cls):
         """Asserts prompt is delivered via stdin, not argv, and session is isolated via start_new_session."""
         run_agy_turn = get_target("run_agy_turn", self)
+        DEFAULT_PLAN_MODEL = get_target("DEFAULT_PLAN_MODEL", self)
 
         mock_proc = MagicMock()
         mock_proc.communicate.return_value = ("Turn output", "")
@@ -341,7 +355,7 @@ class TestAgySubprocessProtocol(unittest.TestCase):
         ret, stdout, stderr = run_agy_turn(
             prompt=prompt_text,
             mode="plan",
-            model="gemini-3.8-flash-high",
+            model=DEFAULT_PLAN_MODEL,
             timeout=900.0,
         )
 
@@ -551,6 +565,7 @@ class TestTier1PlanningDispatch(unittest.TestCase):
     def test_dispatch_tier1_planning_executes_turn_and_audits_invariants(self):
         """Asserts dispatch_tier1_planning generates prompt, runs agy turn, and verifies invariants on cache miss."""
         dispatch_tier1_planning = get_target("dispatch_tier1_planning", self)
+        DEFAULT_PLAN_MODEL = get_target("DEFAULT_PLAN_MODEL", self)
 
         with patch.object(conductor_auto, "check_plan_cache", return_value=(False, Path("dummy.md"))):
             with patch.object(
@@ -566,7 +581,7 @@ class TestTier1PlanningDispatch(unittest.TestCase):
                             "dummy-track",
                             phase_num=3,
                             task_num=1,
-                            plan_model="gemini-3.8-flash-high",
+                            plan_model=DEFAULT_PLAN_MODEL,
                             force_plan=False,
                         )
 
@@ -575,7 +590,7 @@ class TestTier1PlanningDispatch(unittest.TestCase):
                         mock_turn.assert_called_once_with(
                             prompt="# Planning Prompt",
                             mode="plan",
-                            model="gemini-3.8-flash-high",
+                            model=DEFAULT_PLAN_MODEL,
                             timeout=900.0,
                             cwd=unittest.mock.ANY,
                             log_file=unittest.mock.ANY,
@@ -589,6 +604,7 @@ class TestTier2ExecutionDispatch(unittest.TestCase):
     def test_dispatch_tier2_invokes_generate_prompt_exec(self):
         """Asserts dispatch_tier2_execution invokes generate_turn_prompt with mode='exec' and runs agy."""
         dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+        DEFAULT_EXEC_MODEL = get_target("DEFAULT_EXEC_MODEL", self)
 
         with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec prompt") as mock_gen_prompt:
             with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Exec output", "")) as mock_run_turn:
@@ -599,7 +615,7 @@ class TestTier2ExecutionDispatch(unittest.TestCase):
                                 "test-track",
                                 phase_num=4,
                                 task_num=1,
-                                exec_model="gemini-3.8-flash-medium",
+                                exec_model=DEFAULT_EXEC_MODEL,
                             )
                             self.assertTrue(res)
                             mock_gen_prompt.assert_called_once_with(
@@ -612,7 +628,7 @@ class TestTier2ExecutionDispatch(unittest.TestCase):
                             mock_run_turn.assert_called_once()
                             _, kwargs = mock_run_turn.call_args
                             self.assertEqual(kwargs.get("mode"), "auto")
-                            self.assertEqual(kwargs.get("model"), "gemini-3.8-flash-medium")
+                            self.assertEqual(kwargs.get("model"), DEFAULT_EXEC_MODEL)
                             self.assertEqual(kwargs.get("timeout"), 900.0)
                             self.assertTrue(str(kwargs.get("log_file", "")).endswith("phase-4-task-1-exec.log"))
 
@@ -1377,6 +1393,893 @@ class TestTier2ExecutionCoordination(unittest.TestCase):
                         ):
                             with self.assertRaises(SupervisorInvariantError):
                                 dispatch_tier2_execution("test-track", phase_num=4, task_num=1)
+
+
+class TestModelMatrixAndResolution(unittest.TestCase):
+    """Test suite for composable Gemini 4 Hydrogen model matrix and 3-tier resolution."""
+
+    def test_default_model_matrix_constants(self):
+        """Asserts centralized Gemini 4 Hydrogen model family, effort map, and per-role defaults."""
+        DEFAULT_MODEL_FAMILY = get_target("DEFAULT_MODEL_FAMILY", self)
+        ROLE_EFFORT_MAP = get_target("ROLE_EFFORT_MAP", self)
+        DEFAULT_PLAN_MODEL = get_target("DEFAULT_PLAN_MODEL", self)
+        DEFAULT_EXEC_MODEL = get_target("DEFAULT_EXEC_MODEL", self)
+        DEFAULT_CHECKPOINT_MODEL = get_target("DEFAULT_CHECKPOINT_MODEL", self)
+        DEFAULT_REVIEW_MODEL = get_target("DEFAULT_REVIEW_MODEL", self)
+
+        self.assertEqual(DEFAULT_MODEL_FAMILY, "gemini-4-hydrogen")
+        self.assertEqual(
+            ROLE_EFFORT_MAP,
+            {"plan": "xhigh", "exec": "high", "checkpoint": "medium", "review": "xhigh"},
+        )
+        self.assertEqual(DEFAULT_PLAN_MODEL, "gemini-4-hydrogen-xhigh")
+        self.assertEqual(DEFAULT_EXEC_MODEL, "gemini-4-hydrogen-high")
+        self.assertEqual(DEFAULT_CHECKPOINT_MODEL, "gemini-4-hydrogen-medium")
+        self.assertEqual(DEFAULT_REVIEW_MODEL, "gemini-4-hydrogen-xhigh")
+
+    def test_resolve_model_config_defaults_with_empty_args_and_env(self):
+        """Asserts resolve_model_config composes Gemini 4 Hydrogen defaults when no overrides exist."""
+        resolve_model_config = get_target("resolve_model_config", self)
+        parse_args = get_target("parse_args", self)
+        DEFAULT_PLAN_MODEL = get_target("DEFAULT_PLAN_MODEL", self)
+        DEFAULT_EXEC_MODEL = get_target("DEFAULT_EXEC_MODEL", self)
+        DEFAULT_CHECKPOINT_MODEL = get_target("DEFAULT_CHECKPOINT_MODEL", self)
+        DEFAULT_REVIEW_MODEL = get_target("DEFAULT_REVIEW_MODEL", self)
+
+        args = parse_args([])
+        cfg = resolve_model_config(args, env={})
+        self.assertEqual(
+            cfg,
+            {
+                "family": "gemini-4-hydrogen",
+                "plan": DEFAULT_PLAN_MODEL,
+                "exec": DEFAULT_EXEC_MODEL,
+                "checkpoint": DEFAULT_CHECKPOINT_MODEL,
+                "review": DEFAULT_REVIEW_MODEL,
+            },
+        )
+
+    def test_resolve_model_config_composes_from_env_family(self):
+        """Asserts CONDUCTOR_MODEL_FAMILY env var composes all roles using ROLE_EFFORT_MAP."""
+        resolve_model_config = get_target("resolve_model_config", self)
+        parse_args = get_target("parse_args", self)
+
+        args = parse_args([])
+        cfg = resolve_model_config(args, env={"CONDUCTOR_MODEL_FAMILY": "gemini-4-argon"})
+        self.assertEqual(
+            cfg,
+            {
+                "family": "gemini-4-argon",
+                "plan": "gemini-4-argon-xhigh",
+                "exec": "gemini-4-argon-high",
+                "checkpoint": "gemini-4-argon-medium",
+                "review": "gemini-4-argon-xhigh",
+            },
+        )
+
+    def test_resolve_model_config_cli_model_family_overrides_env_family(self):
+        """Asserts CLI --model-family overrides CONDUCTOR_MODEL_FAMILY env var."""
+        resolve_model_config = get_target("resolve_model_config", self)
+        parse_args = get_target("parse_args", self)
+
+        args = parse_args(["--model-family", "gemini-4.5-pro"])
+        cfg = resolve_model_config(args, env={"CONDUCTOR_MODEL_FAMILY": "gemini-4-argon"})
+        self.assertEqual(
+            cfg,
+            {
+                "family": "gemini-4.5-pro",
+                "plan": "gemini-4.5-pro-xhigh",
+                "exec": "gemini-4.5-pro-high",
+                "checkpoint": "gemini-4.5-pro-medium",
+                "review": "gemini-4.5-pro-xhigh",
+            },
+        )
+
+    def test_resolve_model_config_role_env_vars_override_family_composition(self):
+        """Asserts per-role CONDUCTOR_*_MODEL env vars override family composition while unpinned roles still compose."""
+        resolve_model_config = get_target("resolve_model_config", self)
+        parse_args = get_target("parse_args", self)
+
+        args = parse_args(["--model-family", "gemini-4-argon"])
+        cfg = resolve_model_config(
+            args,
+            env={
+                "CONDUCTOR_EXEC_MODEL": "custom-exec",
+                "CONDUCTOR_CHECKPOINT_MODEL": "custom-cp",
+            },
+        )
+        self.assertEqual(cfg["family"], "gemini-4-argon")
+        self.assertEqual(cfg["plan"], "gemini-4-argon-xhigh")
+        self.assertEqual(cfg["exec"], "custom-exec")
+        self.assertEqual(cfg["checkpoint"], "custom-cp")
+        self.assertEqual(cfg["review"], "gemini-4-argon-xhigh")
+
+    def test_resolve_model_config_per_role_cli_flags_override_env_vars(self):
+        """Asserts explicit per-role CLI flags take highest precedence over env vars and family composition."""
+        resolve_model_config = get_target("resolve_model_config", self)
+        parse_args = get_target("parse_args", self)
+
+        args = parse_args(
+            [
+                "--plan-model",
+                "cli-plan",
+                "--exec-model",
+                "cli-exec",
+                "--checkpoint-model",
+                "cli-cp",
+                "--review-model",
+                "cli-rev",
+            ]
+        )
+        cfg = resolve_model_config(
+            args,
+            env={
+                "CONDUCTOR_MODEL_FAMILY": "gemini-4-argon",
+                "CONDUCTOR_PLAN_MODEL": "env-plan",
+                "CONDUCTOR_EXEC_MODEL": "env-exec",
+                "CONDUCTOR_CHECKPOINT_MODEL": "env-cp",
+                "CONDUCTOR_REVIEW_MODEL": "env-rev",
+            },
+        )
+        self.assertEqual(cfg["plan"], "cli-plan")
+        self.assertEqual(cfg["exec"], "cli-exec")
+        self.assertEqual(cfg["checkpoint"], "cli-cp")
+        self.assertEqual(cfg["review"], "cli-rev")
+
+    def test_parse_args_accepts_phase5_model_flags_and_leaves_unset_as_none(self):
+        """Asserts parse_args accepts --model-family and --checkpoint-model and leaves unset overrides as None."""
+        parse_args = get_target("parse_args", self)
+
+        with contextlib.redirect_stderr(io.StringIO()):
+            try:
+                args = parse_args(
+                    [
+                        "my-track",
+                        "--phase",
+                        "5",
+                        "--model-family",
+                        "gemini-4-hydrogen",
+                        "--checkpoint-model",
+                        "custom-cp",
+                    ]
+                )
+            except SystemExit as exc:
+                self.fail(f"parse_args rejected Phase 5 model flags (--model-family / --checkpoint-model): {exc}")
+
+        self.assertEqual(args.track, "my-track")
+        self.assertEqual(args.phase, 5)
+        self.assertEqual(args.model_family, "gemini-4-hydrogen")
+        self.assertEqual(args.checkpoint_model, "custom-cp")
+        self.assertIsNone(args.plan_model)
+        self.assertIsNone(args.exec_model)
+        self.assertIsNone(args.review_model)
+
+
+class TestGate1CheckpointDispatch(unittest.TestCase):
+    """Test suite for Gate 1 unattended phase verification checkpoint and commit/notes audit."""
+
+    @patch("subprocess.run")
+    def test_generate_turn_prompt_checkpoint_unattended_omits_task_and_passes_flag(self, mock_run):
+        """Asserts generate_turn_prompt supports mode='checkpoint', task_num=None, and unattended=True."""
+        generate_turn_prompt = get_target("generate_turn_prompt", self)
+        sig = inspect.signature(generate_turn_prompt)
+        self.assertIn(
+            "unattended",
+            sig.parameters,
+            "generate_turn_prompt does not yet accept 'unattended' parameter",
+        )
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["python3.11", "scripts/agent/generate-prompt.py"],
+            returncode=0,
+            stdout="# Unattended Checkpoint Prompt\n",
+            stderr="",
+        )
+
+        prompt = generate_turn_prompt(
+            "test-track",
+            phase_num=5,
+            task_num=None,
+            mode="checkpoint",
+            unattended=True,
+        )
+        self.assertEqual(prompt, "# Unattended Checkpoint Prompt")
+        cmd_called = mock_run.call_args[0][0]
+        self.assertIn("test-track", cmd_called)
+        self.assertIn("5", cmd_called)
+        self.assertIn("--checkpoint", cmd_called)
+        self.assertIn("--unattended", cmd_called)
+        self.assertNotIn("None", cmd_called)
+
+    def test_dispatch_gate1_checkpoint_uses_default_checkpoint_model_and_unattended(self):
+        """Asserts dispatch_gate1_checkpoint invokes generate_turn_prompt(--checkpoint --unattended) and agy with DEFAULT_CHECKPOINT_MODEL."""
+        dispatch_gate1_checkpoint = get_target("dispatch_gate1_checkpoint", self)
+        DEFAULT_CHECKPOINT_MODEL = get_target("DEFAULT_CHECKPOINT_MODEL", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text("## Phase 5: Boundaries\n- [x] Task: Done [commit: 1122334]\n", encoding="utf-8")
+
+            with patch.object(
+                conductor_auto, "generate_turn_prompt", return_value="# Unattended Checkpoint"
+            ) as mock_gen_prompt:
+                with patch.object(
+                    conductor_auto, "run_agy_turn", return_value=(0, "Done", "")
+                ) as mock_turn:
+                    with patch.object(
+                        conductor_auto, "check_working_tree_cleanliness", return_value=(True, [])
+                    ):
+                        with patch.object(
+                            conductor_auto, "verify_checkpoint_commit_and_notes", create=True, return_value="abc1234"
+                        ) as mock_verify:
+                            sha = dispatch_gate1_checkpoint("test-track", phase_num=5, cwd=root)
+
+                            self.assertEqual(sha, "abc1234")
+                            mock_gen_prompt.assert_called_once()
+                            gp_kwargs = mock_gen_prompt.call_args.kwargs
+                            self.assertEqual(gp_kwargs.get("mode"), "checkpoint")
+                            self.assertTrue(gp_kwargs.get("unattended"))
+                            self.assertEqual(gp_kwargs.get("phase_num"), 5)
+
+                            mock_turn.assert_called_once()
+                            turn_kwargs = mock_turn.call_args.kwargs
+                            self.assertEqual(turn_kwargs.get("mode"), "auto")
+                            self.assertEqual(turn_kwargs.get("model"), DEFAULT_CHECKPOINT_MODEL)
+                            self.assertTrue(
+                                str(turn_kwargs.get("log_file", "")).endswith("phase-5-checkpoint.log")
+                            )
+                            mock_verify.assert_called_once()
+
+    def test_dispatch_gate1_checkpoint_raises_on_dirty_tree_or_agy_failure(self):
+        """Asserts dispatch_gate1_checkpoint raises ProcessExecutionError on agy failure and GitTreeDirtyError on dirty tree."""
+        dispatch_gate1_checkpoint = get_target("dispatch_gate1_checkpoint", self)
+        ProcessExecutionError = get_target("ProcessExecutionError", self)
+        GitTreeDirtyError = get_target("GitTreeDirtyError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text("## Phase 5: Boundaries\n", encoding="utf-8")
+
+            with patch.object(conductor_auto, "generate_turn_prompt", return_value="# Unattended Checkpoint"):
+                with patch.object(conductor_auto, "run_agy_turn", return_value=(1, "", "Checkpoint crash")):
+                    with self.assertRaises(ProcessExecutionError):
+                        dispatch_gate1_checkpoint("test-track", phase_num=5, cwd=root)
+
+                with patch.object(conductor_auto, "run_agy_turn", return_value=(0, "ok", "")):
+                    with patch.object(
+                        conductor_auto, "check_working_tree_cleanliness", return_value=(False, ["dirty.py"])
+                    ):
+                        with self.assertRaises(GitTreeDirtyError):
+                            dispatch_gate1_checkpoint("test-track", phase_num=5, cwd=root)
+
+    @patch("subprocess.run")
+    def test_verify_checkpoint_commit_and_notes_valid_passes(self, mock_run):
+        """Asserts verify_checkpoint_commit_and_notes passes and returns SHA when tag, commit, notes, and plan commit are valid."""
+        verify_checkpoint_commit_and_notes = get_target("verify_checkpoint_commit_and_notes", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            plan_path = root / "plan.md"
+            plan_path.write_text(
+                "## Phase 5: Boundaries [checkpoint: abc1234]\n- [x] Task: Done [commit: 1122334]\n",
+                encoding="utf-8",
+            )
+
+            def run_side_effect(cmd, *args, **kwargs):
+                cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+                if "log -1" in cmd_str and "plan.md" in cmd_str:
+                    return subprocess.CompletedProcess(
+                        args=cmd,
+                        returncode=0,
+                        stdout="conductor(plan): Mark phase 'Phase 5: Boundaries' as complete\n",
+                        stderr="",
+                    )
+                if "log -1" in cmd_str:
+                    return subprocess.CompletedProcess(
+                        args=cmd,
+                        returncode=0,
+                        stdout="conductor(checkpoint): Checkpoint end of Phase 5\n",
+                        stderr="",
+                    )
+                if "notes show" in cmd_str:
+                    return subprocess.CompletedProcess(
+                        args=cmd,
+                        returncode=0,
+                        stdout=(
+                            "Phase: Phase 5: Boundaries\n"
+                            "Automated Tests:\nOK\n"
+                            "Manual Verification:\nDeferred\n"
+                            "User Confirmation: Unattended execution mode\n"
+                        ),
+                        stderr="",
+                    )
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+            mock_run.side_effect = run_side_effect
+            sha = verify_checkpoint_commit_and_notes(5, plan_path, cwd=root, base_sha="0001112")
+            self.assertEqual(sha, "abc1234")
+
+    @patch("subprocess.run")
+    def test_verify_checkpoint_commit_and_notes_rejects_missing_tag_wrong_msg_or_missing_notes(self, mock_run):
+        """Asserts verify_checkpoint_commit_and_notes raises SupervisorInvariantError on missing tag, wrong message, or missing notes."""
+        verify_checkpoint_commit_and_notes = get_target("verify_checkpoint_commit_and_notes", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            plan_path = root / "plan.md"
+
+            # Case 1: Missing [checkpoint: <sha>] tag on phase heading
+            with self.subTest("missing checkpoint tag"):
+                plan_path.write_text("## Phase 5: Boundaries\n- [x] Task: Done [commit: 1122334]\n", encoding="utf-8")
+                with self.assertRaises(SupervisorInvariantError):
+                    verify_checkpoint_commit_and_notes(5, plan_path, cwd=root, base_sha="0001112")
+
+            plan_path.write_text("## Phase 5: Boundaries [checkpoint: abc1234]\n", encoding="utf-8")
+
+            # Case 2: Wrong checkpoint commit message
+            with self.subTest("wrong commit message"):
+                mock_run.return_value = subprocess.CompletedProcess(
+                    args=["git", "log"],
+                    returncode=0,
+                    stdout="chore: random commit\n",
+                    stderr="",
+                )
+                with self.assertRaises(SupervisorInvariantError):
+                    verify_checkpoint_commit_and_notes(5, plan_path, cwd=root, base_sha="0001112")
+
+            # Case 3: Missing or empty git notes
+            with self.subTest("missing git notes"):
+                def missing_notes_side_effect(cmd, *args, **kwargs):
+                    cmd_str = " ".join(cmd) if isinstance(cmd, list) else str(cmd)
+                    if "notes show" in cmd_str:
+                        return subprocess.CompletedProcess(args=cmd, returncode=1, stdout="", stderr="No note found")
+                    return subprocess.CompletedProcess(
+                        args=cmd,
+                        returncode=0,
+                        stdout="conductor(checkpoint): Checkpoint end of Phase 5\n",
+                        stderr="",
+                    )
+
+                mock_run.side_effect = missing_notes_side_effect
+                with self.assertRaises(SupervisorInvariantError):
+                    verify_checkpoint_commit_and_notes(5, plan_path, cwd=root, base_sha="0001112")
+
+
+class TestGate2ReviewAndBrainSnapshot(unittest.TestCase):
+    """Test suite for Gate 2 unattended /conductor:review dispatch and brain directory snapshotting."""
+
+    def test_snapshot_brain_dirs_lists_existing_and_handles_missing_dir(self):
+        """Asserts snapshot_brain_dirs returns existing subdirectory names and returns empty set if dir missing."""
+        snapshot_brain_dirs = get_target("snapshot_brain_dirs", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            brain_dir = Path(tmpdir) / "brain"
+            brain_dir.mkdir()
+            (brain_dir / "uuid-1").mkdir()
+            (brain_dir / "uuid-2").mkdir()
+            (brain_dir / ".DS_Store").write_text("junk", encoding="utf-8")
+
+            self.assertEqual(snapshot_brain_dirs(brain_dir), {"uuid-1", "uuid-2"})
+            self.assertEqual(snapshot_brain_dirs(Path(tmpdir) / "nonexistent"), set())
+
+    def test_capture_conversation_id_returns_newly_created_dir(self):
+        """Asserts capture_conversation_id returns newly added directory ID (newest mtime if multiple)."""
+        capture_conversation_id = get_target("capture_conversation_id", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            brain_dir = Path(tmpdir) / "brain"
+            brain_dir.mkdir()
+            d1 = brain_dir / "uuid-1"
+            d2 = brain_dir / "uuid-2"
+            d1.mkdir()
+            d2.mkdir()
+            os.utime(d1, (1000.0, 1000.0))
+            os.utime(d2, (1500.0, 1500.0))
+
+            self.assertEqual(capture_conversation_id({"uuid-1"}, brain_dir=brain_dir), "uuid-2")
+
+            d3 = brain_dir / "uuid-3"
+            d3.mkdir()
+            os.utime(d3, (2000.0, 2000.0))
+            self.assertEqual(capture_conversation_id({"uuid-1"}, brain_dir=brain_dir), "uuid-3")
+
+    def test_capture_conversation_id_falls_back_to_newest_transcript_jsonl(self):
+        """Asserts capture_conversation_id falls back to directory with newest transcript.jsonl when no new dir appears."""
+        capture_conversation_id = get_target("capture_conversation_id", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            brain_dir = Path(tmpdir) / "brain"
+            for cid, ts in [("uuid-1", 1000.0), ("uuid-2", 2000.0)]:
+                logs_dir = brain_dir / cid / ".system_generated" / "logs"
+                logs_dir.mkdir(parents=True)
+                transcript = logs_dir / "transcript.jsonl"
+                transcript.write_text('{"step": 1}\n', encoding="utf-8")
+                os.utime(transcript, (ts, ts))
+
+            conv_id = capture_conversation_id({"uuid-1", "uuid-2"}, brain_dir=brain_dir)
+            self.assertEqual(conv_id, "uuid-2")
+
+    def test_build_review_prompt_includes_conductor_review_and_unattended_overrides(self):
+        """Asserts build_review_prompt includes /conductor:review, unattended scope confirmation, and output report path."""
+        build_review_prompt = get_target("build_review_prompt", self)
+
+        report_path = Path("conductor/tracks/test-track/phase-5-review.md")
+        prompt = build_review_prompt("test-track", phase_num=5, report_path=report_path)
+
+        self.assertIn("/conductor:review", prompt)
+        self.assertIn("test-track", prompt)
+        self.assertIn("phase-5-review.md", prompt)
+        self.assertTrue(
+            "300" in prompt or "iterative" in prompt.lower(),
+            "Review prompt must handle >300 line iterative review confirmation without modal pause",
+        )
+        self.assertTrue(
+            "unattended" in prompt.lower() or "non-interactive" in prompt.lower() or "auto-confirm" in prompt.lower(),
+            "Review prompt must instruct non-interactive scope confirmation",
+        )
+
+    def test_dispatch_gate2_review_captures_conv_id_uses_review_model_and_reads_report(self):
+        """Asserts dispatch_gate2_review snapshots brain_dir, invokes agy with DEFAULT_REVIEW_MODEL, and parses severity."""
+        dispatch_gate2_review = get_target("dispatch_gate2_review", self)
+        DEFAULT_REVIEW_MODEL = get_target("DEFAULT_REVIEW_MODEL", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            brain_dir = root / "brain"
+            brain_dir.mkdir()
+            (brain_dir / "uuid-old").mkdir()
+
+            def agy_side_effect(**kwargs):
+                (brain_dir / "uuid-new").mkdir()
+                (track_dir / "phase-5-review.md").write_text(
+                    "# Phase 5 Review\n\n### High: Fix race condition\nDetails here.\n",
+                    encoding="utf-8",
+                )
+                return (0, "Review complete", "")
+
+            with patch.object(conductor_auto, "run_agy_turn", side_effect=agy_side_effect) as mock_turn:
+                result = dispatch_gate2_review(
+                    "test-track",
+                    phase_num=5,
+                    cwd=root,
+                    brain_dir=brain_dir,
+                )
+
+                mock_turn.assert_called_once()
+                turn_kwargs = mock_turn.call_args.kwargs
+                self.assertEqual(turn_kwargs.get("mode"), "auto")
+                self.assertEqual(turn_kwargs.get("model"), DEFAULT_REVIEW_MODEL)
+                self.assertTrue(str(turn_kwargs.get("log_file", "")).endswith("phase-5-review.log"))
+
+                self.assertEqual(result.conversation_id, "uuid-new")
+                self.assertTrue(result.has_critical_or_high)
+                self.assertEqual(result.exit_code, 2)
+                self.assertEqual(result.report_path.name, "phase-5-review.md")
+
+    def test_dispatch_gate2_review_persists_stdout_fallback_if_report_not_written_and_raises_on_crash(self):
+        """Asserts dispatch_gate2_review persists stdout fallback report when file missing and raises on non-zero agy exit."""
+        dispatch_gate2_review = get_target("dispatch_gate2_review", self)
+        ProcessExecutionError = get_target("ProcessExecutionError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            brain_dir = root / "brain"
+            brain_dir.mkdir()
+
+            with patch.object(
+                conductor_auto,
+                "run_agy_turn",
+                return_value=(0, "## Review\n### Medium: Polish docs\n", ""),
+            ):
+                result = dispatch_gate2_review(
+                    "test-track",
+                    phase_num=5,
+                    cwd=root,
+                    brain_dir=brain_dir,
+                )
+                self.assertEqual(result.exit_code, 0)
+                self.assertFalse(result.has_critical_or_high)
+                self.assertTrue((track_dir / "phase-5-review.md").exists())
+                self.assertIn("Medium: Polish docs", (track_dir / "phase-5-review.md").read_text(encoding="utf-8"))
+
+            with patch.object(
+                conductor_auto,
+                "run_agy_turn",
+                return_value=(1, "", "Review crashed"),
+            ):
+                with self.assertRaises(ProcessExecutionError):
+                    dispatch_gate2_review(
+                        "test-track",
+                        phase_num=5,
+                        cwd=root,
+                        brain_dir=brain_dir,
+                    )
+
+
+class TestReviewSeverityAndExitCodes(unittest.TestCase):
+    """Test suite for strict review severity regex parsing and main() phase-boundary exit codes."""
+
+    def test_parse_review_severity_matches_critical_and_high_headings(self):
+        """Asserts parse_review_severity matches strict H3 Critical/High headings with or without brackets."""
+        parse_review_severity = get_target("parse_review_severity", self)
+
+        report = (
+            "# Review Report\n\n"
+            "### Critical: SQL Injection\nDetails\n\n"
+            "### [High] Missing auth guard\nDetails\n\n"
+            "### [Critical] Data loss\nDetails\n"
+        )
+        has_crit_high, findings = parse_review_severity(report)
+        self.assertTrue(has_crit_high)
+        self.assertEqual(len(findings), 3)
+
+    def test_parse_review_severity_ignores_medium_low_h2_and_inline_prose(self):
+        """Asserts parse_review_severity ignores Medium, Low, H2 headings, and inline prose mentions."""
+        parse_review_severity = get_target("parse_review_severity", self)
+
+        report = (
+            "## Critical Summary\n\n"
+            "No Critical or High issues detected in High-traffic path.\n\n"
+            "### Medium: Minor cleanup\nDetails\n\n"
+            "### Low: Typo\nDetails\n"
+        )
+        has_crit_high, findings = parse_review_severity(report)
+        self.assertFalse(has_crit_high)
+        self.assertEqual(findings, [])
+
+    def test_format_resume_command_formats_exact_agy_invocation(self):
+        """Asserts format_resume_command produces the exact agy --conversation continuation command."""
+        format_resume_command = get_target("format_resume_command", self)
+
+        cmd = format_resume_command("abc-123", 5)
+        self.assertEqual(
+            cmd,
+            'agy --conversation abc-123 "Apply the review suggestions from phase-5-review.md"',
+        )
+
+    def test_main_exit_code_0_on_clean_or_medium_low_review_and_halts_at_phase_boundary(self):
+        """Asserts main returns 0 after completing Phase 5 + Gate 1 + Gate 2 and halts before Phase 6."""
+        main = get_target("main", self)
+        ReviewResult = get_target("ReviewResult", self)
+        get_target("dispatch_gate1_checkpoint", self)
+        get_target("dispatch_gate2_review", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 5: Boundaries\n"
+                "- [ ] Task: Implement boundaries\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)\n\n"
+                "## Phase 6: Documentation\n"
+                "- [ ] Task: Write docs\n",
+                encoding="utf-8",
+            )
+
+            clean_result = ReviewResult(
+                report_path=track_dir / "phase-5-review.md",
+                conversation_id="conv-100",
+                has_critical_or_high=False,
+                findings=[],
+                exit_code=0,
+            )
+
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(conductor_auto, "dispatch_tier1_planning", return_value=True) as mock_t1:
+                    with patch.object(conductor_auto, "dispatch_tier2_execution", return_value=True) as mock_t2:
+                        with patch.object(
+                            conductor_auto, "dispatch_gate1_checkpoint", create=True, return_value="sha1234"
+                        ) as mock_g1:
+                            with patch.object(
+                                conductor_auto, "dispatch_gate2_review", create=True, return_value=clean_result
+                            ) as mock_g2:
+                                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track"])
+
+                                self.assertEqual(rc, 0)
+                                mock_t1.assert_called_once()
+                                mock_t2.assert_called_once()
+                                self.assertEqual(mock_t1.call_args.kwargs.get("phase_num"), 5)
+                                self.assertEqual(mock_t2.call_args.kwargs.get("phase_num"), 5)
+                                mock_g1.assert_called_once()
+                                mock_g2.assert_called_once()
+
+    def test_main_exit_code_0_skips_gate2_when_no_review_flagged(self):
+        """Asserts main skips Gate 2 review when --no-review is passed and returns 0."""
+        main = get_target("main", self)
+        get_target("dispatch_gate1_checkpoint", self)
+        get_target("dispatch_gate2_review", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 5: Boundaries\n"
+                "- [ ] Task: Implement boundaries\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(conductor_auto, "dispatch_tier1_planning", return_value=True):
+                    with patch.object(conductor_auto, "dispatch_tier2_execution", return_value=True):
+                        with patch.object(
+                            conductor_auto, "dispatch_gate1_checkpoint", create=True, return_value="sha1234"
+                        ) as mock_g1:
+                            with patch.object(
+                                conductor_auto, "dispatch_gate2_review", create=True
+                            ) as mock_g2:
+                                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track", "--no-review"])
+
+                                self.assertEqual(rc, 0)
+                                mock_g1.assert_called_once()
+                                mock_g2.assert_not_called()
+
+    def test_main_exit_code_2_on_critical_or_high_review_prints_resume_cmd(self):
+        """Asserts main returns 2 and prints finding warning + exact agy --conversation resume command on Critical/High findings."""
+        main = get_target("main", self)
+        ReviewResult = get_target("ReviewResult", self)
+        get_target("dispatch_gate1_checkpoint", self)
+        get_target("dispatch_gate2_review", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 5: Boundaries\n"
+                "- [ ] Task: Implement boundaries\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+
+            crit_result = ReviewResult(
+                report_path=track_dir / "phase-5-review.md",
+                conversation_id="conv-999",
+                has_critical_or_high=True,
+                findings=["### [Critical] Broken invariant"],
+                exit_code=2,
+            )
+
+            stdout_buf = io.StringIO()
+            stderr_buf = io.StringIO()
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(conductor_auto, "dispatch_tier1_planning", return_value=True):
+                    with patch.object(conductor_auto, "dispatch_tier2_execution", return_value=True):
+                        with patch.object(
+                            conductor_auto, "dispatch_gate1_checkpoint", create=True, return_value="sha1234"
+                        ):
+                            with patch.object(
+                                conductor_auto, "dispatch_gate2_review", create=True, return_value=crit_result
+                            ):
+                                with contextlib.redirect_stdout(stdout_buf), contextlib.redirect_stderr(stderr_buf):
+                                    rc = main(["test-track"])
+
+            combined = stdout_buf.getvalue() + "\n" + stderr_buf.getvalue()
+            self.assertEqual(rc, 2)
+            self.assertIn(
+                'agy --conversation conv-999 "Apply the review suggestions from phase-5-review.md"',
+                combined,
+            )
+            self.assertIn("Broken invariant", combined)
+
+    def test_main_exit_code_1_on_gate1_failure_or_gate2_crash(self):
+        """Asserts main returns 1 on Gate 1 invariant failure (without running Gate 2) or Gate 2 subprocess crash."""
+        main = get_target("main", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+        ProcessExecutionError = get_target("ProcessExecutionError", self)
+        get_target("dispatch_gate1_checkpoint", self)
+        get_target("dispatch_gate2_review", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 5: Boundaries\n"
+                "- [ ] Task: Implement boundaries\n",
+                encoding="utf-8",
+            )
+
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(conductor_auto, "dispatch_tier1_planning", return_value=True):
+                    with patch.object(conductor_auto, "dispatch_tier2_execution", return_value=True):
+                        with patch.object(
+                            conductor_auto,
+                            "dispatch_gate1_checkpoint",
+                            create=True,
+                            side_effect=SupervisorInvariantError("Gate 1 failed"),
+                        ):
+                            with patch.object(conductor_auto, "dispatch_gate2_review", create=True) as mock_g2:
+                                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track"])
+                                self.assertEqual(rc, 1)
+                                mock_g2.assert_not_called()
+
+                        with patch.object(
+                            conductor_auto, "dispatch_gate1_checkpoint", create=True, return_value="sha1234"
+                        ):
+                            with patch.object(
+                                conductor_auto,
+                                "dispatch_gate2_review",
+                                create=True,
+                                side_effect=ProcessExecutionError("Gate 2 crashed"),
+                            ):
+                                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track"])
+                                self.assertEqual(rc, 1)
+
+
+class TestSubprocessStreamingAndDualLogging(unittest.TestCase):
+    """Test suite for DualLogger unredacted teeing, streaming subprocess stdout, and configurable --timeout."""
+
+    def test_dual_logger_writes_formatted_progress_to_stdout_and_unredacted_to_file(self):
+        """Asserts DualLogger emits formatted banners/status to stdout and tees raw unredacted payloads to log_file."""
+        DualLogger = get_target("DualLogger", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_log = Path(tmpdir) / "logs" / "turn.log"
+            stdout_buf = io.StringIO()
+            logger = DualLogger(log_file=tmp_log, stdout_stream=stdout_buf)
+
+            logger.log_banner("Phase 5 Task 1", "Model: gemini-4-hydrogen-xhigh")
+            logger.log_status("Dispatching turn...")
+            logger.write_raw("[tool_call] raw unredacted payload\n")
+
+            stdout_text = stdout_buf.getvalue()
+            self.assertIn("Phase 5 Task 1", stdout_text)
+            self.assertIn("Dispatching turn...", stdout_text)
+
+            self.assertTrue(tmp_log.exists())
+            log_text = tmp_log.read_text(encoding="utf-8")
+            self.assertIn("[tool_call] raw unredacted payload", log_text)
+
+    @patch("subprocess.Popen")
+    def test_run_agy_turn_streaming_delivers_stdin_and_tees_lines_incrementally(self, mock_popen_cls):
+        """Asserts run_agy_turn(..., stream=True) writes stdin, streams stdout lines, and tees unredacted output to log_file."""
+        run_agy_turn = get_target("run_agy_turn", self)
+        DualLogger = get_target("DualLogger", self)
+
+        written_stdin: list[str] = []
+        mock_stdin = MagicMock()
+        mock_stdin.write.side_effect = lambda data: written_stdin.append(data)
+
+        mock_proc = MagicMock()
+        mock_proc.stdin = mock_stdin
+        mock_proc.stdout = io.StringIO("line 1\nline 2\n")
+        mock_proc.stderr = io.StringIO("")
+        mock_proc.wait.return_value = 0
+        mock_proc.returncode = 0
+        mock_proc.pid = 54321
+        mock_popen_cls.return_value = mock_proc
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_log = Path(tmpdir) / "logs" / "phase-5-review.log"
+            stdout_buf = io.StringIO()
+            logger = DualLogger(log_file=tmp_log, stdout_stream=stdout_buf)
+
+            ret, stdout, stderr = run_agy_turn(
+                prompt="Run review",
+                mode="auto",
+                model="gemini-4-hydrogen-xhigh",
+                timeout=60.0,
+                log_file=tmp_log,
+                stream=True,
+                logger=logger,
+            )
+
+            self.assertEqual(ret, 0)
+            self.assertEqual(stdout, "line 1\nline 2\n")
+            self.assertEqual(stderr, "")
+            self.assertEqual("".join(written_stdin), "Run review")
+            self.assertTrue(mock_stdin.close.called)
+            self.assertIn("line 1", stdout_buf.getvalue())
+            self.assertIn("line 2", stdout_buf.getvalue())
+            log_text = tmp_log.read_text(encoding="utf-8")
+            self.assertIn("line 1", log_text)
+            self.assertIn("line 2", log_text)
+
+    @patch("time.monotonic", side_effect=itertools.chain([0.0], itertools.repeat(0.1)))
+    @patch("os.killpg")
+    @patch("os.getpgid", return_value=54321)
+    @patch("subprocess.Popen")
+    def test_run_agy_turn_streaming_enforces_configurable_timeout_and_kills_pg(
+        self, mock_popen_cls, mock_getpgid, mock_killpg, _mock_monotonic
+    ):
+        """Asserts streaming run_agy_turn enforces timeout and terminates process group via SIGTERM."""
+        run_agy_turn = get_target("run_agy_turn", self)
+        ProcessExecutionError = get_target("ProcessExecutionError", self)
+        sig = inspect.signature(run_agy_turn)
+        self.assertIn(
+            "stream",
+            sig.parameters,
+            "run_agy_turn does not yet accept 'stream' parameter",
+        )
+
+        mock_stdout = MagicMock()
+        mock_stdout.readline.side_effect = ["partial\n", ""]
+        mock_stdout.__iter__.return_value = iter(["partial\n"])
+
+        mock_proc = MagicMock()
+        mock_proc.pid = 54321
+        mock_proc.stdin = MagicMock()
+        mock_proc.stdout = mock_stdout
+        mock_proc.stderr = io.StringIO("")
+        mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd=["agy"], timeout=0.05)
+        mock_popen_cls.return_value = mock_proc
+
+        with self.assertRaises(ProcessExecutionError) as ctx:
+            run_agy_turn(
+                prompt="Run review",
+                mode="auto",
+                timeout=0.05,
+                stream=True,
+            )
+
+        self.assertIn("timed out", str(ctx.exception).lower())
+        mock_killpg.assert_any_call(54321, signal.SIGTERM)
+
+    def test_parse_timeout_supports_minutes_seconds_hours_and_main_forwards_timeout(self):
+        """Asserts parse_timeout handles m/s/h/plain numbers and main forwards --timeout to all turn dispatchers."""
+        parse_timeout = get_target("parse_timeout", self)
+        main = get_target("main", self)
+        ReviewResult = get_target("ReviewResult", self)
+        get_target("dispatch_gate1_checkpoint", self)
+        get_target("dispatch_gate2_review", self)
+
+        self.assertEqual(parse_timeout("15m"), 900.0)
+        self.assertEqual(parse_timeout("45s"), 45.0)
+        self.assertEqual(parse_timeout("1h"), 3600.0)
+        self.assertEqual(parse_timeout("120"), 120.0)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 5: Boundaries\n"
+                "- [ ] Task: Implement boundaries\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 5' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+
+            clean_result = ReviewResult(
+                report_path=track_dir / "phase-5-review.md",
+                conversation_id="conv-200",
+                has_critical_or_high=False,
+                findings=[],
+                exit_code=0,
+            )
+
+            with patch.object(conductor_auto, "PROJECT_ROOT", root):
+                with patch.object(conductor_auto, "dispatch_tier1_planning", return_value=True) as mock_t1:
+                    with patch.object(conductor_auto, "dispatch_tier2_execution", return_value=True) as mock_t2:
+                        with patch.object(
+                            conductor_auto, "dispatch_gate1_checkpoint", create=True, return_value="sha1234"
+                        ) as mock_g1:
+                            with patch.object(
+                                conductor_auto, "dispatch_gate2_review", create=True, return_value=clean_result
+                            ) as mock_g2:
+                                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                                    rc = main(["test-track", "--timeout", "20m"])
+
+                                self.assertEqual(rc, 0)
+                                self.assertEqual(mock_t1.call_args.kwargs.get("timeout"), 1200.0)
+                                self.assertEqual(mock_t2.call_args.kwargs.get("timeout"), 1200.0)
+                                self.assertEqual(mock_g1.call_args.kwargs.get("timeout"), 1200.0)
+                                self.assertEqual(mock_g2.call_args.kwargs.get("timeout"), 1200.0)
 
 
 if __name__ == "__main__":
