@@ -18,7 +18,7 @@
     - [x] Remove `notified: recipientIds` from all response branches in `supabase/functions/send-social-notification/index.ts`, returning `{ success: true, count: recipientIds.length }` (and `{ success: true, count: 0, message }` when skipped).
     - [x] Update `mockFetchForSocial` in `supabase/functions/send-social-notification/index.test.ts` to stub `/rest/v1/activity_ledger` for valid test scenarios.
     - [x] Execute `npm run test:functions`, `npm run lint`, and `npm run type-check` and confirm all checks pass (Green).
-- [ ] Task: Configure Edge Function gateway settings in Supabase config [exempt: infra]
-    - [ ] Add `[functions.send-social-notification]` with `verify_jwt = false` (and inline comment noting in-handler constant-time Bearer validation for both JWT `service_role_key` and opaque webhook secrets) to `supabase/config.toml` and `supabase/config.ci.toml`.
-    - [ ] Verify configuration syntax and run `npm run lint` and `npm run test:functions`.
+- [x] Task: Configure Edge Function gateway settings in Supabase config [exempt: infra] (50d691d)
+    - [x] Add `[functions.send-social-notification]` with `verify_jwt = false` (and inline comment noting in-handler constant-time Bearer validation for both JWT `service_role_key` and opaque webhook secrets) to `supabase/config.toml` and `supabase/config.ci.toml`.
+    - [x] Verify configuration syntax and run `npm run lint` and `npm run test:functions`.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Edge Function Security, Ledger Verification & Privacy Lockdown' (Protocol in workflow.md)
