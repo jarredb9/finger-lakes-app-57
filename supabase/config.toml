@@ -340,6 +340,11 @@ verify_jwt = true
 [functions.get-winery-details]
 verify_jwt = true
 
+[functions.send-social-notification]
+# Authorization is enforced in-handler via constant-time Bearer validation
+# supporting both JWT SUPABASE_SERVICE_ROLE_KEY and opaque WEBHOOK_SECRET / INTERNAL_WEBHOOK_SECRET tokens.
+verify_jwt = false
+
 [edge_runtime.secrets]
 GOOGLE_MAPS_API_KEY = "env(GOOGLE_MAPS_API_KEY)"
 

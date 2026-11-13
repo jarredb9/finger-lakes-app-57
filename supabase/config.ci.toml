@@ -38,5 +38,10 @@ enable_confirmations = false
 [edge_runtime]
 enabled = false # Disabled for CI speed
 
+[functions.send-social-notification]
+# Authorization is enforced in-handler via constant-time Bearer validation
+# supporting both JWT SUPABASE_SERVICE_ROLE_KEY and opaque WEBHOOK_SECRET / INTERNAL_WEBHOOK_SECRET tokens.
+verify_jwt = false
+
 [analytics]
 enabled = false # Disabled for CI speed
