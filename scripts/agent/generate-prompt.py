@@ -10,6 +10,7 @@ Usage:
     python3 scripts/agent/generate-prompt.py 3 1             # Auto-detects active track
     python3 scripts/agent/generate-prompt.py                 # Auto-detects active track and next pending task
     python3 scripts/agent/generate-prompt.py --checkpoint -c # Task-agnostic single-session phase checkpoint prompt
+    python3 scripts/agent/generate-prompt.py --checkpoint --unattended # Unattended checkpoint prompt without modal pauses
     python3 scripts/agent/generate-prompt.py 3 1 --plan      # Outputs only the plan prompt
     python3 scripts/agent/generate-prompt.py 3 1 --exec      # Outputs only the exec prompt
     python3 scripts/agent/generate-prompt.py 3 1 --red       # Force Red phase prompt (failing tests only)
@@ -135,6 +136,7 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
         r"\s*(?:\[checkpoint:\s*([a-f0-9]{7,40})\]|\[([a-f0-9]{7,40})\])\s*$",
         re.IGNORECASE,
     )
+    exempt_re = re.compile(r"\[exempt:\s*([a-zA-Z0-9_\-]+)\]", re.IGNORECASE)
     task_sha_re = re.compile(
         r"\s*(?:\(([a-f0-9]{7,40})\)|\[(?:commit:\s*|checkpoint:\s*)?([a-f0-9]{7,40})\]|([a-f0-9]{7,40}))\s*$",
         re.IGNORECASE,
@@ -180,6 +182,12 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
             if task_match:
                 status_char = task_match.group(1).lower()
                 task_desc = task_match.group(2).strip()
+                exempt_cat = None
+                exempt_match = exempt_re.search(task_desc)
+                if exempt_match:
+                    exempt_cat = exempt_match.group(1).lower()
+                    task_desc = exempt_re.sub("", task_desc).strip()
+
                 commit_sha = None
                 sha_match = task_sha_re.search(task_desc)
                 if sha_match:
@@ -193,12 +201,21 @@ def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
                         flags=re.IGNORECASE,
                     ).strip()
 
+                clean_desc = re.sub(
+                    r"\s*\[checkpoint:[^\]]+\]\s*$",
+                    "",
+                    clean_desc,
+                    flags=re.IGNORECASE,
+                ).strip()
+                clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
+
                 phases[current_phase_num]["tasks"].append({
                     "status": "complete" if status_char == "x" else ("in_progress" if status_char == "~" else "pending"),
                     "description": clean_desc,
                     "subtasks": [],
                     "commit_sha": commit_sha,
                     "is_checkpoint": is_checkpoint_task(clean_desc),
+                    "exempt": exempt_cat,
                     "raw_line": line.strip(),
                 })
 
@@ -282,6 +299,68 @@ def resolve_phase_baseline_sha(
                 continue
 
     return None
+
+
+def resolve_phase_end_sha(
+    phases: Dict[int, Dict[str, Any]],
+    phase_num: Optional[int],
+    cwd: Path = PROJECT_ROOT,
+) -> str:
+    """
+    Resolves the terminal commit SHA for phase_num.
+
+    Resolution Tiers:
+    1. Phase header checkpoint tag: phases[phase_num].get("checkpoint_sha")
+    2. Last completed task or checkpoint task in phase with a valid commit_sha
+    3. Baseline SHA of the next sequential phase: resolve_phase_baseline_sha(phases, next_phase)
+    4. Fallback to "HEAD" for active/incomplete phases.
+
+    Returns:
+        Verified 7-char short SHA, full SHA, or "HEAD".
+    """
+    if phase_num is None or phase_num not in phases:
+        return "HEAD"
+
+    has_git = _verify_git_commit("HEAD", cwd) is not None
+
+    # Tier 1: Phase header checkpoint tag
+    cp_sha = phases[phase_num].get("checkpoint_sha")
+    if cp_sha:
+        if has_git:
+            verified = _verify_git_commit(cp_sha, cwd)
+            if verified:
+                return verified
+        else:
+            return cp_sha[:7]
+
+    # Tier 2: Last completed task or checkpoint task in phase with a commit_sha
+    for t in reversed(phases[phase_num].get("tasks", [])):
+        t_sha = t.get("commit_sha")
+        if t_sha:
+            if has_git:
+                verified = _verify_git_commit(t_sha, cwd)
+                if verified:
+                    return verified
+            else:
+                return t_sha[:7]
+
+    # Tier 3: Baseline SHA of the next sequential phase
+    next_phases = [p for p in sorted(phases.keys()) if p > phase_num]
+    if next_phases:
+        next_base = resolve_phase_baseline_sha(phases, next_phases[0], cwd=cwd)
+        if next_base:
+            return next_base
+
+    # Fallback to unverified tag if recorded in plan (e.g., shallow clone)
+    if cp_sha:
+        return cp_sha[:7]
+    for t in reversed(phases[phase_num].get("tasks", [])):
+        t_sha = t.get("commit_sha")
+        if t_sha:
+            return t_sha[:7]
+
+    # Tier 4: Fallback to "HEAD" for active/incomplete phases
+    return "HEAD"
 
 
 _MUTATING_CMD_RE = re.compile(
@@ -443,6 +522,11 @@ def classify_phase_domain(changed_files: List[str], non_checkpoint_tasks: List[D
     return "backend_tooling"
 
 
+def _is_docs_exempt(exempt: Optional[str]) -> bool:
+    """Returns True when an exempt category resolves to 'docs'."""
+    return (exempt or "").lower().strip() == "docs"
+
+
 def collect_phase_checkpoint_context(
     track_name: str,
     phase_num: Optional[int],
@@ -523,6 +607,7 @@ def collect_phase_checkpoint_context(
                         sibling_targets.append(m_clean)
 
     baseline_sha = resolve_phase_baseline_sha(phases, phase_num, cwd=cwd)
+    end_sha = resolve_phase_end_sha(phases, phase_num, cwd=cwd)
 
     # Compute changed files via git diff if baseline_sha resolves in git AND this phase has started
     phase_has_activity = any(
@@ -531,10 +616,18 @@ def collect_phase_checkpoint_context(
     )
     git_changed_files: List[str] = []
     if phase_has_activity and baseline_sha and _verify_git_commit(baseline_sha, cwd=cwd):
-        for diff_args in (
-            ["git", "diff", "--name-only", baseline_sha, "HEAD"],
-            ["git", "diff", "--name-only", "HEAD"],
-        ):
+        is_historical = (end_sha != "HEAD") and (_verify_git_commit(end_sha, cwd=cwd) is not None)
+        if is_historical:
+            diff_targets = [["git", "diff", "--name-only", baseline_sha, end_sha]]
+        elif end_sha == "HEAD":
+            diff_targets = [
+                ["git", "diff", "--name-only", baseline_sha, "HEAD"],
+                ["git", "diff", "--name-only", "HEAD"],
+            ]
+        else:
+            diff_targets = []
+
+        for diff_args in diff_targets:
             try:
                 res = subprocess.run(
                     diff_args,
@@ -598,20 +691,28 @@ def collect_phase_checkpoint_context(
             commands.append("npm run type-check")
 
         if not commands:
-            domain_guess = classify_phase_domain(changed_files, non_checkpoint_tasks)
-            if domain_guess == "database":
-                commands = ["npm run db:check-types:local"]
+            all_docs_exempt = bool(non_checkpoint_tasks) and all(
+                _is_docs_exempt(t.get("exempt"))
+                for t in non_checkpoint_tasks
+            )
+            if all_docs_exempt:
+                commands = ["git diff --name-only"]
             else:
-                commands = [
-                    "./scripts/containers/run-jest-container.sh",
-                    "npm run type-check",
-                ]
+                domain_guess = classify_phase_domain(changed_files, non_checkpoint_tasks)
+                if domain_guess == "database":
+                    commands = ["npm run db:check-types:local"]
+                else:
+                    commands = [
+                        "./scripts/containers/run-jest-container.sh",
+                        "npm run type-check",
+                    ]
 
     # Ensure type-check sits after test runners when automatically appended
     domain = classify_phase_domain(changed_files, non_checkpoint_tasks)
 
     return {
         "baseline_sha": baseline_sha,
+        "end_sha": end_sha,
         "changed_files": changed_files,
         "sibling_plans": [ _rel_to_project(p) for _, p in sibling_plans ],
         "commands": commands,
@@ -676,6 +777,7 @@ def infer_verification_strategy(
     task_desc: str = "",
     subtasks: Optional[List[str]] = None,
     mode: Optional[str] = None,
+    exempt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Infers the optimal targeted verification strategy and commit message
     by inspecting the task description, subtasks, target files, and plan document."""
@@ -730,6 +832,70 @@ def infer_verification_strategy(
     all_task_text = task_desc + "\n" + "\n".join(subtasks)
     desc_lower = all_task_text.lower()
     task_desc_lower = task_desc.lower()
+
+    # Resolve exempt category if specified via keyword argument, task_desc annotation, or plan
+    resolved_exempt: Optional[str] = None
+    if exempt and exempt.strip():
+        resolved_exempt = exempt.strip().lower()
+    else:
+        exempt_match = re.search(r"\[exempt:\s*([a-zA-Z0-9_\-]+)\]", all_task_text, re.IGNORECASE)
+        if exempt_match:
+            resolved_exempt = exempt_match.group(1).lower()
+        elif track_name and phase_num is not None and task_num is not None:
+            try:
+                p_tasks = parse_plan_tasks(track_name)
+                if phase_num in p_tasks and 1 <= task_num <= len(p_tasks[phase_num]["tasks"]):
+                    resolved_exempt = p_tasks[phase_num]["tasks"][task_num - 1].get("exempt")
+            except Exception:
+                pass
+
+    if resolved_exempt:
+        clean_task_desc = re.sub(r"\s*\[exempt:[^\]]+\]", "", task_desc, flags=re.IGNORECASE).strip()
+        clean_task_desc = re.sub(
+            r"\s*(?:\(([a-f0-9]{7,40})\)|\[(?:commit:\s*|checkpoint:\s*)?([a-f0-9]{7,40})\])\s*$",
+            "",
+            clean_task_desc,
+            flags=re.IGNORECASE,
+        ).strip()
+        clean_task_desc = re.sub(r"\s+", " ", clean_task_desc).strip()
+        if not clean_task_desc:
+            clean_task_desc = f"Execute Phase {phase_num} Task {task_num}"
+
+        if resolved_exempt in ("ui", "styling"):
+            commands = ["npm run build"]
+            commit_prefix = "style("
+            cat_display = "UI" if resolved_exempt == "ui" else "Styling"
+            instruction = f"- Verify application build passes cleanly with npm run build ({cat_display} exempt task)."
+        elif resolved_exempt in ("infra", "scripts"):
+            commands = ["npm run lint"]
+            commit_prefix = "chore("
+            cat_display = "Infra" if resolved_exempt == "infra" else "Scripts"
+            instruction = f"- Verify lint checks pass cleanly with npm run lint ({cat_display} exempt task)."
+        elif resolved_exempt == "types":
+            commands = ["npm run type-check"]
+            commit_prefix = "types("
+            instruction = "- Verify TypeScript types pass cleanly with npm run type-check (Types exempt task)."
+        elif resolved_exempt == "docs":
+            commands = ["git diff --name-only"]
+            commit_prefix = "docs("
+            instruction = "- Verify documentation changes with git diff --name-only (Docs exempt task)."
+        else:
+            commands = ["npm run lint"]
+            commit_prefix = "chore("
+            instruction = f"- Verify exempt task ({resolved_exempt})."
+
+        commit_msg = f"{commit_prefix}{scope}): {clean_task_desc}".replace("`", "")
+
+        return {
+            "commands": commands,
+            "instruction": instruction,
+            "commit_msg": commit_msg,
+            "mode": "exempt",
+            "is_red": False,
+            "is_checkpoint": False,
+            "exempt": resolved_exempt,
+            "checkpoint_context": None,
+        }
 
     is_checkpoint = (mode == "checkpoint") or (mode is None and is_checkpoint_task(task_desc))
 
@@ -949,10 +1115,11 @@ def infer_verification_strategy(
     return {
         "commands": commands,
         "instruction": instruction,
-        "commit_msg": commit_msg,
+        "commit_msg": commit_msg.replace("`", ""),
         "mode": resolved_mode,
         "is_red": is_red,
         "is_checkpoint": is_checkpoint,
+        "exempt": None,
         "checkpoint_context": checkpoint_ctx,
     }
 
@@ -1016,7 +1183,10 @@ Gate & Planning Protocol:
 - Halt for user approval via modal before modifying any files."""
 
 
-def extract_post_execution_info(plan_file: Optional[Path]) -> Tuple[Optional[str], Optional[str]]:
+def extract_post_execution_info(
+    plan_file: Optional[Path],
+    task_desc: str = "",
+) -> Tuple[Optional[str], Optional[str]]:
     """Extracts the post-execution section reference and any explicit task commit message from the plan file.
 
     Returns:
@@ -1026,6 +1196,19 @@ def extract_post_execution_info(plan_file: Optional[Path]) -> Tuple[Optional[str
         return None, None
 
     content = plan_file.read_text(encoding="utf-8")
+
+    if task_desc:
+        clean_task = re.sub(r"\s*\[exempt:[^\]]+\]", "", task_desc, flags=re.IGNORECASE).strip()
+        clean_task = re.sub(
+            r"\s*(?:\(([a-f0-9]{7,40})\)|\[(?:commit:\s*|checkpoint:\s*)?([a-f0-9]{7,40})\])\s*$",
+            "",
+            clean_task,
+            flags=re.IGNORECASE,
+        ).strip()
+        clean_task = re.sub(r"\s+", " ", clean_task).strip()
+        if clean_task and clean_task.lower() not in content.lower():
+            return None, None
+
     match = re.search(
         r"^##\s+(?:(\d+)\.\s+)?(.*?Post-Execution.*|.*?Task Completion.*|.*?Commit Protocol.*)$",
         content,
@@ -1061,6 +1244,7 @@ def build_checkpoint_prompt(
     task_num: Optional[int],
     task_desc: str,
     strategy: Dict[str, Any],
+    unattended: bool = False,
 ) -> str:
     """Builds a self-contained, diff-gated single-session Phase Checkpoint prompt."""
     track_dir = resolve_track_dir(track_name)
@@ -1071,19 +1255,20 @@ def build_checkpoint_prompt(
     clean_phase_name = ctx.get("clean_phase_name", f"Phase {phase_num}")
     raw_heading = ctx.get("raw_heading", f"## Phase {phase_num}: {clean_phase_name}")
     baseline_sha = ctx.get("baseline_sha")
+    end_sha = ctx.get("end_sha", "HEAD")
     changed_files = ctx.get("changed_files", [])
     domain = ctx.get("domain", "backend_tooling")
     has_checkpoint_plan = ctx.get("has_checkpoint_plan", False)
 
     plan_ref_clause = f" and @[{plan_file}]" if has_checkpoint_plan else ""
-    range_line = f"- Git range: `{baseline_sha}..HEAD`" if baseline_sha else "- Git range: current phase commits (`git status --short`)"
+    range_line = f"- Git range: `{baseline_sha}..{end_sha}`" if baseline_sha else "- Git range: current phase commits (`git status --short`)"
     if changed_files:
         files_block = "\n".join(f"  - `{f}`" for f in changed_files[:20])
     else:
         files_block = "  - *(No code file diffs detected yet; inspect `git status --short`)*"
 
     cmd_lines = "\n".join(f"     {c}" for c in strategy["commands"])
-    diff_check_cmd = f"`git diff --name-only {baseline_sha} HEAD` and `git status --short`" if baseline_sha else "`git status --short`"
+    diff_check_cmd = f"`git diff --name-only {baseline_sha} {end_sha}` and `git status --short`" if baseline_sha else "`git status --short`"
 
     if domain == "ui":
         manual_directive = (
@@ -1104,6 +1289,24 @@ def build_checkpoint_prompt(
 
     effective_task_desc = task_desc or f"Conductor - User Manual Verification 'Phase {phase_num}: {clean_phase_name}' (Protocol in workflow.md)"
 
+    if unattended:
+        sec3_heading = "3. Domain-Aware Manual Verification (Unattended Execution Mode):"
+        sec3_content = (
+            f"   - Automated test suites are authoritative for phase closure in unattended runs.\n"
+            f"   - {manual_directive}\n"
+            f"   - Do NOT pause for user input or prompt via interactive dialogs; record the verification steps and observations directly into the git notes below."
+        )
+        sec4_heading = "4. Verbatim Phase Closure (Unattended Mode):"
+        confirmation_line = "User Confirmation: Unattended execution mode (deferred manual verification)."
+    else:
+        sec3_heading = "3. Domain-Aware Manual Verification & User Confirmation Gate:"
+        sec3_content = (
+            f"   - {manual_directive}\n"
+            f"   - Pause via `ask_question` for explicit user approval (`AGENTS.md` Guardrail #5: `User Skipped` or dismissal is strictly non-affirmative — halt immediately without committing)."
+        )
+        sec4_heading = "4. Verbatim Phase Closure (Execute ONLY After Explicit Affirmative Approval):"
+        confirmation_line = "User Confirmation: Explicitly approved via interactive modal."
+
     return f"""Execute Phase {phase_num} Checkpoint (Task {task_num}) for 'Phase {phase_num}: {clean_phase_name}' in @[{rel_track_dir}]{plan_ref_clause}.
 
 Pre-Computed Phase Scope:
@@ -1119,14 +1322,13 @@ Checkpoint Execution Directives (Self-Contained — Zero Extra Doc Reads):
    - **Warm-Session Fast Path:** If this session ALREADY executed and passed verification covering all changed files in Phase {phase_num}, AND zero non-`conductor/` code, SQL, or config files were modified after that passing test run (including during any intervening refactor/cleanup task or uncommitted edits), **SKIP re-running test containers** and cite the passing commands and results from earlier in this session.
    - **Cold-Session / Post-Edit Fallback:** If running in a fresh session OR any non-`conductor/` file changed after the last passing test run, execute ONLY these phase-scoped verification commands (use `BypassSandbox: true` for container/`db:*` runners):
 {cmd_lines}
-3. Domain-Aware Manual Verification & User Confirmation Gate:
-   - {manual_directive}
-   - Pause via `ask_question` for explicit user approval (`AGENTS.md` Guardrail #5: `User Skipped` or dismissal is strictly non-affirmative — halt immediately without committing).
-4. Verbatim Phase Closure (Execute ONLY After Explicit Affirmative Approval):
+{sec3_heading}
+{sec3_content}
+{sec4_heading}
    - Create empty checkpoint commit (`BypassSandbox: true`):
      `git commit --allow-empty -m "conductor(checkpoint): Checkpoint end of Phase {phase_num}"`
    - Capture `<full_sha>` (`git rev-parse HEAD`) and `<short_sha>` (`git rev-parse --short HEAD`), then attach verification git note (`BypassSandbox: true`):
-     `git notes add -m "Phase: Phase {phase_num}: {clean_phase_name}\\nAutomated Tests:\\n<commands & results>\\nManual Verification:\\n<summary>\\nUser Confirmation: Explicitly approved via interactive modal." <full_sha>`
+     `git notes add -m "Phase: Phase {phase_num}: {clean_phase_name}\\nAutomated Tests:\\n<commands & results>\\nManual Verification:\\n<summary>\\n{confirmation_line}" <full_sha>`
    - Update `{rel_track_dir}/plan.md` in a single edit:
      a. Append `[checkpoint: <short_sha>]` to heading `{raw_heading}` -> `{raw_heading} [checkpoint: <short_sha>]`
      b. Mark Task {task_num} complete: `- [x] Task: {effective_task_desc} [commit: <short_sha>]`
@@ -1142,22 +1344,67 @@ def build_exec_prompt(
     task_desc: str = "",
     subtasks: Optional[List[str]] = None,
     mode: Optional[str] = None,
+    exempt: Optional[str] = None,
+    unattended: bool = False,
+    skip_plan: bool = False,
 ) -> str:
+    """Builds the Tier 2 execution prompt (or phase checkpoint prompt) for a Conductor task.
+
+    Resolves the task's verification strategy, inlines plan/spec blueprints when Tier 1 planning
+    is bypassed (`[exempt: docs]` or `skip_plan=True` without an on-disk task plan), sanitizes
+    the commit message, and returns the formatted execution directive string.
+    """
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
     plan_path = track_dir / f"phase-{phase_num}-task-{task_num}-plan.md" if track_dir else None
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
-    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode)
+    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode, exempt=exempt)
 
     if strategy["mode"] == "checkpoint":
-        return build_checkpoint_prompt(track_name, phase_num, task_num, task_desc, strategy)
+        return build_checkpoint_prompt(track_name, phase_num, task_num, task_desc, strategy, unattended=unattended)
 
-    post_exec_ref, plan_commit_msg = extract_post_execution_info(plan_path)
-    commit_msg = plan_commit_msg or strategy["commit_msg"]
+    has_plan_file = bool(plan_path and plan_path.exists() and plan_path.stat().st_size > 0)
+    is_docs_exempt = strategy["mode"] == "exempt" and _is_docs_exempt(strategy.get("exempt"))
+    use_inline_blueprint = (not has_plan_file) and (is_docs_exempt or skip_plan)
+
+    resolved_task_desc = task_desc
+    resolved_subtasks = list(subtasks) if subtasks else []
+    if use_inline_blueprint and (not resolved_task_desc or not resolved_subtasks):
+        if track_name and phase_num is not None and task_num is not None:
+            try:
+                p_tasks = parse_plan_tasks(track_name)
+                if phase_num in p_tasks and 1 <= task_num <= len(p_tasks[phase_num]["tasks"]):
+                    t_obj = p_tasks[phase_num]["tasks"][task_num - 1]
+                    if not resolved_task_desc:
+                        resolved_task_desc = t_obj.get("description", "")
+                    if not resolved_subtasks:
+                        resolved_subtasks = list(t_obj.get("subtasks", []))
+            except (OSError, UnicodeDecodeError) as err:
+                print(
+                    f"Warning: failed to load plan tasks for {track_name}: {err}",
+                    file=sys.stderr,
+                )
+
+    post_exec_ref, plan_commit_msg = extract_post_execution_info(plan_path, task_desc)
+
+    if strategy["mode"] == "exempt":
+        if plan_commit_msg and any(plan_commit_msg.startswith(p) for p in ["style(", "chore(", "types(", "docs("]):
+            commit_msg = plan_commit_msg
+        else:
+            commit_msg = strategy["commit_msg"]
+    else:
+        commit_msg = plan_commit_msg or strategy["commit_msg"]
+    commit_msg = commit_msg.replace("`", "")
 
     cmd_lines = "\n".join(f"     {c}" for c in strategy["commands"])
 
-    if strategy["mode"] == "red":
+    if strategy["mode"] == "exempt":
+        cat_suffix = f": {strategy['exempt']}" if strategy.get("exempt") else ""
+        verification_block = f"""2. Targeted Verification (Exempt{cat_suffix}):
+   - Run category-specific verification check:
+{cmd_lines}
+   - Confirm verification check passes cleanly before committing."""
+    elif strategy["mode"] == "red":
         verification_block = f"""2. Targeted Verification (Red Phase):
    - Run test runner to confirm new tests fail with expected assertions:
 {cmd_lines}
@@ -1175,18 +1422,49 @@ def build_exec_prompt(
 {cmd_lines}
    - If tests fail, diagnose within the target seam, adjust implementation or fixtures, and re-verify until green."""
 
-    if post_exec_ref:
-        post_exec_directive = f"Follow {post_exec_ref} of @[{plan_file}]."
-    else:
-        post_exec_directive = f"Follow the Post-Execution section of @[{plan_file}] if present."
+    empty_commit_line = ""
+    if strategy["mode"] == "exempt" and not is_docs_exempt:
+        empty_commit_line = (
+            "\n   - If a verification-only exempt task (e.g., scripts/infra) produced zero file modifications, "
+            "use `git commit --allow-empty -m \"...\"` so the commit SHA, Git notes, and `plan.md` audit trail remain intact."
+        )
 
-    return f"""Execute Phase {phase_num} Task {task_num} following @[{plan_file}].
+    commit_and_plan_suffix = (
+        f'commit changes with message "{commit_msg}", record git notes (Task, Summary, Files, Rationale), '
+        f"mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.{empty_commit_line}"
+    )
+    if use_inline_blueprint:
+        header_line = f"Execute Phase {phase_num} Task {task_num} following @[{rel_track_dir}/plan.md] and @[{rel_track_dir}/spec.md]."
+        subtasks_block = ""
+        if resolved_subtasks:
+            subtasks_lines = "\n".join(f"     - {st}" for st in resolved_subtasks)
+            subtasks_block = f"\n   - Subtasks:\n{subtasks_lines}"
+        scope_block = (
+            f"1. Scope & Blueprint: Direct execution mode (Tier 1 task plan skipped). "
+            f"@[{rel_track_dir}/plan.md] and @[{rel_track_dir}/spec.md] are authoritative.\n"
+            f"   - Task: {resolved_task_desc or f'Phase {phase_num} Task {task_num}'}"
+            f"{subtasks_block}"
+        )
+        post_exec_line = f"   - {commit_and_plan_suffix[:1].upper()}{commit_and_plan_suffix[1:]}"
+    else:
+        header_line = f"Execute Phase {phase_num} Task {task_num} following @[{plan_file}]."
+        scope_block = (
+            f"1. Scope & Blueprint: The plan blueprint in @[{plan_file}] is authoritative. "
+            f"Modify only the planned target files. You may read adjacent files or type definitions as needed to resolve imports, types, or test fixtures."
+        )
+        if post_exec_ref:
+            post_exec_directive = f"Follow {post_exec_ref} of @[{plan_file}]."
+        else:
+            post_exec_directive = f"Follow the Post-Execution section of @[{plan_file}] if present."
+        post_exec_line = f"   - {post_exec_directive} Otherwise: {commit_and_plan_suffix}"
+
+    return f"""{header_line}
 
 Execution Directives:
-1. Scope & Blueprint: The plan blueprint in @[{plan_file}] is authoritative. Modify only the planned target files. You may read adjacent files or type definitions as needed to resolve imports, types, or test fixtures.
+{scope_block}
 {verification_block}
 3. Post-Execution:
-   - {post_exec_directive} Otherwise: commit changes with message "{commit_msg}", record git notes (Task, Summary, Files, Rationale), mark task as complete [x] with appended [commit: <hash>] in {rel_track_dir}/plan.md, and commit plan.md.
+{post_exec_line}
 4. Output a brief completion summary and halt."""
 
 
@@ -1206,6 +1484,7 @@ def main():
         epilog="""Examples:
   python3 scripts/agent/generate-prompt.py                 # Auto-detects track & next pending task
   python3 scripts/agent/generate-prompt.py --checkpoint -c # Copy active phase Checkpoint prompt (task-number agnostic)
+  python3 scripts/agent/generate-prompt.py --checkpoint --unattended # Unattended checkpoint prompt without modal pauses
   python3 scripts/agent/generate-prompt.py 2 --checkpoint  # Phase 2 Checkpoint prompt for active track
   python3 scripts/agent/generate-prompt.py 3 1             # Phase 3 Task 1 for active track
   python3 scripts/agent/generate-prompt.py 3 1 --plan      # Output only Phase 3 Task 1 Plan prompt
@@ -1226,6 +1505,17 @@ def main():
     parser.add_argument("--copy-plan", action="store_true", help="Copy the Plan prompt to clipboard")
     parser.add_argument("--copy-exec", action="store_true", help="Copy the Exec prompt to clipboard")
     parser.add_argument("--recovery", "-r", action="store_true", help="Generate recovery prompt for uncommitted work")
+    parser.add_argument(
+        "--unattended",
+        "-u",
+        action="store_true",
+        help="Generate unattended checkpoint prompt without interactive modal pauses",
+    )
+    parser.add_argument(
+        "--skip-plan",
+        action="store_true",
+        help="Generate direct execution prompt from plan.md/spec.md without requiring a Tier 1 task plan file",
+    )
 
     phase_group = parser.add_mutually_exclusive_group()
     phase_group.add_argument("--red", action="store_true", help="Force Red phase prompt (failing tests only, halt after test commit)")
@@ -1440,7 +1730,11 @@ def main():
                 print("\n[Copied recovery prompt to clipboard]", file=sys.stderr)
         return
 
-    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode)
+    task_exempt = None
+    if phase_num in phases and task_num is not None and 1 <= task_num <= len(phases[phase_num]["tasks"]):
+        task_exempt = phases[phase_num]["tasks"][task_num - 1].get("exempt")
+
+    strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc, subtasks, mode, exempt=task_exempt)
 
     # Warn if selecting a checkpoint task while earlier tasks in the same phase are still incomplete
     if strategy.get("is_checkpoint") and phase_num in phases and task_num is not None:
@@ -1456,7 +1750,17 @@ def main():
             )
 
     plan_prompt = build_plan_prompt(track_name, phase_num, task_num, task_desc)
-    exec_prompt = build_exec_prompt(track_name, phase_num, task_num, task_desc, subtasks, mode)
+    exec_prompt = build_exec_prompt(
+        track_name,
+        phase_num,
+        task_num,
+        task_desc,
+        subtasks,
+        mode,
+        exempt=task_exempt,
+        unattended=parsed.unattended,
+        skip_plan=parsed.skip_plan,
+    )
 
     if parsed.copy_plan or (parsed.copy and parsed.plan_only):
         copied = copy_to_clipboard(plan_prompt)

@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > [!NOTE]
 > Tooling release notes for `agent-resolve` are maintained separately in [scripts/agent-resolve/CHANGELOG.md](scripts/agent-resolve/CHANGELOG.md).
+> Tooling release notes for `conductor-agent` are maintained separately in [scripts/agent/CHANGELOG.md](scripts/agent/CHANGELOG.md).
 
 ## [Unreleased] (v3.7.1)
 

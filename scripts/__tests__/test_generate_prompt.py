@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -74,6 +75,47 @@ class TestGeneratePromptModule(unittest.TestCase):
             self.assertFalse(tasks[3]["is_checkpoint"])
             self.assertIsNone(tasks[4]["commit_sha"])
             self.assertTrue(tasks[4]["is_checkpoint"])
+
+    def test_parse_plan_tasks_extracts_exempt_categories(self):
+        """Verifies parse_plan_tasks extracts [exempt: <category>] across all canonical categories."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Test Phase\n"
+                "- [ ] Task: Update landing page hero layout [exempt: ui]\n"
+                "- [ ] Task: Polish button hover animations [exempt: styling]\n"
+                "- [ ] Task: Configure GitHub Actions workflow [exempt: infra]\n"
+                "- [ ] Task: Add database backup utility script [exempt: scripts]\n"
+                "- [ ] Task: Update domain entity type definitions [exempt: types]\n"
+                "- [ ] Task: Document architecture decisions in ADR-0015 [exempt: docs]\n"
+                "- [ ] Task: Mixed case test [exempt: UI]\n"
+                "- [ ] Task: Standard domain feature (TDD Red phase)\n"
+                "- [x] Task: Completed chore script [exempt: scripts] [commit: a1b2c3d]\n",
+                encoding="utf-8",
+            )
+            phases = generate_prompt.parse_plan_tasks(str(tmp_path))
+            tasks = phases[1]["tasks"]
+
+            self.assertEqual(tasks[0]["exempt"], "ui")
+            self.assertEqual(tasks[0]["description"], "Update landing page hero layout")
+            self.assertEqual(tasks[1]["exempt"], "styling")
+            self.assertEqual(tasks[1]["description"], "Polish button hover animations")
+            self.assertEqual(tasks[2]["exempt"], "infra")
+            self.assertEqual(tasks[2]["description"], "Configure GitHub Actions workflow")
+            self.assertEqual(tasks[3]["exempt"], "scripts")
+            self.assertEqual(tasks[3]["description"], "Add database backup utility script")
+            self.assertEqual(tasks[4]["exempt"], "types")
+            self.assertEqual(tasks[4]["description"], "Update domain entity type definitions")
+            self.assertEqual(tasks[5]["exempt"], "docs")
+            self.assertEqual(tasks[5]["description"], "Document architecture decisions in ADR-0015")
+            self.assertEqual(tasks[6]["exempt"], "ui")
+            self.assertIsNone(tasks[7]["exempt"])
+            self.assertEqual(tasks[8]["exempt"], "scripts")
+            self.assertEqual(tasks[8]["commit_sha"], "a1b2c3d")
+            self.assertEqual(tasks[8]["description"], "Completed chore script")
+
+            for i in [0, 1, 2, 3, 4, 5, 6, 8]:
+                self.assertNotIn("[exempt:", tasks[i]["description"])
 
     def test_checkpoint_variable_task_counts_2_3_4_and_6_tasks(self):
         """Verifies --checkpoint resolves the checkpoint task across 2, 3, 4, and 6-task phases and aggregates sibling plans."""
@@ -190,7 +232,17 @@ class TestGeneratePromptModule(unittest.TestCase):
             generate_prompt.classify_phase_domain(["scripts/agent-resolve/pipeline.py", "lib/services/tripService.ts"], []),
             "backend_tooling",
         )
+        self.assertEqual(
+            generate_prompt.classify_phase_domain([], [{"description": "Apply supabase/migrations and configure rls"}]),
+            "database",
+        )
+        self.assertEqual(
+            generate_prompt.classify_phase_domain([], [{"description": "Refactor components/ navigation and ui elements"}]),
+            "ui",
+        )
 
+    def test_checkpoint_prompt_preserves_database_domain_for_historical_phase(self):
+        """Regression test: Checkpoint prompt for database phase must not flip to UI due to post-phase git history bleed."""
         # Verify database phase checkpoint prompt forbids inventing localhost:3000 steps
         db_prompt = generate_prompt.build_exec_prompt(
             track_name="db-security-hardening_20261026",
@@ -200,12 +252,204 @@ class TestGeneratePromptModule(unittest.TestCase):
         )
         self.assertIn("no UI changes — do NOT invent `localhost:3000` browser steps", db_prompt)
 
+    def test_build_checkpoint_prompt_unattended_skips_modal_pause_and_records_notes(self):
+        """Verifies build_checkpoint_prompt with unattended=True omits ask_question and records manual steps in notes."""
+        strategy = {
+            "mode": "checkpoint",
+            "commands": [
+                "./scripts/containers/run-jest-container.sh lib/services/__tests__/tripService.test.ts",
+                "npm run type-check",
+            ],
+            "checkpoint_context": {
+                "clean_phase_name": "Test Phase",
+                "raw_heading": "## Phase 1: Test Phase",
+                "baseline_sha": "abc1234",
+                "end_sha": "def5678",
+                "changed_files": ["lib/services/tripService.ts"],
+                "domain": "backend_tooling",
+                "has_checkpoint_plan": False,
+            },
+        }
+        prompt = generate_prompt.build_checkpoint_prompt(
+            "conductor-auto-runner_20261112",
+            1,
+            3,
+            "Conductor - User Manual Verification",
+            strategy,
+            unattended=True,
+        )
+        self.assertNotIn("ask_question", prompt)
+        self.assertNotIn("Pause via `ask_question`", prompt)
+        self.assertNotIn("Execute ONLY After Explicit Affirmative Approval", prompt)
+        self.assertNotIn("Explicitly approved via interactive modal", prompt)
+        self.assertIn("Automated test suites are authoritative", prompt)
+        self.assertIn("Unattended Execution Mode", prompt)
+        self.assertIn("4. Verbatim Phase Closure (Unattended Mode):", prompt)
+        self.assertIn("User Confirmation: Unattended execution mode (deferred manual verification).", prompt)
+
+        # Check build_exec_prompt forwards unattended=True
+        exec_prompt = generate_prompt.build_exec_prompt(
+            "conductor-auto-runner_20261112",
+            1,
+            3,
+            "Conductor - User Manual Verification",
+            unattended=True,
+        )
+        self.assertNotIn("ask_question", exec_prompt)
+        self.assertIn("Unattended Execution Mode", exec_prompt)
+
+        # UI domain variant
+        ui_strategy = {
+            "mode": "checkpoint",
+            "commands": ["npm run test:container"],
+            "checkpoint_context": {
+                "clean_phase_name": "UI Phase",
+                "raw_heading": "## Phase 2: UI Phase",
+                "baseline_sha": "abc1234",
+                "end_sha": "def5678",
+                "changed_files": ["components/TripView.tsx"],
+                "domain": "ui",
+                "has_checkpoint_plan": False,
+            },
+        }
+        ui_prompt = generate_prompt.build_checkpoint_prompt(
+            "conductor-auto-runner_20261112",
+            2,
+            4,
+            "Conductor - User Manual Verification",
+            ui_strategy,
+            unattended=True,
+        )
+        self.assertNotIn("ask_question", ui_prompt)
+        self.assertIn("UI / Frontend Phase", ui_prompt)
+        self.assertIn("Automated test suites are authoritative", ui_prompt)
+
+    def test_build_checkpoint_prompt_attended_default_preserves_modal_gate(self):
+        """Verifies default unattended=False preserves interactive modal confirmation gate and ask_question."""
+        strategy = {
+            "mode": "checkpoint",
+            "commands": [
+                "./scripts/containers/run-jest-container.sh lib/services/__tests__/tripService.test.ts",
+                "npm run type-check",
+            ],
+            "checkpoint_context": {
+                "clean_phase_name": "Test Phase",
+                "raw_heading": "## Phase 1: Test Phase",
+                "baseline_sha": "abc1234",
+                "end_sha": "def5678",
+                "changed_files": ["lib/services/tripService.ts"],
+                "domain": "backend_tooling",
+                "has_checkpoint_plan": False,
+            },
+        }
+        # Explicit unattended=False
+        prompt_explicit = generate_prompt.build_checkpoint_prompt(
+            "conductor-auto-runner_20261112",
+            1,
+            3,
+            "Conductor - User Manual Verification",
+            strategy,
+            unattended=False,
+        )
+        # Default (unattended omitted)
+        prompt_default = generate_prompt.build_checkpoint_prompt(
+            "conductor-auto-runner_20261112",
+            1,
+            3,
+            "Conductor - User Manual Verification",
+            strategy,
+        )
+        for prompt in (prompt_explicit, prompt_default):
+            self.assertIn("ask_question", prompt)
+            self.assertIn("Pause via `ask_question` for explicit user approval", prompt)
+            self.assertIn("4. Verbatim Phase Closure (Execute ONLY After Explicit Affirmative Approval):", prompt)
+            self.assertIn("User Confirmation: Explicitly approved via interactive modal.", prompt)
+            self.assertNotIn("Automated test suites are authoritative", prompt)
+            self.assertNotIn("Unattended Execution Mode", prompt)
+
     def test_baseline_sha_fallback_when_prior_phase_header_lacks_checkpoint_tag(self):
         """Verifies Phase 3 baseline resolves from Phase 2's last task commit_sha when Phase 2 header lacks [checkpoint: ...]."""
         phases = generate_prompt.parse_plan_tasks("agent-resolve-quality-hardening_20261021")
         self.assertIsNone(phases[2]["checkpoint_sha"])
         baseline_p3 = generate_prompt.resolve_phase_baseline_sha(phases, 3)
         self.assertEqual(baseline_p3, "8314526")
+
+    def test_resolve_phase_end_sha_checkpoint_and_task_commits(self):
+        """Verifies resolve_phase_end_sha resolves from checkpoint tag, task commit, or falls back to HEAD."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            phases = {
+                1: {
+                    "checkpoint_sha": "a1b2c3d",
+                    "tasks": [
+                        {"description": "Task 1", "status": "complete", "commit_sha": "1111111"},
+                    ],
+                },
+                2: {
+                    "checkpoint_sha": None,
+                    "tasks": [
+                        {"description": "Task 2.1", "status": "complete", "commit_sha": "d4e5f6a"},
+                        {"description": "Task 2.2 Checkpoint", "status": "pending", "commit_sha": None},
+                    ],
+                },
+                3: {
+                    "checkpoint_sha": None,
+                    "tasks": [
+                        {"description": "Task 3.1", "status": "pending", "commit_sha": None},
+                    ],
+                },
+            }
+            # Phase with [checkpoint: a1b2c3d]
+            self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 1, cwd=tmp_path), "a1b2c3d")
+            # Phase lacking header tag but with task [commit: d4e5f6a]
+            self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 2, cwd=tmp_path), "d4e5f6a")
+            # Active phase lacking commits
+            self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 3, cwd=tmp_path), "HEAD")
+
+    @patch("subprocess.run")
+    @patch.object(generate_prompt, "_verify_git_commit")
+    def test_collect_phase_checkpoint_context_scopes_diff_to_end_sha_with_mock(
+        self, mock_verify, mock_subprocess
+    ):
+        """Verifies collect_phase_checkpoint_context scopes git diff to baseline_sha..end_sha for completed phase."""
+        mock_verify.side_effect = lambda rev, cwd=None: rev[:7] if rev else None
+        mock_subprocess.return_value = MagicMock(
+            returncode=0,
+            stdout="supabase/migrations/20261026000000_harden.sql\n",
+        )
+        phases = {
+            1: {
+                "name": "Client Prep",
+                "checkpoint_sha": "7128b93",
+                "tasks": [{"description": "Task 1", "status": "complete", "commit_sha": "7128b93"}],
+            },
+            2: {
+                "name": "Database Hardening",
+                "checkpoint_sha": "7f9d06c",
+                "tasks": [
+                    {"description": "Task 1", "status": "complete", "commit_sha": "99d16e1"},
+                    {"description": "Conductor - User Manual Verification", "status": "complete", "commit_sha": "7f9d06c"},
+                ],
+            },
+        }
+
+        ctx = generate_prompt.collect_phase_checkpoint_context(
+            track_name="db-security-hardening_20261026",
+            phase_num=2,
+            task_num=2,
+            phases=phases,
+        )
+
+        self.assertEqual(ctx["baseline_sha"], "7128b93")
+        self.assertEqual(ctx["end_sha"], "7f9d06c")
+        self.assertIn("supabase/migrations/20261026000000_harden.sql", ctx["changed_files"])
+        self.assertEqual(ctx["domain"], "database")
+
+        # Assert git diff ran across baseline_sha..end_sha and never HEAD
+        called_cmd_args = [call_args[0][0] for call_args in mock_subprocess.call_args_list]
+        self.assertIn(["git", "diff", "--name-only", "7128b93", "7f9d06c"], called_cmd_args)
+        self.assertNotIn(["git", "diff", "--name-only", "HEAD"], called_cmd_args)
+        self.assertNotIn(["git", "diff", "--name-only", "7128b93", "HEAD"], called_cmd_args)
 
     def test_get_preceding_context_walks_backward_past_planless_tasks(self):
         """Verifies get_preceding_context walks backward to find the nearest existing sibling plan file."""
@@ -251,6 +495,207 @@ class TestGeneratePromptModule(unittest.TestCase):
         )
         self.assertIn("instruction", strategy)
         self.assertTrue(len(strategy["instruction"]) > 0)
+
+    def test_infer_verification_strategy_exempt_categories(self):
+        """Verifies infer_verification_strategy selects non-TDD commands and commit types for all exempt categories."""
+        matrix = [
+            ("ui", "Update landing page hero layout [exempt: ui]", ["npm run build"], "style("),
+            ("styling", "Polish button hover animations [exempt: styling]", ["npm run build"], "style("),
+            ("infra", "Configure GitHub Actions workflow [exempt: infra]", ["npm run lint"], "chore("),
+            ("scripts", "Add database backup utility script [exempt: scripts]", ["npm run lint"], "chore("),
+            ("types", "Update domain entity type definitions [exempt: types]", ["npm run type-check"], "types("),
+            ("docs", "Document architecture decisions in ADR-0015 [exempt: docs]", ["git diff --name-only"], "docs("),
+        ]
+        for cat, desc, expected_cmds, expected_prefix in matrix:
+            # Test embedded tag parsing in task_desc
+            strategy = generate_prompt.infer_verification_strategy(
+                track_name="conductor-auto-runner_20261112",
+                phase_num=1,
+                task_num=1,
+                task_desc=desc,
+            )
+            self.assertEqual(strategy.get("exempt"), cat)
+            self.assertEqual(strategy["mode"], "exempt")
+            self.assertFalse(strategy["is_red"])
+            self.assertEqual(strategy["commands"], expected_cmds)
+            self.assertTrue(strategy["commit_msg"].startswith(expected_prefix))
+            self.assertTrue(strategy["instruction"].startswith("- "))
+            self.assertTrue(len(strategy["instruction"]) > 2)
+
+            # Test explicit keyword argument exempt=cat
+            clean_desc = desc.split(" [exempt:")[0]
+            strategy_explicit = generate_prompt.infer_verification_strategy(
+                track_name="conductor-auto-runner_20261112",
+                phase_num=1,
+                task_num=1,
+                task_desc=clean_desc,
+                exempt=cat,
+            )
+            self.assertEqual(strategy_explicit.get("exempt"), cat)
+            self.assertEqual(strategy_explicit["mode"], "exempt")
+            self.assertFalse(strategy_explicit["is_red"])
+            self.assertEqual(strategy_explicit["commands"], expected_cmds)
+            self.assertTrue(strategy_explicit["commit_msg"].startswith(expected_prefix))
+            self.assertTrue(strategy_explicit["instruction"].startswith("- "))
+            self.assertTrue(len(strategy_explicit["instruction"]) > 2)
+
+    def test_infer_verification_strategy_bounds_check_task_num(self):
+        """Verifies infer_verification_strategy guards against non-positive task_num values."""
+        strategy = generate_prompt.infer_verification_strategy(
+            track_name="conductor-auto-runner_20261112",
+            phase_num=1,
+            task_num=0,
+            task_desc="Generic task without tag",
+        )
+        self.assertIsNone(strategy.get("exempt"))
+
+    def test_build_exec_prompt_formats_exempt_verification_block(self):
+        """Verifies build_exec_prompt formats category-specific verification block without Red phase assertions."""
+        prompt = generate_prompt.build_exec_prompt(
+            track_name="conductor-auto-runner_20261112",
+            phase_num=1,
+            task_num=1,
+            task_desc="Author documentation guide [exempt: docs]",
+        )
+        self.assertTrue(
+            "Targeted Verification (Exempt: docs)" in prompt or "Targeted Verification (Exempt)" in prompt,
+            "Expected exempt verification block heading in prompt",
+        )
+        self.assertIn("git diff --name-only", prompt)
+        self.assertIn("docs(conductor): Author documentation guide", prompt)
+        self.assertNotIn("(Red Phase)", prompt)
+        self.assertNotIn("run-jest-container.sh", prompt)
+
+    def test_build_exec_prompt_docs_exempt_without_plan_file_inlines_subtasks(self):
+        """Verifies build_exec_prompt for [exempt: docs] without a task plan file inlines subtasks and references plan.md/spec.md."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 6: Documentation\n"
+                "- [ ] Task: Author docs/agents/conductor-auto.md and update workflow.md [exempt: docs]\n"
+                "    - [ ] Create docs/agents/conductor-auto.md with CLI reference\n"
+                "    - [ ] Update conductor/workflow.md with phase structuring rules\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=6,
+                task_num=1,
+                task_desc="Author docs/agents/conductor-auto.md and update workflow.md",
+                subtasks=[
+                    "Create docs/agents/conductor-auto.md with CLI reference",
+                    "Update conductor/workflow.md with phase structuring rules",
+                ],
+                exempt="docs",
+            )
+            self.assertNotIn("phase-6-task-1-plan.md", prompt)
+            self.assertIn("plan.md]", prompt)
+            self.assertIn("spec.md]", prompt)
+            self.assertIn("Create docs/agents/conductor-auto.md with CLI reference", prompt)
+            self.assertIn("Update conductor/workflow.md with phase structuring rules", prompt)
+            self.assertNotIn("--allow-empty", prompt)
+
+    def test_build_exec_prompt_strips_backticks_from_plan_commit_msg(self):
+        """Verifies build_exec_prompt strips backticks from explicit plan_commit_msg extracted from phase-X-task-Y-plan.md."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Agent Tooling\n"
+                "- [ ] Task: Update foo.py\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "phase-1-task-1-plan.md").write_text(
+                "# Plan 1.1\n"
+                "Task: Update foo.py\n\n"
+                "## 3. Post-Execution\n"
+                "```bash\n"
+                'git commit -m "feat(agent): update `foo.py`"\n'
+                "```\n",
+                encoding="utf-8",
+            )
+
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=1,
+                task_num=1,
+                task_desc="Update foo.py",
+            )
+            self.assertIn('commit changes with message "feat(agent): update foo.py"', prompt)
+            self.assertNotIn("`foo.py`", prompt)
+
+    def test_build_exec_prompt_docs_exempt_with_existing_plan_file_uses_plan_path(self):
+        """Verifies build_exec_prompt for [exempt: docs] still references phase-X-task-Y-plan.md when it exists on disk."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 6: Documentation\n"
+                "- [ ] Task: Author docs [exempt: docs]\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "phase-6-task-1-plan.md").write_text(
+                "# Plan 6.1\nNon-empty blueprint.\n",
+                encoding="utf-8",
+            )
+
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=6,
+                task_num=1,
+                task_desc="Author docs",
+                exempt="docs",
+            )
+            self.assertIn("phase-6-task-1-plan.md", prompt)
+
+    def test_build_exec_prompt_skip_plan_inlines_subtasks_for_non_docs_task(self):
+        """Verifies skip_plan=True inlines task description and subtasks when plan file is absent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Scripts\n"
+                "- [ ] Task: Add helper script [exempt: scripts]\n"
+                "    - [ ] Create scripts/helper.sh\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=1,
+                task_num=1,
+                task_desc="Add helper script",
+                subtasks=["Create scripts/helper.sh"],
+                exempt="scripts",
+                skip_plan=True,
+            )
+            self.assertNotIn("phase-1-task-1-plan.md", prompt)
+            self.assertIn("plan.md]", prompt)
+            self.assertIn("spec.md]", prompt)
+            self.assertIn("Create scripts/helper.sh", prompt)
+            self.assertIn("--allow-empty", prompt)
+
+    def test_checkpoint_prompt_docs_only_phase_without_explicit_cmds_avoids_jest_container(self):
+        """Verifies checkpoint prompt for a pure [exempt: docs] phase without explicit test commands uses git diff instead of Jest container."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 6: Documentation\n"
+                "- [x] Task: Author docs/agents/guide.md [exempt: docs] [commit: abc1234]\n"
+                "    - [x] Document architecture and flags\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 6: Documentation' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=6,
+                task_num=2,
+                task_desc="Conductor - User Manual Verification 'Phase 6: Documentation' (Protocol in workflow.md)",
+                mode="checkpoint",
+                unattended=True,
+            )
+            self.assertIn("git diff --name-only", prompt)
+            self.assertNotIn("run-jest-container.sh", prompt)
 
 
 class TestGeneratePromptCLI(unittest.TestCase):
@@ -315,6 +760,42 @@ class TestGeneratePromptCLI(unittest.TestCase):
             self.assertNotIn("PROMPT 1: RESEARCH & PLAN", result.stdout)
             self.assertIn("PHASE CHECKPOINT (WARM OR COLD SESSION)", result.stdout)
             self.assertIn("Warning: Phase 1 still has incomplete prior tasks: Task 2 ('Unfinished cleanup task')", result.stderr)
+
+    def test_cli_checkpoint_unattended_flag(self):
+        """Verifies CLI --checkpoint --unattended and -u flags generate non-interactive checkpoint prompts."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Verification Phase\n"
+                "- [x] Task: Completed task [commit: abc1234]\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 1: Verification Phase' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+            result_long = self.run_cli(["--track", str(tmp_path), "--phase", "1", "--checkpoint", "--unattended"])
+            result_short = self.run_cli(["--track", str(tmp_path), "--phase", "1", "--checkpoint", "-u"])
+
+            for res in (result_long, result_short):
+                self.assertEqual(res.returncode, 0, msg=res.stderr)
+                self.assertNotIn("ask_question", res.stdout)
+                self.assertIn("Unattended Execution Mode", res.stdout)
+                self.assertIn("User Confirmation: Unattended execution mode", res.stdout)
+
+    def test_cli_exec_skip_plan_flag(self):
+        """Verifies CLI --exec --skip-plan generates an inline blueprint prompt when task plan is absent."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Setup\n"
+                "- [ ] Task: Configure linting [exempt: infra]\n"
+                "    - [ ] Update eslint config\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "spec.md").write_text("# Spec\n", encoding="utf-8")
+            res = self.run_cli(["--track", str(tmp_path), "1", "1", "--exec", "--skip-plan"])
+            self.assertEqual(res.returncode, 0, msg=res.stderr)
+            self.assertNotIn("phase-1-task-1-plan.md", res.stdout)
+            self.assertIn("Update eslint config", res.stdout)
+            self.assertIn("--allow-empty", res.stdout)
 
 
 if __name__ == "__main__":

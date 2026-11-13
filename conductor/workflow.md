@@ -142,6 +142,36 @@ Never collapse Red and Green phases into a single composite task item in `plan.m
 
 10.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been created, with the detailed verification report attached as a git note.
 
+### Phase & Task Structuring Rules
+
+When authoring or updating `plan.md` for a track, follow these structural rules so both interactive sessions and autonomous tooling (`generate-prompt.py` / `conductor-auto.py`) execute cleanly without duplicate work:
+
+1. **No Standalone "Run Test Suite" Tasks Duplicating Gate 1:**
+   - Do **not** create top-level tasks whose sole purpose is "Run the full test suite", "Run integration tests for Phase X", or "Verify all phase tests pass".
+   - The mandatory phase-ending checkpoint task (`Task: Conductor - User Manual Verification 'Phase X: <Name>' (Protocol in workflow.md)`) serves as **Gate 1** and automatically executes phase-scoped test suites and coverage audits. Individual TDD Green tasks already run targeted tests and `npm run type-check`.
+2. **Right-Sizing `[exempt: docs]` Placement:**
+   - **End of Feature Phase:** Place a single `[exempt: docs]` task at the end of a feature phase when the documentation change is small and tightly coupled to that phase (e.g., updating a single section in `CONTEXT.md`, adding an ADR, or updating a feature README).
+   - **Dedicated Final Documentation Phase:** Place `[exempt: docs]` tasks in a dedicated final documentation phase when the deliverables are substantial (e.g., authoring new operational guides, multi-file documentation updates, or end-to-end `--dry-run` validation). Isolating heavy docs work into its own phase keeps feature reviews focused and enables the docs-only fast-path.
+3. **Non-TDD `[exempt: <category>]` Taxonomy & `[exempt: docs]` Fast-Path:**
+   - Tasks that do not involve testable logic must append an explicit `[exempt: <category>]` tag to the task line in `plan.md`:
+     - `[exempt: ui]` / `[exempt: styling]` — verified via `npm run build` (`style(...)` commit).
+     - `[exempt: infra]` / `[exempt: scripts]` — verified via `npm run lint` (`chore(...)` commit).
+     - `[exempt: types]` — verified via `npm run type-check` (`types(...)` commit).
+     - `[exempt: docs]` — verified via `git diff --name-only` asserting non-empty `.md`/`.markdown` changes (`docs(...)` commit).
+   - **`[exempt: docs]` Tier 1 / Gate 2 Fast-Path:** Under `conductor-auto.py`, `[exempt: docs]` tasks automatically skip Tier 1 blueprint generation (`phase-X-task-Y-plan.md`) and execute directly from `plan.md` and `spec.md` via `generate-prompt.py --exec --skip-plan` (overridable with `--force-plan`). If every active non-checkpoint task in a phase is `[exempt: docs]`, Gate 1 defaults verification to `git diff --name-only` and Gate 2 (`/conductor:review`) is automatically skipped unless `--force-review` is specified.
+
+### Unattended Multi-Task Execution & Prompt Generation
+
+Conductor tracks support two complementary execution workflows:
+
+1. **Manual Single-Turn Prompt Generation (`scripts/agent/generate-prompt.py`):**
+   - Generates zero-amnesia prompts for individual Planning (`--plan`), Execution (`--exec`), Recovery (`--recovery`), or Checkpoint (`--checkpoint`) turns to paste or pipe into interactive `agy` sessions.
+   - Use `--copy-plan` / `--copy-exec` for clipboard dispatch or `--red` / `--green` to force a specific TDD phase.
+2. **Unattended Multi-Task Runner (`scripts/agent/conductor-auto.py`):**
+   - Executes all pending tasks in the active phase sequentially via `agy --print` (`Tier 1 Plan -> Tier 2 Exec -> Post-Exec Supervisor Verification -> Gate 1 Unattended Checkpoint -> Gate 2 Unattended Review`), halting cleanly at phase boundaries or on invariant violations.
+   - Uses composable `gemini-4-hydrogen` (Pool A) role defaults (`plan=high`, `exec=high`, `checkpoint=medium`, `review=high`), streams dual logs to `conductor/tracks/<track>/logs/`, and exits with code `2` (plus an `agy --conversation <id>` resume command) if Gate 2 detects `Critical` or `High` findings.
+   - See [docs/agents/conductor-auto.md](../docs/agents/conductor-auto.md) for full architecture, CLI flags, exit codes, model matrix overrides, and fast-path details.
+
 ### Quality Gates
 
 Before marking any task complete, verify:
