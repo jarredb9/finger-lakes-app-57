@@ -95,3 +95,4 @@
 - [x] Task: Apply review suggestions 481d0f85
 - [x] Task: Apply review suggestions 7abd5a3
 - [x] Task: Apply review suggestions 6e763b99
+- [x] Task: Fix agy --print prompt delivery and add CLI contract tests 1a2776f0
