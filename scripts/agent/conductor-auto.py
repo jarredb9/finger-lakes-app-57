@@ -59,6 +59,16 @@ class ProcessExecutionError(ConductorAutoError):
     pass
 
 
+class SupervisorInvariantError(ConductorAutoError):
+    """Raised when Tier 2 execution violates working tree, test, commit, or git note invariants."""
+    pass
+
+
+class GitTreeDirtyError(SupervisorInvariantError):
+    """Raised when uncommitted or untracked changes remain after execution/recovery."""
+    pass
+
+
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
@@ -542,6 +552,396 @@ def assert_post_plan_invariants(
         )
 
 
+def _is_red_task_production_violation(filepath: str) -> bool:
+    """Returns True if a modified file in Red phase belongs to production application code (violating test purity)."""
+    clean_p = filepath.strip()
+    if " -> " in clean_p:
+        clean_p = clean_p.split(" -> ")[-1].strip()
+    clean_p = clean_p.replace("\\", "/")
+
+    # Allowed in Red phase: conductor and agent metadata directories
+    if clean_p.startswith(("conductor/", ".conductor/", ".gemini/", ".agents/", ".claude/")):
+        return False
+
+    # Allowed in Red phase: test directories and test file naming conventions
+    if any(seg in clean_p for seg in ("__tests__/", "tests/", "test/", "e2e/")):
+        return False
+    test_suffixes = (".test.ts", ".test.tsx", ".test.js", ".test.jsx", ".spec.ts", ".spec.tsx")
+    if clean_p.endswith(test_suffixes):
+        return False
+    basename = Path(clean_p).name
+    if basename.startswith("test_") and clean_p.endswith(".py"):
+        return False
+
+    # Production violation prefixes, config files, and code extensions
+    prod_prefixes = (
+        "app/", "lib/", "components/", "supabase/", "hooks/",
+        "types/", "public/", "scripts/", "src/",
+    )
+    if clean_p.startswith(prod_prefixes):
+        return True
+    if clean_p in ("package.json", "package-lock.json", "tsconfig.json"):
+        return True
+    prod_extensions = (".ts", ".tsx", ".js", ".jsx", ".py", ".sql", ".css")
+    if any(clean_p.endswith(ext) for ext in prod_extensions):
+        return True
+
+    return False
+
+
+def check_working_tree_cleanliness(
+    cwd: Optional[Path] = None,
+) -> Tuple[bool, List[str]]:
+    """Runs git status --porcelain. Returns (is_clean, dirty_files)."""
+    res = subprocess.run(
+        ["git", "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        cwd=cwd or PROJECT_ROOT,
+    )
+    if res.returncode != 0:
+        raise ProcessExecutionError(f"git status failed: {res.stderr}")
+
+    dirty_files: List[str] = []
+    for line in res.stdout.splitlines():
+        if not line.strip():
+            continue
+        file_part = line[2:].strip()
+        if " -> " in file_part:
+            file_part = file_part.split(" -> ")[-1].strip()
+        if file_part:
+            dirty_files.append(file_part)
+
+    return len(dirty_files) == 0, dirty_files
+
+
+def dispatch_recovery_turn(
+    track_name: str,
+    phase_num: int,
+    task_num: int,
+    exec_model: str = "gemini-3.8-flash-medium",
+    timeout: float = 900.0,
+    cwd: Optional[Path] = None,
+) -> bool:
+    """Dispatches a single recovery turn via generate-prompt.py --recovery to clean up uncommitted work."""
+    work_dir = cwd or PROJECT_ROOT
+    track_dir = resolve_track_dir(track_name) or (work_dir / "conductor" / "tracks" / track_name).resolve()
+    log_file = track_dir / "logs" / f"phase-{phase_num}-task-{task_num}-recovery.log"
+
+    prompt = generate_turn_prompt(
+        track=track_name,
+        phase_num=phase_num,
+        task_num=task_num,
+        mode="recovery",
+        cwd=work_dir,
+    )
+    ret, _stdout, stderr = run_agy_turn(
+        prompt=prompt,
+        mode="auto",
+        model=exec_model,
+        timeout=timeout,
+        cwd=work_dir,
+        log_file=log_file,
+    )
+    if ret != 0:
+        raise ProcessExecutionError(f"Recovery turn failed with exit code {ret}: {stderr.strip()}")
+    return True
+
+
+_SYNTAX_ERROR_PATTERNS = [
+    re.compile(r"\bSyntaxError\b", re.IGNORECASE),
+    re.compile(r"Cannot find module\b", re.IGNORECASE),
+    re.compile(r"\bReferenceError\b", re.IGNORECASE),
+    re.compile(r"\bImportError\b", re.IGNORECASE),
+    re.compile(r"\bModuleNotFoundError\b", re.IGNORECASE),
+    re.compile(r"^ERROR:\s+", re.MULTILINE),
+    re.compile(r"\bTS\d{4}:", re.IGNORECASE),
+]
+
+_ASSERTION_PATTERNS = [
+    re.compile(r"expect\(", re.IGNORECASE),
+    re.compile(r"\bExpected:\s+", re.IGNORECASE),
+    re.compile(r"\bReceived:\s+", re.IGNORECASE),
+    re.compile(r"\bAssertionError\b", re.IGNORECASE),
+    re.compile(r"^FAIL:\s+", re.MULTILINE),
+    re.compile(r"FAILED \(failures=", re.IGNORECASE),
+    re.compile(r"\bassert\s+", re.IGNORECASE),
+]
+
+
+def parse_test_failure_markers(
+    output: str,
+    runner_hint: Optional[str] = None,
+) -> Tuple[bool, str]:
+    """Parses test runner stdout/stderr for assertion failure markers vs syntax/runtime errors.
+
+    Returns:
+        (is_valid_assertion_failure: bool, reason: str)
+    """
+    _ = runner_hint  # Reserved for runner-specific heuristics
+    for pattern in _SYNTAX_ERROR_PATTERNS:
+        match = pattern.search(output)
+        if match:
+            return False, f"Syntax/module load error detected: {match.group(0)}"
+
+    for pattern in _ASSERTION_PATTERNS:
+        match = pattern.search(output)
+        if match:
+            return True, f"Assertion failure detected: {match.group(0)}"
+
+    return False, "No assertion failure markers detected in test output"
+
+
+def verify_red_task(
+    test_cmd: str,
+    base_sha: str,
+    head_sha: str = "HEAD",
+    cwd: Optional[Path] = None,
+) -> bool:
+    """Performs dual-check verification for Red tasks:
+    1. Test command exits non-zero.
+    2. Output contains assertion failure markers, not syntax/import errors.
+    3. Zero production files were modified between base_sha and head_sha.
+    Raises SupervisorInvariantError on any violation.
+    """
+    work_dir = cwd or PROJECT_ROOT
+    cmd = test_cmd if isinstance(test_cmd, list) else test_cmd.split()
+    res = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
+    if res.returncode == 0:
+        raise SupervisorInvariantError(
+            f"Red task test unexpectedly passed (exit code 0): {test_cmd}"
+        )
+
+    combined_output = (res.stdout or "") + "\n" + (res.stderr or "")
+    is_valid, reason = parse_test_failure_markers(combined_output)
+    if not is_valid:
+        raise SupervisorInvariantError(
+            f"Red task failed due to syntax/module error, not assertion failure: {reason}"
+        )
+
+    diff_res = subprocess.run(
+        ["git", "diff", "--name-only", base_sha, head_sha],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    if diff_res.returncode != 0:
+        raise ProcessExecutionError(f"git diff failed: {diff_res.stderr}")
+
+    for line in diff_res.stdout.splitlines():
+        f = line.strip()
+        if not f:
+            continue
+        if _is_red_task_production_violation(f):
+            raise SupervisorInvariantError(f"Red task modified production code: {f}")
+
+    return True
+
+
+def verify_green_task(
+    test_cmd: str,
+    cwd: Optional[Path] = None,
+    type_check_cmd: str = "npm run type-check",
+) -> bool:
+    """Performs verification for Green tasks:
+    1. Test command exits 0.
+    2. Type-check command exits 0.
+    Raises SupervisorInvariantError if either fails.
+    """
+    work_dir = cwd or PROJECT_ROOT
+    cmd = test_cmd if isinstance(test_cmd, list) else test_cmd.split()
+    res = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
+    if res.returncode != 0:
+        raise SupervisorInvariantError(
+            f"Green task test command failed (exit code {res.returncode}): {res.stderr or res.stdout}"
+        )
+
+    tc_cmd = type_check_cmd if isinstance(type_check_cmd, list) else type_check_cmd.split()
+    tc_res = subprocess.run(tc_cmd, capture_output=True, text=True, cwd=work_dir)
+    if tc_res.returncode != 0:
+        raise SupervisorInvariantError(
+            f"Green task type-check failed (exit code {tc_res.returncode}): {tc_res.stderr or tc_res.stdout}"
+        )
+
+    return True
+
+
+def verify_exempt_task(
+    exempt_category: str,
+    base_sha: Optional[str] = None,
+    head_sha: str = "HEAD",
+    cwd: Optional[Path] = None,
+) -> bool:
+    """Executes category-specific invariant verification for exempt tasks:
+    - 'ui' / 'styling': npm run build (exit 0)
+    - 'infra' / 'scripts': npm run lint (exit 0)
+    - 'types': npm run type-check (exit 0)
+    - 'docs': git diff verifies only .md files modified and non-empty.
+    Raises SupervisorInvariantError on violation.
+    """
+    work_dir = cwd or PROJECT_ROOT
+    cat = exempt_category.lower().strip()
+
+    if cat in ("ui", "styling"):
+        res = subprocess.run(["npm", "run", "build"], capture_output=True, text=True, cwd=work_dir)
+        if res.returncode != 0:
+            raise SupervisorInvariantError(
+                f"Exempt UI task build failed with exit code {res.returncode}"
+            )
+    elif cat in ("infra", "scripts"):
+        res = subprocess.run(["npm", "run", "lint"], capture_output=True, text=True, cwd=work_dir)
+        if res.returncode != 0:
+            raise SupervisorInvariantError(
+                f"Exempt infra/scripts task lint failed with exit code {res.returncode}"
+            )
+    elif cat == "types":
+        res = subprocess.run(["npm", "run", "type-check"], capture_output=True, text=True, cwd=work_dir)
+        if res.returncode != 0:
+            raise SupervisorInvariantError(
+                f"Exempt types task type-check failed with exit code {res.returncode}"
+            )
+    elif cat == "docs":
+        base = base_sha or "HEAD~1"
+        res = subprocess.run(
+            ["git", "diff", "--name-only", base, head_sha],
+            capture_output=True,
+            text=True,
+            cwd=work_dir,
+        )
+        if res.returncode != 0:
+            raise ProcessExecutionError(f"git diff failed: {res.stderr}")
+        diff_files = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+        for f in diff_files:
+            if not (f.endswith(".md") or f.endswith(".markdown")):
+                raise SupervisorInvariantError(
+                    f"Exempt docs task modified non-markdown file: {f}"
+                )
+        for f in diff_files:
+            target_path = work_dir / f
+            if not target_path.exists() or target_path.stat().st_size == 0:
+                raise SupervisorInvariantError(
+                    f"Exempt docs task created empty file or file missing: {f}"
+                )
+    else:
+        raise SupervisorInvariantError(f"Unknown exempt category: {exempt_category}")
+
+    return True
+
+
+_CONVENTIONAL_COMMIT_RE = re.compile(
+    r"^(feat|fix|test|refactor|perf|style|chore|docs|types|conductor)(\([a-zA-Z0-9_\-./]+\))?!?: .+$"
+)
+
+
+def audit_git_commit_and_notes(
+    task: TaskInfo,
+    commit_sha: str,
+    plan_path: Path,
+    cwd: Optional[Path] = None,
+) -> bool:
+    """Audits git commit message, git notes metadata, plan.md task mark, and plan commit.
+    Raises SupervisorInvariantError on violation.
+    """
+    work_dir = cwd or PROJECT_ROOT
+
+    log_res = subprocess.run(
+        ["git", "log", "-1", "--format=%B", commit_sha],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    if log_res.returncode != 0:
+        raise ProcessExecutionError(
+            f"git log failed for commit {commit_sha}: {log_res.stderr}"
+        )
+    msg = log_res.stdout.strip()
+    first_line = msg.splitlines()[0].strip() if msg else ""
+    if not _CONVENTIONAL_COMMIT_RE.match(first_line):
+        raise SupervisorInvariantError(
+            f"Commit message does not match Conventional Commit format: '{msg}'"
+        )
+
+    notes_res = subprocess.run(
+        ["git", "notes", "show", commit_sha],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    if notes_res.returncode != 0:
+        raise SupervisorInvariantError(
+            f"Git notes missing on commit {commit_sha}: {notes_res.stderr}"
+        )
+    note_text = notes_res.stdout
+    for field_name in ("Task:", "Summary:", "Files:", "Rationale:"):
+        if field_name not in note_text:
+            raise SupervisorInvariantError(
+                f"Git note missing required field: {field_name.rstrip(':')}"
+            )
+
+    if not plan_path.exists():
+        raise SupervisorInvariantError(f"plan.md not found at {plan_path}")
+    plan_content = plan_path.read_text(encoding="utf-8")
+    short_sha = commit_sha[:7]
+    has_marked_task = any(
+        re.match(r"^\s*-\s*\[[xX]\]\s+", line) and short_sha in line
+        for line in plan_content.splitlines()
+    )
+    if not has_marked_task:
+        raise SupervisorInvariantError(
+            f"plan.md not updated with [x] and commit SHA {short_sha} for task '{task.description}'"
+        )
+
+    plan_log_res = subprocess.run(
+        ["git", "log", "-1", "--pretty=%B", "--", str(plan_path)],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    if plan_log_res.returncode != 0:
+        raise ProcessExecutionError(
+            f"git log for plan.md failed: {plan_log_res.stderr}"
+        )
+    plan_commit = plan_log_res.stdout.strip()
+    if "conductor(plan)" not in plan_commit:
+        raise SupervisorInvariantError(
+            f"Missing conductor(plan) commit for plan update. Latest commit: '{plan_commit}'"
+        )
+
+    return True
+
+
+def verify_task_execution(
+    track_name: str,
+    phase_num: int,
+    task_num: int,
+    base_sha: Optional[str] = None,
+    cwd: Optional[Path] = None,
+) -> bool:
+    """High-level supervisor router: resolves task metadata and dispatches red, green, or exempt verification."""
+    work_dir = cwd or PROJECT_ROOT
+    track_dir = resolve_track_dir(track_name) or (work_dir / "conductor" / "tracks" / track_name).resolve()
+    phases = parse_track_plan(track_dir)
+    phase = phases.get(phase_num)
+    task = next((t for t in phase.tasks if t.task_num == task_num), None) if phase else None
+    if task is None:
+        raise SupervisorInvariantError(
+            f"Task {task_num} in Phase {phase_num} not found in {track_dir / 'plan.md'}"
+        )
+
+    if task.exempt:
+        return verify_exempt_task(task.exempt, base_sha=base_sha, cwd=work_dir)
+
+    desc_lower = task.description.lower()
+    if "red phase" in desc_lower or desc_lower.startswith("test("):
+        return verify_red_task(
+            test_cmd="npm test",
+            base_sha=base_sha or "HEAD~1",
+            cwd=work_dir,
+        )
+
+    return verify_green_task(test_cmd="npm test", cwd=work_dir)
+
+
 # ---------------------------------------------------------------------------
 # Tier 1 Planning Turn Dispatcher
 # ---------------------------------------------------------------------------
@@ -596,6 +996,122 @@ def dispatch_tier1_planning(
         track_dir=track_dir,
         phase_num=phase_num,
         task_num=task_num,
+        cwd=work_dir,
+    )
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Tier 2 Execution Turn Dispatcher
+# ---------------------------------------------------------------------------
+
+def dispatch_tier2_execution(
+    track_name: str,
+    phase_num: int,
+    task_num: int,
+    exec_model: str = "gemini-3.8-flash-medium",
+    auto_recover: bool = False,
+    timeout: float = 900.0,
+    cwd: Optional[Path] = None,
+) -> bool:
+    """Coordinates Tier 2 execution turn:
+    1. Captures base HEAD SHA.
+    2. Generates execution prompt via generate-prompt.py --exec.
+    3. Dispatches agy --mode auto turn.
+    4. Checks working tree cleanliness (invoking recovery if --auto-recover).
+    5. Audits active task verification (Red, Green, or Exempt).
+    6. Audits git commit, notes, and plan.md update.
+    Returns True on success; raises ConductorAutoError on failure.
+    """
+    work_dir = cwd or PROJECT_ROOT
+    track_dir = resolve_track_dir(track_name) or (work_dir / "conductor" / "tracks" / track_name).resolve()
+    log_file = track_dir / "logs" / f"phase-{phase_num}-task-{task_num}-exec.log"
+
+    head_res = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True,
+        text=True,
+        cwd=work_dir,
+    )
+    base_sha = head_res.stdout.strip() if head_res.returncode == 0 else "HEAD~1"
+
+    prompt = generate_turn_prompt(
+        track=track_name,
+        phase_num=phase_num,
+        task_num=task_num,
+        mode="exec",
+        cwd=work_dir,
+    )
+
+    ret, _stdout, stderr = run_agy_turn(
+        prompt=prompt,
+        mode="auto",
+        model=exec_model,
+        timeout=timeout,
+        cwd=work_dir,
+        log_file=log_file,
+    )
+    if ret != 0:
+        raise ProcessExecutionError(
+            f"Tier 2 execution turn failed with exit code {ret}: {stderr.strip()}"
+        )
+
+    is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
+    if not is_clean:
+        if auto_recover:
+            dispatch_recovery_turn(
+                track_name=track_name,
+                phase_num=phase_num,
+                task_num=task_num,
+                exec_model=exec_model,
+                timeout=timeout,
+                cwd=work_dir,
+            )
+            is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
+            if not is_clean:
+                raise GitTreeDirtyError(
+                    f"Working tree remains dirty after recovery turn: {', '.join(dirty_files)}"
+                )
+        else:
+            raise GitTreeDirtyError(
+                f"Working tree contains uncommitted changes ({', '.join(dirty_files)}) and --auto-recover is disabled."
+            )
+
+    verify_task_execution(
+        track_name=track_name,
+        phase_num=phase_num,
+        task_num=task_num,
+        base_sha=base_sha,
+        cwd=work_dir,
+    )
+
+    phases = parse_track_plan(track_dir)
+    plan_path = track_dir / "plan.md"
+    phase = phases.get(phase_num)
+    task = next((t for t in phase.tasks if t.task_num == task_num), None) if phase else None
+    if task is None:
+        task = TaskInfo(
+            task_num=task_num,
+            description=f"Phase {phase_num} Task {task_num}",
+            status="complete",
+            status_char="x",
+            is_checkpoint=False,
+        )
+
+    commit_sha = task.commit_sha
+    if not commit_sha:
+        sha_res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=work_dir,
+        )
+        commit_sha = sha_res.stdout.strip() if sha_res.returncode == 0 else "HEAD"
+
+    audit_git_commit_and_notes(
+        task=task,
+        commit_sha=commit_sha,
+        plan_path=plan_path,
         cwd=work_dir,
     )
     return True
@@ -712,6 +1228,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         print(f"Dispatching Tier 1 planning for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}")
         if args.dry_run:
             print(f"[DRY-RUN] Would dispatch Tier 1 planning with model {args.plan_model}")
+            print(f"[DRY-RUN] Would dispatch Tier 2 execution with model {args.exec_model}")
             continue
 
         try:
@@ -721,6 +1238,15 @@ def main(argv: Optional[List[str]] = None) -> int:
                 task_num=task.task_num,
                 plan_model=args.plan_model,
                 force_plan=args.force_plan,
+                timeout=timeout_sec,
+            )
+            print(f"Dispatching Tier 2 execution for Phase {active_phase.phase_num} Task {task.task_num}: {task.description}")
+            dispatch_tier2_execution(
+                track_name=track_name,
+                phase_num=active_phase.phase_num,
+                task_num=task.task_num,
+                exec_model=args.exec_model,
+                auto_recover=args.auto_recover,
                 timeout=timeout_sec,
             )
         except ConductorAutoError as err:
