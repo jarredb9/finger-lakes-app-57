@@ -73,13 +73,13 @@
     - [x] Test dual logging (stdout formatted progress + unredacted file persistence in `conductor/tracks/<track>/logs/`)
     - [x] Test turn timeout handling with configurable `--timeout`
     - [x] Confirm tests fail as expected
-- [ ] Task: Implement composable Gemini 4 Hydrogen model matrix, Gate 1 checkpoint, Gate 2 review handling, brain snapshotting, dual-logging tee, and CLI interface in `conductor-auto.py` (TDD Green phase)
-    - [ ] Implement centralized `DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, `DEFAULT_*_MODEL` constants, `resolve_model_config()`, and `--model-family` / `--checkpoint-model` CLI flags, updating all turn dispatchers (`run_agy_turn`, Tier 1, Tier 2, Recovery, Gate 1, Gate 2) to use resolved defaults
-    - [ ] Implement Gate 1 execution and post-checkpoint commit/notes verification
-    - [ ] Implement Gate 2 unattended review dispatch, brain directory snapshotting, and report generation in `phase-X-review.md`
-    - [ ] Implement strict regex severity parsing, exit code semantics (0, 1, 2), and interactive resumption command formatting (`agy --conversation <conv-id> ...`)
-    - [ ] Implement streaming subprocess runner with real-time stdout updates, turn timeouts, process group cleanup, and tee logging to `conductor/tracks/<track>/logs/`
-    - [ ] Confirm all unit tests pass cleanly
+- [x] Task: Implement composable Gemini 4 Hydrogen model matrix, Gate 1 checkpoint, Gate 2 review handling, brain snapshotting, dual-logging tee, and CLI interface in `conductor-auto.py` (TDD Green phase) [commit: f87e9b56]
+    - [x] Implement centralized `DEFAULT_MODEL_FAMILY = "gemini-4-hydrogen"`, `ROLE_EFFORT_MAP`, `DEFAULT_*_MODEL` constants, `resolve_model_config()`, and `--model-family` / `--checkpoint-model` CLI flags, updating all turn dispatchers (`run_agy_turn`, Tier 1, Tier 2, Recovery, Gate 1, Gate 2) to use resolved defaults
+    - [x] Implement Gate 1 execution and post-checkpoint commit/notes verification
+    - [x] Implement Gate 2 unattended review dispatch, brain directory snapshotting, and report generation in `phase-X-review.md`
+    - [x] Implement strict regex severity parsing, exit code semantics (0, 1, 2), and interactive resumption command formatting (`agy --conversation <conv-id> ...`)
+    - [x] Implement streaming subprocess runner with real-time stdout updates, turn timeouts, process group cleanup, and tee logging to `conductor/tracks/<track>/logs/`
+    - [x] Confirm all unit tests pass cleanly
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: Phase Boundaries, Checkpoints, Review Handshake, Composable Model Matrix, and CLI Dual-Logging' (Protocol in workflow.md)
 
 ## Phase 6: Documentation & End-to-End Dry-Run Validation
