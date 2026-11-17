@@ -33,6 +33,9 @@
     - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools` and confirm all Phase 2 tests pass
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Markdown Parser & Git Workspace Adapter' (Protocol in workflow.md) [commit: 0b801cb9]
 
+### Phase: Review Fixes
+- [x] Task: Apply Phase 2 review remediations (split subtask backtick spans in `parser.py`, empty root guard / `OSError` wrapping / post-resolution baseline check in `git_scope.py`) [commit: fa9434f7]
+
 ## Phase 3: Single-Pass Verification Strategy Engine
 - [ ] Task: Write failing unit tests for `strategy.py` (TDD Red phase)
     - [ ] Create `scripts/conductor-tools/tests/test_strategy.py` testing unified `classify_task_mode()` (including `startswith("test(")`), fast-fail `ConductorError` on undeclared `[exempt: <category>]`, Red-mode stripping of `[supervisor].static_analysis_prefixes` (including env-prefixed static-analysis commands and excluding static-analysis `explicit_subtask_cmds` in Red mode), ordered all-matching `[[suites]]` loop with `shlex.quote`-escaped `{files}`, `[type_check].extensions` gating, `full_suite_keywords` handling, single-pass `VerificationStrategy` inference, `PhaseCheckpointContext` collection (excluding `referenced_test_files`), quote-aware `&&` splitting, leading `cd <subdir>` / env-prefix-stripped `safety` and idempotency filtering (preserving `cd <subdir>` + `KEY=VALUE` while blocking env-prefixed `cd`, env-prefixed mutations, and dangling `cd`-only chains), and shared `parse_verification_commands()` (`KEY=VALUE` `env=` extraction, blocked `LD_*`/`DYLD_*`/`BASH_ENV`/`ENV`/`PYTHONINSPECT`, repo-bounded `cd <dir>`, and rejection of unquoted newlines/pipes/redirections/`;`/`||`/env-prefixed `export`/subshells/bare `VAR=val`/unbalanced quotes)
