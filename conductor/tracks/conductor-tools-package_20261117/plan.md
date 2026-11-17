@@ -1,6 +1,6 @@
 # Implementation Plan: Portable `conductor-tools` Package & `RepoProfile` Seam (Issue #110)
 
-## Phase 1: Package Scaffolding, Core Models & `RepoProfile` Seam
+## Phase 1: Package Scaffolding, Core Models & `RepoProfile` Seam [checkpoint: e21660ef]
 - [x] Task: Scaffold `scripts/conductor-tools/pyproject.toml` and `conductor_tools/__init__.py` package skeleton (`requires-python >= 3.11`, zero dependencies, console scripts `conductor-prompt` and `conductor-auto`) [exempt: infra] [commit: eb76c831]
     - [x] Create `scripts/conductor-tools/pyproject.toml` with `setuptools.build_meta`, `requires-python = ">=3.11"`, zero runtime dependencies, and `[project.scripts]` entries
     - [x] Create `scripts/conductor-tools/conductor_tools/__init__.py` and `scripts/conductor-tools/tests/__init__.py`
@@ -13,7 +13,7 @@
     - [x] Implement `scripts/conductor-tools/conductor_tools/profile.py` with generic built-in defaults, `tomllib` loader, replace-on-key merging, and strict validation
     - [x] Author `conductor/profile.toml` capturing Finger Lakes suites (`integration`, `unit`, `e2e`, `edge_functions`, `python_agent`), domain rules (`ui`, `database`, `backend_tooling`), exempt rules (`ui`, `styling`, `infra`, `scripts`, `types`, `docs`), paths, supervisor (`static_analysis_prefixes`, `default_test_cmd`, `full_suite_keywords`), safety patterns, and model defaults
     - [x] Run `test_models.py` and `test_profile.py` and confirm all Phase 1 tests pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Package Scaffolding, Core Models & RepoProfile Seam' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Package Scaffolding, Core Models & RepoProfile Seam' (Protocol in workflow.md) [commit: e21660ef]
 
 ## Phase 2: Markdown Parser & Git Workspace Adapter
 - [ ] Task: Write failing unit tests for `parser.py` (TDD Red phase)
