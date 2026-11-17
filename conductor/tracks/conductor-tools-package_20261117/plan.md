@@ -1,9 +1,9 @@
 # Implementation Plan: Portable `conductor-tools` Package & `RepoProfile` Seam (Issue #110)
 
 ## Phase 1: Package Scaffolding, Core Models & `RepoProfile` Seam
-- [ ] Task: Scaffold `scripts/conductor-tools/pyproject.toml` and `conductor_tools/__init__.py` package skeleton (`requires-python >= 3.11`, zero dependencies, console scripts `conductor-prompt` and `conductor-auto`) [exempt: infra]
-    - [ ] Create `scripts/conductor-tools/pyproject.toml` with `setuptools.build_meta`, `requires-python = ">=3.11"`, zero runtime dependencies, and `[project.scripts]` entries
-    - [ ] Create `scripts/conductor-tools/conductor_tools/__init__.py` and `scripts/conductor-tools/tests/__init__.py`
+- [x] Task: Scaffold `scripts/conductor-tools/pyproject.toml` and `conductor_tools/__init__.py` package skeleton (`requires-python >= 3.11`, zero dependencies, console scripts `conductor-prompt` and `conductor-auto`) [exempt: infra] [commit: eb76c831]
+    - [x] Create `scripts/conductor-tools/pyproject.toml` with `setuptools.build_meta`, `requires-python = ">=3.11"`, zero runtime dependencies, and `[project.scripts]` entries
+    - [x] Create `scripts/conductor-tools/conductor_tools/__init__.py` and `scripts/conductor-tools/tests/__init__.py`
 - [ ] Task: Write failing unit tests for `models.py` and `profile.py` (TDD Red phase)
     - [ ] Create `scripts/conductor-tools/tests/test_models.py` testing frozen `slots=True` dataclasses (`PromptMode`, `TaskInfo`, `PhaseInfo`, `TrackPlan`, `TaskBlueprint`, `PhaseCheckpointContext`, `VerificationStrategy`, `TurnStreamConfig`, `ReviewResult`) and `ConductorError` exception hierarchy (`PlanInvariantError`, `ProcessExecutionError`, `SupervisorInvariantError`, `GitTreeDirtyError`)
     - [ ] Create `scripts/conductor-tools/tests/test_profile.py` testing generic built-in `RepoProfile` defaults (zero Finger Lakes paths, generic `PathRules`, `docs`/`infra`/`scripts` exempt rules, generic verification tokens), `load_repo_profile` `tomllib` parsing, replace-on-key merging, and strict schema validation raising `ConductorError` on unknown sections/keys or invalid types
