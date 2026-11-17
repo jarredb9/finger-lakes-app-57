@@ -18,7 +18,7 @@
 ### Phase: Review Fixes
 - [x] Task: Apply Phase 1 review remediations (`conductor/profile.toml` Red static-analysis parity, positive/finite supervisor timing validation, duplicate `[exempt]` and non-empty string checks) [commit: f680bd45]
 
-## Phase 2: Markdown Parser & Git Workspace Adapter
+## Phase 2: Markdown Parser & Git Workspace Adapter [checkpoint: 0b801cb9]
 - [x] Task: Write failing unit tests for `parser.py` (TDD Red phase) [commit: 57650acc]
     - [x] Create `scripts/conductor-tools/tests/test_parser.py` testing `tracks.md` registry parsing, `plan.md` `PhaseInfo`/`TaskInfo` parsing (`Review Fixes`, `[exempt: <category>]`, `[-]` skipped, SHAs, without `.to_dict()` bridges), `TaskBlueprint` separation of `target_files` vs `referenced_test_files` via `PathRules`, full backtick command extraction (`=` / flags / `&&`), post-exec commit extraction, and `phase-N-review.md` severity parsing
     - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_parser.py"` and confirm expected failures
@@ -31,7 +31,7 @@
 - [x] Task: Implement `git_scope.py` (TDD Green phase) [commit: 77c14fe2]
     - [x] Implement `scripts/conductor-tools/conductor_tools/git_scope.py` with git-boundary-guarded `resolve_repo_root`, git inspection/audit adapters, and `copy_to_clipboard` (`stdout=DEVNULL` + timeout)
     - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools` and confirm all Phase 2 tests pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Markdown Parser & Git Workspace Adapter' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Markdown Parser & Git Workspace Adapter' (Protocol in workflow.md) [commit: 0b801cb9]
 
 ## Phase 3: Single-Pass Verification Strategy Engine
 - [ ] Task: Write failing unit tests for `strategy.py` (TDD Red phase)
