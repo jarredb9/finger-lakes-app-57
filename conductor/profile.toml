@@ -122,7 +122,19 @@ ephemeral_patterns = ['^conductor/(?:tracks|archive)/[^/]+/(?:phase-\d+-task-\d+
 log_patterns = ['^conductor/(?:tracks|archive)/[^/]+/logs(?:/.*)?$']
 
 [supervisor]
-static_analysis_prefixes = ["eslint", "tsc", "ruff", "mypy", "npm run lint", "npm run type-check"]
+static_analysis_prefixes = [
+    "eslint",
+    "tsc",
+    "ruff",
+    "mypy",
+    "npx eslint",
+    "npx tsc",
+    "npm run lint",
+    "npm run type-check",
+    "npm run build",
+    "npm run build:container",
+    "./scripts/containers/run-build-container.sh",
+]
 default_test_cmd = "./scripts/containers/run-jest-container.sh"
 full_suite_keywords = [
     "full automated",

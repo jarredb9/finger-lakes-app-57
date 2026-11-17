@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import math
 from pathlib import Path
 import re
 import tomllib
@@ -393,6 +394,14 @@ def _as_float(val: Any, ctx: str) -> float:
     return float(val)
 
 
+def _as_positive_float(val: Any, ctx: str) -> float:
+    """Validate that `val` is a finite positive number (excluding booleans)."""
+    parsed = _as_float(val, ctx)
+    if not math.isfinite(parsed) or parsed <= 0.0:
+        raise ConductorError(f"Invalid {ctx}: expected finite number > 0, got {val!r}")
+    return parsed
+
+
 def _as_str_tuple(val: Any, ctx: str) -> tuple[str, ...]:
     """Validate that `val` is a list of strings and convert to a tuple."""
     if not isinstance(val, list) or not all(isinstance(item, str) for item in val):
@@ -414,17 +423,17 @@ def _parse_planning(raw: dict[str, Any]) -> PlanningProfile:
     defaults = PlanningProfile()
     return PlanningProfile(
         tracks_dir=(
-            _as_str(raw["tracks_dir"], "planning.tracks_dir")
+            _as_nonempty_str(raw["tracks_dir"], "planning.tracks_dir")
             if "tracks_dir" in raw
             else defaults.tracks_dir
         ),
         archive_dir=(
-            _as_str(raw["archive_dir"], "planning.archive_dir")
+            _as_nonempty_str(raw["archive_dir"], "planning.archive_dir")
             if "archive_dir" in raw
             else defaults.archive_dir
         ),
         tracks_registry=(
-            _as_str(raw["tracks_registry"], "planning.tracks_registry")
+            _as_nonempty_str(raw["tracks_registry"], "planning.tracks_registry")
             if "tracks_registry" in raw
             else defaults.tracks_registry
         ),
@@ -573,6 +582,8 @@ def _parse_exempt(raw: dict[str, Any]) -> dict[str, ExemptRule]:
         if not isinstance(raw_key, str) or not raw_key.strip():
             raise ConductorError("Invalid [exempt] key: expected non-empty string")
         key = raw_key.strip().lower()
+        if key in exempt:
+            raise ConductorError(f"Duplicate normalized [exempt] category: {key!r}")
         ctx = f"[exempt.{raw_key}]"
         entry = _as_table(val, ctx)
         _validate_allowed_keys(entry, _ALLOWED_EXEMPT_KEYS, ctx)
@@ -583,7 +594,7 @@ def _parse_exempt(raw: dict[str, Any]) -> dict[str, ExemptRule]:
                 else ()
             ),
             commit_prefix=(
-                _as_str(entry["commit_prefix"], f"{ctx}.commit_prefix")
+                _as_nonempty_str(entry["commit_prefix"], f"{ctx}.commit_prefix")
                 if "commit_prefix" in entry
                 else "chore"
             ),
@@ -684,7 +695,7 @@ def _parse_supervisor(raw: dict[str, Any]) -> SupervisorProfile:
             else defaults.static_analysis_prefixes
         ),
         default_test_cmd=(
-            _as_str(raw["default_test_cmd"], "supervisor.default_test_cmd")
+            _as_nonempty_str(raw["default_test_cmd"], "supervisor.default_test_cmd")
             if "default_test_cmd" in raw
             else defaults.default_test_cmd
         ),
@@ -705,12 +716,12 @@ def _parse_supervisor(raw: dict[str, Any]) -> SupervisorProfile:
         ),
         review_severity_pattern=severity_pattern,
         default_timeout_seconds=(
-            _as_float(raw["default_timeout_seconds"], "supervisor.default_timeout_seconds")
+            _as_positive_float(raw["default_timeout_seconds"], "supervisor.default_timeout_seconds")
             if "default_timeout_seconds" in raw
             else defaults.default_timeout_seconds
         ),
         default_heartbeat_interval=(
-            _as_float(raw["default_heartbeat_interval"], "supervisor.default_heartbeat_interval")
+            _as_positive_float(raw["default_heartbeat_interval"], "supervisor.default_heartbeat_interval")
             if "default_heartbeat_interval" in raw
             else defaults.default_heartbeat_interval
         ),

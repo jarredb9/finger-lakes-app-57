@@ -384,6 +384,20 @@ review = "high"
             ("invalid_regex_supervisor", '[supervisor]\nreview_severity_pattern = "[unclosed"\n'),
             ("invalid_regex_paths", '[paths]\nephemeral_patterns = ["[unclosed"]\n'),
             ("malformed_toml", '[planning\ntracks_dir = "broken"\n'),
+            ("zero_timeout", "[supervisor]\ndefault_timeout_seconds = 0.0\n"),
+            ("negative_timeout", "[supervisor]\ndefault_timeout_seconds = -10.0\n"),
+            ("nan_timeout", "[supervisor]\ndefault_timeout_seconds = nan\n"),
+            ("inf_timeout", "[supervisor]\ndefault_timeout_seconds = inf\n"),
+            ("zero_heartbeat", "[supervisor]\ndefault_heartbeat_interval = 0\n"),
+            ("negative_heartbeat", "[supervisor]\ndefault_heartbeat_interval = -1.5\n"),
+            ("nan_heartbeat", "[supervisor]\ndefault_heartbeat_interval = nan\n"),
+            ("inf_heartbeat", "[supervisor]\ndefault_heartbeat_interval = inf\n"),
+            ("duplicate_exempt_normalized", '[exempt.UI]\ncommit_prefix = "style"\n[exempt.ui]\ncommit_prefix = "chore"\n'),
+            ("empty_tracks_dir", '[planning]\ntracks_dir = "   "\n'),
+            ("empty_archive_dir", '[planning]\narchive_dir = ""\n'),
+            ("empty_tracks_registry", '[planning]\ntracks_registry = ""\n'),
+            ("empty_exempt_commit_prefix", '[exempt.ui]\ncommit_prefix = " "\n'),
+            ("empty_default_test_cmd", '[supervisor]\ndefault_test_cmd = ""\n'),
         ]
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
