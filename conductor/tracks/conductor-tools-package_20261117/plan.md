@@ -8,11 +8,11 @@
     - [x] Create `scripts/conductor-tools/tests/test_models.py` testing frozen `slots=True` dataclasses (`PromptMode`, `TaskInfo`, `PhaseInfo`, `TrackPlan`, `TaskBlueprint`, `PhaseCheckpointContext`, `VerificationStrategy`, `TurnStreamConfig`, `ReviewResult`) and `ConductorError` exception hierarchy (`PlanInvariantError`, `ProcessExecutionError`, `SupervisorInvariantError`, `GitTreeDirtyError`)
     - [x] Create `scripts/conductor-tools/tests/test_profile.py` testing generic built-in `RepoProfile` defaults (zero Finger Lakes paths, generic `PathRules`, `docs`/`infra`/`scripts` exempt rules, generic verification tokens), `load_repo_profile` `tomllib` parsing, replace-on-key merging, and strict schema validation raising `ConductorError` on unknown sections/keys or invalid types
     - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_models.py"` and `test_profile.py` and confirm expected failures
-- [ ] Task: Implement `models.py`, `profile.py`, and Finger Lakes `conductor/profile.toml` (TDD Green phase)
-    - [ ] Implement `scripts/conductor-tools/conductor_tools/models.py` with frozen `slots=True` dataclasses and exception hierarchy
-    - [ ] Implement `scripts/conductor-tools/conductor_tools/profile.py` with generic built-in defaults, `tomllib` loader, replace-on-key merging, and strict validation
-    - [ ] Author `conductor/profile.toml` capturing Finger Lakes suites (`integration`, `unit`, `e2e`, `edge_functions`, `python_agent`), domain rules (`ui`, `database`, `backend_tooling`), exempt rules (`ui`, `styling`, `infra`, `scripts`, `types`, `docs`), paths, supervisor (`static_analysis_prefixes`, `default_test_cmd`, `full_suite_keywords`), safety patterns, and model defaults
-    - [ ] Run `test_models.py` and `test_profile.py` and confirm all Phase 1 tests pass
+- [x] Task: Implement `models.py`, `profile.py`, and Finger Lakes `conductor/profile.toml` (TDD Green phase) [commit: f4b3876b]
+    - [x] Implement `scripts/conductor-tools/conductor_tools/models.py` with frozen `slots=True` dataclasses and exception hierarchy
+    - [x] Implement `scripts/conductor-tools/conductor_tools/profile.py` with generic built-in defaults, `tomllib` loader, replace-on-key merging, and strict validation
+    - [x] Author `conductor/profile.toml` capturing Finger Lakes suites (`integration`, `unit`, `e2e`, `edge_functions`, `python_agent`), domain rules (`ui`, `database`, `backend_tooling`), exempt rules (`ui`, `styling`, `infra`, `scripts`, `types`, `docs`), paths, supervisor (`static_analysis_prefixes`, `default_test_cmd`, `full_suite_keywords`), safety patterns, and model defaults
+    - [x] Run `test_models.py` and `test_profile.py` and confirm all Phase 1 tests pass
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Package Scaffolding, Core Models & RepoProfile Seam' (Protocol in workflow.md)
 
 ## Phase 2: Markdown Parser & Git Workspace Adapter
