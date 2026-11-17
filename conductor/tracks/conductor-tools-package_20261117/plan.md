@@ -45,6 +45,9 @@
     - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools` and confirm all Phase 3 tests pass
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Single-Pass Verification Strategy Engine' (Protocol in workflow.md) [commit: 1a4aa2ab]
 
+### Phase: Review Fixes
+- [x] Task: Apply Phase 3 review remediations (strip Red-mode chained subtask static analysis via `strip_static_analysis_segments`, clean `[exempt]`/SHA on `mode_override` commit messages, check `&&` segments in `_should_append_type_check`, infer repo root when `cwd=None`) [commit: 98e3c6e5]
+
 ## Phase 4: Prompt Templates & `conductor-prompt` CLI
 - [ ] Task: Write failing unit tests for `templates.py` (TDD Red phase)
     - [ ] Create `scripts/conductor-tools/tests/test_templates.py` testing Plan (including verification-command shell constraints in `Execution Verification Protocol`), Red, Green, Exempt, Checkpoint (interactive & `--unattended`), Recovery, and Gate 2 Review prompt rendering (`build_review_prompt`) driven by `RepoProfile`, plus `generate_turn_prompt()` in-process helper and removal of composite TDD branch
