@@ -49,9 +49,9 @@
 - [x] Task: Apply Phase 3 review remediations (strip Red-mode chained subtask static analysis via `strip_static_analysis_segments`, clean `[exempt]`/SHA on `mode_override` commit messages, check `&&` segments in `_should_append_type_check`, infer repo root when `cwd=None`) [commit: 98e3c6e5]
 
 ## Phase 4: Prompt Templates & `conductor-prompt` CLI
-- [ ] Task: Write failing unit tests for `templates.py` (TDD Red phase)
-    - [ ] Create `scripts/conductor-tools/tests/test_templates.py` testing Plan (including verification-command shell constraints in `Execution Verification Protocol`), Red, Green, Exempt, Checkpoint (interactive & `--unattended`), Recovery, and Gate 2 Review prompt rendering (`build_review_prompt`) driven by `RepoProfile`, plus `generate_turn_prompt()` in-process helper and removal of composite TDD branch
-    - [ ] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_templates.py"` and confirm expected failures
+- [x] Task: Write failing unit tests for `templates.py` (TDD Red phase) [commit: 84751aa8]
+    - [x] Create `scripts/conductor-tools/tests/test_templates.py` testing Plan (including verification-command shell constraints in `Execution Verification Protocol`), Red, Green, Exempt, Checkpoint (interactive & `--unattended`), Recovery, and Gate 2 Review prompt rendering (`build_review_prompt`) driven by `RepoProfile`, plus `generate_turn_prompt()` in-process helper and removal of composite TDD branch
+    - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_templates.py"` and confirm expected failures
 - [ ] Task: Implement `templates.py` (TDD Green phase)
     - [ ] Implement `scripts/conductor-tools/conductor_tools/templates.py` with pure Python prompt builders (including `build_review_prompt` and Tier 1 verification command formatting rules) driven by `RepoProfile` and in-process `generate_turn_prompt()`
     - [ ] Run `test_templates.py` and confirm all tests pass
