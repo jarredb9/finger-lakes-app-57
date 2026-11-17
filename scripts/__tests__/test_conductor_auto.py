@@ -1959,6 +1959,59 @@ class TestSupervisorTaskVerificationRouter(unittest.TestCase):
             self.assertEqual(seen_cwds[1][0], ["python3.12", "-m", "py_compile", "scripts/conductor-tools/runner.py"])
             self.assertEqual(seen_cwds[1][1], root.resolve())
 
+    @patch("subprocess.run")
+    def test_verify_task_execution_isolates_cd_per_verification_command_line_in_red_mode(self, mock_run):
+        """Asserts a 'cd <subdir> && ...' line in Red verification does not leak cwd into subsequent lines."""
+        verify_task_execution = get_target("verify_task_execution", self)
+        seen_cwds = []
+
+        def run_side_effect(cmd, *args, **kwargs):
+            if cmd[:2] == ["git", "diff"]:
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=0,
+                    stdout="scripts/__tests__/test_runner.py\n",
+                    stderr="",
+                )
+            seen_cwds.append((cmd, Path(kwargs["cwd"]).resolve()))
+            if len(seen_cwds) == 1:
+                return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="OK", stderr="")
+            return subprocess.CompletedProcess(
+                args=cmd,
+                returncode=1,
+                stdout="",
+                stderr="AssertionError: expected Red failure",
+            )
+
+        mock_run.side_effect = run_side_effect
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            pkg_dir = root / "scripts" / "conductor-tools"
+            pkg_dir.mkdir(parents=True)
+            track_dir = root / "conductor" / "tracks" / "py-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Runner\n"
+                "- [ ] Task: Write failing unit tests for runner (TDD Red phase)\n",
+                encoding="utf-8",
+            )
+            (track_dir / "phase-1-task-1-plan.md").write_text(
+                "- **Path:** `scripts/__tests__/test_runner.py`\n\n"
+                "## Execution Verification Protocol\n"
+                "```bash\n"
+                "cd scripts/conductor-tools && python3.12 -m unittest\n"
+                "python3.12 -m unittest scripts/__tests__/test_runner.py\n"
+                "```\n",
+                encoding="utf-8",
+            )
+
+            self.assertTrue(verify_task_execution("py-track", phase_num=1, task_num=1, base_sha="abc1234", cwd=root))
+            self.assertEqual(len(seen_cwds), 2)
+            self.assertEqual(seen_cwds[0][0], ["python3.12", "-m", "unittest"])
+            self.assertEqual(seen_cwds[0][1], pkg_dir.resolve())
+            self.assertEqual(seen_cwds[1][0], ["python3.12", "-m", "unittest", "scripts/__tests__/test_runner.py"])
+            self.assertEqual(seen_cwds[1][1], root.resolve())
+
     def test_verify_task_execution_routes_python_red_and_green_from_task_plan(self):
         """Asserts verify_task_execution resolves target Python commands and skips npm type-check for Python-only tasks."""
         verify_task_execution = get_target("verify_task_execution", self)
