@@ -215,7 +215,7 @@ default_heartbeat_interval = 15.0
 [safety]
 command_prefixes = ["pytest "]
 allowed_verification_tokens = ["pytest"]
-mutating_cmd_patterns = ["rm\\s+-rf"]
+mutating_cmd_patterns = ["rm\\\\s+-rf"]
 mutating_git_prefixes = ["git commit"]
 
 [models]
