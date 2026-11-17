@@ -2012,6 +2012,45 @@ class TestSupervisorTaskVerificationRouter(unittest.TestCase):
             self.assertEqual(seen_cwds[1][0], ["python3.12", "-m", "unittest", "scripts/__tests__/test_runner.py"])
             self.assertEqual(seen_cwds[1][1], root.resolve())
 
+    @patch("subprocess.run")
+    def test_verify_task_execution_filters_type_check_per_segment_without_dropping_tests(self, mock_run):
+        """Asserts npm run type-check is stripped per segment while chained commands and tests naming type-check run."""
+        verify_task_execution = get_target("verify_task_execution", self)
+        seen_cmds = []
+
+        def run_side_effect(cmd, *args, **kwargs):
+            seen_cmds.append(cmd)
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="OK", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "py-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Checker\n"
+                "- [ ] Task: Implement checker to pass tests\n",
+                encoding="utf-8",
+            )
+            (track_dir / "phase-1-task-1-plan.md").write_text(
+                "- **Path:** `scripts/conductor-tools/checker.py`\n\n"
+                "## Execution Verification Protocol\n"
+                "```bash\n"
+                "npm run type-check && python3.12 -m unittest\n"
+                'pytest -k "type-check"\n'
+                "```\n",
+                encoding="utf-8",
+            )
+
+            self.assertTrue(verify_task_execution("py-track", phase_num=1, task_num=1, base_sha="abc1234", cwd=root))
+            self.assertEqual(
+                seen_cmds,
+                [
+                    ["python3.12", "-m", "unittest"],
+                    ["pytest", "-k", "type-check"],
+                ],
+            )
+
     def test_verify_task_execution_routes_python_red_and_green_from_task_plan(self):
         """Asserts verify_task_execution resolves target Python commands and skips npm type-check for Python-only tasks."""
         verify_task_execution = get_target("verify_task_execution", self)
