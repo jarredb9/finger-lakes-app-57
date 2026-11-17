@@ -489,10 +489,17 @@ class TestTaskBlueprintAndPathRules(unittest.TestCase):
         bp_fallback = parse_task_blueprint_markdown(
             fallback_md,
             Path("conductor/tracks/demo/phase-1-task-2-plan.md"),
-            subtasks=("Add coverage in `tests/test_fallback.py`", "Ignore `.gemini/cache.md`"),
+            subtasks=(
+                "Add coverage in `tests/test_fallback.py`",
+                "Run `pytest tests/test_cmd.py` and `npx jest src/app.test.ts`",
+                "Ignore `.gemini/cache.md`",
+            ),
         )
         self.assertEqual(bp_fallback.target_files, ("src/service.py",))
-        self.assertEqual(bp_fallback.referenced_test_files, ("tests/test_fallback.py",))
+        self.assertEqual(
+            bp_fallback.referenced_test_files,
+            ("tests/test_fallback.py", "tests/test_cmd.py", "src/app.test.ts"),
+        )
 
     def test_empty_missing_whitespace_and_command_flattening(self) -> None:
         empty_none = parse_task_blueprint(None)

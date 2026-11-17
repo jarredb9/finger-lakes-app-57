@@ -56,6 +56,8 @@ def resolve_repo_root(
 ) -> Path:
     """Resolve the repository root containing `conductor_dir_name/`, respecting `.git` boundaries."""
     if repo_root is not None:
+        if isinstance(repo_root, str) and not repo_root.strip():
+            raise ConductorError(f"Invalid repository root {repo_root!r}: empty path")
         candidate = Path(repo_root).expanduser().resolve()
         if candidate.is_dir() and (candidate / conductor_dir_name).is_dir():
             return candidate
@@ -334,14 +336,27 @@ def is_supervisor_log_path(
     return any(re.match(pat, clean) for pat in rules.log_patterns)
 
 
-def _run_git_checked(args: Sequence[str], cwd: Path) -> subprocess.CompletedProcess[str]:
-    """Execute a git subprocess and raise `ProcessExecutionError` on OSError or non-zero exit."""
+def _run_git(
+    args: Sequence[str],
+    cwd: Path,
+    *,
+    error_cls: type[ConductorError] = ProcessExecutionError,
+    context: str = "",
+) -> subprocess.CompletedProcess[str]:
+    """Execute a git subprocess and wrap `OSError` into `error_cls`."""
     cmd = ["git", *args]
     try:
-        res = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True)
+        return subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True)
     except OSError as exc:
-        raise ProcessExecutionError(f"Failed to execute {' '.join(cmd)}: {exc}") from exc
+        prefix = context or f"Failed to execute {' '.join(cmd)}"
+        raise error_cls(f"{prefix}: {exc}") from exc
+
+
+def _run_git_checked(args: Sequence[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Execute a git subprocess and raise `ProcessExecutionError` on OSError or non-zero exit."""
+    res = _run_git(args, cwd, error_cls=ProcessExecutionError)
     if res.returncode != 0:
+        cmd = ["git", *args]
         detail = res.stderr.strip() or res.stdout.strip() or f"exit code {res.returncode}"
         raise ProcessExecutionError(f"Command {' '.join(cmd)} failed: {detail}")
     return res
@@ -464,24 +479,19 @@ def _assert_plan_commit(
     raise_process_error: bool = False,
 ) -> None:
     """Verify the latest commit touching `plan_path` carries a `conductor(plan)` message."""
-    try:
-        plan_log = subprocess.run(
-            ["git", "log", "-1", "--pretty=%B", "--", str(plan_path)],
-            cwd=str(work_dir),
-            capture_output=True,
-            text=True,
-        )
-    except OSError as exc:
-        if raise_process_error:
-            raise ProcessExecutionError(f"Failed to inspect git log for '{plan_path}': {exc}") from exc
-        raise SupervisorInvariantError(f"Failed to inspect git log for '{plan_path}': {exc}") from exc
+    err_cls: type[ConductorError] = (
+        ProcessExecutionError if raise_process_error else SupervisorInvariantError
+    )
+    plan_log = _run_git(
+        ["log", "-1", "--pretty=%B", "--", str(plan_path)],
+        work_dir,
+        error_cls=err_cls,
+        context=f"Failed to inspect git log for '{plan_path}'",
+    )
 
     if plan_log.returncode != 0:
         detail = plan_log.stderr.strip() or f"exit code {plan_log.returncode}"
-        msg = f"Failed to inspect git log for '{plan_path}' ({context_desc}): {detail}"
-        if raise_process_error:
-            raise ProcessExecutionError(msg)
-        raise SupervisorInvariantError(msg)
+        raise err_cls(f"Failed to inspect git log for '{plan_path}' ({context_desc}): {detail}")
 
     if "conductor(plan)" not in plan_log.stdout:
         raise SupervisorInvariantError(
@@ -503,44 +513,41 @@ def audit_git_commit_and_notes(
 
     _assert_sha_not_baseline(commit_sha, base_sha, "Task commit")
 
-    rev_res = subprocess.run(
-        ["git", "rev-parse", "--verify", f"{commit_sha}^{{commit}}"],
-        cwd=str(work_dir),
-        capture_output=True,
-        text=True,
+    rev_res = _run_git(
+        ["rev-parse", "--verify", f"{commit_sha}^{{commit}}"],
+        work_dir,
+        error_cls=ProcessExecutionError,
     )
     if rev_res.returncode != 0:
         raise SupervisorInvariantError(
             f"Commit '{commit_sha}' does not resolve to a valid git commit: {rev_res.stderr.strip()}"
         )
     resolved_sha = rev_res.stdout.strip() or commit_sha
+    _assert_sha_not_baseline(resolved_sha, base_sha, "Task commit")
 
     if base_sha and _HEX_SHA_RE.match(base_sha.strip()):
-        desc_res = subprocess.run(
-            ["git", "merge-base", "--is-ancestor", base_sha.strip(), resolved_sha],
-            cwd=str(work_dir),
-            capture_output=True,
-            text=True,
+        desc_res = _run_git(
+            ["merge-base", "--is-ancestor", base_sha.strip(), resolved_sha],
+            work_dir,
+            error_cls=ProcessExecutionError,
         )
         if desc_res.returncode != 0:
             raise SupervisorInvariantError(
                 f"Commit '{commit_sha}' is not a descendant of baseline '{base_sha}'"
             )
 
-    head_res = subprocess.run(
-        ["git", "merge-base", "--is-ancestor", resolved_sha, "HEAD"],
-        cwd=str(work_dir),
-        capture_output=True,
-        text=True,
+    head_res = _run_git(
+        ["merge-base", "--is-ancestor", resolved_sha, "HEAD"],
+        work_dir,
+        error_cls=ProcessExecutionError,
     )
     if head_res.returncode != 0:
         raise SupervisorInvariantError(f"Commit '{commit_sha}' is not an ancestor of HEAD")
 
-    msg_res = subprocess.run(
-        ["git", "log", "-1", "--format=%B", resolved_sha],
-        cwd=str(work_dir),
-        capture_output=True,
-        text=True,
+    msg_res = _run_git(
+        ["log", "-1", "--format=%B", resolved_sha],
+        work_dir,
+        error_cls=ProcessExecutionError,
     )
     if msg_res.returncode != 0:
         raise ProcessExecutionError(
@@ -558,11 +565,10 @@ def audit_git_commit_and_notes(
             f"Commit '{commit_sha}' subject '{first_line}' violates Conventional Commits"
         )
 
-    notes_res = subprocess.run(
-        ["git", "notes", "show", commit_sha],
-        cwd=str(work_dir),
-        capture_output=True,
-        text=True,
+    notes_res = _run_git(
+        ["notes", "show", commit_sha],
+        work_dir,
+        error_cls=ProcessExecutionError,
     )
     if notes_res.returncode != 0 or not notes_res.stdout.strip():
         raise SupervisorInvariantError(f"Missing git notes on commit '{commit_sha}'")
@@ -614,11 +620,11 @@ def verify_checkpoint_commit_and_notes(
 
     work_dir = Path(cwd) if cwd is not None else Path.cwd()
 
-    msg_res = subprocess.run(
-        ["git", "log", "-1", "--format=%B", cp_sha],
-        cwd=str(work_dir),
-        capture_output=True,
-        text=True,
+    msg_res = _run_git(
+        ["log", "-1", "--format=%B", cp_sha],
+        work_dir,
+        error_cls=SupervisorInvariantError,
+        context=f"Failed to read checkpoint commit '{cp_sha}'",
     )
     if msg_res.returncode != 0:
         raise SupervisorInvariantError(
@@ -632,11 +638,11 @@ def verify_checkpoint_commit_and_notes(
             f"Checkpoint commit '{cp_sha}' must begin with '{expected_prefix}'"
         )
 
-    notes_res = subprocess.run(
-        ["git", "notes", "show", cp_sha],
-        cwd=str(work_dir),
-        capture_output=True,
-        text=True,
+    notes_res = _run_git(
+        ["notes", "show", cp_sha],
+        work_dir,
+        error_cls=SupervisorInvariantError,
+        context=f"Failed to read git notes for checkpoint commit '{cp_sha}'",
     )
     if notes_res.returncode != 0 or not notes_res.stdout.strip():
         raise SupervisorInvariantError(f"Checkpoint commit '{cp_sha}' is missing git notes")

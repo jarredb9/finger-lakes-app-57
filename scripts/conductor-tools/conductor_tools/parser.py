@@ -495,6 +495,14 @@ def extract_post_execution_info(
 # ---------------------------------------------------------------------------
 
 
+def _split_command_tokens(text: str) -> list[str]:
+    """Split a command or backtick span into shell-like tokens, falling back on unbalanced quotes."""
+    try:
+        return shlex.split(text)
+    except ValueError:
+        return text.split()
+
+
 def _collect_test_paths_from_tokens(
     tokens: Sequence[str],
     rules: PathRules,
@@ -563,15 +571,21 @@ def parse_task_blueprint_markdown(
     referenced_tests: list[str] = []
     seen_tests: set[str] = set()
     for cmd in verification_commands:
-        try:
-            tokens = shlex.split(cmd)
-        except ValueError:
-            tokens = cmd.split()
-        _collect_test_paths_from_tokens(tokens, rules, referenced_tests, seen_tests)
+        _collect_test_paths_from_tokens(
+            _split_command_tokens(cmd),
+            rules,
+            referenced_tests,
+            seen_tests,
+        )
 
     if not referenced_tests and subtasks:
-        backtick_tokens = extract_backtick_spans(subtasks)
-        _collect_test_paths_from_tokens(backtick_tokens, rules, referenced_tests, seen_tests)
+        for span in extract_backtick_spans(subtasks):
+            _collect_test_paths_from_tokens(
+                _split_command_tokens(span),
+                rules,
+                referenced_tests,
+                seen_tests,
+            )
         prose_tokens = [
             tok.strip("()[]{}.,;:")
             for subtask in subtasks

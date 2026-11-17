@@ -106,8 +106,8 @@ class TestResolveRepoRoot(unittest.TestCase):
             conductor_is_file.mkdir()
             (conductor_is_file / "conductor").write_text("not a dir", encoding="utf-8")
 
-            for bad_root in (missing_dir, regular_file, no_conductor_dir, conductor_is_file):
-                with self.subTest(bad_root=bad_root.name):
+            for bad_root in (missing_dir, regular_file, no_conductor_dir, conductor_is_file, "", "   "):
+                with self.subTest(bad_root=repr(bad_root)):
                     with self.assertRaises(ConductorError):
                         resolve_repo_root(
                             bad_root,
@@ -1055,6 +1055,24 @@ class TestCommitAndCheckpointAuditing(unittest.TestCase):
                 with self.assertRaises(ProcessExecutionError):
                     audit_git_commit_and_notes(complete_task, "1122334", plan_path)
 
+        # 9. Symbolic ref resolving to base_sha and OSError wrapping
+        def head_resolves_to_base(cmd, *args, **kwargs):
+            if cmd[:3] == ["git", "rev-parse", "--verify"]:
+                return subprocess.CompletedProcess(
+                    args=cmd, returncode=0, stdout="1122334abcdef\n", stderr=""
+                )
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="", stderr="")
+
+        with patch("subprocess.run", side_effect=head_resolves_to_base):
+            with self.assertRaises(SupervisorInvariantError):
+                audit_git_commit_and_notes(
+                    complete_task, "HEAD", Path("plan.md"), base_sha="1122334"
+                )
+
+        with patch("subprocess.run", side_effect=FileNotFoundError("git missing")):
+            with self.assertRaises(ProcessExecutionError):
+                audit_git_commit_and_notes(complete_task, "1122334", Path("plan.md"))
+
     def test_verify_checkpoint_commit_and_notes_valid_and_failures(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -1142,6 +1160,11 @@ class TestCommitAndCheckpointAuditing(unittest.TestCase):
                 return valid_side_effect(cmd, *args, **kwargs)
 
             with patch("subprocess.run", side_effect=missing_plan_commit):
+                with self.assertRaises(SupervisorInvariantError):
+                    verify_checkpoint_commit_and_notes(5, plan_path, cwd=root, base_sha="0001112")
+
+            # OSError during checkpoint git inspection wraps into SupervisorInvariantError
+            with patch("subprocess.run", side_effect=FileNotFoundError("git missing")):
                 with self.assertRaises(SupervisorInvariantError):
                     verify_checkpoint_commit_and_notes(5, plan_path, cwd=root, base_sha="0001112")
 
