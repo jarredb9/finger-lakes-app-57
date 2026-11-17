@@ -28,9 +28,9 @@
 - [x] Task: Write failing unit tests for `git_scope.py` (TDD Red phase) [commit: bdcfe3fd]
     - [x] Create `scripts/conductor-tools/tests/test_git_scope.py` testing `resolve_repo_root` (`-C`/`--repo-root` fast-fail when invalid/missing `conductor/`, `cwd` walk stopping at `.git` boundaries, script-path fallback only when `cwd` is outside any `.git` repo), track root discovery, baseline/end SHA resolution, git diff/status helpers, commit/notes auditing, and `copy_to_clipboard` (`stdout=DEVNULL` + timeout)
     - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_git_scope.py"` and confirm expected failures
-- [ ] Task: Implement `git_scope.py` (TDD Green phase)
-    - [ ] Implement `scripts/conductor-tools/conductor_tools/git_scope.py` with git-boundary-guarded `resolve_repo_root`, git inspection/audit adapters, and `copy_to_clipboard` (`stdout=DEVNULL` + timeout)
-    - [ ] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools` and confirm all Phase 2 tests pass
+- [x] Task: Implement `git_scope.py` (TDD Green phase) [commit: 77c14fe2]
+    - [x] Implement `scripts/conductor-tools/conductor_tools/git_scope.py` with git-boundary-guarded `resolve_repo_root`, git inspection/audit adapters, and `copy_to_clipboard` (`stdout=DEVNULL` + timeout)
+    - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools` and confirm all Phase 2 tests pass
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Markdown Parser & Git Workspace Adapter' (Protocol in workflow.md)
 
 ## Phase 3: Single-Pass Verification Strategy Engine
