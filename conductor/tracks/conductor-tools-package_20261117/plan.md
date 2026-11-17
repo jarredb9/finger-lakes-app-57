@@ -19,9 +19,9 @@
 - [x] Task: Apply Phase 1 review remediations (`conductor/profile.toml` Red static-analysis parity, positive/finite supervisor timing validation, duplicate `[exempt]` and non-empty string checks) [commit: f680bd45]
 
 ## Phase 2: Markdown Parser & Git Workspace Adapter
-- [ ] Task: Write failing unit tests for `parser.py` (TDD Red phase)
-    - [ ] Create `scripts/conductor-tools/tests/test_parser.py` testing `tracks.md` registry parsing, `plan.md` `PhaseInfo`/`TaskInfo` parsing (`Review Fixes`, `[exempt: <category>]`, `[-]` skipped, SHAs, without `.to_dict()` bridges), `TaskBlueprint` separation of `target_files` vs `referenced_test_files` via `PathRules`, full backtick command extraction (`=` / flags / `&&`), post-exec commit extraction, and `phase-N-review.md` severity parsing
-    - [ ] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_parser.py"` and confirm expected failures
+- [x] Task: Write failing unit tests for `parser.py` (TDD Red phase) [commit: 57650acc]
+    - [x] Create `scripts/conductor-tools/tests/test_parser.py` testing `tracks.md` registry parsing, `plan.md` `PhaseInfo`/`TaskInfo` parsing (`Review Fixes`, `[exempt: <category>]`, `[-]` skipped, SHAs, without `.to_dict()` bridges), `TaskBlueprint` separation of `target_files` vs `referenced_test_files` via `PathRules`, full backtick command extraction (`=` / flags / `&&`), post-exec commit extraction, and `phase-N-review.md` severity parsing
+    - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_parser.py"` and confirm expected failures
 - [ ] Task: Implement `parser.py` (TDD Green phase)
     - [ ] Implement `scripts/conductor-tools/conductor_tools/parser.py` absorbing `plan_parser.py` without `.to_dict()` bridges and separating `TaskBlueprint.target_files` / `referenced_test_files` via `PathRules`
     - [ ] Run `test_parser.py` and confirm all tests pass
