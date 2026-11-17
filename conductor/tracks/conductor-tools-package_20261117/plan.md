@@ -22,9 +22,9 @@
 - [x] Task: Write failing unit tests for `parser.py` (TDD Red phase) [commit: 57650acc]
     - [x] Create `scripts/conductor-tools/tests/test_parser.py` testing `tracks.md` registry parsing, `plan.md` `PhaseInfo`/`TaskInfo` parsing (`Review Fixes`, `[exempt: <category>]`, `[-]` skipped, SHAs, without `.to_dict()` bridges), `TaskBlueprint` separation of `target_files` vs `referenced_test_files` via `PathRules`, full backtick command extraction (`=` / flags / `&&`), post-exec commit extraction, and `phase-N-review.md` severity parsing
     - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_parser.py"` and confirm expected failures
-- [ ] Task: Implement `parser.py` (TDD Green phase)
-    - [ ] Implement `scripts/conductor-tools/conductor_tools/parser.py` absorbing `plan_parser.py` without `.to_dict()` bridges and separating `TaskBlueprint.target_files` / `referenced_test_files` via `PathRules`
-    - [ ] Run `test_parser.py` and confirm all tests pass
+- [x] Task: Implement `parser.py` (TDD Green phase) [commit: a5c3bccb]
+    - [x] Implement `scripts/conductor-tools/conductor_tools/parser.py` absorbing `plan_parser.py` without `.to_dict()` bridges and separating `TaskBlueprint.target_files` / `referenced_test_files` via `PathRules`
+    - [x] Run `test_parser.py` and confirm all tests pass
 - [ ] Task: Write failing unit tests for `git_scope.py` (TDD Red phase)
     - [ ] Create `scripts/conductor-tools/tests/test_git_scope.py` testing `resolve_repo_root` (`-C`/`--repo-root` fast-fail when invalid/missing `conductor/`, `cwd` walk stopping at `.git` boundaries, script-path fallback only when `cwd` is outside any `.git` repo), track root discovery, baseline/end SHA resolution, git diff/status helpers, commit/notes auditing, and `copy_to_clipboard` (`stdout=DEVNULL` + timeout)
     - [ ] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_git_scope.py"` and confirm expected failures
