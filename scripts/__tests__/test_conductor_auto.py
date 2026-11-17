@@ -344,6 +344,45 @@ class TestTrackPlanParser(unittest.TestCase):
             self.assertIsNone(p1.tasks[3].commit_sha)
             self.assertEqual(p1.tasks[3].description, "Debug cafe123")
 
+    def test_plan_parser_to_dict_schema_and_parse_plan_file(self):
+        """Asserts plan_parser exports parse_plan_file, parse_plan_markdown, and to_dict() dict compatibility."""
+        parse_plan_file = get_target("parse_plan_file", self)
+        parse_plan_markdown = get_target("parse_plan_markdown", self)
+
+        self.assertEqual(parse_plan_file(None), {})
+        with tempfile.TemporaryDirectory() as tmpdir:
+            missing_path = Path(tmpdir) / "missing.md"
+            self.assertEqual(parse_plan_file(missing_path), {})
+            self.assertEqual(parse_plan_file(Path(tmpdir)), {})
+
+        phases = parse_plan_markdown(
+            "## Phase 1: Core Setup [checkpoint: abc1234]\n"
+            "- [x] Task: Write test [exempt: scripts] (1122334)\n"
+            "    - [x] Subtask A\n"
+            "\n"
+            "## Phase: Review Fixes\n"
+            "- [ ] Task: Address feedback\n"
+        )
+        phase_dict = phases[1].to_dict()
+        self.assertEqual(phase_dict["name"], "Core Setup")
+        self.assertEqual(phase_dict["checkpoint_sha"], "abc1234")
+        self.assertEqual(phase_dict["raw_heading"], "## Phase 1: Core Setup")
+        self.assertEqual(len(phase_dict["tasks"]), 1)
+        self.assertEqual(
+            phase_dict["tasks"][0],
+            {
+                "status": "complete",
+                "description": "Write test",
+                "subtasks": ["Subtask A"],
+                "commit_sha": "1122334",
+                "is_checkpoint": False,
+                "exempt": "scripts",
+                "raw_line": "- [x] Task: Write test [exempt: scripts] (1122334)",
+            },
+        )
+        self.assertEqual(len(phase_dict["review_fixes"]), 1)
+        self.assertEqual(phase_dict["review_fixes"][0]["description"], "Address feedback")
+
 
 
 
@@ -647,6 +686,61 @@ class TestPostPlanInvariants(unittest.TestCase):
 
             self.assertIn("conductor/tracks.md", str(ctx.exception))
             self.assertIn("docs/foo.md", str(ctx.exception))
+
+    @patch("subprocess.run")
+    def test_assert_post_plan_invariants_rejects_non_target_ephemeral_files(self, mock_run):
+        """Asserts PlanInvariantError is raised for other phase/task plans or review reports while allowing target plan and logs."""
+        assert_post_plan_invariants = get_target("assert_post_plan_invariants", self)
+        PlanInvariantError = get_target("PlanInvariantError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            track_dir = Path(tmpdir)
+            plan_file = track_dir / "phase-3-task-1-plan.md"
+            plan_file.write_text("# Implementation Plan\n", encoding="utf-8")
+
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=["git", "status", "--porcelain"],
+                returncode=0,
+                stdout=(
+                    "?? conductor/tracks/test/phase-3-task-1-plan.md\n"
+                    "?? conductor/tracks/test/logs/conductor-auto.log\n"
+                    "?? conductor/tracks/test/phase-3-task-2-plan.md\n"
+                    "?? conductor/tracks/test/phase-3-review.md\n"
+                ),
+                stderr="",
+            )
+
+            with self.assertRaises(PlanInvariantError) as ctx:
+                assert_post_plan_invariants(track_dir, phase_num=3, task_num=1)
+
+            err_msg = str(ctx.exception)
+            self.assertIn("phase-3-task-2-plan.md", err_msg)
+            self.assertIn("phase-3-review.md", err_msg)
+            self.assertNotIn("phase-3-task-1-plan.md", err_msg)
+            self.assertNotIn("conductor-auto.log", err_msg)
+
+    @patch("subprocess.run")
+    def test_assert_post_plan_invariants_allows_target_plan_and_supervisor_logs(self, mock_run):
+        """Asserts post-plan verification passes when only target plan and supervisor logs are dirty/untracked."""
+        assert_post_plan_invariants = get_target("assert_post_plan_invariants", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            track_dir = Path(tmpdir)
+            plan_file = track_dir / "phase-3-task-1-plan.md"
+            plan_file.write_text("# Implementation Plan\n", encoding="utf-8")
+
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=["git", "status", "--porcelain"],
+                returncode=0,
+                stdout=(
+                    "?? conductor/tracks/test/phase-3-task-1-plan.md\n"
+                    "?? conductor/tracks/test/logs/\n"
+                    "?? conductor/tracks/test/logs/conductor-auto.log\n"
+                ),
+                stderr="",
+            )
+
+            assert_post_plan_invariants(track_dir, phase_num=3, task_num=1)
 
 
 class TestTier1PlanningDispatch(unittest.TestCase):

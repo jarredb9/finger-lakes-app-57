@@ -31,6 +31,18 @@ import threading
 import time
 from typing import Any, Dict, List, Mapping, Optional, Set, TextIO, Tuple, Union
 
+_AGENT_DIR = str(Path(__file__).resolve().parent)
+if _AGENT_DIR not in sys.path:
+    sys.path.insert(0, _AGENT_DIR)
+
+from plan_parser import (  # noqa: E402
+    PhaseInfo,
+    TaskInfo,
+    is_checkpoint_task,
+    parse_plan_file,
+    parse_plan_markdown,
+)
+
 
 # ---------------------------------------------------------------------------
 # Project Root & Path Helpers
@@ -100,30 +112,6 @@ class GitTreeDirtyError(SupervisorInvariantError):
 # ---------------------------------------------------------------------------
 # Data Models
 # ---------------------------------------------------------------------------
-
-@dataclass
-class TaskInfo:
-    task_num: int
-    description: str
-    status: str              # "pending" | "in_progress" | "complete" | "skipped"
-    status_char: str         # " " | "~" | "x" | "-"
-    is_checkpoint: bool      # True if manual verification / checkpoint end of phase
-    commit_sha: Optional[str] = None
-    exempt: Optional[str] = None
-    subtasks: List[str] = field(default_factory=list)
-    raw_line: str = ""
-
-
-@dataclass
-class PhaseInfo:
-    phase_num: int
-    name: str
-    checkpoint_sha: Optional[str]
-    raw_heading: str
-    tasks: List[TaskInfo] = field(default_factory=list)
-    is_complete: bool = False
-    review_fixes: List[TaskInfo] = field(default_factory=list)
-
 
 @dataclass
 class ReviewResult:
@@ -285,22 +273,6 @@ def get_active_track() -> Optional[str]:
     return None
 
 
-def is_checkpoint_task(task_desc: str) -> bool:
-    """Returns True if task description represents a checkpoint or manual verification task."""
-    desc_lower = task_desc.lower().strip()
-    return (
-        "manual verification" in desc_lower
-        or "protocol in workflow.md" in desc_lower
-        or "checkpoint end of phase" in desc_lower
-        or "checkpoint verification" in desc_lower
-        or desc_lower.startswith("checkpoint:")
-        or desc_lower.startswith("checkpoint ")
-        or desc_lower.endswith("checkpoint")
-        or bool(re.search(r"\bcheckpoint\s+task\b", desc_lower))
-        or desc_lower.startswith("conductor - user manual verification")
-    )
-
-
 # ---------------------------------------------------------------------------
 # Track Plan Markdown Parser
 # ---------------------------------------------------------------------------
@@ -309,7 +281,7 @@ def parse_track_plan(track_path_or_name: Union[str, Path]) -> Dict[int, PhaseInf
     """Parses track plan.md, extracting phases, tasks, subtasks, statuses, and commit SHAs."""
     if isinstance(track_path_or_name, Path):
         if track_path_or_name.is_file():
-            plan_path = track_path_or_name
+            plan_path: Optional[Path] = track_path_or_name
         elif track_path_or_name.is_dir():
             plan_path = track_path_or_name / "plan.md"
         else:
@@ -324,139 +296,7 @@ def parse_track_plan(track_path_or_name: Union[str, Path]) -> Dict[int, PhaseInf
             resolved = resolve_track_dir(track_path_or_name)
             plan_path = resolved / "plan.md" if resolved else None
 
-    if not plan_path or not plan_path.exists():
-        return {}
-
-    content = plan_path.read_text(encoding="utf-8")
-    phases: Dict[int, PhaseInfo] = {}
-    current_phase: Optional[PhaseInfo] = None
-    in_review_fixes: bool = False
-
-    checkpoint_header_re = re.compile(
-        r"\s*`?(?:\[checkpoint:\s*`?([a-f0-9]{7,40})`?\]|\[`?([a-f0-9]{7,40})`?\])`?\s*$",
-        re.IGNORECASE,
-    )
-    exempt_re = re.compile(r"\[exempt:\s*([a-zA-Z0-9_\-]+)\]", re.IGNORECASE)
-    task_sha_re = re.compile(
-        r"\s*`?(?:\(`?([a-f0-9]{7,40})`?\)|\[(?:commit:\s*|checkpoint:\s*)?`?([a-f0-9]{7,40})`?\])`?\s*$",
-        re.IGNORECASE,
-    )
-    task_sha_bare_re = re.compile(
-        r"\s+`?([a-f0-9]{7,40})`?\s*$",
-        re.IGNORECASE,
-    )
-
-    for line in content.splitlines():
-        # Phase header: e.g. ## Phase 1: Setup... or ### Phase 2:... or ## Phase: Review Fixes
-        phase_match = re.match(r"^(#{2,3})\s+Phase(?:\s+(\d+))?[:\s]+(.*)", line, re.IGNORECASE)
-        if phase_match:
-            raw_num = phase_match.group(2)
-            raw_title = phase_match.group(3).strip()
-
-            cp_match = checkpoint_header_re.search(raw_title)
-            checkpoint_sha = None
-            if cp_match:
-                checkpoint_sha = cp_match.group(1) or cp_match.group(2)
-                phase_title = raw_title[: cp_match.start()].strip()
-            else:
-                phase_title = raw_title
-
-            if raw_num is None and re.match(r"^review\s+fixes\b", phase_title, re.IGNORECASE) and current_phase is not None:
-                in_review_fixes = True
-                continue
-
-            in_review_fixes = False
-            raw_heading = checkpoint_header_re.sub("", line.strip()).strip()
-
-            if raw_num:
-                phase_num = int(raw_num)
-            else:
-                phase_num = (max(phases.keys()) + 1) if phases else 1
-
-            current_phase = PhaseInfo(
-                phase_num=phase_num,
-                name=phase_title,
-                checkpoint_sha=checkpoint_sha,
-                raw_heading=raw_heading,
-                tasks=[],
-                is_complete=False,
-            )
-            phases[phase_num] = current_phase
-            continue
-
-        if current_phase is not None:
-            target_tasks = current_phase.review_fixes if in_review_fixes else current_phase.tasks
-
-            # Subtask check (indented by 2+ spaces or tabs before - [ ])
-            subtask_match = re.match(r"^(?:\s{2,}|\t+)-\s*\[([ x~X\-])\]\s*(.*)", line)
-            if subtask_match and target_tasks:
-                target_tasks[-1].subtasks.append(subtask_match.group(2).strip())
-                continue
-
-            # Top-level Task item
-            task_match = re.match(r"^-\s*\[([ x~X\-])\]\s+(?:Task(?:\s+\d+)?:)?\s*(.*)", line)
-            if task_match:
-                raw_char = task_match.group(1)
-                task_desc = task_match.group(2).strip()
-
-                if raw_char.lower() == "x":
-                    status = "complete"
-                    status_char = "x"
-                elif raw_char == "~":
-                    status = "in_progress"
-                    status_char = "~"
-                elif raw_char == "-":
-                    status = "skipped"
-                    status_char = "-"
-                else:
-                    status = "pending"
-                    status_char = " "
-
-                exempt_cat = None
-                exempt_match = exempt_re.search(task_desc)
-                if exempt_match:
-                    exempt_cat = exempt_match.group(1).lower()
-                    task_desc = exempt_re.sub("", task_desc).strip()
-
-                commit_sha = None
-                sha_match = task_sha_re.search(task_desc)
-                if not sha_match and status in ("complete", "skipped"):
-                    sha_match = task_sha_bare_re.search(task_desc)
-                if sha_match:
-                    commit_sha = next((g for g in sha_match.groups() if g is not None), None)
-                    clean_desc = task_desc[: sha_match.start()].strip()
-                else:
-                    clean_desc = task_desc
-
-                clean_desc = re.sub(
-                    r"\s*\[checkpoint:[^\]]+\]\s*$",
-                    "",
-                    clean_desc,
-                    flags=re.IGNORECASE,
-                ).strip()
-                clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
-
-                task_num = len(target_tasks) + 1
-                is_cp = is_checkpoint_task(clean_desc)
-
-                task_info = TaskInfo(
-                    task_num=task_num,
-                    description=clean_desc,
-                    status=status,
-                    status_char=status_char,
-                    is_checkpoint=is_cp,
-                    commit_sha=commit_sha,
-                    exempt=exempt_cat,
-                    subtasks=[],
-                    raw_line=line.strip(),
-                )
-                target_tasks.append(task_info)
-
-    # Compute is_complete for each phase
-    for phase in phases.values():
-        phase.is_complete = bool(phase.checkpoint_sha)
-
-    return phases
+    return parse_plan_file(plan_path)
 
 
 def get_active_phase(
@@ -1216,9 +1056,18 @@ def _is_metadata_path(clean_p: str) -> bool:
     return clean_p.startswith(("conductor/", ".conductor/", ".gemini/", ".claude/", ".agents/"))
 
 
+_SUPERVISOR_LOG_RE = re.compile(
+    r"^conductor/(?:tracks|archive)/[^/]+/logs(?:/.*)?$"
+)
 _EPHEMERAL_SUPERVISOR_RE = re.compile(
     r"^conductor/(?:tracks|archive)/[^/]+/(?:phase-\d+-task-\d+-plan\.md|phase-\d+-review\.md|logs(?:/.*)?)$"
 )
+
+
+def _is_supervisor_log_path(filepath: str) -> bool:
+    """Returns True if filepath is a supervisor-owned track log directory or file."""
+    clean_p = _normalize_repo_path(filepath).strip('"').lstrip("./")
+    return bool(_SUPERVISOR_LOG_RE.match(clean_p))
 
 
 def _is_ephemeral_supervisor_path(filepath: str) -> bool:
@@ -1267,6 +1116,7 @@ def _is_production_file(filepath: str) -> bool:
 
 def check_working_tree_cleanliness(
     cwd: Optional[Path] = None,
+    ignore_ephemeral: bool = True,
 ) -> Tuple[bool, List[str]]:
     """Runs git status --porcelain. Returns (is_clean, dirty_files)."""
     res = subprocess.run(
@@ -1285,7 +1135,7 @@ def check_working_tree_cleanliness(
         file_part = line[3:].strip() if len(line) > 3 and line[2] == " " else line[2:].strip()
         if " -> " in file_part:
             file_part = file_part.split(" -> ")[-1].strip()
-        if file_part and not _is_ephemeral_supervisor_path(file_part):
+        if file_part and not (ignore_ephemeral and _is_ephemeral_supervisor_path(file_part)):
             dirty_files.append(file_part)
 
     return len(dirty_files) == 0, dirty_files
@@ -1305,12 +1155,14 @@ def assert_post_plan_invariants(
         )
 
     target_plan_name = f"phase-{phase_num}-task-{task_num}-plan.md"
-    _, dirty_files = check_working_tree_cleanliness(cwd=cwd)
+    # Inspect all changes (including non-target ephemeral plans/reviews) so only target plan + logs pass.
+    _, dirty_files = check_working_tree_cleanliness(cwd=cwd, ignore_ephemeral=False)
     violations = [
         f
         for f in dirty_files
         if _normalize_repo_path(f) != target_plan_name
         and not _normalize_repo_path(f).endswith(f"/{target_plan_name}")
+        and not _is_supervisor_log_path(f)
     ]
 
     if violations:
