@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conductor-tools"
+version = "0.1.0"
+description = "Portable Conductor prompt generator and autonomous supervisor CLI"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+conductor-prompt = "conductor_tools.prompt_cli:main"
+conductor-auto = "conductor_tools.auto_cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["conductor_tools*"]
+exclude = ["tests*"]
