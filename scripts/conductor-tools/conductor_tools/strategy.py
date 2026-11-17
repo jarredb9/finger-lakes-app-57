@@ -585,7 +585,11 @@ def _should_append_type_check(
         return False
     if any(tok in cmd for cmd in commands for tok in type_check.check_tokens):
         return False
-    if any(is_type_check_cmd(cmd, type_check) for cmd in commands):
+    if any(
+        is_type_check_cmd(seg, type_check)
+        for cmd in commands
+        for seg in split_unquoted_and_chains(cmd, reject_shell_ops=False)
+    ):
         return False
     if wants_type_check:
         return True
@@ -601,6 +605,15 @@ def _should_append_type_check(
 # ---------------------------------------------------------------------------
 
 
+def _default_work_dir(track_dir: Path) -> Path:
+    """Infer repository root from `track_dir` via `conductor/` or `.git` markers, else `track_dir`."""
+    resolved = Path(track_dir).resolve()
+    for directory in (resolved, *resolved.parents):
+        if (directory / "conductor").is_dir() or (directory / ".git").exists():
+            return directory
+    return resolved
+
+
 def collect_phase_checkpoint_context(
     track_plan: TrackPlan,
     phase_num: Optional[int],
@@ -611,7 +624,7 @@ def collect_phase_checkpoint_context(
 ) -> PhaseCheckpointContext:
     """Aggregate git diff scope, sibling plans, idempotent commands, and domain for a checkpoint."""
     prof = profile if profile is not None else RepoProfile()
-    work_dir = Path(cwd) if cwd is not None else track_plan.track_dir
+    work_dir = Path(cwd) if cwd is not None else _default_work_dir(track_plan.track_dir)
 
     phase_info = track_plan.phases.get(phase_num) if phase_num is not None else None
     phase_tasks = phase_info.tasks if phase_info is not None else ()
@@ -788,7 +801,7 @@ def infer_verification_strategy(
 ) -> VerificationStrategy:
     """Compute a single-pass `VerificationStrategy` driven by `RepoProfile` and `TrackPlan`."""
     prof = profile if profile is not None else RepoProfile()
-    work_dir = Path(cwd) if cwd is not None else track_plan.track_dir
+    work_dir = Path(cwd) if cwd is not None else _default_work_dir(track_plan.track_dir)
     scope = git_scope.derive_scope(track_plan.track_name)
 
     resolved_task = task
@@ -891,10 +904,13 @@ def infer_verification_strategy(
     for span in extract_backtick_spans(resolved_subtasks):
         if not is_executable_subtask_cmd(span, prof.safety):
             continue
-        if is_red and is_static_analysis_cmd(span, prof.supervisor):
-            continue
-        if span not in explicit_subtask_cmds:
-            explicit_subtask_cmds.append(span)
+        candidate = (
+            strip_static_analysis_segments(span, prof.supervisor)
+            if is_red
+            else span
+        )
+        if candidate and candidate not in explicit_subtask_cmds:
+            explicit_subtask_cmds.append(candidate)
 
     all_files = tuple(
         dict.fromkeys(
@@ -995,7 +1011,10 @@ def infer_verification_strategy(
         fallback_desc = f"Implement Phase {phase_num} Task {task_num}"
         instruction = "- Run targeted verification commands and confirm all checks pass cleanly."
 
-    commit_msg = f"{default_verb}({scope}): {resolved_desc or fallback_desc}".replace("`", "")
+    clean_non_exempt_desc = (
+        _strip_exempt_and_sha(resolved_desc) if mode_override is not None else resolved_desc
+    )
+    commit_msg = f"{default_verb}({scope}): {clean_non_exempt_desc or fallback_desc}".replace("`", "")
 
     return VerificationStrategy(
         mode=mode,

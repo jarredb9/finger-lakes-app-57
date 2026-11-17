@@ -664,6 +664,32 @@ class TestVerificationStrategyInference(unittest.TestCase):
             )
             self.assertEqual(dedup_strategy.commands, ("npm run check-types",))
 
+            # Detects embedded type-check segments in && chains even when check_tokens=()
+            custom_tc_profile = RepoProfile(
+                type_check=TypeCheckProfile(cmd="mypy src", extensions=(".py",), check_tokens=()),
+                suites=profile.suites,
+                safety=profile.safety,
+                supervisor=profile.supervisor,
+            )
+            for chained_cmd in ("cd sub && mypy src", "pytest -q && MYPYPATH=src mypy src --strict"):
+                with self.subTest(chained_cmd=chained_cmd):
+                    chained_bp = TaskBlueprint(
+                        plan_path=plan.track_dir / "phase-1-task-1-plan.md",
+                        target_files=("py_pkg/mod.py",),
+                        verification_commands=(chained_cmd,),
+                    )
+                    chained_strategy = infer_verification_strategy(
+                        plan,
+                        1,
+                        1,
+                        task=task,
+                        task_desc=task.description,
+                        blueprint=chained_bp,
+                        profile=custom_tc_profile,
+                        cwd=root,
+                    )
+                    self.assertEqual(chained_strategy.commands, (chained_cmd,))
+
     def test_full_suite_keywords_routing_and_commit_verb(self) -> None:
         profile = _make_profile()
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -688,7 +714,10 @@ class TestVerificationStrategyInference(unittest.TestCase):
                 "test(auth): add failing login test",
                 subtasks=(
                     "Run `NODE_ENV=test npm run lint` before commit",
+                    "Run `cd app && npm run lint` in app",
                     "Run `pytest tests/test_extra.py`",
+                    "Run `pytest tests/test_trailing.py && npm run lint`",
+                    "Run `NODE_ENV=test npm run lint && pytest tests/test_leading.py`",
                 ),
             )
             plan = _make_track_plan(root, {1: PhaseInfo(1, "Auth", tasks=(task,))})
@@ -717,7 +746,12 @@ class TestVerificationStrategyInference(unittest.TestCase):
             self.assertTrue(strategy.is_red)
             self.assertEqual(
                 strategy.commands,
-                ("pytest tests/test_auth.py", "pytest tests/test_extra.py"),
+                (
+                    "pytest tests/test_auth.py",
+                    "pytest tests/test_extra.py",
+                    "pytest tests/test_trailing.py",
+                    "pytest tests/test_leading.py",
+                ),
             )
             self.assertTrue(strategy.commit_msg.startswith("test(sample): "))
             self.assertIn("Red phase", strategy.instruction)
@@ -770,6 +804,47 @@ class TestVerificationStrategyInference(unittest.TestCase):
                     )
                     self.assertEqual(oob.mode, PromptMode.GREEN)
                     self.assertIsNone(oob.exempt)
+
+    def test_mode_override_on_exempt_task_strips_exempt_and_sha_from_commit_msg(self) -> None:
+        profile = _make_profile()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            task = _make_task(1, "Polish `Button` layout [exempt: ui] [commit: a1b2c3d]")
+            plan = _make_track_plan(root, {1: PhaseInfo(1, "UI", tasks=(task,))})
+            bp = TaskBlueprint(
+                plan_path=plan.track_dir / "phase-1-task-1-plan.md",
+                target_files=("web/Button.tsx",),
+            )
+
+            green_strategy = infer_verification_strategy(
+                plan,
+                1,
+                1,
+                task=task,
+                task_desc="Polish `Button` layout [exempt: ui] [commit: a1b2c3d]",
+                blueprint=bp,
+                mode_override=PromptMode.GREEN,
+                profile=profile,
+                cwd=root,
+            )
+            self.assertEqual(green_strategy.mode, PromptMode.GREEN)
+            self.assertEqual(green_strategy.commit_msg, "feat(sample): Polish Button layout")
+
+            red_fallback_strategy = infer_verification_strategy(
+                plan,
+                1,
+                1,
+                task_desc="[exempt: docs]",
+                blueprint=bp,
+                mode_override=PromptMode.RED,
+                profile=profile,
+                cwd=root,
+            )
+            self.assertEqual(red_fallback_strategy.mode, PromptMode.RED)
+            self.assertEqual(
+                red_fallback_strategy.commit_msg,
+                "test(sample): Add failing tests for Phase 1 Task 1",
+            )
 
     def test_single_pass_reuses_blueprint_and_track_plan_without_disk_or_git(self) -> None:
         profile = _make_profile()
@@ -964,6 +1039,50 @@ class TestPhaseCheckpointContextCollection(unittest.TestCase):
             assert strategy.checkpoint_context is not None
             self.assertEqual(strategy.checkpoint_context.changed_files, ("db/001.sql",))
             self.assertEqual(strategy.checkpoint_context.domain, "database")
+
+    def test_checkpoint_context_cwd_none_infers_repo_root_for_sibling_plans(self) -> None:
+        profile = _make_profile()
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _init_git_repo(Path(tmpdir))
+            _commit_file(root, "README.md", "v1\n", "chore: init")
+
+            # 1. Standard conductor/ tracks layout with cwd omitted
+            t1 = _make_task(1, "Implement module", status="pending")
+            t_cp = _make_task(2, "Phase 1 Checkpoint", is_checkpoint=True)
+            plan = _make_track_plan(root, {1: PhaseInfo(1, "Core", tasks=(t1, t_cp))})
+            (plan.track_dir / "phase-1-task-1-plan.md").write_text(
+                "- **Path:** `src/mod.py`\n",
+                encoding="utf-8",
+            )
+
+            ctx = collect_phase_checkpoint_context(plan, 1, 2, profile=profile)
+            self.assertEqual(
+                ctx.sibling_plans,
+                (f"conductor/tracks/{plan.track_name}/phase-1-task-1-plan.md",),
+            )
+
+            # 2. Custom tracks dir inside a .git repo (no conductor/ marker)
+            git_only_root = _init_git_repo(Path(tmpdir) / "git_only")
+            _commit_file(git_only_root, "README.md", "v1\n", "chore: init")
+            custom_track_dir = git_only_root / "custom_tracks" / "demo_20261117"
+            custom_track_dir.mkdir(parents=True)
+            custom_plan_path = custom_track_dir / "plan.md"
+            custom_plan_path.write_text("# Plan\n", encoding="utf-8")
+            (custom_track_dir / "phase-1-task-1-plan.md").write_text(
+                "- **Path:** `src/custom.py`\n",
+                encoding="utf-8",
+            )
+            custom_plan = TrackPlan(
+                track_name="demo_20261117",
+                track_dir=custom_track_dir,
+                plan_path=custom_plan_path,
+                phases={1: PhaseInfo(1, "Core", tasks=(t1, t_cp))},
+            )
+            custom_ctx = collect_phase_checkpoint_context(custom_plan, 1, 2, profile=profile)
+            self.assertEqual(
+                custom_ctx.sibling_plans,
+                ("custom_tracks/demo_20261117/phase-1-task-1-plan.md",),
+            )
 
 
 if __name__ == "__main__":
