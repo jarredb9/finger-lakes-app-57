@@ -1443,6 +1443,7 @@ def verify_red_task(
     head_sha: str = "HEAD",
     cwd: Optional[Path] = None,
     expected_targets: Optional[Sequence[str]] = None,
+    test_cmds: Optional[Sequence[str]] = None,
 ) -> bool:
     """Performs dual-check verification for Red tasks:
     1. Test command exits non-zero.
@@ -1454,7 +1455,12 @@ def verify_red_task(
     """
     work_dir = cwd or PROJECT_ROOT
     try:
-        segments = _parse_verification_commands(test_cmd, work_dir=work_dir, check_cd_exists=True)
+        if test_cmds is not None:
+            segments = []
+            for cmd_line in test_cmds:
+                segments.extend(_parse_verification_commands(cmd_line, work_dir=work_dir, check_cd_exists=True))
+        else:
+            segments = _parse_verification_commands(test_cmd, work_dir=work_dir, check_cd_exists=True)
     except ValueError as exc:
         raise SupervisorInvariantError(
             f"Invalid Red task verification command '{test_cmd}': {exc}"
@@ -1933,12 +1939,15 @@ def verify_task_execution(
     if _is_red_task(task.description):
         plan_file = track_dir / f"phase-{phase_num}-task-{task.task_num}-plan.md"
         expected_targets = _extract_expected_red_targets(task, plan_file=plan_file)
-        return verify_red_task(
-            test_cmd=" && ".join(test_cmds),
-            base_sha=base_sha or "HEAD~1",
-            cwd=work_dir,
-            expected_targets=expected_targets,
-        )
+        red_kwargs: Dict[str, Any] = {
+            "test_cmd": " && ".join(test_cmds),
+            "base_sha": base_sha or "HEAD~1",
+            "cwd": work_dir,
+            "expected_targets": expected_targets,
+        }
+        if has_cross_cmd_cd:
+            red_kwargs["test_cmds"] = test_cmds
+        return verify_red_task(**red_kwargs)
 
     type_check_cmd = None if is_py_only else "npm run type-check"
     if has_cross_cmd_cd:
