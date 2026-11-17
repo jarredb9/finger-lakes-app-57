@@ -30,6 +30,12 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+_AGENT_DIR = str(Path(__file__).resolve().parent)
+if _AGENT_DIR not in sys.path:
+    sys.path.insert(0, _AGENT_DIR)
+
+from plan_parser import is_checkpoint_task, parse_plan_file  # noqa: E402
+
 # Project root resolution (supports execution from scripts/ or scripts/agent/)
 if (Path(__file__).resolve().parents[1] / "package.json").exists():
     PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -110,116 +116,12 @@ def _rel_to_project(path: Path) -> str:
         return str(path)
 
 
-def is_checkpoint_task(task_desc: str) -> bool:
-    """Returns True if task description represents a Phase Completion / Manual Verification checkpoint."""
-    desc_lower = task_desc.lower().strip()
-    return (
-        "manual verification" in desc_lower
-        or "protocol in workflow.md" in desc_lower
-        or "checkpoint end of phase" in desc_lower
-        or desc_lower.startswith("conductor - user manual verification")
-    )
-
-
 def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
-    """Parses phases, tasks, and subtasks from track plan.md."""
+    """Parses phases, tasks, and subtasks from track plan.md into dict structures."""
     track_dir = resolve_track_dir(track_name)
     plan_path = track_dir / "plan.md" if track_dir else None
-    if not plan_path or not plan_path.exists():
-        return {}
-
-    content = plan_path.read_text(encoding="utf-8")
-    phases: Dict[int, Dict[str, Any]] = {}
-    current_phase_num = None
-
-    checkpoint_header_re = re.compile(
-        r"\s*(?:\[checkpoint:\s*([a-f0-9]{7,40})\]|\[([a-f0-9]{7,40})\])\s*$",
-        re.IGNORECASE,
-    )
-    exempt_re = re.compile(r"\[exempt:\s*([a-zA-Z0-9_\-]+)\]", re.IGNORECASE)
-    task_sha_re = re.compile(
-        r"\s*(?:\(([a-f0-9]{7,40})\)|\[(?:commit:\s*|checkpoint:\s*)?([a-f0-9]{7,40})\]|([a-f0-9]{7,40}))\s*$",
-        re.IGNORECASE,
-    )
-
-    for line in content.splitlines():
-        # Phase header: e.g., ## Phase 2: On-Demand Enrichment... or ### Phase 1:... or ## Phase: Review Fixes
-        phase_match = re.match(r"^(#{2,3})\s+Phase(?:\s+(\d+))?[:\s]+(.*)", line, re.IGNORECASE)
-        if phase_match:
-            raw_num = phase_match.group(2)
-            raw_title = phase_match.group(3).strip()
-            cp_match = checkpoint_header_re.search(raw_title)
-            checkpoint_sha = None
-            if cp_match:
-                checkpoint_sha = cp_match.group(1) or cp_match.group(2)
-                phase_title = raw_title[: cp_match.start()].strip()
-            else:
-                phase_title = raw_title
-
-            raw_heading = checkpoint_header_re.sub("", line.strip()).strip()
-
-            if raw_num:
-                current_phase_num = int(raw_num)
-            else:
-                current_phase_num = (max(phases.keys()) + 1) if phases else 1
-            phases[current_phase_num] = {
-                "name": phase_title,
-                "checkpoint_sha": checkpoint_sha,
-                "raw_heading": raw_heading,
-                "tasks": [],
-            }
-            continue
-
-        if current_phase_num is not None:
-            # Check indented subtask first (indented by 2+ spaces or tabs before - [ ])
-            subtask_match = re.match(r"^(?:\s{2,}|\t+)-\s*\[([ x~X])\]\s*(.*)", line)
-            if subtask_match and phases[current_phase_num]["tasks"]:
-                phases[current_phase_num]["tasks"][-1]["subtasks"].append(subtask_match.group(2).strip())
-                continue
-
-            # Top-level Task item (starts at line start)
-            task_match = re.match(r"^-\s*\[([ x~X])\]\s+(?:Task(?:\s+\d+)?:)?\s*(.*)", line)
-            if task_match:
-                status_char = task_match.group(1).lower()
-                task_desc = task_match.group(2).strip()
-                exempt_cat = None
-                exempt_match = exempt_re.search(task_desc)
-                if exempt_match:
-                    exempt_cat = exempt_match.group(1).lower()
-                    task_desc = exempt_re.sub("", task_desc).strip()
-
-                commit_sha = None
-                sha_match = task_sha_re.search(task_desc)
-                if sha_match:
-                    commit_sha = sha_match.group(1) or sha_match.group(2) or sha_match.group(3)
-                    clean_desc = task_desc[: sha_match.start()].strip()
-                else:
-                    clean_desc = re.sub(
-                        r"\s*\[checkpoint:[^\]]+\]\s*$",
-                        "",
-                        task_desc,
-                        flags=re.IGNORECASE,
-                    ).strip()
-
-                clean_desc = re.sub(
-                    r"\s*\[checkpoint:[^\]]+\]\s*$",
-                    "",
-                    clean_desc,
-                    flags=re.IGNORECASE,
-                ).strip()
-                clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
-
-                phases[current_phase_num]["tasks"].append({
-                    "status": "complete" if status_char == "x" else ("in_progress" if status_char == "~" else "pending"),
-                    "description": clean_desc,
-                    "subtasks": [],
-                    "commit_sha": commit_sha,
-                    "is_checkpoint": is_checkpoint_task(clean_desc),
-                    "exempt": exempt_cat,
-                    "raw_line": line.strip(),
-                })
-
-    return phases
+    parsed = parse_plan_file(plan_path)
+    return {phase_num: phase.to_dict() for phase_num, phase in parsed.items()}
 
 
 def _verify_git_commit(rev: str, cwd: Path = PROJECT_ROOT) -> Optional[str]:
@@ -241,6 +143,26 @@ def _verify_git_commit(rev: str, cwd: Path = PROJECT_ROOT) -> Optional[str]:
     return None
 
 
+def _resolve_first_sha(
+    entries: List[Dict[str, Any]],
+    cwd: Path,
+    has_git: bool,
+    verify_in_git: bool = True,
+) -> Optional[str]:
+    """Returns the most recent commit SHA from reversed entries, verifying against git when requested."""
+    for entry in reversed(entries):
+        sha = entry.get("commit_sha")
+        if not sha:
+            continue
+        if verify_in_git and has_git:
+            verified = _verify_git_commit(sha, cwd)
+            if verified:
+                return verified
+        elif not verify_in_git or not has_git:
+            return sha[:7]
+    return None
+
+
 def resolve_phase_baseline_sha(
     phases: Dict[int, Dict[str, Any]],
     phase_num: Optional[int],
@@ -255,6 +177,10 @@ def resolve_phase_baseline_sha(
     # Tier 1: Walk preceding phases in reverse order
     prior_phases = [p for p in sorted(phases.keys()) if p < phase_num]
     for prev_p in reversed(prior_phases):
+        rf_sha = _resolve_first_sha(phases[prev_p].get("review_fixes", []), cwd, has_git)
+        if rf_sha:
+            return rf_sha
+
         cp_sha = phases[prev_p].get("checkpoint_sha")
         if cp_sha:
             verified = _verify_git_commit(cp_sha, cwd)
@@ -263,14 +189,9 @@ def resolve_phase_baseline_sha(
             if not has_git:
                 return cp_sha[:7]
 
-        for t in reversed(phases[prev_p].get("tasks", [])):
-            t_sha = t.get("commit_sha")
-            if t_sha:
-                verified = _verify_git_commit(t_sha, cwd)
-                if verified:
-                    return verified
-                if not has_git:
-                    return t_sha[:7]
+        task_sha = _resolve_first_sha(phases[prev_p].get("tasks", []), cwd, has_git)
+        if task_sha:
+            return task_sha
 
     # Tier 2: First phase (or no prior phase SHAs recorded)
     for t in phases[phase_num].get("tasks", []):
@@ -323,6 +244,11 @@ def resolve_phase_end_sha(
 
     has_git = _verify_git_commit("HEAD", cwd) is not None
 
+    # Tier 0: Post-checkpoint review fixes attached to this phase
+    rf_sha = _resolve_first_sha(phases[phase_num].get("review_fixes", []), cwd, has_git)
+    if rf_sha:
+        return rf_sha
+
     # Tier 1: Phase header checkpoint tag
     cp_sha = phases[phase_num].get("checkpoint_sha")
     if cp_sha:
@@ -334,15 +260,9 @@ def resolve_phase_end_sha(
             return cp_sha[:7]
 
     # Tier 2: Last completed task or checkpoint task in phase with a commit_sha
-    for t in reversed(phases[phase_num].get("tasks", [])):
-        t_sha = t.get("commit_sha")
-        if t_sha:
-            if has_git:
-                verified = _verify_git_commit(t_sha, cwd)
-                if verified:
-                    return verified
-            else:
-                return t_sha[:7]
+    task_sha = _resolve_first_sha(phases[phase_num].get("tasks", []), cwd, has_git)
+    if task_sha:
+        return task_sha
 
     # Tier 3: Baseline SHA of the next sequential phase
     next_phases = [p for p in sorted(phases.keys()) if p > phase_num]
@@ -352,12 +272,18 @@ def resolve_phase_end_sha(
             return next_base
 
     # Fallback to unverified tag if recorded in plan (e.g., shallow clone)
+    rf_fallback = _resolve_first_sha(
+        phases[phase_num].get("review_fixes", []), cwd, has_git, verify_in_git=False
+    )
+    if rf_fallback:
+        return rf_fallback
     if cp_sha:
         return cp_sha[:7]
-    for t in reversed(phases[phase_num].get("tasks", [])):
-        t_sha = t.get("commit_sha")
-        if t_sha:
-            return t_sha[:7]
+    task_fallback = _resolve_first_sha(
+        phases[phase_num].get("tasks", []), cwd, has_git, verify_in_git=False
+    )
+    if task_fallback:
+        return task_fallback
 
     # Tier 4: Fallback to "HEAD" for active/incomplete phases
     return "HEAD"
@@ -1144,17 +1070,62 @@ def get_preceding_context(track_name: str, phase_num: Optional[int], task_num: O
     return ""
 
 
+_TS_FILE_RE = re.compile(r"\b[a-zA-Z0-9_\-/\.]+\.tsx?\b")
+_TS_STYLE_GUARDRAIL = (
+    "TypeScript Style Guardrails (conductor/code_styleguides/typescript.md): "
+    "avoid `as` type assertions (prefer type guards/narrowing); "
+    "avoid `_`-prefixed identifiers (use parameterless `catch {}`); "
+    "use single quotes and explicit semicolons."
+)
+
+
+def _has_typescript_targets(
+    track_name: str,
+    phase_num: Optional[int],
+    task_num: Optional[int],
+    task_desc: str = "",
+    subtasks: Optional[List[str]] = None,
+    plan_file: Optional[Path] = None,
+) -> bool:
+    """Returns True if task targets or description/subtasks reference .ts or .tsx files."""
+    if plan_file and plan_file.exists():
+        targets, cmds = _extract_plan_targets_and_cmds(plan_file)
+        if any(t.endswith((".ts", ".tsx")) for t in targets):
+            return True
+        if any(_TS_FILE_RE.search(c) for c in cmds):
+            return True
+
+    resolved_subtasks = list(subtasks) if subtasks else []
+    resolved_desc = task_desc
+    if (not resolved_subtasks or not resolved_desc) and track_name and phase_num is not None and task_num is not None:
+        try:
+            p_tasks = parse_plan_tasks(track_name)
+            if phase_num in p_tasks and 1 <= task_num <= len(p_tasks[phase_num]["tasks"]):
+                t_obj = p_tasks[phase_num]["tasks"][task_num - 1]
+                if not resolved_desc:
+                    resolved_desc = t_obj.get("description", "")
+                if not resolved_subtasks:
+                    resolved_subtasks = list(t_obj.get("subtasks", []))
+        except (OSError, UnicodeDecodeError):
+            pass
+
+    combined = resolved_desc + "\n" + "\n".join(resolved_subtasks)
+    return bool(_TS_FILE_RE.search(combined))
+
+
 def build_plan_prompt(track_name: str, phase_num: Optional[int], task_num: Optional[int], task_desc: str = "") -> str:
+    """Builds a headless planning prompt for a checkpoint or standard implementation task."""
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
+    plan_path = track_dir / f"phase-{phase_num}-task-{task_num}-plan.md" if track_dir else None
     task_focus = f" for '{task_desc}'" if task_desc else ""
     context_hint = get_preceding_context(track_name, phase_num, task_num)
     context_line = f"\n\n{context_hint}" if context_hint else ""
 
     strategy = infer_verification_strategy(track_name, phase_num, task_num, task_desc)
     if strategy.get("is_checkpoint"):
-        return f"""/conductor:implement @[{rel_track_dir}] Plan Phase {phase_num} Task {task_num} only{task_focus}.{context_line}
+        return f"""Plan Phase {phase_num} Task {task_num} only{task_focus} for @[{rel_track_dir}] using @[{rel_track_dir}/spec.md] and @[{rel_track_dir}/plan.md].{context_line}
 
 Gate & Planning Protocol (Phase Completion Verification & Checkpointing):
 - Reference the Phase Completion Verification and Checkpointing Protocol in conductor/workflow.md.
@@ -1166,9 +1137,15 @@ Gate & Planning Protocol (Phase Completion Verification & Checkpointing):
   3. Automated Verification Commands: Phase-scoped verification commands (`./scripts/containers/run-jest-container.sh`, `npm run type-check`, integration/E2E specs).
   4. Manual Verification Steps: Actionable step-by-step verification plan for the user (Frontend: dev server, localhost:3000, specific visual behaviors; Database/Backend: CLI/SQL/invariant checks).
   5. Post-Execution Protocol: Define checkpoint commit `conductor(checkpoint): Checkpoint end of Phase {phase_num}`, git notes report format, and plan.md update with `[checkpoint: <sha>]`.
-- Halt for user approval via modal before proceeding."""
+- Headless --print mode: do NOT invoke ask_question or interactive modals. Terminate your turn immediately after writing {plan_file}."""
 
-    return f"""/conductor:implement @[{rel_track_dir}] Plan Phase {phase_num} Task {task_num} only{task_focus}.{context_line}
+    ts_guardrail_line = (
+        f"\n- {_TS_STYLE_GUARDRAIL}"
+        if _has_typescript_targets(track_name, phase_num, task_num, task_desc=task_desc, plan_file=plan_path)
+        else ""
+    )
+
+    return f"""Plan Phase {phase_num} Task {task_num} only{task_focus} for @[{rel_track_dir}] using @[{rel_track_dir}/spec.md] and @[{rel_track_dir}/plan.md].{context_line}
 
 Gate & Planning Protocol:
 - Perform static code inspection focused on the target seam (no test runs or builds during planning).
@@ -1178,9 +1155,9 @@ Gate & Planning Protocol:
   2. Full TypeScript interfaces, prop types, and exported function signatures.
   3. Precise behavioral logic (formulas, state transitions, conditions, error handling, edge cases).
   4. Execution Verification Protocol with exact test commands to run (e.g. ./scripts/containers/run-jest-container.sh <test> or ./scripts/containers/run-e2e-container.sh webkit <spec>).
-  Omit verbatim multi-page code implementations; the executor will synthesize code directly using the blueprint with compiler and test feedback.
+  Omit verbatim multi-page code implementations; the executor will synthesize code directly using the blueprint with compiler and test feedback.{ts_guardrail_line}
 - In the plan's Post-Execution section, format the `git notes add` command using the standard fields: Task, Summary, Files, and Rationale.
-- Halt for user approval via modal before modifying any files."""
+- Headless --print mode: do NOT invoke ask_question or interactive modals. Terminate your turn immediately after writing {plan_file}."""
 
 
 def extract_post_execution_info(
@@ -1458,10 +1435,21 @@ def build_exec_prompt(
             post_exec_directive = f"Follow the Post-Execution section of @[{plan_file}] if present."
         post_exec_line = f"   - {post_exec_directive} Otherwise: {commit_and_plan_suffix}"
 
+    ts_guardrail_block = ""
+    if _has_typescript_targets(
+        track_name,
+        phase_num,
+        task_num,
+        task_desc=resolved_task_desc,
+        subtasks=resolved_subtasks,
+        plan_file=plan_path,
+    ):
+        ts_guardrail_block = f"\n   - {_TS_STYLE_GUARDRAIL}"
+
     return f"""{header_line}
 
 Execution Directives:
-{scope_block}
+{scope_block}{ts_guardrail_block}
 {verification_block}
 3. Post-Execution:
 {post_exec_line}
@@ -1469,12 +1457,13 @@ Execution Directives:
 
 
 def build_recovery_prompt(track_name, phase_num, task_num):
+    """Builds a headless recovery prompt to verify and commit uncommitted changes for a task."""
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
-    return f"""/conductor:implement @[{rel_track_dir}]
+    return f"""Recover uncommitted changes in @[{rel_track_dir}] for Phase {phase_num}, Task {task_num}.
 
-Pick up uncommitted changes in git status for Phase {phase_num}, Task {task_num}.
-Verify with tests, commit, update plan.md, and halt."""
+Headless --print mode: do NOT invoke ask_question or interactive modals.
+Inspect `git status` and `git diff`, verify changes with the task's tests, commit using Conventional Commits with git notes (Task, Summary, Files, Rationale), update {rel_track_dir}/plan.md, commit plan.md, and halt."""
 
 
 def main():
@@ -1620,7 +1609,7 @@ def main():
             )
             sys.exit(1)
         selected_idx, selected_task = next(
-            ((idx, t) for idx, t in checkpoint_candidates if t["status"] != "complete"),
+            ((idx, t) for idx, t in checkpoint_candidates if t["status"] not in ("complete", "skipped")),
             checkpoint_candidates[-1],
         )
         task_num = selected_idx
@@ -1741,7 +1730,7 @@ def main():
         incomplete_prior = [
             f"Task {idx} ('{t['description']}')"
             for idx, t in enumerate(phases[phase_num]["tasks"][: task_num - 1], start=1)
-            if t["status"] != "complete"
+            if t["status"] not in ("complete", "skipped")
         ]
         if incomplete_prior:
             print(

@@ -32,6 +32,9 @@ next-env.d.ts
 .cgcignore
 .firecrawl/
 skills-lock.json
+conductor/**/phase-*-task-*-plan.md
+conductor/**/phase-*-review.md
+conductor/**/logs/
 
 # Playwright & Testing Artifacts
 node_modules/

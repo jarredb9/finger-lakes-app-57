@@ -559,3 +559,379 @@ Deno.test("send-social-notification auth - returns 401 when Authorization secret
     fetchStub.restore();
   }
 });
+
+function stubSocialSupabaseFetch(options: {
+  activityLedger?: { id: string; user_id: string; privacy_level: string } | null;
+  profile?: { privacy_level: string } | null;
+  follows?: Array<{ follower_id: string }>;
+  friends1?: Array<{ user2_id: string }>;
+  friends2?: Array<{ user1_id: string }>;
+} = {}) {
+  return stub(
+    globalThis,
+    "fetch",
+    (url: string | URL | Request) => {
+      const urlStr = url.toString();
+      if (urlStr.includes("/rest/v1/activity_ledger")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(options.activityLedger ?? null), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        );
+      }
+      if (urlStr.includes("/rest/v1/profiles")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(options.profile ?? { privacy_level: "public" }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        );
+      }
+      if (urlStr.includes("/rest/v1/follows")) {
+        return Promise.resolve(
+          new Response(JSON.stringify(options.follows ?? []), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          })
+        );
+      }
+      if (urlStr.includes("/rest/v1/friends")) {
+        const isUser1 = urlStr.includes("user1_id=eq.");
+        return Promise.resolve(
+          new Response(
+            JSON.stringify(isUser1 ? (options.friends1 ?? []) : (options.friends2 ?? [])),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }
+          )
+        );
+      }
+      return Promise.reject(new Error(`Unhandled fetch to ${urlStr}`));
+    }
+  );
+}
+
+Deno.test("send-social-notification auth - accepts INTERNAL_WEBHOOK_SECRET, WEBHOOK_SECRET, and SUPABASE_SERVICE_ROLE_KEY", async () => {
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "service-role-secret-value",
+    INTERNAL_WEBHOOK_SECRET: "internal-secret-value",
+    WEBHOOK_SECRET: "webhook-secret-value",
+  });
+
+  const fetchStub = stubSocialSupabaseFetch({
+    activityLedger: { id: "activity-1", user_id: "user-1", privacy_level: "public" },
+    profile: { privacy_level: "public" },
+    follows: [{ follower_id: "follower-1" }],
+  });
+
+  try {
+    for (const token of [
+      "internal-secret-value",
+      "webhook-secret-value",
+      "service-role-secret-value",
+    ]) {
+      const req = createMockRequest("https://test.com", {
+        body: {
+          record: {
+            id: "activity-1",
+            user_id: "user-1",
+            privacy_level: "public",
+          },
+        },
+        authHeader: `Bearer ${token}`,
+      });
+
+      const res = await sendSocialNotificationHandler(req);
+      const data = await res.json();
+      assertEquals(res.status, 200, `Expected 200 for configured secret token`);
+      assertEquals(data.success, true);
+      assertEquals(data.count, 1);
+      assertEquals("notified" in data, false);
+    }
+  } finally {
+    envStub.restore();
+    fetchStub.restore();
+  }
+});
+
+Deno.test("send-social-notification auth - returns 401 for malformed headers and prefix/suffix/length mismatches", async () => {
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "service-role-secret-long",
+    INTERNAL_WEBHOOK_SECRET: "correct-secret",
+    WEBHOOK_SECRET: "webhook-secret-12345",
+  });
+
+  const fetchStub = stubSocialSupabaseFetch({
+    activityLedger: { id: "activity-1", user_id: "user-1", privacy_level: "public" },
+  });
+
+  try {
+    const invalidHeaders = [
+      "Bearer",
+      "Bearer   ",
+      "Basic dXNlcjpwYXNz",
+      "Bearer correct",
+      "Bearer correct-secret-extra",
+      "Bearer webhook-secret-1234",
+      "Bearer service-role-secret-lon",
+    ];
+
+    for (const authHeader of invalidHeaders) {
+      const req = createMockRequest("https://test.com", {
+        body: { record: { id: "activity-1" } },
+        authHeader,
+      });
+
+      const res = await sendSocialNotificationHandler(req);
+      const data = await res.json();
+      assertEquals(res.status, 401, `Expected 401 for header: ${authHeader}`);
+      assertEquals(typeof data.error === "string" && /unauthorized/i.test(data.error), true);
+    }
+  } finally {
+    envStub.restore();
+    fetchStub.restore();
+  }
+});
+
+Deno.test("send-social-notification auth - returns 401 when no authorization secrets are configured", async () => {
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+  });
+
+  const fetchStub = stubSocialSupabaseFetch({
+    activityLedger: { id: "activity-1", user_id: "user-1", privacy_level: "public" },
+  });
+
+  try {
+    for (const authHeader of ["Bearer ", "Bearer any-token"]) {
+      const req = createMockRequest("https://test.com", {
+        body: { record: { id: "activity-1" } },
+        authHeader,
+      });
+
+      const res = await sendSocialNotificationHandler(req);
+      const data = await res.json();
+      assertEquals(res.status, 401);
+      assertEquals(typeof data.error === "string" && /unauthorized/i.test(data.error), true);
+    }
+  } finally {
+    envStub.restore();
+    fetchStub.restore();
+  }
+});
+
+Deno.test("send-social-notification ledger - returns 400 when record.id is missing and issues zero DB queries", async () => {
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
+    WEBHOOK_SECRET: "webhook-secret",
+  });
+
+  const fetchStub = stubSocialSupabaseFetch();
+
+  try {
+    const payloads = [
+      {},
+      { record: {} },
+      { record: { id: "" } },
+      { record: { user_id: "user-1", privacy_level: "public" } },
+    ];
+
+    for (const body of payloads) {
+      const req = createMockRequest("https://test.com", {
+        body,
+        authHeader: "Bearer webhook-secret",
+      });
+
+      const res = await sendSocialNotificationHandler(req);
+      assertEquals(res.status, 400);
+    }
+
+    assertEquals(fetchStub.calls.length, 0);
+  } finally {
+    envStub.restore();
+    fetchStub.restore();
+  }
+});
+
+Deno.test("send-social-notification ledger - returns 404 when activity_ledger row does not exist without querying graph tables", async () => {
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
+    INTERNAL_WEBHOOK_SECRET: "correct-secret",
+  });
+
+  const fetchStub = stubSocialSupabaseFetch({
+    activityLedger: null,
+  });
+
+  try {
+    const req = createMockRequest("https://test.com", {
+      body: {
+        record: {
+          id: "missing-activity-id",
+          user_id: "spoofed-user",
+          privacy_level: "public",
+        },
+      },
+      authHeader: "Bearer correct-secret",
+    });
+
+    const res = await sendSocialNotificationHandler(req);
+    assertEquals(res.status, 404);
+
+    const calledUrls = fetchStub.calls.map((c) => c.args[0].toString());
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/activity_ledger")), true);
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/profiles")), false);
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/follows")), false);
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/friends")), false);
+  } finally {
+    envStub.restore();
+    fetchStub.restore();
+  }
+});
+
+Deno.test("send-social-notification ledger - returns 400 when payload record.user_id mismatches authoritative ledger row", async () => {
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
+  });
+
+  const fetchStub = stubSocialSupabaseFetch({
+    activityLedger: {
+      id: "activity-1",
+      user_id: "real-owner-id",
+      privacy_level: "public",
+    },
+  });
+
+  try {
+    const req = createMockRequest("https://test.com", {
+      body: {
+        record: {
+          id: "activity-1",
+          user_id: "spoofed-user-id",
+          privacy_level: "public",
+        },
+      },
+      authHeader: "Bearer test-role-key",
+    });
+
+    const res = await sendSocialNotificationHandler(req);
+    assertEquals(res.status, 400);
+
+    const calledUrls = fetchStub.calls.map((c) => c.args[0].toString());
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/activity_ledger")), true);
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/profiles")), false);
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/follows")), false);
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/friends")), false);
+  } finally {
+    envStub.restore();
+    fetchStub.restore();
+  }
+});
+
+Deno.test("send-social-notification privacy - enforces authoritative activity_ledger.privacy_level over spoofed payload", async () => {
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
+  });
+
+  const fetchStub = stubSocialSupabaseFetch({
+    activityLedger: {
+      id: "activity-1",
+      user_id: "user-1",
+      privacy_level: "private",
+    },
+    profile: { privacy_level: "public" },
+    follows: [{ follower_id: "11111111-1111-4111-8111-111111111111" }],
+  });
+
+  try {
+    const req = createMockRequest("https://test.com", {
+      body: {
+        record: {
+          id: "activity-1",
+          user_id: "user-1",
+          privacy_level: "public",
+        },
+      },
+      authHeader: "Bearer test-role-key",
+    });
+
+    const res = await sendSocialNotificationHandler(req);
+    const data = await res.json();
+
+    assertEquals(res.status, 200);
+    assertEquals(data.success, true);
+    assertEquals(data.count, 0);
+    assertEquals(data.message, "Activity is private, no notifications sent.");
+    assertEquals("notified" in data, false);
+
+    const calledUrls = fetchStub.calls.map((c) => c.args[0].toString());
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/profiles")), false);
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/follows")), false);
+    assertEquals(calledUrls.some((u) => u.includes("/rest/v1/friends")), false);
+  } finally {
+    envStub.restore();
+    fetchStub.restore();
+  }
+});
+
+Deno.test("send-social-notification privacy - omits notified array and all friend-graph UUIDs from HTTP response", async () => {
+  const actorUuid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const followerUuid = "11111111-1111-4111-8111-111111111111";
+  const friend1Uuid = "22222222-2222-4222-8222-222222222222";
+  const friend2Uuid = "33333333-3333-4333-8333-333333333333";
+
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
+  });
+
+  const fetchStub = stubSocialSupabaseFetch({
+    activityLedger: {
+      id: "activity-1",
+      user_id: actorUuid,
+      privacy_level: "public",
+    },
+    profile: { privacy_level: "public" },
+    follows: [{ follower_id: followerUuid }],
+    friends1: [{ user2_id: friend1Uuid }],
+    friends2: [{ user1_id: friend2Uuid }],
+  });
+
+  try {
+    const req = createMockRequest("https://test.com", {
+      body: {
+        record: {
+          id: "activity-1",
+          user_id: actorUuid,
+          privacy_level: "public",
+        },
+      },
+      authHeader: "Bearer test-role-key",
+    });
+
+    const res = await sendSocialNotificationHandler(req);
+    const data = await res.json();
+    const serialized = JSON.stringify(data);
+
+    assertEquals(res.status, 200);
+    assertEquals(data.success, true);
+    assertEquals(data.count, 3);
+    assertEquals("notified" in data, false);
+    assertEquals(data.notified, undefined);
+    assertEquals(serialized.includes(actorUuid), false);
+    assertEquals(serialized.includes(followerUuid), false);
+    assertEquals(serialized.includes(friend1Uuid), false);
+    assertEquals(serialized.includes(friend2Uuid), false);
+  } finally {
+    envStub.restore();
+    fetchStub.restore();
+  }
+});

@@ -1,0 +1,8 @@
+{
+  "track_id": "social-notification-auth_20261113",
+  "type": "bug",
+  "status": "new",
+  "created_at": "2026-11-13T11:22:00Z",
+  "updated_at": "2026-11-13T11:22:00Z",
+  "description": "Require caller authorization and stop friend-graph disclosure in send-social-notification (Issue #150)"
+}
