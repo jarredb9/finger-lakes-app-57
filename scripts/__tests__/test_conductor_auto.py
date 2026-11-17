@@ -785,6 +785,7 @@ class TestPostPlanInvariants(unittest.TestCase):
             "python3.12 -m unittest || echo fallback",
             "python3.12 -m unittest & echo bg",
             "export PYTHONPATH=scripts/conductor-tools && python3.12 -m unittest",
+            "FOO=1 export BAR=2 && python3.12 -m unittest",
             "PYTHONPATH=scripts/conductor-tools",
             "cd ../outside && python3.12 -m unittest",
             "cd ~ && python3.12 -m unittest",
