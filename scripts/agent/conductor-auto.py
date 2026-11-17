@@ -1796,12 +1796,19 @@ _STATIC_ANALYSIS_CMD_RE = re.compile(
     r"^(?:npm\s+run\s+(?:lint|type-check|build)(?:\s|$)|npx\s+(?:eslint|tsc)(?:\s|$)|(?:eslint|tsc)(?:\s|$)|\./scripts/containers/run-build-container\.sh(?:\s|$)|npm\s+run\s+build:container(?:\s|$))",
     re.IGNORECASE,
 )
+_TYPE_CHECK_CMD_RE = re.compile(r"^npm\s+run\s+type-check(?:\s|$)", re.IGNORECASE)
 
 
 def _is_static_analysis_cmd(cmd: str) -> bool:
     """Returns True for lint, type-check, or build commands that should not run as Red test assertions."""
     core_cmd = _strip_leading_env_assignments(cmd)
     return bool(_STATIC_ANALYSIS_CMD_RE.match(core_cmd.strip()))
+
+
+def _is_type_check_cmd(cmd: str) -> bool:
+    """Returns True for standalone npm run type-check segments run separately via type_check_cmd."""
+    core_cmd = _strip_leading_env_assignments(cmd)
+    return bool(_TYPE_CHECK_CMD_RE.match(core_cmd.strip()))
 
 
 def _resolve_target_verification_commands(
@@ -1827,22 +1834,21 @@ def _resolve_target_verification_commands(
             exempt=task.exempt,
         )
         raw_cmds = strategy.get("commands", [])
+        drop_segment_pred = _is_static_analysis_cmd if is_red else _is_type_check_cmd
         for raw_c in raw_cmds:
             filtered = gp.filter_idempotent_verification_cmd(raw_c)
-            if not filtered or "type-check" in filtered:
+            if not filtered:
                 continue
-            if is_red:
-                kept_segments = [
-                    seg.strip()
-                    for seg in _split_unquoted_and_chains(filtered, reject_shell_ops=False)
-                    if seg.strip() and not _is_static_analysis_cmd(seg)
-                ]
-                while kept_segments and _is_cd_segment(kept_segments[-1]):
-                    kept_segments.pop()
-                if not kept_segments:
-                    continue
-                filtered = " && ".join(kept_segments)
-            test_cmds.append(filtered)
+            kept_segments = [
+                seg.strip()
+                for seg in _split_unquoted_and_chains(filtered, reject_shell_ops=False)
+                if seg.strip() and not drop_segment_pred(seg)
+            ]
+            while kept_segments and _is_cd_segment(kept_segments[-1]):
+                kept_segments.pop()
+            if not kept_segments:
+                continue
+            test_cmds.append(" && ".join(kept_segments))
 
         plan_file = track_dir / f"phase-{phase_num}-task-{task.task_num}-plan.md"
         if plan_file.exists():
