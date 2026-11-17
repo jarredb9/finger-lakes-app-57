@@ -132,8 +132,8 @@ def split_unquoted_and_chains(cmd: str, *, reject_shell_ops: bool = True) -> Lis
     return segments
 
 
-def strip_leading_env_assignments(seg: str) -> str:
-    """Strips leading KEY=VALUE tokens from a command segment for prefix/safety inspection."""
+def _split_tokens_with_env_prefix_count(seg: str) -> Tuple[List[str], int]:
+    """Tokenizes a segment and returns (tokens, leading_env_assignment_count)."""
     try:
         tokens = shlex.split(seg, comments=True)
     except ValueError:
@@ -141,6 +141,18 @@ def strip_leading_env_assignments(seg: str) -> str:
     idx = 0
     while idx < len(tokens) and ENV_ASSIGNMENT_RE.match(tokens[idx]):
         idx += 1
+    return tokens, idx
+
+
+def has_leading_env_assignment(seg: str) -> bool:
+    """Returns True when a command segment starts with one or more KEY=VALUE assignments."""
+    _, idx = _split_tokens_with_env_prefix_count(seg)
+    return idx > 0
+
+
+def strip_leading_env_assignments(seg: str) -> str:
+    """Strips leading KEY=VALUE tokens from a command segment for prefix/safety inspection."""
+    tokens, idx = _split_tokens_with_env_prefix_count(seg)
     return " ".join(tokens[idx:])
 
 

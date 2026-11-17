@@ -36,6 +36,7 @@ if _AGENT_DIR not in sys.path:
 
 from plan_parser import is_checkpoint_task, parse_plan_file  # noqa: E402
 from shell_cmd_parser import (  # noqa: E402
+    has_leading_env_assignment as _has_leading_env_assignment,
     is_cd_segment as _is_cd_segment,
     split_unquoted_and_chains as _split_unquoted_and_chains,
     strip_leading_env_assignments as _strip_leading_env_assignments,
@@ -336,6 +337,33 @@ _ALLOWED_VERIFICATION_TOKENS = (
 )
 
 
+_EXECUTABLE_SUBTASK_CMD_PREFIXES = (
+    "npm ",
+    "./scripts/",
+    "npx ",
+    "node ",
+    "pytest ",
+    "deno ",
+    "python3",
+    "python ",
+)
+
+
+def _is_executable_subtask_cmd(cmd: str) -> bool:
+    """Returns True when cmd (after valid non-env cd segments and env prefixes) starts with an executable prefix."""
+    segments = _split_unquoted_and_chains(cmd, reject_shell_ops=False)
+    for seg in segments:
+        if _is_cd_segment(seg):
+            if _has_leading_env_assignment(seg):
+                return False
+            continue
+        core_seg = _strip_leading_env_assignments(seg)
+        return bool(core_seg) and any(
+            core_seg.startswith(prefix) for prefix in _EXECUTABLE_SUBTASK_CMD_PREFIXES
+        )
+    return False
+
+
 def filter_idempotent_verification_cmd(cmd: str) -> Optional[str]:
     """Filters a candidate shell command down to idempotent, non-mutating verification gates."""
     if not cmd:
@@ -348,11 +376,13 @@ def filter_idempotent_verification_cmd(cmd: str) -> Optional[str]:
             seg = seg[2:].strip()
         if not seg or seg.startswith("#"):
             continue
+        if _is_cd_segment(seg):
+            if _has_leading_env_assignment(seg):
+                return None
+            kept.append(seg)
+            continue
         core_seg = _strip_leading_env_assignments(seg)
         if not core_seg:
-            continue
-        if core_seg == "cd" or core_seg.startswith("cd "):
-            kept.append(seg)
             continue
         if _MUTATING_CMD_RE.search(core_seg):
             continue
@@ -520,20 +550,7 @@ def collect_phase_checkpoint_context(
         for line in texts:
             for m in re.findall(r"`([^`]+)`", line):
                 m_clean = m.strip()
-                core_m = _strip_leading_env_assignments(m_clean)
-                if any(
-                    core_m.startswith(prefix)
-                    for prefix in [
-                        "npm ",
-                        "./scripts/",
-                        "npx ",
-                        "node ",
-                        "pytest ",
-                        "deno ",
-                        "python3",
-                        "python ",
-                    ]
-                ):
+                if _is_executable_subtask_cmd(m_clean):
                     if m_clean not in harvested_raw_cmds:
                         harvested_raw_cmds.append(m_clean)
                 elif (
@@ -903,11 +920,7 @@ def infer_verification_strategy(
     for line in subtasks:
         for m in re.findall(r"`([^`]+)`", line):
             m = m.strip()
-            core_m = _strip_leading_env_assignments(m)
-            if any(
-                core_m.startswith(prefix)
-                for prefix in ["npm ", "./scripts/", "npx ", "node ", "pytest ", "deno ", "python3", "python "]
-            ):
+            if _is_executable_subtask_cmd(m):
                 if m not in explicit_subtask_cmds:
                     explicit_subtask_cmds.append(m)
 
