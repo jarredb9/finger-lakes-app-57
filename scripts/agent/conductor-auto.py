@@ -1447,17 +1447,19 @@ def _parse_supervisor_verification_commands(
     cmd_lines: Optional[Sequence[str]] = None,
 ) -> List[ParsedCommand]:
     """Parses supervisor verification command(s) and wraps ValueError into SupervisorInvariantError."""
+    current_cmd: Union[str, List[str]] = cmd
     try:
         if cmd_lines is not None:
             segments: List[ParsedCommand] = []
             for line in cmd_lines:
+                current_cmd = line
                 segments.extend(
                     _parse_verification_commands(line, work_dir=work_dir, check_cd_exists=True)
                 )
             return segments
         return _parse_verification_commands(cmd, work_dir=work_dir, check_cd_exists=True)
     except ValueError as exc:
-        raise SupervisorInvariantError(f"Invalid {label} '{cmd}': {exc}") from exc
+        raise SupervisorInvariantError(f"Invalid {label} '{current_cmd}': {exc}") from exc
 
 
 def verify_red_task(
@@ -1815,16 +1817,20 @@ _STATIC_ANALYSIS_CMD_RE = re.compile(
 _TYPE_CHECK_CMD_RE = re.compile(r"^npm\s+run\s+type-check(?:\s|$)", re.IGNORECASE)
 
 
+def _core_cmd_matches(cmd: str, pattern: re.Pattern) -> bool:
+    """Returns True when cmd (after stripping leading env assignments) matches pattern."""
+    core_cmd = _strip_leading_env_assignments(cmd)
+    return bool(pattern.match(core_cmd.strip()))
+
+
 def _is_static_analysis_cmd(cmd: str) -> bool:
     """Returns True for lint, type-check, or build commands that should not run as Red test assertions."""
-    core_cmd = _strip_leading_env_assignments(cmd)
-    return bool(_STATIC_ANALYSIS_CMD_RE.match(core_cmd.strip()))
+    return _core_cmd_matches(cmd, _STATIC_ANALYSIS_CMD_RE)
 
 
 def _is_type_check_cmd(cmd: str) -> bool:
     """Returns True for standalone npm run type-check segments run separately via type_check_cmd."""
-    core_cmd = _strip_leading_env_assignments(cmd)
-    return bool(_TYPE_CHECK_CMD_RE.match(core_cmd.strip()))
+    return _core_cmd_matches(cmd, _TYPE_CHECK_CMD_RE)
 
 
 def _resolve_target_verification_commands(

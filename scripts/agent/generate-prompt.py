@@ -350,19 +350,31 @@ _EXECUTABLE_SUBTASK_CMD_PREFIXES = (
 )
 
 
+def _classify_cd_segment(seg: str) -> Optional[bool]:
+    """Returns None if not a cd segment, True if valid cd, or False if env-prefixed cd."""
+    if not _is_cd_segment(seg):
+        return None
+    return not _has_leading_env_assignment(seg)
+
+
 def _is_executable_subtask_cmd(cmd: str) -> bool:
     """Returns True when cmd (after valid non-env cd segments and env prefixes) starts with an executable prefix."""
     segments = _split_unquoted_and_chains(cmd, reject_shell_ops=False)
+    has_executable = False
     for seg in segments:
-        if _is_cd_segment(seg):
-            if _has_leading_env_assignment(seg):
-                return False
+        cd_valid = _classify_cd_segment(seg)
+        if cd_valid is False:
+            return False
+        if cd_valid:
             continue
-        core_seg = _strip_leading_env_assignments(seg)
-        return bool(core_seg) and any(
-            core_seg.startswith(prefix) for prefix in _EXECUTABLE_SUBTASK_CMD_PREFIXES
-        )
-    return False
+        if not has_executable:
+            core_seg = _strip_leading_env_assignments(seg)
+            if not core_seg or not any(
+                core_seg.startswith(prefix) for prefix in _EXECUTABLE_SUBTASK_CMD_PREFIXES
+            ):
+                return False
+            has_executable = True
+    return has_executable
 
 
 def filter_idempotent_verification_cmd(cmd: str) -> Optional[str]:
@@ -377,9 +389,10 @@ def filter_idempotent_verification_cmd(cmd: str) -> Optional[str]:
             seg = seg[2:].strip()
         if not seg or seg.startswith("#"):
             continue
-        if _is_cd_segment(seg):
-            if _has_leading_env_assignment(seg):
-                return None
+        cd_valid = _classify_cd_segment(seg)
+        if cd_valid is False:
+            return None
+        if cd_valid:
             kept.append(seg)
             continue
         core_seg = _strip_leading_env_assignments(seg)
