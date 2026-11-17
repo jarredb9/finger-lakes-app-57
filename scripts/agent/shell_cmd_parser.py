@@ -10,7 +10,24 @@ generate-prompt.py and conductor-auto.py.
 from pathlib import Path
 import re
 import shlex
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, NamedTuple, Tuple, Union
+
+
+class ParsedCommand(NamedTuple):
+    """Runnable command segment parsed from a shell verification string."""
+
+    argv: List[str]
+    env_overrides: Dict[str, str]
+    cwd: Path
+
+
+def _reject_subshell_operator(cmd: str, index: int) -> None:
+    """Raises ValueError if cmd[index] starts a backtick or $(...) subshell operator."""
+    ch = cmd[index]
+    if ch == "`":
+        raise ValueError("Unsupported subshell backtick operator in verification command")
+    if ch == "$" and index + 1 < len(cmd) and cmd[index + 1] == "(":
+        raise ValueError("Unsupported subshell '$(...)' operator in verification command")
 
 
 ENV_ASSIGNMENT_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)=(.*)$", re.DOTALL)
@@ -66,10 +83,7 @@ def split_unquoted_and_chains(cmd: str, *, reject_shell_ops: bool = True) -> Lis
 
         if in_double:
             if reject_shell_ops:
-                if ch == "`":
-                    raise ValueError("Unsupported subshell backtick operator in verification command")
-                if ch == "$" and i + 1 < n and cmd[i + 1] == "(":
-                    raise ValueError("Unsupported subshell '$(...)' operator in verification command")
+                _reject_subshell_operator(cmd, i)
             buf.append(ch)
             if ch == '"':
                 in_double = False
@@ -111,10 +125,7 @@ def split_unquoted_and_chains(cmd: str, *, reject_shell_ops: bool = True) -> Lis
         if reject_shell_ops:
             if ch in ("\n", "\r"):
                 raise ValueError("Unsupported newline in verification command")
-            if ch == "`":
-                raise ValueError("Unsupported subshell backtick operator in verification command")
-            if ch == "$" and i + 1 < n and cmd[i + 1] == "(":
-                raise ValueError("Unsupported subshell '$(...)' operator in verification command")
+            _reject_subshell_operator(cmd, i)
             if ch == "|" and i + 1 < n and cmd[i + 1] == "|":
                 raise ValueError("Unsupported shell operator '||' in verification command")
             if ch in (";", "|", ">", "<", "&"):
@@ -162,17 +173,25 @@ def is_cd_segment(seg: str) -> bool:
     return core == "cd" or core.startswith("cd ")
 
 
+def strip_trailing_cd_segments(segments: List[str]) -> List[str]:
+    """Removes dangling trailing 'cd' segments from a list of && command segments."""
+    trimmed = list(segments)
+    while trimmed and is_cd_segment(trimmed[-1]):
+        trimmed.pop()
+    return trimmed
+
+
 def parse_verification_commands(
     cmd_input: Union[str, List[str]],
     work_dir: Path,
     *,
     check_cd_exists: bool = True,
-) -> List[Tuple[List[str], Dict[str, str], Path]]:
-    """Parses verification commands into runnable (argv, env_overrides, cwd) tuples without shell=True."""
+) -> List[ParsedCommand]:
+    """Parses verification commands into runnable ParsedCommand(argv, env_overrides, cwd) entries without shell=True."""
     if isinstance(cmd_input, list):
         if not cmd_input:
             raise ValueError("Empty verification command list")
-        return [(cmd_input, {}, work_dir)]
+        return [ParsedCommand(cmd_input, {}, work_dir)]
 
     segments = split_unquoted_and_chains(cmd_input, reject_shell_ops=True)
     if not segments:
@@ -180,7 +199,7 @@ def parse_verification_commands(
 
     repo_root_resolved = work_dir.resolve()
     seg_cwd = repo_root_resolved
-    parsed: List[Tuple[List[str], Dict[str, str], Path]] = []
+    parsed: List[ParsedCommand] = []
 
     for seg in segments:
         tokens = shlex.split(seg, comments=True)
@@ -225,7 +244,7 @@ def parse_verification_commands(
             seg_cwd = target_dir
             continue
 
-        parsed.append((remaining, env_overrides, seg_cwd))
+        parsed.append(ParsedCommand(remaining, env_overrides, seg_cwd))
 
     if not parsed:
         raise ValueError(f"Verification command has no executable command: {cmd_input!r}")

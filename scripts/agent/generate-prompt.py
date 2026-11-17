@@ -40,6 +40,7 @@ from shell_cmd_parser import (  # noqa: E402
     is_cd_segment as _is_cd_segment,
     split_unquoted_and_chains as _split_unquoted_and_chains,
     strip_leading_env_assignments as _strip_leading_env_assignments,
+    strip_trailing_cd_segments as _strip_trailing_cd_segments,
 )
 
 # Project root resolution (supports execution from scripts/ or scripts/agent/)
@@ -392,8 +393,7 @@ def filter_idempotent_verification_cmd(cmd: str) -> Optional[str]:
         if any(token in core_seg for token in _ALLOWED_VERIFICATION_TOKENS):
             kept.append(seg)
 
-    while kept and _is_cd_segment(kept[-1]):
-        kept.pop()
+    kept = _strip_trailing_cd_segments(kept)
     if not kept:
         return None
     return " && ".join(kept)

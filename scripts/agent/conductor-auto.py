@@ -43,10 +43,12 @@ from plan_parser import (  # noqa: E402
     parse_plan_markdown,
 )
 from shell_cmd_parser import (  # noqa: E402
+    ParsedCommand,
     is_cd_segment as _is_cd_segment,
     parse_verification_commands as _parse_verification_commands,
     split_unquoted_and_chains as _split_unquoted_and_chains,
     strip_leading_env_assignments as _strip_leading_env_assignments,
+    strip_trailing_cd_segments as _strip_trailing_cd_segments,
 )
 
 
@@ -1437,6 +1439,27 @@ def parse_test_failure_markers(
     return False, "No assertion failure markers detected in test output"
 
 
+def _parse_supervisor_verification_commands(
+    cmd: Union[str, List[str]],
+    work_dir: Path,
+    label: str,
+    *,
+    cmd_lines: Optional[Sequence[str]] = None,
+) -> List[ParsedCommand]:
+    """Parses supervisor verification command(s) and wraps ValueError into SupervisorInvariantError."""
+    try:
+        if cmd_lines is not None:
+            segments: List[ParsedCommand] = []
+            for line in cmd_lines:
+                segments.extend(
+                    _parse_verification_commands(line, work_dir=work_dir, check_cd_exists=True)
+                )
+            return segments
+        return _parse_verification_commands(cmd, work_dir=work_dir, check_cd_exists=True)
+    except ValueError as exc:
+        raise SupervisorInvariantError(f"Invalid {label} '{cmd}': {exc}") from exc
+
+
 def verify_red_task(
     test_cmd: Union[str, List[str]],
     base_sha: str,
@@ -1454,21 +1477,16 @@ def verify_red_task(
     Raises SupervisorInvariantError on any violation.
     """
     work_dir = cwd or PROJECT_ROOT
-    try:
-        if test_cmds is not None:
-            segments = []
-            for cmd_line in test_cmds:
-                segments.extend(_parse_verification_commands(cmd_line, work_dir=work_dir, check_cd_exists=True))
-        else:
-            segments = _parse_verification_commands(test_cmd, work_dir=work_dir, check_cd_exists=True)
-    except ValueError as exc:
-        raise SupervisorInvariantError(
-            f"Invalid Red task verification command '{test_cmd}': {exc}"
-        ) from exc
+    segments = _parse_supervisor_verification_commands(
+        test_cmd,
+        work_dir=work_dir,
+        label="Red task verification command",
+        cmd_lines=test_cmds,
+    )
 
     res = None
-    for argv, env_overrides, seg_cwd in segments:
-        res = _run_verification_segment(argv, env_overrides, seg_cwd)
+    for seg in segments:
+        res = _run_verification_segment(seg.argv, seg.env_overrides, seg.cwd)
         if res.returncode != 0:
             break
 
@@ -1527,29 +1545,27 @@ def verify_green_task(
     Raises SupervisorInvariantError if either fails.
     """
     work_dir = cwd or PROJECT_ROOT
-    try:
-        test_segments = _parse_verification_commands(test_cmd, work_dir=work_dir, check_cd_exists=True)
-    except ValueError as exc:
-        raise SupervisorInvariantError(
-            f"Invalid Green task verification command '{test_cmd}': {exc}"
-        ) from exc
+    test_segments = _parse_supervisor_verification_commands(
+        test_cmd,
+        work_dir=work_dir,
+        label="Green task verification command",
+    )
 
-    for argv, env_overrides, seg_cwd in test_segments:
-        res = _run_verification_segment(argv, env_overrides, seg_cwd)
+    for seg in test_segments:
+        res = _run_verification_segment(seg.argv, seg.env_overrides, seg.cwd)
         if res.returncode != 0:
             raise SupervisorInvariantError(
                 f"Green task test command failed (exit code {res.returncode}): {res.stderr or res.stdout}"
             )
 
     if type_check_cmd:
-        try:
-            tc_segments = _parse_verification_commands(type_check_cmd, work_dir=work_dir, check_cd_exists=True)
-        except ValueError as exc:
-            raise SupervisorInvariantError(
-                f"Invalid Green task type-check command '{type_check_cmd}': {exc}"
-            ) from exc
-        for argv, env_overrides, seg_cwd in tc_segments:
-            tc_res = _run_verification_segment(argv, env_overrides, seg_cwd)
+        tc_segments = _parse_supervisor_verification_commands(
+            type_check_cmd,
+            work_dir=work_dir,
+            label="Green task type-check command",
+        )
+        for seg in tc_segments:
+            tc_res = _run_verification_segment(seg.argv, seg.env_overrides, seg.cwd)
             if tc_res.returncode != 0:
                 raise SupervisorInvariantError(
                     f"Green task type-check failed (exit code {tc_res.returncode}): {tc_res.stderr or tc_res.stdout}"
@@ -1839,13 +1855,13 @@ def _resolve_target_verification_commands(
             filtered = gp.filter_idempotent_verification_cmd(raw_c)
             if not filtered:
                 continue
-            kept_segments = [
-                seg.strip()
-                for seg in _split_unquoted_and_chains(filtered, reject_shell_ops=False)
-                if seg.strip() and not drop_segment_pred(seg)
-            ]
-            while kept_segments and _is_cd_segment(kept_segments[-1]):
-                kept_segments.pop()
+            kept_segments = _strip_trailing_cd_segments(
+                [
+                    seg.strip()
+                    for seg in _split_unquoted_and_chains(filtered, reject_shell_ops=False)
+                    if seg.strip() and not drop_segment_pred(seg)
+                ]
+            )
             if not kept_segments:
                 continue
             test_cmds.append(" && ".join(kept_segments))
