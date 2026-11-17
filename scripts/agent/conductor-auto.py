@@ -24,7 +24,6 @@ import os
 from pathlib import Path
 import re
 import select
-import shlex
 import signal
 import subprocess
 import sys
@@ -42,6 +41,12 @@ from plan_parser import (  # noqa: E402
     is_checkpoint_task,
     parse_plan_file,
     parse_plan_markdown,
+)
+from shell_cmd_parser import (  # noqa: E402
+    is_cd_segment as _is_cd_segment,
+    parse_verification_commands as _parse_verification_commands,
+    split_unquoted_and_chains as _split_unquoted_and_chains,
+    strip_leading_env_assignments as _strip_leading_env_assignments,
 )
 
 
@@ -1142,18 +1147,68 @@ def check_working_tree_cleanliness(
     return len(dirty_files) == 0, dirty_files
 
 
+def _run_verification_segment(
+    argv: List[str],
+    env_overrides: Dict[str, str],
+    seg_cwd: Path,
+) -> subprocess.CompletedProcess:
+    """Executes one parsed verification command segment and wraps OSError in SupervisorInvariantError."""
+    run_kwargs: Dict[str, Any] = {
+        "capture_output": True,
+        "text": True,
+        "cwd": seg_cwd,
+    }
+    if env_overrides:
+        run_kwargs["env"] = {**os.environ, **env_overrides}
+    try:
+        return subprocess.run(argv, **run_kwargs)
+    except OSError as exc:
+        raise SupervisorInvariantError(
+            f"Failed to execute verification command '{' '.join(argv)}': {exc}"
+        ) from exc
+
+
+def _extract_plan_verification_cmds(plan_path: Path) -> List[str]:
+    """Extracts bash verification commands from a task plan's Execution Verification Protocol section."""
+    content = plan_path.read_text(encoding="utf-8")
+    proto_match = re.search(
+        r"##\s+(?:\d+\.\s+)?(?:Execution\s+Verification\s+Protocol|(?:Empirical\s+)?Verification\s+Plan|(?:Execution\s+&\s+)?Verification\s+Command)\b.*?\n(.*?)(?=\n##\s|\Z)",
+        content,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not proto_match:
+        return []
+    cmds: List[str] = []
+    for block in re.findall(r"```bash\s*\n(.*?)```", proto_match.group(1), re.DOTALL):
+        flattened = re.sub(r"\\\s*\n\s*", " ", block)
+        for cmd_line in flattened.splitlines():
+            cmd_line = cmd_line.strip()
+            if cmd_line and not cmd_line.startswith("#") and cmd_line not in cmds:
+                cmds.append(cmd_line)
+    return cmds
+
+
 def assert_post_plan_invariants(
     track_dir: Path,
     phase_num: int,
     task_num: int,
     cwd: Optional[Path] = None,
 ) -> None:
-    """Verifies plan file was created and no non-target dirty or untracked files exist."""
+    """Verifies plan file was created, has valid verification commands, and no non-target dirty files exist."""
+    work_dir = cwd or PROJECT_ROOT
     plan_path = Path(track_dir) / f"phase-{phase_num}-task-{task_num}-plan.md"
     if not plan_path.exists() or plan_path.stat().st_size == 0:
         raise PlanInvariantError(
             f"Tier 1 plan blueprint missing or empty at {plan_path}"
         )
+
+    for cmd_line in _extract_plan_verification_cmds(plan_path):
+        try:
+            _parse_verification_commands(cmd_line, work_dir=work_dir, check_cd_exists=False)
+        except ValueError as exc:
+            raise PlanInvariantError(
+                f"Invalid verification command in {plan_path}: {exc}"
+            ) from exc
 
     target_plan_name = f"phase-{phase_num}-task-{task_num}-plan.md"
     # Inspect all changes (including non-target ephemeral plans/reviews) so only target plan + logs pass.
@@ -1382,14 +1437,6 @@ def parse_test_failure_markers(
     return False, "No assertion failure markers detected in test output"
 
 
-def _split_command_segments(cmd_input: Union[str, List[str]]) -> List[List[str]]:
-    """Splits a shell command string (supporting '&&' chains and quoted args) into argv lists."""
-    if isinstance(cmd_input, list):
-        return [cmd_input]
-    segments = [seg.strip() for seg in cmd_input.split("&&") if seg.strip()]
-    return [shlex.split(seg) for seg in segments] if segments else [shlex.split(cmd_input)]
-
-
 def verify_red_task(
     test_cmd: Union[str, List[str]],
     base_sha: str,
@@ -1406,10 +1453,16 @@ def verify_red_task(
     Raises SupervisorInvariantError on any violation.
     """
     work_dir = cwd or PROJECT_ROOT
-    segments = _split_command_segments(test_cmd)
+    try:
+        segments = _parse_verification_commands(test_cmd, work_dir=work_dir, check_cd_exists=True)
+    except ValueError as exc:
+        raise SupervisorInvariantError(
+            f"Invalid Red task verification command '{test_cmd}': {exc}"
+        ) from exc
+
     res = None
-    for cmd in segments:
-        res = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
+    for argv, env_overrides, seg_cwd in segments:
+        res = _run_verification_segment(argv, env_overrides, seg_cwd)
         if res.returncode != 0:
             break
 
@@ -1468,16 +1521,29 @@ def verify_green_task(
     Raises SupervisorInvariantError if either fails.
     """
     work_dir = cwd or PROJECT_ROOT
-    for cmd in _split_command_segments(test_cmd):
-        res = subprocess.run(cmd, capture_output=True, text=True, cwd=work_dir)
+    try:
+        test_segments = _parse_verification_commands(test_cmd, work_dir=work_dir, check_cd_exists=True)
+    except ValueError as exc:
+        raise SupervisorInvariantError(
+            f"Invalid Green task verification command '{test_cmd}': {exc}"
+        ) from exc
+
+    for argv, env_overrides, seg_cwd in test_segments:
+        res = _run_verification_segment(argv, env_overrides, seg_cwd)
         if res.returncode != 0:
             raise SupervisorInvariantError(
                 f"Green task test command failed (exit code {res.returncode}): {res.stderr or res.stdout}"
             )
 
     if type_check_cmd:
-        for tc_cmd in _split_command_segments(type_check_cmd):
-            tc_res = subprocess.run(tc_cmd, capture_output=True, text=True, cwd=work_dir)
+        try:
+            tc_segments = _parse_verification_commands(type_check_cmd, work_dir=work_dir, check_cd_exists=True)
+        except ValueError as exc:
+            raise SupervisorInvariantError(
+                f"Invalid Green task type-check command '{type_check_cmd}': {exc}"
+            ) from exc
+        for argv, env_overrides, seg_cwd in tc_segments:
+            tc_res = _run_verification_segment(argv, env_overrides, seg_cwd)
             if tc_res.returncode != 0:
                 raise SupervisorInvariantError(
                     f"Green task type-check failed (exit code {tc_res.returncode}): {tc_res.stderr or tc_res.stdout}"
@@ -1503,19 +1569,19 @@ def verify_exempt_task(
     cat = exempt_category.lower().strip()
 
     if cat in ("ui", "styling"):
-        res = subprocess.run(["npm", "run", "build"], capture_output=True, text=True, cwd=work_dir)
+        res = _run_verification_segment(["npm", "run", "build"], {}, work_dir)
         if res.returncode != 0:
             raise SupervisorInvariantError(
                 f"Exempt UI task build failed with exit code {res.returncode}"
             )
     elif cat in ("infra", "scripts"):
-        res = subprocess.run(["npm", "run", "lint"], capture_output=True, text=True, cwd=work_dir)
+        res = _run_verification_segment(["npm", "run", "lint"], {}, work_dir)
         if res.returncode != 0:
             raise SupervisorInvariantError(
                 f"Exempt infra/scripts task lint failed with exit code {res.returncode}"
             )
     elif cat == "types":
-        res = subprocess.run(["npm", "run", "type-check"], capture_output=True, text=True, cwd=work_dir)
+        res = _run_verification_segment(["npm", "run", "type-check"], {}, work_dir)
         if res.returncode != 0:
             raise SupervisorInvariantError(
                 f"Exempt types task type-check failed with exit code {res.returncode}"
@@ -1728,7 +1794,8 @@ _STATIC_ANALYSIS_CMD_RE = re.compile(
 
 def _is_static_analysis_cmd(cmd: str) -> bool:
     """Returns True for lint, type-check, or build commands that should not run as Red test assertions."""
-    return bool(_STATIC_ANALYSIS_CMD_RE.match(cmd.strip()))
+    core_cmd = _strip_leading_env_assignments(cmd)
+    return bool(_STATIC_ANALYSIS_CMD_RE.match(core_cmd.strip()))
 
 
 def _resolve_target_verification_commands(
@@ -1761,9 +1828,11 @@ def _resolve_target_verification_commands(
             if is_red:
                 kept_segments = [
                     seg.strip()
-                    for seg in filtered.split("&&")
+                    for seg in _split_unquoted_and_chains(filtered, reject_shell_ops=False)
                     if seg.strip() and not _is_static_analysis_cmd(seg)
                 ]
+                while kept_segments and _is_cd_segment(kept_segments[-1]):
+                    kept_segments.pop()
                 if not kept_segments:
                     continue
                 filtered = " && ".join(kept_segments)
@@ -1855,6 +1924,12 @@ def verify_task_execution(
         work_dir=work_dir,
     )
 
+    has_cross_cmd_cd = len(test_cmds) > 1 and any(
+        _is_cd_segment(seg)
+        for cmd in test_cmds[:-1]
+        for seg in _split_unquoted_and_chains(cmd, reject_shell_ops=False)
+    )
+
     if _is_red_task(task.description):
         plan_file = track_dir / f"phase-{phase_num}-task-{task.task_num}-plan.md"
         expected_targets = _extract_expected_red_targets(task, plan_file=plan_file)
@@ -1865,10 +1940,20 @@ def verify_task_execution(
             expected_targets=expected_targets,
         )
 
+    type_check_cmd = None if is_py_only else "npm run type-check"
+    if has_cross_cmd_cd:
+        for cmd in test_cmds[:-1]:
+            verify_green_task(test_cmd=cmd, cwd=work_dir, type_check_cmd=None)
+        return verify_green_task(
+            test_cmd=test_cmds[-1],
+            cwd=work_dir,
+            type_check_cmd=type_check_cmd,
+        )
+
     return verify_green_task(
         test_cmd=" && ".join(test_cmds),
         cwd=work_dir,
-        type_check_cmd=None if is_py_only else "npm run type-check",
+        type_check_cmd=type_check_cmd,
     )
 
 

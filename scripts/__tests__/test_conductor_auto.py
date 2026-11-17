@@ -742,6 +742,91 @@ class TestPostPlanInvariants(unittest.TestCase):
 
             assert_post_plan_invariants(track_dir, phase_num=3, task_num=1)
 
+    @patch("subprocess.run")
+    def test_assert_post_plan_invariants_allows_env_prefixes_and_planned_cd(self, mock_run):
+        """Asserts Tier 1 invariant check accepts KEY=VALUE prefixes, quoted &&, and planned repo-bounded cd."""
+        assert_post_plan_invariants = get_target("assert_post_plan_invariants", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo_root = Path(tmpdir)
+            track_dir = repo_root / "conductor" / "tracks" / "test"
+            track_dir.mkdir(parents=True)
+            plan_file = track_dir / "phase-3-task-1-plan.md"
+            plan_file.write_text(
+                "# Implementation Plan\n\n"
+                "## Execution Verification Protocol\n"
+                "```bash\n"
+                'PYTHONPATH=scripts/conductor-tools python3.12 -c "x = \'a && b\'; print(x)"\n'
+                "cd scripts/new-pkg && python3.12 -m unittest\n"
+                "```\n",
+                encoding="utf-8",
+            )
+
+            mock_run.return_value = subprocess.CompletedProcess(
+                args=["git", "status", "--porcelain"],
+                returncode=0,
+                stdout="?? conductor/tracks/test/phase-3-task-1-plan.md\n",
+                stderr="",
+            )
+
+            assert_post_plan_invariants(track_dir, phase_num=3, task_num=1, cwd=repo_root)
+
+    @patch("subprocess.run")
+    def test_assert_post_plan_invariants_rejects_unsupported_verification_shell_syntax(self, mock_run):
+        """Asserts Tier 1 invariant check fails fast on pipes, redirections, export, bare env, escape cd, or bad quotes."""
+        assert_post_plan_invariants = get_target("assert_post_plan_invariants", self)
+        PlanInvariantError = get_target("PlanInvariantError", self)
+
+        bad_commands = [
+            "python3.12 -m unittest | head -n 5",
+            "python3.12 -m unittest > out.log",
+            "python3.12 -m unittest < input.txt",
+            "python3.12 -m py_compile a.py; python3.12 -m unittest",
+            "python3.12 -m unittest || echo fallback",
+            "python3.12 -m unittest & echo bg",
+            "export PYTHONPATH=scripts/conductor-tools && python3.12 -m unittest",
+            "PYTHONPATH=scripts/conductor-tools",
+            "cd ../outside && python3.12 -m unittest",
+            "cd ~ && python3.12 -m unittest",
+            "cd -L scripts && python3.12 -m unittest",
+            "FOO=1 cd scripts && python3.12 -m unittest",
+            "&& python3.12 -m unittest",
+            "python3.12 -m unittest &&",
+            "python3.12 -m unittest && && pytest",
+            "python3.12 -m unittest && # trailing comment",
+            'python3.12 -c "unterminated',
+            'python3.12 -c "$(id)"',
+            'python3.12 -c "`id`"',
+            "LD_PRELOAD=/tmp/evil.so python3.12 -m unittest",
+            "DYLD_LIBRARY_PATH=/tmp/evil python3.12 -m unittest",
+            "BASH_ENV=/tmp/evil.sh python3.12 -m unittest",
+            "ENV=/tmp/evil.sh python3.12 -m unittest",
+            "PYTHONINSPECT=1 python3.12 -m unittest",
+        ]
+
+        mock_run.return_value = subprocess.CompletedProcess(
+            args=["git", "status", "--porcelain"],
+            returncode=0,
+            stdout="?? conductor/tracks/test/phase-3-task-1-plan.md\n",
+            stderr="",
+        )
+
+        for bad_cmd in bad_commands:
+            with self.subTest(bad_cmd=bad_cmd):
+                with tempfile.TemporaryDirectory() as tmpdir:
+                    repo_root = Path(tmpdir)
+                    track_dir = repo_root / "conductor" / "tracks" / "test"
+                    track_dir.mkdir(parents=True)
+                    plan_file = track_dir / "phase-3-task-1-plan.md"
+                    plan_file.write_text(
+                        "# Implementation Plan\n\n"
+                        "## Execution Verification Protocol\n"
+                        f"```bash\n{bad_cmd}\n```\n",
+                        encoding="utf-8",
+                    )
+                    with self.assertRaises(PlanInvariantError):
+                        assert_post_plan_invariants(track_dir, phase_num=3, task_num=1, cwd=repo_root)
+
 
 class TestTier1PlanningDispatch(unittest.TestCase):
     """Test suite for Tier 1 planning turn orchestration."""
@@ -1727,6 +1812,144 @@ class TestSupervisorTaskVerificationRouter(unittest.TestCase):
 
         mock_run.side_effect = run_side_effect
         self.assertTrue(verify_red_task('pytest -k "test_a or test_b"', base_sha="abc1234"))
+
+    @patch("subprocess.run")
+    def test_verify_green_task_applies_env_prefixes_and_preserves_quoted_and_operators(self, mock_run):
+        """Asserts leading KEY=VALUE prefixes populate env= and && inside quotes is not split."""
+        verify_green_task = get_target("verify_green_task", self)
+        seen = []
+
+        def run_side_effect(cmd, *args, **kwargs):
+            seen.append((cmd, kwargs.get("env")))
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="OK", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        res = verify_green_task(
+            'PYTHONPATH=scripts/conductor-tools python3.12 -c "x = \'a && b\'; print(x)"',
+            type_check_cmd=None,
+        )
+        self.assertTrue(res)
+        self.assertEqual(len(seen), 1)
+        self.assertEqual(seen[0][0], ["python3.12", "-c", "x = 'a && b'; print(x)"])
+        self.assertIsNotNone(seen[0][1])
+        self.assertEqual(seen[0][1]["PYTHONPATH"], "scripts/conductor-tools")
+
+    @patch("subprocess.run")
+    def test_verify_green_task_tracks_cd_segments_within_work_dir(self, mock_run):
+        """Asserts cd <subdir> updates cwd for subsequent && segments while staying bounded to work_dir."""
+        verify_green_task = get_target("verify_green_task", self)
+        seen_cwds = []
+
+        def run_side_effect(cmd, *args, **kwargs):
+            seen_cwds.append((cmd, Path(kwargs["cwd"]).resolve()))
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="OK", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            subdir = root / "scripts" / "conductor-tools"
+            subdir.mkdir(parents=True)
+            res = verify_green_task(
+                "cd scripts/conductor-tools && python3.12 -m unittest",
+                cwd=root,
+                type_check_cmd=None,
+            )
+            self.assertTrue(res)
+            self.assertEqual(len(seen_cwds), 1)
+            self.assertEqual(seen_cwds[0][0], ["python3.12", "-m", "unittest"])
+            self.assertEqual(seen_cwds[0][1], subdir.resolve())
+
+    def test_verify_task_wraps_oserror_and_shell_syntax_errors_as_supervisor_invariant_error(self):
+        """Asserts FileNotFoundError, bad quotes, missing cd target, and disallowed shell syntax raise SupervisorInvariantError."""
+        verify_green_task = get_target("verify_green_task", self)
+        verify_red_task = get_target("verify_red_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            with patch("subprocess.run", side_effect=FileNotFoundError(2, "No such file or directory", "missing-bin")):
+                with self.assertRaises(SupervisorInvariantError):
+                    verify_green_task("missing-bin --version", cwd=root, type_check_cmd=None)
+                with self.assertRaises(SupervisorInvariantError):
+                    verify_red_task("missing-bin --version", base_sha="abc1234", cwd=root)
+
+            for bad_cmd in (
+                "cd does-not-exist && python3.12 -m unittest",
+                "cd ../outside && python3.12 -m unittest",
+                "python3.12 -m unittest | cat",
+                "PYTHONPATH=scripts/conductor-tools",
+                'python3.12 -c "unclosed',
+            ):
+                with self.subTest(bad_cmd=bad_cmd):
+                    with self.assertRaises(SupervisorInvariantError):
+                        verify_green_task(bad_cmd, cwd=root, type_check_cmd=None)
+
+    def test_resolve_target_verification_commands_strips_env_prefix_for_red_static_analysis(self):
+        """Asserts Red-phase static analysis stripping still catches NODE_ENV=test npm run lint."""
+        _resolve_target_verification_commands = get_target("_resolve_target_verification_commands", self)
+        TaskInfo = get_target("TaskInfo", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "py-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "phase-1-task-1-plan.md").write_text(
+                "- **Path:** `scripts/__tests__/test_x.py`\n\n"
+                "## Execution Verification Protocol\n"
+                "```bash\n"
+                "NODE_ENV=test npm run lint && PYTHONPATH=scripts/conductor-tools python3.12 -m unittest\n"
+                "```\n",
+                encoding="utf-8",
+            )
+            task = TaskInfo(
+                task_num=1,
+                description="Write failing unit tests for x (TDD Red phase)",
+                status="pending",
+                status_char=" ",
+                is_checkpoint=False,
+            )
+            cmds, is_py = _resolve_target_verification_commands(track_dir, 1, task, root)
+            self.assertEqual(cmds, ["PYTHONPATH=scripts/conductor-tools python3.12 -m unittest"])
+            self.assertTrue(is_py)
+
+    @patch("subprocess.run")
+    def test_verify_task_execution_isolates_cd_per_verification_command_line(self, mock_run):
+        """Asserts a 'cd <subdir> && ...' command on one line does not leak cwd into subsequent command lines."""
+        verify_task_execution = get_target("verify_task_execution", self)
+        seen_cwds = []
+
+        def run_side_effect(cmd, *args, **kwargs):
+            seen_cwds.append((cmd, Path(kwargs["cwd"]).resolve()))
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="OK", stderr="")
+
+        mock_run.side_effect = run_side_effect
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            pkg_dir = root / "scripts" / "conductor-tools"
+            pkg_dir.mkdir(parents=True)
+            track_dir = root / "conductor" / "tracks" / "py-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Runner\n"
+                "- [ ] Task: Implement runner to pass tests\n",
+                encoding="utf-8",
+            )
+            (track_dir / "phase-1-task-1-plan.md").write_text(
+                "- **Path:** `scripts/conductor-tools/runner.py`\n\n"
+                "## Execution Verification Protocol\n"
+                "```bash\n"
+                "cd scripts/conductor-tools && python3.12 -m unittest\n"
+                "python3.12 -m py_compile scripts/conductor-tools/runner.py\n"
+                "```\n",
+                encoding="utf-8",
+            )
+
+            self.assertTrue(verify_task_execution("py-track", phase_num=1, task_num=1, base_sha="abc1234", cwd=root))
+            self.assertEqual(len(seen_cwds), 2)
+            self.assertEqual(seen_cwds[0][0], ["python3.12", "-m", "unittest"])
+            self.assertEqual(seen_cwds[0][1], pkg_dir.resolve())
+            self.assertEqual(seen_cwds[1][0], ["python3.12", "-m", "py_compile", "scripts/conductor-tools/runner.py"])
+            self.assertEqual(seen_cwds[1][1], root.resolve())
 
     def test_verify_task_execution_routes_python_red_and_green_from_task_plan(self):
         """Asserts verify_task_execution resolves target Python commands and skips npm type-check for Python-only tasks."""

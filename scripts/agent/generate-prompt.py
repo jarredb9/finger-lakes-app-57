@@ -35,6 +35,11 @@ if _AGENT_DIR not in sys.path:
     sys.path.insert(0, _AGENT_DIR)
 
 from plan_parser import is_checkpoint_task, parse_plan_file  # noqa: E402
+from shell_cmd_parser import (  # noqa: E402
+    is_cd_segment as _is_cd_segment,
+    split_unquoted_and_chains as _split_unquoted_and_chains,
+    strip_leading_env_assignments as _strip_leading_env_assignments,
+)
 
 # Project root resolution (supports execution from scripts/ or scripts/agent/)
 if (Path(__file__).resolve().parents[1] / "package.json").exists():
@@ -336,21 +341,29 @@ def filter_idempotent_verification_cmd(cmd: str) -> Optional[str]:
     if not cmd:
         return None
 
-    segments = [seg.strip() for seg in cmd.split("&&")]
+    segments = _split_unquoted_and_chains(cmd, reject_shell_ops=False)
     kept: List[str] = []
     for seg in segments:
         if seg.startswith("! "):
             seg = seg[2:].strip()
         if not seg or seg.startswith("#"):
             continue
-        if _MUTATING_CMD_RE.search(seg):
+        core_seg = _strip_leading_env_assignments(seg)
+        if not core_seg:
             continue
-        seg_lower = seg.lower()
-        if any(seg_lower.startswith(prefix) for prefix in _MUTATING_GIT_PREFIXES):
+        if core_seg == "cd" or core_seg.startswith("cd "):
+            kept.append(seg)
             continue
-        if any(token in seg for token in _ALLOWED_VERIFICATION_TOKENS):
+        if _MUTATING_CMD_RE.search(core_seg):
+            continue
+        core_lower = core_seg.lower()
+        if any(core_lower.startswith(prefix) for prefix in _MUTATING_GIT_PREFIXES):
+            continue
+        if any(token in core_seg for token in _ALLOWED_VERIFICATION_TOKENS):
             kept.append(seg)
 
+    while kept and _is_cd_segment(kept[-1]):
+        kept.pop()
     if not kept:
         return None
     return " && ".join(kept)
@@ -507,8 +520,9 @@ def collect_phase_checkpoint_context(
         for line in texts:
             for m in re.findall(r"`([^`]+)`", line):
                 m_clean = m.strip()
+                core_m = _strip_leading_env_assignments(m_clean)
                 if any(
-                    m_clean.startswith(prefix)
+                    core_m.startswith(prefix)
                     for prefix in [
                         "npm ",
                         "./scripts/",
@@ -518,7 +532,6 @@ def collect_phase_checkpoint_context(
                         "deno ",
                         "python3",
                         "python ",
-                        "TEST_TYPE=",
                     ]
                 ):
                     if m_clean not in harvested_raw_cmds:
@@ -885,13 +898,14 @@ def infer_verification_strategy(
         or "repository-wide verification" in desc_lower
     )
 
-    # Look for explicit executable commands in subtasks (e.g. `npm run db:check-types:local`, `npm run lint`)
+    # Look for explicit executable commands in subtasks (e.g. `npm run db:check-types:local`, `PYTHONPATH=... python3.12 ...`)
     explicit_subtask_cmds = []
     for line in subtasks:
-        for m in re.findall(r"`([a-zA-Z0-9_\-:\./\s]+)`", line):
+        for m in re.findall(r"`([^`]+)`", line):
             m = m.strip()
+            core_m = _strip_leading_env_assignments(m)
             if any(
-                m.startswith(prefix)
+                core_m.startswith(prefix)
                 for prefix in ["npm ", "./scripts/", "npx ", "node ", "pytest ", "deno ", "python3", "python "]
             ):
                 if m not in explicit_subtask_cmds:
@@ -1154,7 +1168,7 @@ Gate & Planning Protocol:
   1. Exact target file paths (format as `- **Path:** `filepath``) and semantic insertion anchors.
   2. Full TypeScript interfaces, prop types, and exported function signatures.
   3. Precise behavioral logic (formulas, state transitions, conditions, error handling, edge cases).
-  4. Execution Verification Protocol with exact test commands to run (e.g. ./scripts/containers/run-jest-container.sh <test> or ./scripts/containers/run-e2e-container.sh webkit <spec>).
+  4. Execution Verification Protocol with exact test commands to run (e.g. ./scripts/containers/run-jest-container.sh <test> or ./scripts/containers/run-e2e-container.sh webkit <spec>). Format bash verification commands as single-line or '&&'-chained commands (optional leading KEY=VALUE env vars or 'cd <repo-subdir>' allowed; do not use pipes '|', redirections '>'/'<', ';', '||', 'export', or subshells '$(...)').
   Omit verbatim multi-page code implementations; the executor will synthesize code directly using the blueprint with compiler and test feedback.{ts_guardrail_line}
 - In the plan's Post-Execution section, format the `git notes add` command using the standard fields: Task, Summary, Files, and Rationale.
 - Headless --print mode: do NOT invoke ask_question or interactive modals. Terminate your turn immediately after writing {plan_file}."""

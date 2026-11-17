@@ -1253,6 +1253,99 @@ class TestGeneratePromptCLI(unittest.TestCase):
             self.assertIn("Phase 1, Task 3", result.stdout)
             self.assertNotIn("incomplete prior tasks", result.stderr)
 
+    def test_filter_idempotent_verification_cmd_handles_env_prefixes_and_cd_safely(self):
+        """Verifies filter_idempotent_verification_cmd preserves env prefixes/cd and blocks env-prefixed mutations."""
+        kept_env = generate_prompt.filter_idempotent_verification_cmd(
+            'PYTHONPATH=scripts/conductor-tools python3.12 -c "x = \'a && b\'; print(x)"'
+        )
+        self.assertEqual(
+            kept_env,
+            'PYTHONPATH=scripts/conductor-tools python3.12 -c "x = \'a && b\'; print(x)"',
+        )
+
+        kept_cd = generate_prompt.filter_idempotent_verification_cmd(
+            "cd scripts/conductor-tools && python3.12 -m unittest"
+        )
+        self.assertEqual(kept_cd, "cd scripts/conductor-tools && python3.12 -m unittest")
+
+        self.assertIsNone(
+            generate_prompt.filter_idempotent_verification_cmd(
+                "PYTHONPATH=scripts/conductor-tools git add ."
+            )
+        )
+        self.assertIsNone(
+            generate_prompt.filter_idempotent_verification_cmd(
+                "NODE_ENV=test npm run db:reset"
+            )
+        )
+        self.assertEqual(
+            generate_prompt.filter_idempotent_verification_cmd(
+                "pytest && cd scripts/conductor-tools && git add ."
+            ),
+            "pytest",
+        )
+        self.assertIsNone(
+            generate_prompt.filter_idempotent_verification_cmd(
+                "cd scripts/conductor-tools && git add ."
+            )
+        )
+
+    def test_collect_phase_checkpoint_context_harvests_env_prefixed_subtask_commands(self):
+        """Verifies checkpoint context harvesting recognizes subtasks with leading KEY=VALUE env vars."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            track_dir = tmp_path / "conductor" / "tracks" / "py-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Tooling\n"
+                "- [x] Task: Implement tooling [commit: abc1234]\n"
+                "    - [x] Verify via `PYTHONPATH=scripts/conductor-tools python3.12 -m unittest`\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 1' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+            (track_dir / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+            phases = generate_prompt.parse_plan_tasks(str(track_dir))
+            ctx = generate_prompt.collect_phase_checkpoint_context(
+                str(track_dir),
+                1,
+                2,
+                phases=phases,
+                cwd=tmp_path,
+            )
+            self.assertIn(
+                "PYTHONPATH=scripts/conductor-tools python3.12 -m unittest",
+                ctx["commands"],
+            )
+
+    def test_infer_verification_strategy_extracts_env_prefixed_subtask_cmds_and_plan_prompt_rules(self):
+        """Verifies subtasks with KEY=VALUE prefixes are extracted and build_plan_prompt states shell constraints."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Tooling\n"
+                "- [ ] Task: Implement tooling\n"
+                "    - [ ] Run `PYTHONPATH=scripts/conductor-tools python3.12 -m unittest`\n",
+                encoding="utf-8",
+            )
+            (tmp_path / "spec.md").write_text("# Spec\n", encoding="utf-8")
+
+            strategy = generate_prompt.infer_verification_strategy(
+                str(tmp_path),
+                1,
+                1,
+                "Implement tooling",
+                subtasks=["Run `PYTHONPATH=scripts/conductor-tools python3.12 -m unittest`"],
+            )
+            self.assertIn(
+                "PYTHONPATH=scripts/conductor-tools python3.12 -m unittest",
+                strategy["commands"],
+            )
+
+            plan_prompt = generate_prompt.build_plan_prompt(str(tmp_path), 1, 1, "Implement tooling")
+            self.assertIn("KEY=VALUE", plan_prompt)
+            self.assertIn("pipes", plan_prompt.lower())
+
 
 if __name__ == "__main__":
     unittest.main()
