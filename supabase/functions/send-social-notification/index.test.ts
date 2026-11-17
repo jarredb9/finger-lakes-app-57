@@ -1,13 +1,7 @@
 import { assertEquals } from "std/testing/asserts.ts";
 import { stub, Stub } from "std/testing/mock.ts";
-import { handler } from "./index.ts";
+import { ActivityLedgerRecord, handler } from "./index.ts";
 import { mockDenoEnv } from "../_shared/testing-helpers.ts";
-
-export interface ActivityLedgerRecord {
-  id: string;
-  user_id: string;
-  privacy_level: "public" | "friends_only" | "private" | string;
-}
 
 interface MockDbError {
   status?: number;
@@ -520,7 +514,11 @@ Deno.test("send-social-notification - returns 400 when profile lookup fails", as
       user_id: "user-1",
       privacy_level: "public",
     },
-    profileError: { status: 406, message: "JSON object requested, multiple (or no) rows returned" },
+    profileError: {
+      status: 406,
+      code: "PGRST116",
+      message: "JSON object requested, multiple (or no) rows returned",
+    },
   });
 
   try {
@@ -534,6 +532,38 @@ Deno.test("send-social-notification - returns 400 when profile lookup fails", as
     const data = await res.json();
     assertEquals(res.status, 400);
     assertEquals(typeof data.error === "string" && data.error.includes("Profile not found:"), true);
+  } finally {
+    envStub.restore();
+    fetchStub.restore();
+  }
+});
+
+Deno.test("send-social-notification - returns 500 when profile lookup encounters unexpected DB error", async () => {
+  const envStub = mockDenoEnv({
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
+  });
+
+  const fetchStub = mockFetchForSocial({
+    activityLedger: {
+      id: "activity-1",
+      user_id: "user-1",
+      privacy_level: "public",
+    },
+    profileError: { status: 500, message: "connection timeout" },
+  });
+
+  try {
+    const req = new Request("https://test.com", {
+      method: "POST",
+      headers: { Authorization: "Bearer test-role-key" },
+      body: JSON.stringify({ record: { id: "activity-1" } }),
+    });
+
+    const res = await handler(req);
+    const data = await res.json();
+    assertEquals(res.status, 500);
+    assertEquals(data.error, "Failed to fetch profile: connection timeout");
   } finally {
     envStub.restore();
     fetchStub.restore();

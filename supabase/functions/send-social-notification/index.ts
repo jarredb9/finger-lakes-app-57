@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { verifyBearerSecret } from "../_shared/auth.ts";
 
 const corsHeaders = {
@@ -19,7 +19,7 @@ interface WebhookPayload {
 export interface ActivityLedgerRecord {
   id: string;
   user_id: string;
-  privacy_level: "public" | "friends_only" | "private" | string;
+  privacy_level: string;
 }
 
 /** Sanitized HTTP response payload returned when notification evaluation succeeds. */
@@ -160,9 +160,14 @@ export const handler = async (req: Request): Promise<Response> => {
       .single();
 
     if (profileError) {
+      const isNotFound = profileError.code === "PGRST116";
       return jsonResponse(
-        { error: `Profile not found: ${profileError.message}` },
-        400,
+        {
+          error: isNotFound
+            ? `Profile not found: ${profileError.message}`
+            : `Failed to fetch profile: ${profileError.message}`,
+        },
+        isNotFound ? 400 : 500,
       );
     }
 
