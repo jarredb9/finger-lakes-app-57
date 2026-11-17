@@ -7,7 +7,7 @@
  * tool distribution, and context bloat for any antigravity-cli session.
  *
  * Usage:
- *   node scripts/agent/inspect-session.mjs <conversation-id> [--json] [--summary]
+ *   node scripts/agent/inspect-session.mjs <conv-id> [--json] [--summary]
  *   ./scripts/agent/inspect-session.sh <conversation-id>
  *   npm run session:inspect -- <conversation-id>
  */
@@ -26,8 +26,10 @@ const UUID_RE = new RegExp(
     '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}',
     'gi',
 );
-const MODEL_CHANGE_RE =
-  /The user changed setting `Model Selection` from .*? to (.+?)\.\s*(?:No need|If reporting|<\/USER_SETTINGS_CHANGE>|$)/;
+const MODEL_CHANGE_RE = new RegExp(
+    'The user changed setting `Model Selection` from .*? to (.+?)\\.\\s*' +
+    '(?:No need|If reporting|</USER_SETTINGS_CHANGE>|$)',
+);
 
 const FILE_READ_PATH_KEYS = {
   view_file: 'AbsolutePath',
