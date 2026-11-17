@@ -109,6 +109,8 @@ def split_unquoted_and_chains(cmd: str, *, reject_shell_ops: bool = True) -> Lis
             continue
 
         if reject_shell_ops:
+            if ch in ("\n", "\r"):
+                raise ValueError("Unsupported newline in verification command")
             if ch == "`":
                 raise ValueError("Unsupported subshell backtick operator in verification command")
             if ch == "$" and i + 1 < n and cmd[i + 1] == "(":
