@@ -1892,15 +1892,38 @@ class TestSupervisorTaskVerificationRouter(unittest.TestCase):
                             verify_green_task(bad_cmd, cwd=root, type_check_cmd=None)
                 mock_run.assert_not_called()
 
-    def test_resolve_target_verification_commands_strips_env_prefix_for_red_static_analysis(self):
-        """Asserts Red-phase static analysis stripping still catches NODE_ENV=test npm run lint."""
-        _resolve_target_verification_commands = get_target("_resolve_target_verification_commands", self)
-        TaskInfo = get_target("TaskInfo", self)
+    @patch("subprocess.run")
+    def test_verify_task_execution_strips_env_prefixed_static_analysis_in_red_mode(self, mock_run):
+        """Asserts verify_task_execution strips env-prefixed static analysis (NODE_ENV=test npm run lint) in Red mode."""
+        verify_task_execution = get_target("verify_task_execution", self)
+        seen_cmds = []
 
+        def run_side_effect(cmd, *args, **kwargs):
+            if cmd[:2] == ["git", "diff"]:
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=0,
+                    stdout="scripts/__tests__/test_x.py\n",
+                    stderr="",
+                )
+            seen_cmds.append((cmd, kwargs.get("env")))
+            return subprocess.CompletedProcess(
+                args=cmd,
+                returncode=1,
+                stdout="",
+                stderr="AssertionError: expected Red failure",
+            )
+
+        mock_run.side_effect = run_side_effect
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
             track_dir = root / "conductor" / "tracks" / "py-track"
             track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: X\n"
+                "- [ ] Task: Write failing unit tests for x (TDD Red phase)\n",
+                encoding="utf-8",
+            )
             (track_dir / "phase-1-task-1-plan.md").write_text(
                 "- **Path:** `scripts/__tests__/test_x.py`\n\n"
                 "## Execution Verification Protocol\n"
@@ -1909,16 +1932,12 @@ class TestSupervisorTaskVerificationRouter(unittest.TestCase):
                 "```\n",
                 encoding="utf-8",
             )
-            task = TaskInfo(
-                task_num=1,
-                description="Write failing unit tests for x (TDD Red phase)",
-                status="pending",
-                status_char=" ",
-                is_checkpoint=False,
-            )
-            cmds, is_py = _resolve_target_verification_commands(track_dir, 1, task, root)
-            self.assertEqual(cmds, ["PYTHONPATH=scripts/conductor-tools python3.12 -m unittest"])
-            self.assertTrue(is_py)
+
+            self.assertTrue(verify_task_execution("py-track", phase_num=1, task_num=1, base_sha="abc1234", cwd=root))
+            self.assertEqual(len(seen_cmds), 1)
+            self.assertEqual(seen_cmds[0][0], ["python3.12", "-m", "unittest"])
+            self.assertIsNotNone(seen_cmds[0][1])
+            self.assertEqual(seen_cmds[0][1]["PYTHONPATH"], "scripts/conductor-tools")
 
     @patch("subprocess.run")
     def test_verify_task_execution_isolates_cd_per_verification_command_line(self, mock_run):
