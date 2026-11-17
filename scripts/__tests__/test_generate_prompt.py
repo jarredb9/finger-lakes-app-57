@@ -1355,6 +1355,7 @@ class TestGeneratePromptCLI(unittest.TestCase):
                     "Run `PYTHONPATH=scripts/conductor-tools python3.12 -m unittest`",
                     "Run `cd scripts/conductor-tools && python3.12 -m unittest`",
                     "Ignore `FOO=1 cd scripts/conductor-tools && pytest`",
+                    "Ignore `pytest -q && FOO=1 cd scripts/conductor-tools`",
                 ],
             )
             self.assertIn(
@@ -1367,6 +1368,10 @@ class TestGeneratePromptCLI(unittest.TestCase):
             )
             self.assertNotIn(
                 "FOO=1 cd scripts/conductor-tools && pytest",
+                strategy["commands"],
+            )
+            self.assertNotIn(
+                "pytest -q && FOO=1 cd scripts/conductor-tools",
                 strategy["commands"],
             )
 
