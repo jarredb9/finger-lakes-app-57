@@ -195,6 +195,7 @@ def _make_profile() -> RepoProfile:
             allowed_verification_tokens=(
                 "pytest",
                 "python3 -m unittest",
+                "python3 -c",
                 "npm test",
                 "npm run test",
                 "npm run lint",

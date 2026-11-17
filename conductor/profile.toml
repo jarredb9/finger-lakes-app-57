@@ -153,7 +153,7 @@ default_timeout_seconds = 1800.0
 default_heartbeat_interval = 30.0
 
 [safety]
-command_prefixes = ["npm ", "./scripts/", "npx ", "node ", "pytest ", "deno ", "python3", "python ", "TEST_TYPE="]
+command_prefixes = ["npm ", "./scripts/", "npx ", "node ", "pytest ", "deno ", "python3", "python "]
 allowed_verification_tokens = [
     "run-jest-container.sh",
     "test:container",
