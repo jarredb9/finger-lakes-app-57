@@ -1874,16 +1874,23 @@ class TestSupervisorTaskVerificationRouter(unittest.TestCase):
                 with self.assertRaises(SupervisorInvariantError):
                     verify_red_task("missing-bin --version", base_sha="abc1234", cwd=root)
 
-            for bad_cmd in (
-                "cd does-not-exist && python3.12 -m unittest",
-                "cd ../outside && python3.12 -m unittest",
-                "python3.12 -m unittest | cat",
-                "PYTHONPATH=scripts/conductor-tools",
-                'python3.12 -c "unclosed',
-            ):
-                with self.subTest(bad_cmd=bad_cmd):
-                    with self.assertRaises(SupervisorInvariantError):
-                        verify_green_task(bad_cmd, cwd=root, type_check_cmd=None)
+            with patch(
+                "subprocess.run",
+                return_value=subprocess.CompletedProcess(args=[], returncode=0, stdout="OK", stderr=""),
+            ) as mock_run:
+                for bad_cmd in (
+                    "cd does-not-exist && python3.12 -m unittest",
+                    "cd ../outside && python3.12 -m unittest",
+                    "python3.12 -m unittest | cat",
+                    "PYTHONPATH=scripts/conductor-tools",
+                    "python3.12 -m unittest\npytest",
+                    "python3.12 -m unittest\rpytest",
+                    'python3.12 -c "unclosed',
+                ):
+                    with self.subTest(bad_cmd=bad_cmd):
+                        with self.assertRaises(SupervisorInvariantError):
+                            verify_green_task(bad_cmd, cwd=root, type_check_cmd=None)
+                mock_run.assert_not_called()
 
     def test_resolve_target_verification_commands_strips_env_prefix_for_red_static_analysis(self):
         """Asserts Red-phase static analysis stripping still catches NODE_ENV=test npm run lint."""
