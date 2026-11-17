@@ -14,6 +14,7 @@ Usage:
 """
 
 import argparse
+import ast
 import codecs
 from dataclasses import dataclass, field
 import importlib.util
@@ -29,7 +30,7 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Any, Dict, List, Mapping, Optional, Set, TextIO, Tuple, Union
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Set, TextIO, Tuple, Union
 
 _AGENT_DIR = str(Path(__file__).resolve().parent)
 if _AGENT_DIR not in sys.path:
@@ -1216,12 +1217,31 @@ def dispatch_recovery_turn(
 
 _SYNTAX_ERROR_PATTERNS = [
     re.compile(r"\bSyntaxError\b", re.IGNORECASE),
+    re.compile(r"\bIndentationError\b", re.IGNORECASE),
     re.compile(r"Cannot find module\b", re.IGNORECASE),
     re.compile(r"\bReferenceError\b", re.IGNORECASE),
     re.compile(r"\bImportError\b", re.IGNORECASE),
     re.compile(r"\bModuleNotFoundError\b", re.IGNORECASE),
     re.compile(r"^ERROR:\s+\S+\s+\(", re.MULTILINE),
     re.compile(r"\bTS\d{4}:", re.IGNORECASE),
+]
+
+_HARD_SYNTAX_ERROR_PATTERNS = [
+    re.compile(r"\bSyntaxError\b", re.IGNORECASE),
+    re.compile(r"\bIndentationError\b", re.IGNORECASE),
+    re.compile(r"\bReferenceError\b", re.IGNORECASE),
+    re.compile(r"\bTS(?!2307\b)\d{4}:", re.IGNORECASE),
+]
+
+_NON_LOADER_UNITTEST_ERROR_RE = re.compile(
+    r"^ERROR:\s+\S+\s+\((?!unittest\.loader\._FailedTest\b)[^)]+\)",
+    re.MULTILINE,
+)
+
+_MISSING_MODULE_PATTERNS = [
+    re.compile(r"ModuleNotFoundError:\s+No module named\s+['\"]([^'\"]+)['\"]"),
+    re.compile(r"ImportError:\s+cannot import name\s+['\"][^'\"]+['\"]\s+from\s+['\"]([^'\"]+)['\"]"),
+    re.compile(r"(?:TS2307:\s*)?Cannot find module\s+['\"]([^'\"]+)['\"]"),
 ]
 
 _ASSERTION_PATTERNS = [
@@ -1237,16 +1257,118 @@ _ASSERTION_PATTERNS = [
 ]
 
 
+def _normalize_module_token(raw: str) -> Tuple[str, str]:
+    """Normalizes a module import or file path into (dotted_path, stem)."""
+    cleaned = raw.strip().strip("`'\"").replace("\\", "/")
+    for prefix in ("@/", "~/", "./", "../"):
+        while cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix):]
+    cleaned = cleaned.lstrip("/")
+    for ext in (".py", ".tsx", ".ts", ".jsx", ".js", ".mjs", ".cjs"):
+        if cleaned.endswith(ext):
+            cleaned = cleaned[:-len(ext)]
+            break
+    if cleaned.endswith("/__init__"):
+        cleaned = cleaned[:-len("/__init__")]
+    elif cleaned.endswith("/index"):
+        cleaned = cleaned[:-len("/index")]
+    dotted = cleaned.replace("/", ".").strip(".")
+    stem = dotted.split(".")[-1] if dotted else ""
+    return dotted, stem
+
+
+def _is_test_module_spec(raw_mod: str) -> bool:
+    """Returns True if an imported module specifier refers to a test file or test package."""
+    norm = raw_mod.strip().replace("\\", "/")
+    parts = [p for p in re.split(r"[./]", norm) if p and p != ".."]
+    if any(p in ("tests", "test", "__tests__", "e2e") for p in parts):
+        return True
+    last = parts[-1] if parts else ""
+    if last.startswith("test_") or last.endswith(("_test", ".test", ".spec")):
+        return True
+    return ".test." in norm or ".spec." in norm
+
+
+def _is_expected_red_target_module(
+    missing_mod: str,
+    expected_targets: Sequence[str],
+    work_dir: Optional[Path] = None,
+) -> bool:
+    """Returns True if missing_mod matches a planned non-test production target."""
+    if not missing_mod or _is_test_module_spec(missing_mod):
+        return False
+
+    mod_dotted, mod_stem = _normalize_module_token(missing_mod)
+    if not mod_dotted or not mod_stem:
+        return False
+
+    non_test_targets = [
+        t for t in expected_targets
+        if t and not _is_test_file(_normalize_repo_path(t)) and not _is_test_module_spec(t)
+    ]
+    for target in non_test_targets:
+        t_dotted, t_stem = _normalize_module_token(target)
+        if not t_dotted:
+            continue
+        if (
+            mod_dotted == t_dotted
+            or mod_dotted.endswith(f".{t_dotted}")
+            or t_dotted.endswith(f".{mod_dotted}")
+        ):
+            return True
+        if "." not in t_dotted and mod_stem == t_dotted:
+            return True
+
+    if not non_test_targets and work_dir is not None and "." in mod_dotted:
+        root_pkg = mod_dotted.split(".")[0]
+        for candidate in work_dir.rglob(root_pkg):
+            if candidate.is_dir() and not _is_test_file(_normalize_repo_path(str(candidate.relative_to(work_dir)))):
+                if (candidate / "__init__.py").is_file() or root_pkg in ("lib", "components", "app", "hooks", "src"):
+                    return True
+
+    return False
+
+
 def parse_test_failure_markers(
     output: str,
     runner_hint: Optional[str] = None,
+    expected_targets: Optional[Sequence[str]] = None,
+    work_dir: Optional[Path] = None,
 ) -> Tuple[bool, str]:
     """Parses test runner stdout/stderr for assertion failure markers vs syntax/runtime errors.
+
+    When expected_targets is provided, target-scoped missing-module import errors
+    (ModuleNotFoundError / ImportError / Cannot find module / TS2307) are accepted
+    if syntax checks pass and no non-import runtime ERRORs are present.
 
     Returns:
         (is_valid_assertion_failure: bool, reason: str)
     """
     _ = runner_hint  # Reserved for runner-specific heuristics
+    if expected_targets is not None:
+        for pattern in _HARD_SYNTAX_ERROR_PATTERNS:
+            match = pattern.search(output)
+            if match:
+                return False, f"Syntax/module load error detected: {match.group(0)}"
+
+        non_loader_err = _NON_LOADER_UNITTEST_ERROR_RE.search(output)
+        if not non_loader_err:
+            missing_mods: List[str] = []
+            for pattern in _MISSING_MODULE_PATTERNS:
+                for match in pattern.finditer(output):
+                    mod_name = match.group(1).strip()
+                    if mod_name and mod_name not in missing_mods:
+                        missing_mods.append(mod_name)
+
+            if missing_mods and all(
+                _is_expected_red_target_module(mod, expected_targets, work_dir=work_dir)
+                for mod in missing_mods
+            ):
+                return (
+                    True,
+                    f"Target-scoped missing-module Red failure detected: {', '.join(missing_mods)}",
+                )
+
     for pattern in _SYNTAX_ERROR_PATTERNS:
         match = pattern.search(output)
         if match:
@@ -1273,11 +1395,14 @@ def verify_red_task(
     base_sha: str,
     head_sha: str = "HEAD",
     cwd: Optional[Path] = None,
+    expected_targets: Optional[Sequence[str]] = None,
 ) -> bool:
     """Performs dual-check verification for Red tasks:
     1. Test command exits non-zero.
-    2. Output contains assertion failure markers, not syntax/import errors.
-    3. Zero production files were modified between base_sha and head_sha.
+    2. Output contains assertion failure markers (or target-scoped missing-module import errors
+       when expected_targets is provided), not syntax/test-helper errors.
+    3. Zero production files were modified between base_sha and head_sha, and modified .py test
+       files pass ast.parse syntax checks.
     Raises SupervisorInvariantError on any violation.
     """
     work_dir = cwd or PROJECT_ROOT
@@ -1294,7 +1419,11 @@ def verify_red_task(
         )
 
     combined_output = (res.stdout or "") + "\n" + (res.stderr or "")
-    is_valid, reason = parse_test_failure_markers(combined_output)
+    is_valid, reason = parse_test_failure_markers(
+        combined_output,
+        expected_targets=expected_targets,
+        work_dir=work_dir,
+    )
     if not is_valid:
         raise SupervisorInvariantError(
             f"Red task failed due to syntax/module error, not assertion failure: {reason}"
@@ -1315,6 +1444,15 @@ def verify_red_task(
             continue
         if _is_red_task_production_violation(f):
             raise SupervisorInvariantError(f"Red task modified production code: {f}")
+        if f.endswith(".py"):
+            py_path = work_dir / f
+            if py_path.is_file():
+                try:
+                    ast.parse(py_path.read_text(encoding="utf-8"), filename=str(py_path))
+                except SyntaxError as exc:
+                    raise SupervisorInvariantError(
+                        f"Red task test file has syntax error in {f}: {exc}"
+                    ) from exc
 
     return True
 
@@ -1650,6 +1788,45 @@ def _resolve_target_verification_commands(
     return test_cmds, is_py_only
 
 
+def _extract_expected_red_targets(
+    task: TaskInfo,
+    plan_file: Optional[Path] = None,
+) -> List[str]:
+    """Extracts planned non-test production module/file names from task metadata and blueprint."""
+    sources: List[str] = [task.description, *task.subtasks]
+    if plan_file is not None and plan_file.exists():
+        try:
+            sources.append(plan_file.read_text(encoding="utf-8"))
+        except OSError:
+            pass
+
+    targets: List[str] = []
+    file_re = re.compile(r"\b([a-zA-Z0-9_\-/\.]+\.(?:py|ts|tsx|js|jsx|mjs|cjs))\b")
+    dotted_re = re.compile(r"`([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)+)`")
+
+    for text in sources:
+        for match in file_re.findall(text):
+            norm = _normalize_repo_path(match)
+            if (
+                norm
+                and not norm.startswith("conductor/")
+                and not _is_test_file(norm)
+                and not _is_test_module_spec(norm)
+                and norm not in targets
+            ):
+                targets.append(norm)
+        for mod in dotted_re.findall(text):
+            if (
+                not mod.endswith((".py", ".ts", ".tsx", ".js", ".jsx", ".md", ".toml", ".json", ".sh"))
+                and not mod.startswith(("unittest.", "pytest.", "dataclasses.", "pathlib.", "typing."))
+                and not _is_test_module_spec(mod)
+                and mod not in targets
+            ):
+                targets.append(mod)
+
+    return targets
+
+
 def verify_task_execution(
     track_name: str,
     phase_num: int,
@@ -1679,10 +1856,13 @@ def verify_task_execution(
     )
 
     if _is_red_task(task.description):
+        plan_file = track_dir / f"phase-{phase_num}-task-{task.task_num}-plan.md"
+        expected_targets = _extract_expected_red_targets(task, plan_file=plan_file)
         return verify_red_task(
             test_cmd=" && ".join(test_cmds),
             base_sha=base_sha or "HEAD~1",
             cwd=work_dir,
+            expected_targets=expected_targets,
         )
 
     return verify_green_task(
@@ -1757,6 +1937,172 @@ def dispatch_tier1_planning(
 # Tier 2 Execution Turn Dispatcher
 # ---------------------------------------------------------------------------
 
+def dispatch_verification_repair_turn(
+    track_name: str,
+    phase_num: int,
+    task_num: int,
+    error_message: str,
+    exec_model: str = DEFAULT_EXEC_MODEL,
+    timeout: float = 900.0,
+    cwd: Optional[Path] = None,
+    stream_config: Optional[TurnStreamConfig] = None,
+) -> bool:
+    """Dispatches 1 bounded repair turn when post-turn verification or git audit fails."""
+    work_dir = cwd or PROJECT_ROOT
+    track_dir = resolve_track_dir(track_name, cwd=work_dir) or (work_dir / "conductor" / "tracks" / track_name).resolve()
+    log_file = track_dir / "logs" / f"phase-{phase_num}-task-{task_num}-repair.log"
+
+    base_prompt = generate_turn_prompt(
+        track=track_name,
+        phase_num=phase_num,
+        task_num=task_num,
+        mode="recovery",
+        cwd=work_dir,
+    )
+    repair_prompt = (
+        f"{base_prompt.rstrip()}\n\n"
+        f"## Post-Turn Verification / Audit Failure (Bounded Repair)\n"
+        f"The previous turn failed supervisor invariant verification for Phase {phase_num} Task {task_num}:\n"
+        f"```\n{error_message}\n```\n"
+        f"Fix the root cause of this invariant failure, re-run the targeted verification check, "
+        f"ensure git commit, git notes (`Task:`, `Summary:`, `Files:`, `Rationale:`), and "
+        f"`conductor/tracks/{track_name}/plan.md` (`[x]` with `[commit: <sha>]` via a `conductor(plan):` commit) "
+        f"are valid, and leave a completely clean working tree.\n"
+    )
+    ret, _stdout, stderr = run_agy_turn(
+        prompt=repair_prompt,
+        mode="auto",
+        model=exec_model,
+        timeout=timeout,
+        cwd=work_dir,
+        log_file=log_file,
+        **({"stream_config": stream_config} if stream_config is not None else {}),
+    )
+    if ret != 0:
+        raise ProcessExecutionError(
+            f"Verification repair turn failed with exit code {ret}: {stderr.strip()}"
+        )
+    return True
+
+
+def _revert_false_task_completion(
+    track_dir: Path,
+    phase_num: int,
+    task_num: int,
+    cwd: Optional[Path] = None,
+) -> bool:
+    """Reverts a false [x] task completion in plan.md to [ ] and commits the plan revert."""
+    work_dir = cwd or PROJECT_ROOT
+    plan_path = track_dir / "plan.md"
+    if not plan_path.exists():
+        return False
+
+    try:
+        phases = parse_track_plan(track_dir)
+    except Exception:
+        return False
+
+    phase = phases.get(phase_num)
+    task = next((t for t in phase.tasks if t.task_num == task_num), None) if phase else None
+    if task is None or task.status != "complete":
+        return False
+
+    lines = plan_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    replaced = False
+    for idx, line in enumerate(lines):
+        stripped = line.rstrip("\r\n")
+        if task.raw_line and stripped == task.raw_line:
+            newline = line[len(stripped):]
+            updated = re.sub(r"^(\s*-\s*)\[[xX]\]", r"\1[ ]", stripped, count=1)
+            updated = re.sub(r"\s*\[(?:commit:\s*)?`?[a-f0-9]{7,40}`?\]", "", updated, flags=re.IGNORECASE)
+            lines[idx] = updated + newline
+            replaced = True
+            break
+
+    if not replaced:
+        return False
+
+    plan_path.write_text("".join(lines), encoding="utf-8")
+    try:
+        subprocess.run(
+            ["git", "add", str(plan_path)],
+            capture_output=True,
+            text=True,
+            cwd=work_dir,
+            check=True,
+        )
+        subprocess.run(
+            [
+                "git",
+                "commit",
+                "-m",
+                f"conductor(plan): revert unverified completion of Phase {phase_num} Task {task_num}",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=work_dir,
+            check=True,
+        )
+    except Exception as exc:
+        print(
+            f"[conductor-auto] Warning: updated plan.md to [ ] but failed to commit plan revert: {exc}",
+            file=sys.stderr,
+        )
+    return True
+
+
+def _run_tier2_verification_and_audit(
+    track_name: str,
+    track_dir: Path,
+    phase_num: int,
+    task_num: int,
+    base_sha: str,
+    work_dir: Path,
+) -> None:
+    """Runs post-turn task verification and git commit/notes/plan audit."""
+    verify_task_execution(
+        track_name=track_name,
+        phase_num=phase_num,
+        task_num=task_num,
+        base_sha=base_sha,
+        cwd=work_dir,
+    )
+
+    phases = parse_track_plan(track_dir)
+    plan_path = track_dir / "plan.md"
+    phase = phases.get(phase_num)
+    task = next((t for t in phase.tasks if t.task_num == task_num), None) if phase else None
+    if task is not None:
+        if task.status != "complete" or not task.commit_sha:
+            raise SupervisorInvariantError(
+                f"Task {task_num} in {plan_path} was not marked [x] with [commit: <sha>]."
+            )
+        commit_sha = task.commit_sha
+    else:
+        task = TaskInfo(
+            task_num=task_num,
+            description=f"Phase {phase_num} Task {task_num}",
+            status="complete",
+            status_char="x",
+            is_checkpoint=False,
+        )
+        sha_res = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=work_dir,
+        )
+        commit_sha = sha_res.stdout.strip() if sha_res.returncode == 0 else "HEAD"
+
+    audit_git_commit_and_notes(
+        task=task,
+        commit_sha=commit_sha,
+        plan_path=plan_path,
+        cwd=work_dir,
+        base_sha=base_sha,
+    )
+
+
 def dispatch_tier2_execution(
     track_name: str,
     phase_num: int,
@@ -1773,8 +2119,9 @@ def dispatch_tier2_execution(
     2. Generates execution prompt via generate-prompt.py --exec.
     3. Dispatches agy --mode auto turn.
     4. Checks working tree cleanliness (invoking recovery if --auto-recover).
-    5. Audits active task verification (Red, Green, or Exempt).
-    6. Audits git commit, notes, and plan.md update.
+    5. Audits active task verification (Red, Green, or Exempt) and git commit/notes/plan.md.
+    6. On SupervisorInvariantError: runs 1 bounded repair turn when --auto-recover is enabled;
+       reverts any false [x] in plan.md to [ ] before halting if verification still fails.
     Returns True on success; raises ConductorAutoError on failure.
     """
     work_dir = cwd or PROJECT_ROOT
@@ -1843,47 +2190,52 @@ def dispatch_tier2_execution(
                 f"Working tree contains uncommitted changes ({', '.join(dirty_files)}) and --auto-recover is disabled."
             )
 
-    verify_task_execution(
-        track_name=track_name,
-        phase_num=phase_num,
-        task_num=task_num,
-        base_sha=base_sha,
-        cwd=work_dir,
-    )
-
-    phases = parse_track_plan(track_dir)
-    plan_path = track_dir / "plan.md"
-    phase = phases.get(phase_num)
-    task = next((t for t in phase.tasks if t.task_num == task_num), None) if phase else None
-    if task is not None:
-        if task.status != "complete" or not task.commit_sha:
-            raise SupervisorInvariantError(
-                f"Task {task_num} in {plan_path} was not marked [x] with [commit: <sha>]."
-            )
-        commit_sha = task.commit_sha
-    else:
-        task = TaskInfo(
+    try:
+        _run_tier2_verification_and_audit(
+            track_name=track_name,
+            track_dir=track_dir,
+            phase_num=phase_num,
             task_num=task_num,
-            description=f"Phase {phase_num} Task {task_num}",
-            status="complete",
-            status_char="x",
-            is_checkpoint=False,
+            base_sha=base_sha,
+            work_dir=work_dir,
         )
-        sha_res = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            capture_output=True,
-            text=True,
-            cwd=work_dir,
-        )
-        commit_sha = sha_res.stdout.strip() if sha_res.returncode == 0 else "HEAD"
+    except SupervisorInvariantError as first_err:
+        if auto_recover:
+            print(
+                f"[conductor-auto] Verification/audit failed ({first_err}); dispatching 1 bounded repair turn...",
+                file=sys.stderr,
+            )
+            try:
+                dispatch_verification_repair_turn(
+                    track_name=track_name,
+                    phase_num=phase_num,
+                    task_num=task_num,
+                    error_message=str(first_err),
+                    exec_model=exec_model,
+                    timeout=timeout,
+                    cwd=work_dir,
+                    **({"stream_config": stream_config} if stream_config is not None else {}),
+                )
+                is_clean, dirty_files = check_working_tree_cleanliness(cwd=work_dir)
+                if not is_clean:
+                    raise GitTreeDirtyError(
+                        f"Working tree remains dirty after verification repair turn: {', '.join(dirty_files)}"
+                    )
+                _run_tier2_verification_and_audit(
+                    track_name=track_name,
+                    track_dir=track_dir,
+                    phase_num=phase_num,
+                    task_num=task_num,
+                    base_sha=base_sha,
+                    work_dir=work_dir,
+                )
+                return True
+            except SupervisorInvariantError:
+                _revert_false_task_completion(track_dir, phase_num, task_num, cwd=work_dir)
+                raise
+        _revert_false_task_completion(track_dir, phase_num, task_num, cwd=work_dir)
+        raise
 
-    audit_git_commit_and_notes(
-        task=task,
-        commit_sha=commit_sha,
-        plan_path=plan_path,
-        cwd=work_dir,
-        base_sha=base_sha,
-    )
     return True
 
 

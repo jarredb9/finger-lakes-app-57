@@ -1187,6 +1187,136 @@ class TestSupervisorRedTaskVerification(unittest.TestCase):
             verify_red_task(test_cmd="npm test", base_sha="abc1234")
         self.assertIn("conductor-auto.py", str(ctx.exception))
 
+    def test_parse_test_failure_markers_accepts_target_scoped_python_module_not_found(self):
+        """Asserts unittest loader ModuleNotFoundError passes when expected_targets matches the missing production module."""
+        parse_test_failure_markers = get_target("parse_test_failure_markers", self)
+
+        output = (
+            "E\n"
+            "======================================================================\n"
+            "ERROR: tests.test_models (unittest.loader._FailedTest.tests.test_models)\n"
+            "----------------------------------------------------------------------\n"
+            "ImportError: Failed to import test module: tests.test_models\n"
+            "Traceback (most recent call last):\n"
+            '  File "/usr/lib64/python3.12/unittest/loader.py", line 339, in _get_module_from_name\n'
+            "    __import__(name)\n"
+            '  File "/repo/scripts/conductor-tools/tests/test_models.py", line 10, in <module>\n'
+            "    from conductor_tools.models import ConductorError\n"
+            "ModuleNotFoundError: No module named 'conductor_tools.models'\n"
+            "----------------------------------------------------------------------\n"
+            "Ran 1 test in 0.000s\n\n"
+            "FAILED (errors=1)\n"
+        )
+        is_valid, reason = parse_test_failure_markers(
+            output, expected_targets=["models.py", "profile.py"]
+        )
+        self.assertTrue(is_valid, f"Expected target-scoped ModuleNotFoundError to pass, got: {reason}")
+        self.assertIn("conductor_tools.models", reason)
+
+    def test_parse_test_failure_markers_accepts_target_scoped_symbol_import_and_ts_module(self):
+        """Asserts ImportError symbol miss and Jest/TS missing module pass only when matching expected_targets."""
+        parse_test_failure_markers = get_target("parse_test_failure_markers", self)
+
+        py_sym = (
+            "ERROR: tests.test_parser (unittest.loader._FailedTest.tests.test_parser)\n"
+            "ImportError: cannot import name 'parse_track_plan' from 'conductor_tools.parser'\n"
+        )
+        ok_py, reason_py = parse_test_failure_markers(
+            py_sym, expected_targets=["conductor_tools.parser"]
+        )
+        self.assertTrue(ok_py, reason_py)
+
+        ts_err = "Cannot find module '@/lib/newSeam' from 'lib/__tests__/newSeam.test.ts'\nTS2307: Cannot find module '@/lib/newSeam'"
+        ok_ts, reason_ts = parse_test_failure_markers(
+            ts_err, expected_targets=["lib/newSeam.ts"]
+        )
+        self.assertTrue(ok_ts, reason_ts)
+
+    def test_parse_test_failure_markers_rejects_untargeted_or_test_helper_imports_and_mixed_errors(self):
+        """Asserts non-target imports, test-helper imports, and mixed KeyError/SyntaxError remain rejected."""
+        parse_test_failure_markers = get_target("parse_test_failure_markers", self)
+
+        unrelated = "ModuleNotFoundError: No module named 'nonexistent_pkg'"
+        ok_unrel, _ = parse_test_failure_markers(unrelated, expected_targets=["models.py"])
+        self.assertFalse(ok_unrel)
+
+        test_helper = "ModuleNotFoundError: No module named 'tests.missing_helper'"
+        ok_helper, _ = parse_test_failure_markers(test_helper, expected_targets=["models.py", "missing_helper.py"])
+        self.assertFalse(ok_helper)
+
+        mixed_err = (
+            "ERROR: tests.test_models (unittest.loader._FailedTest.tests.test_models)\n"
+            "ModuleNotFoundError: No module named 'conductor_tools.models'\n"
+            "ERROR: test_broken (tests.test_other.TestOther)\n"
+            "KeyError: 'id'\n"
+        )
+        ok_mixed, _ = parse_test_failure_markers(mixed_err, expected_targets=["models.py"])
+        self.assertFalse(ok_mixed)
+
+    @patch("subprocess.run")
+    def test_verify_red_task_rejects_python_syntax_error_in_changed_test_file(self, mock_run):
+        """Asserts verify_red_task catches SyntaxError in modified .py test files even when expected_targets is set."""
+        verify_red_task = get_target("verify_red_task", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            test_dir = root / "tests"
+            test_dir.mkdir(parents=True)
+            (test_dir / "test_models.py").write_text("def broken(:\n    pass\n", encoding="utf-8")
+
+            def run_side_effect(cmd, *args, **kwargs):
+                if isinstance(cmd, list) and cmd[0] == "git" and "diff" in cmd:
+                    return subprocess.CompletedProcess(
+                        args=cmd, returncode=0, stdout="tests/test_models.py\n", stderr=""
+                    )
+                return subprocess.CompletedProcess(
+                    args=cmd,
+                    returncode=1,
+                    stdout="ModuleNotFoundError: No module named 'conductor_tools.models'\n",
+                    stderr="",
+                )
+
+            mock_run.side_effect = run_side_effect
+            with self.assertRaises(SupervisorInvariantError) as ctx:
+                verify_red_task(
+                    test_cmd="python3.12 -m unittest",
+                    base_sha="abc1234",
+                    cwd=root,
+                    expected_targets=["models.py"],
+                )
+            self.assertIn("syntax", str(ctx.exception).lower())
+
+    def test_verify_task_execution_passes_expected_targets_for_greenfield_red_task(self):
+        """Asserts verify_task_execution forwards extracted production targets from task/plan to verify_red_task."""
+        verify_task_execution = get_target("verify_task_execution", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "pkg-track"
+            track_dir.mkdir(parents=True)
+            (track_dir / "plan.md").write_text(
+                "## Phase 1: Core\n"
+                "- [ ] Task: Write failing unit tests for `models.py` and `profile.py` (TDD Red phase)\n"
+                "    - [ ] Create `scripts/conductor-tools/tests/test_models.py`\n",
+                encoding="utf-8",
+            )
+            (track_dir / "phase-1-task-1-plan.md").write_text(
+                "- **Path:** `scripts/conductor-tools/tests/test_models.py`\n"
+                "## Execution Verification Protocol\n"
+                "```bash\n"
+                'python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_models.py"\n'
+                "```\n",
+                encoding="utf-8",
+            )
+
+            with patch.object(conductor_auto, "verify_red_task", return_value=True) as mock_red:
+                self.assertTrue(verify_task_execution("pkg-track", phase_num=1, task_num=1, base_sha="abc1234", cwd=root))
+                expected_targets = mock_red.call_args.kwargs.get("expected_targets")
+                self.assertIsNotNone(expected_targets)
+                self.assertIn("models.py", expected_targets)
+                self.assertIn("profile.py", expected_targets)
+
 
 class TestSupervisorGreenTaskVerification(unittest.TestCase):
     """Test suite for Green task active supervisor verification (test exit 0 AND type-check exit 0)."""
@@ -1754,6 +1884,87 @@ class TestTier2ExecutionCoordination(unittest.TestCase):
                         ):
                             with self.assertRaises(SupervisorInvariantError):
                                 dispatch_tier2_execution("test-track", phase_num=4, task_num=1)
+
+    def test_dispatch_tier2_execution_auto_recovers_verification_failure_once(self):
+        """Asserts dispatch_tier2_execution runs 1 bounded repair turn on SupervisorInvariantError when auto_recover=True."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+        TurnStreamConfig = get_target("TurnStreamConfig", self)
+        stream_cfg = TurnStreamConfig(stream=True, heartbeat_interval=10.0)
+
+        with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec"):
+            with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Done", "")) as mock_run:
+                with patch.object(conductor_auto, "check_working_tree_cleanliness", create=True, return_value=(True, [])):
+                    with patch.object(
+                        conductor_auto,
+                        "verify_task_execution",
+                        create=True,
+                        side_effect=[SupervisorInvariantError("Red syntax error"), True],
+                    ) as mock_verify:
+                        with patch.object(conductor_auto, "audit_git_commit_and_notes", create=True, return_value=True) as mock_audit:
+                            res = dispatch_tier2_execution(
+                                "test-track",
+                                phase_num=4,
+                                task_num=1,
+                                auto_recover=True,
+                                stream_config=stream_cfg,
+                            )
+                            self.assertTrue(res)
+                            self.assertEqual(mock_verify.call_count, 2)
+                            self.assertEqual(mock_run.call_count, 2)
+                            self.assertEqual(mock_run.call_args_list[1].kwargs.get("stream_config"), stream_cfg)
+                            mock_audit.assert_called_once()
+
+    def test_dispatch_tier2_execution_reverts_false_plan_completion_on_persistent_failure(self):
+        """Asserts dispatch_tier2_execution reverts [x] -> [ ] and commits plan revert when verification still fails."""
+        dispatch_tier2_execution = get_target("dispatch_tier2_execution", self)
+        SupervisorInvariantError = get_target("SupervisorInvariantError", self)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            track_dir = root / "conductor" / "tracks" / "test-track"
+            track_dir.mkdir(parents=True)
+            plan_path = track_dir / "plan.md"
+            plan_path.write_text(
+                "## Phase 1: Core\n"
+                "- [x] Task: Write failing unit tests for `models.py` (TDD Red phase) [commit: deadbeef]\n"
+                "    - [x] Create `tests/test_models.py`\n",
+                encoding="utf-8",
+            )
+            subprocess.run(["git", "init"], cwd=root, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=root, check=True, capture_output=True)
+            subprocess.run(["git", "config", "user.name", "Test User"], cwd=root, check=True, capture_output=True)
+            subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
+            subprocess.run(["git", "commit", "-m", "conductor(plan): mark Phase 1 Task 1 complete"], cwd=root, check=True, capture_output=True)
+
+            with patch.object(conductor_auto, "generate_turn_prompt", create=True, return_value="# Exec"):
+                with patch.object(conductor_auto, "run_agy_turn", create=True, return_value=(0, "Done", "")):
+                    with patch.object(
+                        conductor_auto,
+                        "verify_task_execution",
+                        create=True,
+                        side_effect=SupervisorInvariantError("Persistent verification failure"),
+                    ):
+                        with self.assertRaises(SupervisorInvariantError):
+                            dispatch_tier2_execution(
+                                "test-track",
+                                phase_num=1,
+                                task_num=1,
+                                auto_recover=True,
+                                cwd=root,
+                            )
+
+            updated_plan = plan_path.read_text(encoding="utf-8")
+            self.assertIn("- [ ] Task: Write failing unit tests for `models.py` (TDD Red phase)", updated_plan)
+            self.assertNotIn("[commit: deadbeef]", updated_plan)
+            log_msg = subprocess.run(
+                ["git", "log", "-1", "--format=%s"], cwd=root, check=True, capture_output=True, text=True
+            ).stdout.strip()
+            self.assertEqual(log_msg, "conductor(plan): revert unverified completion of Phase 1 Task 1")
+            status_out = subprocess.run(
+                ["git", "status", "--porcelain"], cwd=root, check=True, capture_output=True, text=True
+            ).stdout.strip()
+            self.assertEqual(status_out, "")
 
 
 class TestModelMatrixAndResolution(unittest.TestCase):
