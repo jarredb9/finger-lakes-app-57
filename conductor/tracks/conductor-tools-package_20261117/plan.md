@@ -55,9 +55,9 @@
 - [x] Task: Implement `templates.py` (TDD Green phase) [commit: c43bbdcc]
     - [x] Implement `scripts/conductor-tools/conductor_tools/templates.py` with pure Python prompt builders (including `build_review_prompt` and Tier 1 verification command formatting rules) driven by `RepoProfile` and in-process `generate_turn_prompt()`
     - [x] Run `test_templates.py` and confirm all tests pass
-- [ ] Task: Write failing unit tests for `prompt_cli.py` (TDD Red phase)
-    - [ ] Create `scripts/conductor-tools/tests/test_prompt_cli.py` testing `conductor-prompt` CLI flags (`-C`/`--repo-root`, `--plan`, `--exec`, `--checkpoint`, `--unattended`, `--recovery`, `--review` with optional `[track] [phase]` and `--report-path`, `--copy`), explicit `--red`/`--green` overrides (warning on `[exempt]`, error on checkpoint), rejection of removed `--full` flag, single-pass strategy execution, and synthetic-repo execution without `conductor/profile.toml`
-    - [ ] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_prompt_cli.py"` and confirm expected failures
+- [x] Task: Write failing unit tests for `prompt_cli.py` (TDD Red phase) [commit: c76d3b9d]
+    - [x] Create `scripts/conductor-tools/tests/test_prompt_cli.py` testing `conductor-prompt` CLI flags (`-C`/`--repo-root`, `--plan`, `--exec`, `--checkpoint`, `--unattended`, `--recovery`, `--review` with optional `[track] [phase]` and `--report-path`, `--copy`), explicit `--red`/`--green` overrides (warning on `[exempt]`, error on checkpoint), rejection of removed `--full` flag, single-pass strategy execution, and synthetic-repo execution without `conductor/profile.toml`
+    - [x] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_prompt_cli.py"` and confirm expected failures
 - [ ] Task: Implement `prompt_cli.py` (TDD Green phase)
     - [ ] Implement `scripts/conductor-tools/conductor_tools/prompt_cli.py` supporting `-C`/`--repo-root`, `--review`, mode overrides, and all prompt modes (without `--full`)
     - [ ] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools` and confirm all Phase 4 tests pass
