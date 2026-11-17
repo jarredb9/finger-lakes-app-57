@@ -30,6 +30,12 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+_AGENT_DIR = str(Path(__file__).resolve().parent)
+if _AGENT_DIR not in sys.path:
+    sys.path.insert(0, _AGENT_DIR)
+
+from plan_parser import is_checkpoint_task, parse_plan_file  # noqa: E402
+
 # Project root resolution (supports execution from scripts/ or scripts/agent/)
 if (Path(__file__).resolve().parents[1] / "package.json").exists():
     PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -110,139 +116,12 @@ def _rel_to_project(path: Path) -> str:
         return str(path)
 
 
-def is_checkpoint_task(task_desc: str) -> bool:
-    """Returns True if task description represents a Phase Completion / Manual Verification checkpoint."""
-    desc_lower = task_desc.lower().strip()
-    return (
-        "manual verification" in desc_lower
-        or "protocol in workflow.md" in desc_lower
-        or "checkpoint end of phase" in desc_lower
-        or desc_lower.startswith("conductor - user manual verification")
-    )
-
-
 def parse_plan_tasks(track_name: Optional[str]) -> Dict[int, Dict[str, Any]]:
-    """Parses phases, tasks, and subtasks from track plan.md."""
+    """Parses phases, tasks, and subtasks from track plan.md into dict structures."""
     track_dir = resolve_track_dir(track_name)
     plan_path = track_dir / "plan.md" if track_dir else None
-    if not plan_path or not plan_path.exists():
-        return {}
-
-    content = plan_path.read_text(encoding="utf-8")
-    phases: Dict[int, Dict[str, Any]] = {}
-    current_phase_num = None
-    in_review_fixes = False
-
-    checkpoint_header_re = re.compile(
-        r"\s*`?(?:\[checkpoint:\s*`?([a-f0-9]{7,40})`?\]|\[`?([a-f0-9]{7,40})`?\])`?\s*$",
-        re.IGNORECASE,
-    )
-    exempt_re = re.compile(r"\[exempt:\s*([a-zA-Z0-9_\-]+)\]", re.IGNORECASE)
-    task_sha_re = re.compile(
-        r"\s*`?(?:\(`?([a-f0-9]{7,40})`?\)|\[(?:commit:\s*|checkpoint:\s*)?`?([a-f0-9]{7,40})`?\])`?\s*$",
-        re.IGNORECASE,
-    )
-    task_sha_bare_re = re.compile(
-        r"\s+`?([a-f0-9]{7,40})`?\s*$",
-        re.IGNORECASE,
-    )
-
-    for line in content.splitlines():
-        # Phase header: e.g., ## Phase 2: On-Demand Enrichment... or ### Phase 1:... or ## Phase: Review Fixes
-        phase_match = re.match(r"^(#{2,3})\s+Phase(?:\s+(\d+))?[:\s]+(.*)", line, re.IGNORECASE)
-        if phase_match:
-            raw_num = phase_match.group(2)
-            raw_title = phase_match.group(3).strip()
-            cp_match = checkpoint_header_re.search(raw_title)
-            checkpoint_sha = None
-            if cp_match:
-                checkpoint_sha = cp_match.group(1) or cp_match.group(2)
-                phase_title = raw_title[: cp_match.start()].strip()
-            else:
-                phase_title = raw_title
-
-            if raw_num is None and re.match(r"^review\s+fixes\b", phase_title, re.IGNORECASE) and current_phase_num is not None:
-                in_review_fixes = True
-                continue
-
-            in_review_fixes = False
-            raw_heading = checkpoint_header_re.sub("", line.strip()).strip()
-
-            if raw_num:
-                current_phase_num = int(raw_num)
-            else:
-                current_phase_num = (max(phases.keys()) + 1) if phases else 1
-            phases[current_phase_num] = {
-                "name": phase_title,
-                "checkpoint_sha": checkpoint_sha,
-                "raw_heading": raw_heading,
-                "tasks": [],
-                "review_fixes": [],
-            }
-            continue
-
-        if current_phase_num is not None:
-            target_tasks = (
-                phases[current_phase_num]["review_fixes"]
-                if in_review_fixes
-                else phases[current_phase_num]["tasks"]
-            )
-            # Check indented subtask first (indented by 2+ spaces or tabs before - [ ])
-            subtask_match = re.match(r"^(?:\s{2,}|\t+)-\s*\[([ x~X])\]\s*(.*)", line)
-            if subtask_match and target_tasks:
-                target_tasks[-1]["subtasks"].append(subtask_match.group(2).strip())
-                continue
-
-            # Top-level Task item (starts at line start)
-            task_match = re.match(r"^-\s*\[([ x~X])\]\s+(?:Task(?:\s+\d+)?:)?\s*(.*)", line)
-            if task_match:
-                status_char = task_match.group(1).lower()
-                task_desc = task_match.group(2).strip()
-                exempt_cat = None
-                exempt_match = exempt_re.search(task_desc)
-                if exempt_match:
-                    exempt_cat = exempt_match.group(1).lower()
-                    task_desc = exempt_re.sub("", task_desc).strip()
-
-                task_status = (
-                    "complete"
-                    if status_char == "x"
-                    else ("in_progress" if status_char == "~" else "pending")
-                )
-                commit_sha = None
-                sha_match = task_sha_re.search(task_desc)
-                if not sha_match and task_status == "complete":
-                    sha_match = task_sha_bare_re.search(task_desc)
-                if sha_match:
-                    commit_sha = next((g for g in sha_match.groups() if g is not None), None)
-                    clean_desc = task_desc[: sha_match.start()].strip()
-                else:
-                    clean_desc = re.sub(
-                        r"\s*\[checkpoint:[^\]]+\]\s*$",
-                        "",
-                        task_desc,
-                        flags=re.IGNORECASE,
-                    ).strip()
-
-                clean_desc = re.sub(
-                    r"\s*\[checkpoint:[^\]]+\]\s*$",
-                    "",
-                    clean_desc,
-                    flags=re.IGNORECASE,
-                ).strip()
-                clean_desc = re.sub(r"\s+", " ", clean_desc).strip()
-
-                target_tasks.append({
-                    "status": task_status,
-                    "description": clean_desc,
-                    "subtasks": [],
-                    "commit_sha": commit_sha,
-                    "is_checkpoint": is_checkpoint_task(clean_desc),
-                    "exempt": exempt_cat,
-                    "raw_line": line.strip(),
-                })
-
-    return phases
+    parsed = parse_plan_file(plan_path)
+    return {phase_num: phase.to_dict() for phase_num, phase in parsed.items()}
 
 
 def _verify_git_commit(rev: str, cwd: Path = PROJECT_ROOT) -> Optional[str]:
@@ -264,6 +143,26 @@ def _verify_git_commit(rev: str, cwd: Path = PROJECT_ROOT) -> Optional[str]:
     return None
 
 
+def _resolve_first_sha(
+    entries: List[Dict[str, Any]],
+    cwd: Path,
+    has_git: bool,
+    verify_in_git: bool = True,
+) -> Optional[str]:
+    """Returns the most recent commit SHA from reversed entries, verifying against git when requested."""
+    for entry in reversed(entries):
+        sha = entry.get("commit_sha")
+        if not sha:
+            continue
+        if verify_in_git and has_git:
+            verified = _verify_git_commit(sha, cwd)
+            if verified:
+                return verified
+        elif not verify_in_git or not has_git:
+            return sha[:7]
+    return None
+
+
 def resolve_phase_baseline_sha(
     phases: Dict[int, Dict[str, Any]],
     phase_num: Optional[int],
@@ -278,14 +177,9 @@ def resolve_phase_baseline_sha(
     # Tier 1: Walk preceding phases in reverse order
     prior_phases = [p for p in sorted(phases.keys()) if p < phase_num]
     for prev_p in reversed(prior_phases):
-        for rf in reversed(phases[prev_p].get("review_fixes", [])):
-            rf_sha = rf.get("commit_sha")
-            if rf_sha:
-                verified = _verify_git_commit(rf_sha, cwd)
-                if verified:
-                    return verified
-                if not has_git:
-                    return rf_sha[:7]
+        rf_sha = _resolve_first_sha(phases[prev_p].get("review_fixes", []), cwd, has_git)
+        if rf_sha:
+            return rf_sha
 
         cp_sha = phases[prev_p].get("checkpoint_sha")
         if cp_sha:
@@ -295,14 +189,9 @@ def resolve_phase_baseline_sha(
             if not has_git:
                 return cp_sha[:7]
 
-        for t in reversed(phases[prev_p].get("tasks", [])):
-            t_sha = t.get("commit_sha")
-            if t_sha:
-                verified = _verify_git_commit(t_sha, cwd)
-                if verified:
-                    return verified
-                if not has_git:
-                    return t_sha[:7]
+        task_sha = _resolve_first_sha(phases[prev_p].get("tasks", []), cwd, has_git)
+        if task_sha:
+            return task_sha
 
     # Tier 2: First phase (or no prior phase SHAs recorded)
     for t in phases[phase_num].get("tasks", []):
@@ -356,15 +245,9 @@ def resolve_phase_end_sha(
     has_git = _verify_git_commit("HEAD", cwd) is not None
 
     # Tier 0: Post-checkpoint review fixes attached to this phase
-    for rf in reversed(phases[phase_num].get("review_fixes", [])):
-        rf_sha = rf.get("commit_sha")
-        if rf_sha:
-            if has_git:
-                verified = _verify_git_commit(rf_sha, cwd)
-                if verified:
-                    return verified
-            else:
-                return rf_sha[:7]
+    rf_sha = _resolve_first_sha(phases[phase_num].get("review_fixes", []), cwd, has_git)
+    if rf_sha:
+        return rf_sha
 
     # Tier 1: Phase header checkpoint tag
     cp_sha = phases[phase_num].get("checkpoint_sha")
@@ -377,15 +260,9 @@ def resolve_phase_end_sha(
             return cp_sha[:7]
 
     # Tier 2: Last completed task or checkpoint task in phase with a commit_sha
-    for t in reversed(phases[phase_num].get("tasks", [])):
-        t_sha = t.get("commit_sha")
-        if t_sha:
-            if has_git:
-                verified = _verify_git_commit(t_sha, cwd)
-                if verified:
-                    return verified
-            else:
-                return t_sha[:7]
+    task_sha = _resolve_first_sha(phases[phase_num].get("tasks", []), cwd, has_git)
+    if task_sha:
+        return task_sha
 
     # Tier 3: Baseline SHA of the next sequential phase
     next_phases = [p for p in sorted(phases.keys()) if p > phase_num]
@@ -395,16 +272,18 @@ def resolve_phase_end_sha(
             return next_base
 
     # Fallback to unverified tag if recorded in plan (e.g., shallow clone)
-    for rf in reversed(phases[phase_num].get("review_fixes", [])):
-        rf_sha = rf.get("commit_sha")
-        if rf_sha:
-            return rf_sha[:7]
+    rf_fallback = _resolve_first_sha(
+        phases[phase_num].get("review_fixes", []), cwd, has_git, verify_in_git=False
+    )
+    if rf_fallback:
+        return rf_fallback
     if cp_sha:
         return cp_sha[:7]
-    for t in reversed(phases[phase_num].get("tasks", [])):
-        t_sha = t.get("commit_sha")
-        if t_sha:
-            return t_sha[:7]
+    task_fallback = _resolve_first_sha(
+        phases[phase_num].get("tasks", []), cwd, has_git, verify_in_git=False
+    )
+    if task_fallback:
+        return task_fallback
 
     # Tier 4: Fallback to "HEAD" for active/incomplete phases
     return "HEAD"
@@ -1235,6 +1114,7 @@ def _has_typescript_targets(
 
 
 def build_plan_prompt(track_name: str, phase_num: Optional[int], task_num: Optional[int], task_desc: str = "") -> str:
+    """Builds a headless planning prompt for a checkpoint or standard implementation task."""
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
     plan_file = f"{rel_track_dir}/phase-{phase_num}-task-{task_num}-plan.md"
@@ -1577,6 +1457,7 @@ Execution Directives:
 
 
 def build_recovery_prompt(track_name, phase_num, task_num):
+    """Builds a headless recovery prompt to verify and commit uncommitted changes for a task."""
     track_dir = resolve_track_dir(track_name)
     rel_track_dir = _rel_to_project(track_dir) if track_dir else f"conductor/tracks/{track_name}"
     return f"""Recover uncommitted changes in @[{rel_track_dir}] for Phase {phase_num}, Task {task_num}.
@@ -1728,7 +1609,7 @@ def main():
             )
             sys.exit(1)
         selected_idx, selected_task = next(
-            ((idx, t) for idx, t in checkpoint_candidates if t["status"] != "complete"),
+            ((idx, t) for idx, t in checkpoint_candidates if t["status"] not in ("complete", "skipped")),
             checkpoint_candidates[-1],
         )
         task_num = selected_idx
@@ -1849,7 +1730,7 @@ def main():
         incomplete_prior = [
             f"Task {idx} ('{t['description']}')"
             for idx, t in enumerate(phases[phase_num]["tasks"][: task_num - 1], start=1)
-            if t["status"] != "complete"
+            if t["status"] not in ("complete", "skipped")
         ]
         if incomplete_prior:
             print(

@@ -842,6 +842,131 @@ class TestGeneratePromptModule(unittest.TestCase):
             )
             self.assertNotIn("conductor/code_styleguides/typescript.md", py_plan_prompt)
 
+    def test_parse_plan_tasks_delegates_review_fixes_backticked_shas_and_skipped_tasks(self):
+        """Verifies parse_plan_tasks delegates to plan_parser for Review Fixes, backticked/bare SHAs, and [-] skipped tasks."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Core Setup `[checkpoint: `abc1234def`]`\n"
+                "- [-] Task: Legacy migration step [commit: deadbee]\n"
+                "- [x] Task: Implement service `[commit: `1122334455`]`\n"
+                "- [x] Task: Polish helpers `5566778899`\n"
+                "- [x] Task: Conductor - User Manual Verification 'Phase 1' (`abc1234def`)\n\n"
+                "## Phase: Review Fixes\n"
+                "- [x] Task: Address code review feedback `aaabbbccc`\n"
+                "    - [x] Fix edge case in helper\n"
+                "    - [ ] Add regression test\n",
+                encoding="utf-8",
+            )
+            phases = generate_prompt.parse_plan_tasks(str(tmp_path))
+            self.assertEqual(sorted(phases.keys()), [1])
+            self.assertEqual(phases[1]["checkpoint_sha"], "abc1234def")
+
+            tasks = phases[1]["tasks"]
+            self.assertEqual(len(tasks), 4)
+            self.assertEqual(tasks[0]["status"], "skipped")
+            self.assertEqual(tasks[0]["commit_sha"], "deadbee")
+            self.assertEqual(tasks[1]["status"], "complete")
+            self.assertEqual(tasks[1]["commit_sha"], "1122334455")
+            self.assertEqual(tasks[2]["commit_sha"], "5566778899")
+            self.assertTrue(tasks[3]["is_checkpoint"])
+
+            fixes = phases[1]["review_fixes"]
+            self.assertEqual(len(fixes), 1)
+            self.assertEqual(fixes[0]["commit_sha"], "aaabbbccc")
+            self.assertEqual(
+                fixes[0]["subtasks"],
+                ["Fix edge case in helper", "Add regression test"],
+            )
+
+    @patch.object(generate_prompt, "_verify_git_commit")
+    def test_resolve_first_sha_verified_skip_and_unverified_fallback(self, mock_verify):
+        """Verifies _resolve_first_sha skips unverified newest SHAs in git mode and falls back in resolve_phase_end_sha."""
+        valid_shas = {"HEAD": "HEAD", "1111111aaaa": "1111111", "2222222bbbb": "2222222"}
+        mock_verify.side_effect = lambda rev, cwd=None: valid_shas.get(rev)
+
+        phases = {
+            1: {
+                "checkpoint_sha": None,
+                "tasks": [
+                    {"description": "Task 1.1", "status": "complete", "commit_sha": "1111111aaaa"},
+                    {"description": "Task 1.2", "status": "complete", "commit_sha": "9999999bad1"},
+                ],
+                "review_fixes": [
+                    {"description": "Fix 1", "status": "complete", "commit_sha": "2222222bbbb"},
+                    {"description": "Fix 2", "status": "complete", "commit_sha": "8888888bad2"},
+                ],
+            },
+            2: {
+                "checkpoint_sha": None,
+                "tasks": [
+                    {"description": "Task 2.1", "status": "pending", "commit_sha": None},
+                ],
+                "review_fixes": [],
+            },
+            3: {
+                "checkpoint_sha": "deadbeef123",
+                "tasks": [
+                    {"description": "Task 3.1", "status": "complete", "commit_sha": "cafebabe456"},
+                ],
+                "review_fixes": [
+                    {"description": "Fix 3", "status": "complete", "commit_sha": "feedface789"},
+                ],
+            },
+        }
+
+        # Skips unverified newest review_fix ("8888888bad2") and returns earlier verified ("2222222")
+        self.assertEqual(generate_prompt.resolve_phase_baseline_sha(phases, 2), "2222222")
+        self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 1), "2222222")
+
+        # When review_fixes fails verification, falls back to verified task SHA ("1111111") skipping "9999999bad1"
+        phases[1]["review_fixes"] = [
+            {"description": "Fix 2", "status": "complete", "commit_sha": "8888888bad2"},
+        ]
+        self.assertEqual(generate_prompt.resolve_phase_baseline_sha(phases, 2), "1111111")
+        self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 1), "1111111")
+
+        # When all tiers fail git verification in resolve_phase_end_sha, falls back to unverified sha[:7]
+        self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 3), "feedfac")
+
+    def test_resolve_first_sha_non_git_directory_returns_unverified_short_shas(self):
+        """Verifies resolve_phase_baseline_sha and resolve_phase_end_sha return sha[:7] in non-git directories."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            phases = {
+                1: {
+                    "checkpoint_sha": None,
+                    "tasks": [
+                        {"description": "Task 1.1", "status": "complete", "commit_sha": "abcdef123456"},
+                    ],
+                    "review_fixes": [],
+                },
+                2: {
+                    "checkpoint_sha": None,
+                    "tasks": [
+                        {"description": "Task 2.1", "status": "complete", "commit_sha": "1234567890ab"},
+                    ],
+                    "review_fixes": [
+                        {"description": "Fix 2.1", "status": "complete", "commit_sha": "fedcba987654"},
+                    ],
+                },
+                3: {
+                    "checkpoint_sha": None,
+                    "tasks": [
+                        {"description": "Task 3.1", "status": "pending", "commit_sha": None},
+                    ],
+                    "review_fixes": [],
+                },
+            }
+
+            # Baseline for Phase 2 comes from Phase 1 tasks (no checkpoint_sha or review_fixes)
+            self.assertEqual(generate_prompt.resolve_phase_baseline_sha(phases, 2, cwd=tmp_path), "abcdef1")
+            # End SHA for Phase 1 comes from Phase 1 tasks
+            self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 1, cwd=tmp_path), "abcdef1")
+            # Baseline for Phase 3 and end SHA for Phase 2 prefer review_fixes
+            self.assertEqual(generate_prompt.resolve_phase_baseline_sha(phases, 3, cwd=tmp_path), "fedcba9")
+            self.assertEqual(generate_prompt.resolve_phase_end_sha(phases, 2, cwd=tmp_path), "fedcba9")
+
 
 class TestGeneratePromptCLI(unittest.TestCase):
     def run_cli(self, args):
@@ -941,6 +1066,22 @@ class TestGeneratePromptCLI(unittest.TestCase):
             self.assertNotIn("phase-1-task-1-plan.md", res.stdout)
             self.assertIn("Update eslint config", res.stdout)
             self.assertIn("--allow-empty", res.stdout)
+
+    def test_cli_checkpoint_ignores_skipped_prior_tasks_and_preserves_indexing(self):
+        """Verifies [-] skipped tasks preserve 1-based indexing and do not trigger incomplete-prior-task warnings."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            (tmp_path / "plan.md").write_text(
+                "## Phase 1: Verification Phase\n"
+                "- [-] Task: Skipped legacy task\n"
+                "- [x] Task: Completed implementation [commit: abc1234]\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 1: Verification Phase' (Protocol in workflow.md)\n",
+                encoding="utf-8",
+            )
+            result = self.run_cli(["--track", str(tmp_path), "--phase", "1", "--checkpoint", "--unattended"])
+            self.assertEqual(result.returncode, 0, msg=result.stderr)
+            self.assertIn("Phase 1, Task 3", result.stdout)
+            self.assertNotIn("incomplete prior tasks", result.stderr)
 
 
 if __name__ == "__main__":
