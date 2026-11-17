@@ -172,8 +172,6 @@ def parse_verification_commands(
         tokens = shlex.split(seg, comments=True)
         if not tokens:
             continue
-        if tokens[0] == "export":
-            raise ValueError("Unsupported shell builtin 'export' in verification command")
 
         env_overrides: Dict[str, str] = {}
         idx = 0
@@ -190,6 +188,8 @@ def parse_verification_commands(
         remaining = tokens[idx:]
         if not remaining:
             raise ValueError("Verification command segment sets environment variable(s) without an executable")
+        if remaining[0] == "export":
+            raise ValueError("Unsupported shell builtin 'export' in verification command")
 
         if remaining[0] == "cd":
             if env_overrides:
