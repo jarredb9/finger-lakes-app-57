@@ -15,6 +15,9 @@
     - [x] Run `test_models.py` and `test_profile.py` and confirm all Phase 1 tests pass
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Package Scaffolding, Core Models & RepoProfile Seam' (Protocol in workflow.md) [commit: e21660ef]
 
+### Phase: Review Fixes
+- [x] Task: Apply Phase 1 review remediations (`conductor/profile.toml` Red static-analysis parity, positive/finite supervisor timing validation, duplicate `[exempt]` and non-empty string checks) [commit: f680bd45]
+
 ## Phase 2: Markdown Parser & Git Workspace Adapter
 - [ ] Task: Write failing unit tests for `parser.py` (TDD Red phase)
     - [ ] Create `scripts/conductor-tools/tests/test_parser.py` testing `tracks.md` registry parsing, `plan.md` `PhaseInfo`/`TaskInfo` parsing (`Review Fixes`, `[exempt: <category>]`, `[-]` skipped, SHAs, without `.to_dict()` bridges), `TaskBlueprint` separation of `target_files` vs `referenced_test_files` via `PathRules`, full backtick command extraction (`=` / flags / `&&`), post-exec commit extraction, and `phase-N-review.md` severity parsing
