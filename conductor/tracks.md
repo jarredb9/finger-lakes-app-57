@@ -41,6 +41,7 @@
 | **postgrest-rls-storage-hardening_20261104** | PostgREST Direct Table RLS, Storage Policies, Trip/Friend Membership Validation, and Webhook Hardening (Issue #93) | [x] Archived | [Plan](./archive/postgrest-rls-storage-hardening_20261104/plan.md) |
 | **conductor-auto-runner_20261112** | Autonomous Multi-Task Track Execution Runner using agy Print Mode (Issue #162) | [x] Archived | [Plan](./archive/conductor-auto-runner_20261112/plan.md) |
 | **social-notification-auth_20261113** | Require caller authorization and stop friend-graph disclosure in send-social-notification (Issue #150) | [x] Archived | [Plan](./archive/social-notification-auth_20261113/plan.md) |
+| **conductor-tools-package_20261117** | Decompose generate-prompt.py and conductor-auto.py into portable conductor-tools package with RepoProfile seam (Issue #110) | [ ] | [Plan](./tracks/conductor-tools-package_20261117/plan.md) |
 
 
 

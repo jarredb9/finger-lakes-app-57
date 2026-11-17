@@ -1,0 +1,94 @@
+# Specification: Portable `conductor-tools` Package & `RepoProfile` Seam (Issue #110)
+
+## Overview
+
+Decompose the monolithic Python agent tooling in `scripts/agent/`—`scripts/agent/generate-prompt.py`, `scripts/agent/conductor-auto.py`, and `scripts/agent/plan_parser.py`—into a self-contained, zero-dependency, multi-repo portable Python package at `scripts/conductor-tools/` (`conductor_tools`, `requires-python >= 3.11`), backed by a declarative per-repository `conductor/profile.toml` seam. Preserve `scripts/agent/generate-prompt.py` and `scripts/agent/conductor-auto.py` as clean, Python-3.6-safe executable CLI shims (no `_ShimModuleProxy` layer) and retire `scripts/agent/plan_parser.py`.
+
+## Problem Statement
+
+1. **Monolithic Coupling:** `generate-prompt.py` and `conductor-auto.py` mix Markdown parsing, git inspection, strategy inference, prompt templates, NDJSON telemetry, POSIX process control, post-turn supervisor verification, and CLI argument handling across two large scripts plus a partial `plan_parser.py` helper.
+2. **Fragile Dual Coupling:** `conductor-auto.py` both spawns `generate-prompt.py` as a subprocess to render prompts and dynamically loads it via `importlib.util.spec_from_file_location` for strategy/command helpers.
+3. **Red-Phase & Exempt Classification Drift:** `conductor-auto.py`'s `_is_red_task()` treats `test(`-prefixed tasks as TDD Red, whereas `generate-prompt.py`'s `infer_verification_strategy()` omits `startswith("test(")`, causing mismatched Green prompts to fail Red supervisor audits. Similarly, `generate-prompt.py` silently falls back to `npm run lint` for unknown `[exempt: <category>]` tags while `conductor-auto.py`'s `verify_exempt_task()` raises `SupervisorInvariantError`.
+4. **Duplicated Markdown & Command Scrapers:** `_extract_plan_targets_and_cmds` and `infer_verification_strategy` diverge on `.test`/`.spec` targets and backtick command regexes (`=` / `&&` drops), while `infer_verification_strategy` runs up to 3x per invocation, static-analysis `explicit_subtask_cmds` leak into Red prompts, and exempt rules are duplicated across both scripts.
+5. **Latent Runtime & Root-Discovery Failure Modes:** `check_plan_cache` / `assert_post_plan_invariants` only check `st_size > 0` (accepting whitespace-only plans), `copy_to_clipboard` omits `stdout=DEVNULL` and `communicate(timeout=...)` (risking `xclip` hangs), `_stream_agy_process` retains dead `proc.stdin.write` logic, `conductor-auto --task <checkpoint>` silently exits `0`, and `find_project_root` lacks `-C`/`--repo-root` and `.git`-boundary guards.
+6. **Hardcoded Repo Assumptions & Test Bloat:** Finger Lakes paths, Podman container scripts, Supabase commands, and TypeScript rules are hardcoded throughout both scripts, and `scripts/__tests__/test_conductor_auto.py` / `test_generate_prompt.py` rely on `importlib` loading and global monkeypatching against monolith internals.
+
+## Canonical Domain Vocabulary (Tooling Scope)
+
+> **Context Boundary Invariant:** Root `CONTEXT.md` remains strictly bounded to the Winery Visit Planning & Tracking product domain. Tooling terminology belongs strictly inside `scripts/conductor-tools/` and `docs/agents/`. No new ADR is authored for this in-repo decomposition; design rationale is captured in `scripts/conductor-tools/README.md` and `docs/agents/conductor-auto.md`.
+
+- **Track Plan (`TrackPlan` / `PhaseInfo` / `TaskInfo`):** Master `plan.md` model defining phases, tasks, subtasks, `review_fixes`, completion statuses (`pending` | `in_progress` | `complete` | `skipped`), `[exempt: <category>]` tags, and commit/checkpoint SHAs.
+- **Task Blueprint (`TaskBlueprint`):** Per-task `phase-N-task-M-plan.md` model separating `target_files` (explicit files planned for modification) from `referenced_test_files` (test/spec paths extracted from verification commands via `RepoProfile.paths` `PathRules`), alongside `verification_commands` and post-execution protocol metadata.
+- **Phase Checkpoint (`PhaseCheckpointContext`):** End-of-phase verification (Gate 1), domain-aware manual verification prompt, user confirmation gate (or `--unattended` closure), checkpoint commit, and git-notes closure.
+- **Prompt Mode (`PromptMode`):** Emitted workflow target (`PLAN` | `RED` | `GREEN` | `EXEMPT` | `CHECKPOINT` | `RECOVERY` | `REVIEW`). Deprecated `--full` is removed.
+- **Repo Profile (`RepoProfile`):** Declarative per-repository configuration (`conductor/profile.toml`, parsed via stdlib `tomllib`) with a generic built-in default when absent.
+- **Supervisor Gate:** Post-turn invariant verification in `conductor-auto` enforcing clean git tree, Red dual-check, Green test + type-check pass, Exempt category verification, Conventional Commits, Git notes (`Task`, `Summary`, `Files`, `Rationale`), and `plan.md` tracking commits.
+
+## Functional Requirements
+
+### FR-1: Package Layout & Workspace Discovery (`scripts/conductor-tools/`)
+- Create `scripts/conductor-tools/pyproject.toml` using `setuptools.build_meta`, `requires-python >= 3.11`, zero third-party runtime dependencies, and console scripts `conductor-prompt = "conductor_tools.prompt_cli:main"` and `conductor-auto = "conductor_tools.auto_cli:main"`.
+- Organize `conductor_tools` into focused, single-purpose modules: `__init__.py`, `models.py`, `profile.py`, `parser.py`, `git_scope.py`, `strategy.py`, `templates.py`, `streaming.py`, `process.py`, `supervisor.py`, `orchestrator.py`, `prompt_cli.py`, and `auto_cli.py`.
+- Support git-boundary-safe workspace discovery (`git_scope.resolve_repo_root`):
+  1. Explicit `-C` / `--repo-root <dir>`: require `<dir>` to exist and contain `conductor/` (else fail fast with `ConductorError`).
+  2. Ancestor walk upward from `Path.cwd()` looking for `conductor/`, **stopping** if a `.git` boundary is crossed without finding `conductor/`.
+  3. Fallback ancestor walk upward from the invoked script path **only** when `Path.cwd()` is not inside any `.git` repository (preserving out-of-directory calls from `$HOME` or `/tmp` without accidentally crossing into an unrelated repo). Raise `ConductorError` if no `conductor/` root is found.
+
+### FR-2: Declarative `RepoProfile` Seam (`profile.py` + `conductor/profile.toml`)
+- Ship a generic built-in `RepoProfile` with zero Finger Lakes paths, container scripts, or Supabase references (including generic `[exempt]` defaults for `docs`, `infra`, `scripts`, generic `PathRules` for `test_suffixes`/`test_prefixes`/`test_dirs`, generic `[safety].allowed_verification_tokens` such as `pytest`, `python3 -m unittest`, `npm test`, `cargo test`, `go test`, and generic `[supervisor].full_suite_keywords`).
+- Load and validate `<repo_root>/conductor/profile.toml` via stdlib `tomllib` across 9 sections: `[planning]`, `[type_check]`, `[[suites]]`, `[domains.<name>]`, `[exempt.<category>]`, `[paths]`, `[supervisor]`, `[safety]`, and `[models]`:
+  - **Replace-on-key merge semantics:** Scalar/table fields override defaults, while list and array-of-table entries (`[[suites]]`, `[domains.*]`, `[exempt.*]`, `[paths].*`, `[safety].*`) **replace** built-in defaults when explicitly declared in `profile.toml`.
+  - **Strict schema validation:** Unknown top-level sections, unknown keys, or invalid value types raise `ConductorError` immediately.
+- Author `conductor/profile.toml` capturing Finger Lakes suites (`integration`, `unit`, `e2e`, `edge_functions`, `python_agent`), domains (`ui`, `database`, `backend_tooling`), exempt rules (`ui`, `styling`, `infra`, `scripts`, `types`, `docs`), paths, supervisor (`static_analysis_prefixes`, `default_test_cmd`, `full_suite_keywords`), safety filters, and model defaults.
+
+### FR-3: Unified Parser, Single-Pass Strategy, Defect Fixes & In-Process Seam
+- Absorb `scripts/agent/plan_parser.py` into `conductor_tools/models.py` and `conductor_tools/parser.py` (no `.to_dict()` bridges), then delete `scripts/agent/plan_parser.py`.
+- Inject `PathRules` (`RepoProfile.paths`, defaulting to generic multi-language `PathRules()`) into `parser.parse_task_blueprint()` so `TaskBlueprint` cleanly separates `target_files` (explicit modification targets) from `referenced_test_files` (test/spec paths in verification bash blocks or fallback subtask text) without hardcoded JS/TS regexes. Phase Checkpoint `changed_files` excludes `referenced_test_files` while `strategy.py` still infers suites on Green tasks from them.
+- Unify backtick command extraction (`r"`([^`]+)`"`) + `safety.command_prefixes` across task, checkpoint, and supervisor paths, preserving `=`, flags, and `&&`, with idempotency filtering for checkpoint/supervisor verification.
+- Drive `[[suites]]` via an ordered all-matching-suites loop (deduplicated, substituting space-joined `shlex.quote`-escaped matched files into `{files}` for `targeted_cmd`, and running `full_cmd` for `include_in_full_suite` suites on `full_suite_keywords` matches). Gate `[type_check].cmd` whenever `target_files` is empty (fallback) or any `target_files` / `referenced_test_files` / `changed_files` matches `[type_check].extensions`.
+- Unify task classification in `strategy.classify_task_mode()` (including `startswith("test(")`, `startswith("write failing")`, `"red phase"`, `"(red)"`, `"failing test"`, `"failing unit test"`, `"failing integration"`). Fail fast (`ConductorError` / `SupervisorInvariantError`) in both `strategy.py` and `supervisor.py` if an `[exempt: <category>]` tag is not declared in `profile.exempt`. Strip `[supervisor].static_analysis_prefixes` during Red-mode synthesis in `strategy.py` (and do not append static-analysis `explicit_subtask_cmds` in Red mode).
+- Compute `VerificationStrategy` once per CLI invocation without redundant file reads or `git` spawns.
+- Wire `orchestrator.py` and `supervisor.py` to call `templates.generate_turn_prompt()` and `strategy` helpers directly in-process (zero `generate-prompt.py` subprocesses, zero `importlib` module loading).
+- Remove the deprecated `--full` CLI flag and composite TDD prompt branch. Expose `--review` on `conductor-prompt` (`prompt_cli.py`) accepting optional `[track] [phase]` and `--report-path` (defaulting to `<track_dir>/phase-<phase>-review.md`). Keep `conductor-auto` CLI parity without adding `--unattended`.
+- Enforce CLI override & edge-case behavior:
+  - Explicit `--red` / `--green` on `conductor-prompt` overrides `classify_task_mode()` for non-checkpoint tasks (logging a stderr warning on `[exempt]` tasks) and errors on checkpoint tasks.
+  - `conductor-auto --task <checkpoint_num>` raises a clear non-zero `ConductorError` instructing the user to omit `--task` so Gate 1 runs at phase end (instead of silently exiting `0`).
+- Fix latent defects during extraction:
+  - `check_plan_cache` and `assert_post_plan_invariants` validate non-whitespace content and non-empty parsed `TaskBlueprint` structure rather than just `st_size > 0`.
+  - `copy_to_clipboard` redirects `stdout=subprocess.DEVNULL` and sets a short `communicate(timeout=...)` (5s) to prevent `xclip` hangs.
+  - Remove dead `proc.stdin.write` logic in `process.py` (`_stream_agy_process`), matching `stdin=subprocess.DEVNULL` in `run_agy_turn`.
+- Support configurable `CONDUCTOR_BRAIN_DIR` env var and `--brain-dir` CLI flag on `conductor-auto` (defaulting to `~/.gemini/antigravity-cli/brain`), and implement 4-tier `resolve_model_config` precedence: `--<role>-model` > `CONDUCTOR_<ROLE>_MODEL` > `--model-family` / `CONDUCTOR_MODEL_FAMILY` + `profile.models.efforts[role]` > `profile.models.family` + `profile.models.efforts[role]` (built-in fallback `"gemini-4-hydrogen"`).
+
+### FR-4: Python-3.6-Safe CLI Shims & Test Migration
+- Convert `scripts/agent/generate-prompt.py` and `scripts/agent/conductor-auto.py` into thin, Python-3.6-safe executable CLI shims (no `_ShimModuleProxy`) that auto-re-exec `python3.12`/`python3.11` via `os.execvp` when `sys.version_info < (3, 11)`, add `scripts/conductor-tools` to `sys.path`, and delegate to `prompt_cli.main()` / `auto_cli.main()`, with `-C` / `--repo-root` support.
+- Create 100% self-contained unit tests in `scripts/conductor-tools/tests/test_*.py` using synthetic fixtures (zero dependency on Finger Lakes git history, archived tracks, or host `agy` binary), preserving 1:1 behavioral parity across all 172 existing assertions from `scripts/__tests__/test_generate_prompt.py` and `test_conductor_auto.py`.
+- Slim `scripts/__tests__/test_generate_prompt.py` and `scripts/__tests__/test_conductor_auto.py` to concise repo integration smoke suites verifying RHEL 8 Python 3.6.8 `os.execvp` shim re-exec, CLI contracts (including `TestAgyCliContract`), live `conductor/profile.toml` parity, rejection of `--full`, and removal of `plan_parser.py`.
+- Update `package.json`: keep `"conductor:prompt": "python3 scripts/agent/generate-prompt.py"`, add `"conductor:auto": "python3 scripts/agent/conductor-auto.py"` and `"test:conductor-tools": "python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools"`, and include `test:conductor-tools` in `"test:agent:all"`.
+
+### FR-5: Documentation Synchronization
+- Create `scripts/conductor-tools/README.md` (CLI guide, `profile.toml` schema reference, canonical glossary, design rationale).
+- Update `scripts/README.md`, `scripts/agent/CHANGELOG.md`, `docs/agents/conductor-auto.md`, `conductor/workflow.md`, and `conductor/docs/implement-prompt.md` to document `conductor-tools` / `conductor/profile.toml` and remove stale references to `plan_parser.py` or `--full`.
+
+## Non-Functional Requirements
+- **Zero External Dependencies:** Python >= 3.11 stdlib only.
+- **Portability:** `conductor-prompt` and `conductor-auto --dry-run` succeed in a synthetic repo without `conductor/profile.toml`.
+- **Parity:** `python3` (3.6.8 re-exec shim) and `python3.12` produce identical CLI behavior and prompts for Finger Lakes tracks.
+
+## Acceptance Criteria
+- [ ] `conductor_tools` contains zero hardcoded Finger Lakes paths, container scripts, or Supabase references.
+- [ ] `conductor-prompt` and `conductor-auto --dry-run` succeed in a synthetic repo without `conductor/profile.toml`.
+- [ ] `load_repo_profile` enforces replace-on-key merging and fails fast (`ConductorError`) on unknown sections/keys or invalid types.
+- [ ] `python3` shims (RHEL 8 re-exec) and `python3.12` produce identical behavior and prompts.
+- [ ] `scripts/agent/plan_parser.py` is deleted and `.to_dict()` bridges are removed.
+- [ ] `conductor-auto` invokes `templates` and `strategy` in-process (zero subprocesses, zero `importlib`).
+- [ ] `strategy.classify_task_mode()` is the single source of truth for Red/Green/Exempt/Checkpoint classification, unknown `[exempt: <cat>]` fails fast in both `strategy` and `supervisor`, and Red mode strips `static_analysis_prefixes`.
+- [ ] `--full` CLI flag and composite TDD prompt branch are removed; `conductor-prompt --review` is supported.
+- [ ] `TaskBlueprint` separates `target_files` from `referenced_test_files` via `PathRules`; backtick extraction preserves `=` / flags / `&&`; `check_plan_cache` rejects whitespace/empty blueprints; `copy_to_clipboard` uses `stdout=DEVNULL` + timeout.
+- [ ] `VerificationStrategy` is computed once per CLI invocation; `resolve_repo_root` guards `.git` boundaries.
+- [ ] `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools` (1:1 behavior parity with synthetic fixtures) and `npm run test:agent:all` pass.
+- [ ] Docs synchronized with zero stale `plan_parser.py` or `--full` references; root `CONTEXT.md` untouched.
+
+## Out of Scope
+- Migrating `scripts/agent/inspect-session.mjs` / `inspect-session.sh` to Python.
+- Modifying application runtime code, database schemas, or root `CONTEXT.md`.
+- Extracting `scripts/conductor-tools/` into a separate Git repository or authoring a new ADR.
