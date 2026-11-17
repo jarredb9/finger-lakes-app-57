@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from typing import Dict, Optional
 from unittest.mock import MagicMock, patch
 from pathlib import Path
 
@@ -19,46 +20,63 @@ generate_prompt = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generate_prompt)
 
 
+def _write_temp_track(
+    root: Path,
+    plan_md: str,
+    spec_md: str = "# Spec\n",
+    task_plans: Optional[Dict[str, str]] = None,
+) -> Path:
+    """Creates a minimal self-contained track directory for generate-prompt tests."""
+    (root / "plan.md").write_text(plan_md, encoding="utf-8")
+    (root / "spec.md").write_text(spec_md, encoding="utf-8")
+    for filename, content in (task_plans or {}).items():
+        (root / filename).write_text(content, encoding="utf-8")
+    return root
+
+
 class TestGeneratePromptModule(unittest.TestCase):
     def test_parse_plan_tasks_structure(self):
         """Verifies that parse_plan_tasks accurately extracts phases and tasks."""
-        phases = generate_prompt.parse_plan_tasks("agent-resolve-token-limits_20261019")
-        self.assertIn(1, phases)
-        self.assertIn(2, phases)
-        self.assertIn(3, phases)
-        self.assertGreaterEqual(len(phases[3]["tasks"]), 3)
-        self.assertIn("tasks", phases[3])
-        self.assertIn("name", phases[3])
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 1: Setup\n"
+                "- [x] Task: Init [commit: 1111111]\n\n"
+                "## Phase 2: Core\n"
+                "- [x] Task: Build [commit: 2222222]\n\n"
+                "## Phase 3: Budget Enforcement\n"
+                "- [ ] Task: Red tests\n"
+                "- [ ] Task: Green implementation\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 3: Budget Enforcement' (Protocol in workflow.md)\n",
+            )
+            phases = generate_prompt.parse_plan_tasks(str(tmp_path))
+            self.assertIn(1, phases)
+            self.assertIn(2, phases)
+            self.assertIn(3, phases)
+            self.assertGreaterEqual(len(phases[3]["tasks"]), 3)
+            self.assertIn("tasks", phases[3])
+            self.assertIn("name", phases[3])
 
     def test_parse_plan_tasks_extracts_clean_phase_name_checkpoint_and_commit_shas(self):
         """Verifies phase header checkpoint SHA stripping and multi-format task commit SHA extraction."""
-        phases_real = generate_prompt.parse_plan_tasks("agent-resolve-quality-hardening_20261021")
-        self.assertEqual(
-            phases_real[1]["name"],
-            "Stage 2 Patch-Based Test Authoring & Unified Patch Engine",
-        )
-        self.assertNotIn("[checkpoint:", phases_real[1]["name"])
-        self.assertEqual(phases_real[1]["checkpoint_sha"], "0e79c6e")
-        self.assertEqual(
-            phases_real[1]["raw_heading"],
-            "## Phase 1: Stage 2 Patch-Based Test Authoring & Unified Patch Engine",
-        )
-        self.assertIsNone(phases_real[2]["checkpoint_sha"])
-
         with tempfile.TemporaryDirectory() as tmp:
-            tmp_path = Path(tmp)
-            (tmp_path / "plan.md").write_text(
+            tmp_path = _write_temp_track(
+                Path(tmp),
                 "## Phase 1: Alpha Setup [checkpoint: 0e79c6e]\n"
                 "- [x] Task: Write failing tests [commit: abc1234]\n"
                 "- [x] Task: Implement feature (def5678)\n"
                 "- [x] Task: Refactor module [9876543]\n"
                 "- [x] Task: Cleanup helpers 1122334\n"
-                "- [ ] Task: Conductor - User Manual Verification 'Phase 1: Alpha Setup' (Protocol in workflow.md)\n",
-                encoding="utf-8",
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 1: Alpha Setup' (Protocol in workflow.md)\n\n"
+                "## Phase 2: Beta Work\n"
+                "- [ ] Task: Pending work\n",
             )
             phases = generate_prompt.parse_plan_tasks(str(tmp_path))
             self.assertEqual(phases[1]["name"], "Alpha Setup")
+            self.assertNotIn("[checkpoint:", phases[1]["name"])
             self.assertEqual(phases[1]["checkpoint_sha"], "0e79c6e")
+            self.assertEqual(phases[1]["raw_heading"], "## Phase 1: Alpha Setup")
+            self.assertIsNone(phases[2]["checkpoint_sha"])
             tasks = phases[1]["tasks"]
             self.assertEqual(len(tasks), 5)
             self.assertEqual(tasks[0]["commit_sha"], "abc1234")
@@ -235,40 +253,80 @@ class TestGeneratePromptModule(unittest.TestCase):
 
     def test_checkpoint_filters_mutating_db_and_git_commands(self):
         """Verifies mutating db:* and git commands are stripped while read-only verification commands remain."""
-        ctx_p2 = generate_prompt.collect_phase_checkpoint_context("db-security-hardening_20261026", 2, 4)
-        for forbidden in ("db:reset", "db:gen-types", "db:populate", "git commit", "git add"):
-            for cmd in ctx_p2["commands"]:
-                self.assertNotIn(forbidden, cmd)
-        self.assertTrue(
-            any("supabase-rpc.integration.test.ts" in c for c in ctx_p2["commands"]),
-            msg=f"Expected integration test command in {ctx_p2['commands']}",
-        )
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 2: Database Hardening\n"
+                "- [x] Task: Reset schema [commit: 2222221]\n"
+                "    - [x] Run `npm run db:reset` and `npm run db:populate`\n"
+                "- [x] Task: Regenerate types [commit: 2222222]\n"
+                "    - [x] Run `npm run db:gen-types`\n"
+                "- [x] Task: Verify RPC integration [commit: 2222223]\n"
+                "    - [x] Run `npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts`\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 2: Database Hardening' (Protocol in workflow.md)\n\n"
+                "## Phase 3: Type Verification\n"
+                "- [x] Task: Update `lib/database.types.ts` [commit: 3333331]\n"
+                "    - [x] Run `npm run db:gen-types`\n"
+                "- [x] Task: Verify local schema types [commit: 3333332]\n"
+                "    - [x] Run `npm run db:check-types:local`\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 3: Type Verification' (Protocol in workflow.md)\n",
+                task_plans={
+                    "phase-2-task-2-plan.md": (
+                        "# Plan 2.2\n"
+                        "## 3. Execution Verification Protocol\n"
+                        "```bash\n"
+                        "npm run db:reset\n"
+                        "npm run db:populate\n"
+                        "git add .\n"
+                        'git commit -m "feat(db): harden"\n'
+                        "npm run test:integration:container -- lib/services/__tests__/supabase-rpc.integration.test.ts\n"
+                        "```\n"
+                    ),
+                },
+            )
+            ctx_p2 = generate_prompt.collect_phase_checkpoint_context(str(tmp_path), 2, 4, cwd=tmp_path)
+            for forbidden in ("db:reset", "db:gen-types", "db:populate", "git commit", "git add"):
+                for cmd in ctx_p2["commands"]:
+                    self.assertNotIn(forbidden, cmd)
+            self.assertTrue(
+                any("supabase-rpc.integration.test.ts" in c for c in ctx_p2["commands"]),
+                msg=f"Expected integration test command in {ctx_p2['commands']}",
+            )
 
-        ctx_p3 = generate_prompt.collect_phase_checkpoint_context("db-security-hardening_20261026", 3, 4)
-        for cmd in ctx_p3["commands"]:
-            self.assertNotIn("db:gen-types", cmd)
-        self.assertIn("npm run db:check-types:local", ctx_p3["commands"])
-        self.assertFalse(
-            any("run-jest-container.sh" in c for c in ctx_p3["commands"]),
-            msg=f"Did not expect full Jest fallback in Phase 3: {ctx_p3['commands']}",
-        )
+            ctx_p3 = generate_prompt.collect_phase_checkpoint_context(str(tmp_path), 3, 3, cwd=tmp_path)
+            for cmd in ctx_p3["commands"]:
+                self.assertNotIn("db:gen-types", cmd)
+            self.assertIn("npm run db:check-types:local", ctx_p3["commands"])
+            self.assertFalse(
+                any("run-jest-container.sh" in c for c in ctx_p3["commands"]),
+                msg=f"Did not expect full Jest fallback in Phase 3: {ctx_p3['commands']}",
+            )
 
     def test_checkpoint_omits_nonexistent_plan_ref_and_includes_diff_gate(self):
         """Verifies checkpoint prompt omits missing plan ref, includes Warm-Session Fast Path, and uses full phase title."""
-        prompt = generate_prompt.build_exec_prompt(
-            track_name="db-security-hardening_20261026",
-            phase_num=1,
-            task_num=4,
-            task_desc="Conductor - User Manual Verification 'Phase 1: Client & Integration Test Modernization' (Protocol in workflow.md)",
-        )
-        self.assertNotIn("phase-1-task-4-plan.md", prompt)
-        self.assertIn("Warm-Session Fast Path", prompt)
-        self.assertIn("Do NOT read `conductor/workflow.md`, `product.md`, or `product-guidelines.md`", prompt)
-        self.assertIn(
-            'git commit -m "conductor(plan): Mark phase \'Phase 1: Client & Integration Test Modernization (Preparation)\' as complete"',
-            prompt,
-        )
-        self.assertIn("## Phase 1: Client & Integration Test Modernization (Preparation)", prompt)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 1: Client & Integration Test Modernization (Preparation)\n"
+                "- [x] Task: Update test helpers [commit: 1111111]\n"
+                "- [x] Task: Add RPC mocks [commit: 1111112]\n"
+                "- [x] Task: Refactor fixtures [commit: 1111113]\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 1: Client & Integration Test Modernization' (Protocol in workflow.md)\n",
+            )
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=1,
+                task_num=4,
+                task_desc="Conductor - User Manual Verification 'Phase 1: Client & Integration Test Modernization' (Protocol in workflow.md)",
+            )
+            self.assertNotIn("phase-1-task-4-plan.md", prompt)
+            self.assertIn("Warm-Session Fast Path", prompt)
+            self.assertIn("Do NOT read `conductor/workflow.md`, `product.md`, or `product-guidelines.md`", prompt)
+            self.assertIn(
+                'git commit -m "conductor(plan): Mark phase \'Phase 1: Client & Integration Test Modernization (Preparation)\' as complete"',
+                prompt,
+            )
+            self.assertIn("## Phase 1: Client & Integration Test Modernization (Preparation)", prompt)
 
     def test_classify_phase_domain_ui_vs_database_vs_tooling(self):
         """Verifies domain classification distinguishes ui, database, and backend_tooling."""
@@ -293,88 +351,114 @@ class TestGeneratePromptModule(unittest.TestCase):
             "ui",
         )
 
-    def test_checkpoint_prompt_preserves_database_domain_for_historical_phase(self):
+    @patch("subprocess.run")
+    @patch.object(generate_prompt, "_verify_git_commit")
+    def test_checkpoint_prompt_preserves_database_domain_for_historical_phase(self, mock_verify, mock_subprocess):
         """Regression test: Checkpoint prompt for database phase must not flip to UI due to post-phase git history bleed."""
-        # Verify database phase checkpoint prompt forbids inventing localhost:3000 steps
-        db_prompt = generate_prompt.build_exec_prompt(
-            track_name="db-security-hardening_20261026",
-            phase_num=2,
-            task_num=4,
-            task_desc="Conductor - User Manual Verification 'Phase 2: Database Hardening & Security Regression' (Protocol in workflow.md)",
+        mock_verify.side_effect = lambda rev, cwd=None: rev[:7] if rev else None
+        mock_subprocess.return_value = MagicMock(
+            returncode=0,
+            stdout="supabase/migrations/20261026000000_harden.sql\n",
         )
-        self.assertIn("no UI changes — do NOT invent `localhost:3000` browser steps", db_prompt)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 1: Client Prep [checkpoint: 1111111]\n"
+                "- [x] Task: Setup [commit: 1111111]\n\n"
+                "## Phase 2: Database Hardening & Security Regression [checkpoint: 2222222]\n"
+                "- [x] Task: Apply `supabase/migrations/20261026000000_harden.sql` [commit: 2222211]\n"
+                "- [x] Task: Add RLS policies in `supabase/migrations/20261026000000_harden.sql` [commit: 2222212]\n"
+                "- [x] Task: Verify migration invariants [commit: 2222213]\n"
+                "- [x] Task: Conductor - User Manual Verification 'Phase 2: Database Hardening & Security Regression' (Protocol in workflow.md) [commit: 2222222]\n",
+            )
+            # Verify database phase checkpoint prompt forbids inventing localhost:3000 steps
+            db_prompt = generate_prompt.build_exec_prompt(
+                track_name=str(tmp_path),
+                phase_num=2,
+                task_num=4,
+                task_desc="Conductor - User Manual Verification 'Phase 2: Database Hardening & Security Regression' (Protocol in workflow.md)",
+            )
+            self.assertIn("no UI changes — do NOT invent `localhost:3000` browser steps", db_prompt)
 
     def test_build_checkpoint_prompt_unattended_skips_modal_pause_and_records_notes(self):
         """Verifies build_checkpoint_prompt with unattended=True omits ask_question and records manual steps in notes."""
-        strategy = {
-            "mode": "checkpoint",
-            "commands": [
-                "./scripts/containers/run-jest-container.sh lib/services/__tests__/tripService.test.ts",
-                "npm run type-check",
-            ],
-            "checkpoint_context": {
-                "clean_phase_name": "Test Phase",
-                "raw_heading": "## Phase 1: Test Phase",
-                "baseline_sha": "abc1234",
-                "end_sha": "def5678",
-                "changed_files": ["lib/services/tripService.ts"],
-                "domain": "backend_tooling",
-                "has_checkpoint_plan": False,
-            },
-        }
-        prompt = generate_prompt.build_checkpoint_prompt(
-            "conductor-auto-runner_20261112",
-            1,
-            3,
-            "Conductor - User Manual Verification",
-            strategy,
-            unattended=True,
-        )
-        self.assertNotIn("ask_question", prompt)
-        self.assertNotIn("Pause via `ask_question`", prompt)
-        self.assertNotIn("Execute ONLY After Explicit Affirmative Approval", prompt)
-        self.assertNotIn("Explicitly approved via interactive modal", prompt)
-        self.assertIn("Automated test suites are authoritative", prompt)
-        self.assertIn("Unattended Execution Mode", prompt)
-        self.assertIn("4. Verbatim Phase Closure (Unattended Mode):", prompt)
-        self.assertIn("User Confirmation: Unattended execution mode (deferred manual verification).", prompt)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 1: Test Phase\n"
+                "- [x] Task: Setup\n"
+                "- [x] Task: Impl\n"
+                "- [ ] Task: Conductor - User Manual Verification\n",
+            )
+            strategy = {
+                "mode": "checkpoint",
+                "commands": [
+                    "./scripts/containers/run-jest-container.sh lib/services/__tests__/tripService.test.ts",
+                    "npm run type-check",
+                ],
+                "checkpoint_context": {
+                    "clean_phase_name": "Test Phase",
+                    "raw_heading": "## Phase 1: Test Phase",
+                    "baseline_sha": "abc1234",
+                    "end_sha": "def5678",
+                    "changed_files": ["lib/services/tripService.ts"],
+                    "domain": "backend_tooling",
+                    "has_checkpoint_plan": False,
+                },
+            }
+            prompt = generate_prompt.build_checkpoint_prompt(
+                str(tmp_path),
+                1,
+                3,
+                "Conductor - User Manual Verification",
+                strategy,
+                unattended=True,
+            )
+            self.assertNotIn("ask_question", prompt)
+            self.assertNotIn("Pause via `ask_question`", prompt)
+            self.assertNotIn("Execute ONLY After Explicit Affirmative Approval", prompt)
+            self.assertNotIn("Explicitly approved via interactive modal", prompt)
+            self.assertIn("Automated test suites are authoritative", prompt)
+            self.assertIn("Unattended Execution Mode", prompt)
+            self.assertIn("4. Verbatim Phase Closure (Unattended Mode):", prompt)
+            self.assertIn("User Confirmation: Unattended execution mode (deferred manual verification).", prompt)
 
-        # Check build_exec_prompt forwards unattended=True
-        exec_prompt = generate_prompt.build_exec_prompt(
-            "conductor-auto-runner_20261112",
-            1,
-            3,
-            "Conductor - User Manual Verification",
-            unattended=True,
-        )
-        self.assertNotIn("ask_question", exec_prompt)
-        self.assertIn("Unattended Execution Mode", exec_prompt)
+            # Check build_exec_prompt forwards unattended=True
+            exec_prompt = generate_prompt.build_exec_prompt(
+                str(tmp_path),
+                1,
+                3,
+                "Conductor - User Manual Verification",
+                unattended=True,
+            )
+            self.assertNotIn("ask_question", exec_prompt)
+            self.assertIn("Unattended Execution Mode", exec_prompt)
 
-        # UI domain variant
-        ui_strategy = {
-            "mode": "checkpoint",
-            "commands": ["npm run test:container"],
-            "checkpoint_context": {
-                "clean_phase_name": "UI Phase",
-                "raw_heading": "## Phase 2: UI Phase",
-                "baseline_sha": "abc1234",
-                "end_sha": "def5678",
-                "changed_files": ["components/TripView.tsx"],
-                "domain": "ui",
-                "has_checkpoint_plan": False,
-            },
-        }
-        ui_prompt = generate_prompt.build_checkpoint_prompt(
-            "conductor-auto-runner_20261112",
-            2,
-            4,
-            "Conductor - User Manual Verification",
-            ui_strategy,
-            unattended=True,
-        )
-        self.assertNotIn("ask_question", ui_prompt)
-        self.assertIn("UI / Frontend Phase", ui_prompt)
-        self.assertIn("Automated test suites are authoritative", ui_prompt)
+            # UI domain variant
+            ui_strategy = {
+                "mode": "checkpoint",
+                "commands": ["npm run test:container"],
+                "checkpoint_context": {
+                    "clean_phase_name": "UI Phase",
+                    "raw_heading": "## Phase 2: UI Phase",
+                    "baseline_sha": "abc1234",
+                    "end_sha": "def5678",
+                    "changed_files": ["components/TripView.tsx"],
+                    "domain": "ui",
+                    "has_checkpoint_plan": False,
+                },
+            }
+            ui_prompt = generate_prompt.build_checkpoint_prompt(
+                str(tmp_path),
+                2,
+                4,
+                "Conductor - User Manual Verification",
+                ui_strategy,
+                unattended=True,
+            )
+            self.assertNotIn("ask_question", ui_prompt)
+            self.assertIn("UI / Frontend Phase", ui_prompt)
+            self.assertIn("Automated test suites are authoritative", ui_prompt)
 
     def test_build_checkpoint_prompt_attended_default_preserves_modal_gate(self):
         """Verifies default unattended=False preserves interactive modal confirmation gate and ask_question."""
@@ -396,7 +480,7 @@ class TestGeneratePromptModule(unittest.TestCase):
         }
         # Explicit unattended=False
         prompt_explicit = generate_prompt.build_checkpoint_prompt(
-            "conductor-auto-runner_20261112",
+            "sample-track_20260101",
             1,
             3,
             "Conductor - User Manual Verification",
@@ -405,7 +489,7 @@ class TestGeneratePromptModule(unittest.TestCase):
         )
         # Default (unattended omitted)
         prompt_default = generate_prompt.build_checkpoint_prompt(
-            "conductor-auto-runner_20261112",
+            "sample-track_20260101",
             1,
             3,
             "Conductor - User Manual Verification",
@@ -421,10 +505,20 @@ class TestGeneratePromptModule(unittest.TestCase):
 
     def test_baseline_sha_fallback_when_prior_phase_header_lacks_checkpoint_tag(self):
         """Verifies Phase 3 baseline resolves from Phase 2's last task commit_sha when Phase 2 header lacks [checkpoint: ...]."""
-        phases = generate_prompt.parse_plan_tasks("agent-resolve-quality-hardening_20261021")
-        self.assertIsNone(phases[2]["checkpoint_sha"])
-        baseline_p3 = generate_prompt.resolve_phase_baseline_sha(phases, 3)
-        self.assertEqual(baseline_p3, "8314526")
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 1: Initial Setup [checkpoint: 1111111]\n"
+                "- [x] Task: Setup [commit: 1111111]\n\n"
+                "## Phase 2: Quality Hardening\n"
+                "- [x] Task: Harden parser [commit: 8314526]\n\n"
+                "## Phase 3: Verification\n"
+                "- [ ] Task: Run regression\n",
+            )
+            phases = generate_prompt.parse_plan_tasks(str(tmp_path))
+            self.assertIsNone(phases[2]["checkpoint_sha"])
+            baseline_p3 = generate_prompt.resolve_phase_baseline_sha(phases, 3, cwd=tmp_path)
+            self.assertEqual(baseline_p3, "8314526")
 
     def test_resolve_phase_end_sha_checkpoint_and_task_commits(self):
         """Verifies resolve_phase_end_sha resolves from checkpoint tag, task commit, or falls back to HEAD."""
@@ -485,12 +579,14 @@ class TestGeneratePromptModule(unittest.TestCase):
             },
         }
 
-        ctx = generate_prompt.collect_phase_checkpoint_context(
-            track_name="db-security-hardening_20261026",
-            phase_num=2,
-            task_num=2,
-            phases=phases,
-        )
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(Path(tmp), "## Phase 1: Client Prep\n")
+            ctx = generate_prompt.collect_phase_checkpoint_context(
+                track_name=str(tmp_path),
+                phase_num=2,
+                task_num=2,
+                phases=phases,
+            )
 
         self.assertEqual(ctx["baseline_sha"], "7128b93")
         self.assertEqual(ctx["end_sha"], "7f9d06c")
@@ -518,35 +614,56 @@ class TestGeneratePromptModule(unittest.TestCase):
         Regression test: When a task mentions unit tests (has_unit = True)
         and has plan_verification_cmds in the plan file, instruction must be bound.
         """
-        strategy = generate_prompt.infer_verification_strategy(
-            track_name="agent-resolve-token-limits_20261019",
-            phase_num=3,
-            task_num=2,
-            task_desc="Implement 25% cached token accounting, pre-call budget checks, dual summary metrics, and boundary regex matching (TDD Green phase)",
-            subtasks=[
-                "Implement effective_tokens, check_budget(), and dual summary formatting in agent_resolve/tracker.py",
-                "Update existing unit tests in scripts/agent-resolve/tests/test_tracker.py and test_llm.py",
-                "Verify all tests pass via npm run test:agent",
-            ],
-            mode="green",
-        )
-        self.assertIn("instruction", strategy)
-        self.assertTrue(strategy["instruction"].startswith("- "))
-        self.assertIn("python3.12 -m unittest scripts/agent-resolve/tests/test_tracker.py", strategy["commands"])
-        self.assertIn("python3.12 -m unittest scripts/agent-resolve/tests/test_llm.py", strategy["commands"])
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 3: Budget\n- [ ] Task: Implement cached token accounting\n",
+                task_plans={
+                    "phase-3-task-2-plan.md": (
+                        "# Plan 3.2\n"
+                        "## 2. Target Files\n"
+                        "- **Path:** `scripts/agent-resolve/agent_resolve/tracker.py`\n"
+                        "- **Path:** `scripts/agent-resolve/tests/test_tracker.py`\n"
+                        "- **Path:** `scripts/agent-resolve/tests/test_llm.py`\n\n"
+                        "## 3. Execution Verification Protocol\n"
+                        "```bash\n"
+                        "python3.12 -m unittest scripts/agent-resolve/tests/test_tracker.py\n"
+                        "python3.12 -m unittest scripts/agent-resolve/tests/test_llm.py\n"
+                        "```\n"
+                    ),
+                },
+            )
+            strategy = generate_prompt.infer_verification_strategy(
+                track_name=str(tmp_path),
+                phase_num=3,
+                task_num=2,
+                task_desc="Implement 25% cached token accounting, pre-call budget checks, dual summary metrics, and boundary regex matching (TDD Green phase)",
+                subtasks=[
+                    "Implement effective_tokens, check_budget(), and dual summary formatting in agent_resolve/tracker.py",
+                    "Update existing unit tests in scripts/agent-resolve/tests/test_tracker.py and test_llm.py",
+                    "Verify all tests pass via npm run test:agent",
+                ],
+                mode="green",
+            )
+            self.assertIn("instruction", strategy)
+            self.assertTrue(strategy["instruction"].startswith("- "))
+            self.assertIn("python3.12 -m unittest scripts/agent-resolve/tests/test_tracker.py", strategy["commands"])
+            self.assertIn("python3.12 -m unittest scripts/agent-resolve/tests/test_llm.py", strategy["commands"])
 
     def test_infer_verification_strategy_default_fallback(self):
         """Verifies default instruction assignment when no specific subtask or plan command overrides."""
-        strategy = generate_prompt.infer_verification_strategy(
-            track_name="agent-resolve-token-limits_20261019",
-            phase_num=999,
-            task_num=999,
-            task_desc="Generic task without targets",
-            subtasks=[],
-            mode="green",
-        )
-        self.assertIn("instruction", strategy)
-        self.assertTrue(len(strategy["instruction"]) > 0)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(Path(tmp), "")
+            strategy = generate_prompt.infer_verification_strategy(
+                track_name=str(tmp_path),
+                phase_num=999,
+                task_num=999,
+                task_desc="Generic task without targets",
+                subtasks=[],
+                mode="green",
+            )
+            self.assertIn("instruction", strategy)
+            self.assertTrue(len(strategy["instruction"]) > 0)
 
     def test_infer_verification_strategy_exempt_categories(self):
         """Verifies infer_verification_strategy selects non-TDD commands and commit types for all exempt categories."""
@@ -561,7 +678,7 @@ class TestGeneratePromptModule(unittest.TestCase):
         for cat, desc, expected_cmds, expected_prefix in matrix:
             # Test embedded tag parsing in task_desc
             strategy = generate_prompt.infer_verification_strategy(
-                track_name="conductor-auto-runner_20261112",
+                track_name="conductor-sample_20260101",
                 phase_num=1,
                 task_num=1,
                 task_desc=desc,
@@ -577,7 +694,7 @@ class TestGeneratePromptModule(unittest.TestCase):
             # Test explicit keyword argument exempt=cat
             clean_desc = desc.split(" [exempt:")[0]
             strategy_explicit = generate_prompt.infer_verification_strategy(
-                track_name="conductor-auto-runner_20261112",
+                track_name="conductor-sample_20260101",
                 phase_num=1,
                 task_num=1,
                 task_desc=clean_desc,
@@ -593,30 +710,42 @@ class TestGeneratePromptModule(unittest.TestCase):
 
     def test_infer_verification_strategy_bounds_check_task_num(self):
         """Verifies infer_verification_strategy guards against non-positive task_num values."""
-        strategy = generate_prompt.infer_verification_strategy(
-            track_name="conductor-auto-runner_20261112",
-            phase_num=1,
-            task_num=0,
-            task_desc="Generic task without tag",
-        )
-        self.assertIsNone(strategy.get("exempt"))
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 1: Docs\n- [ ] Task: Sample doc [exempt: docs]\n",
+            )
+            strategy = generate_prompt.infer_verification_strategy(
+                track_name=str(tmp_path),
+                phase_num=1,
+                task_num=0,
+                task_desc="Generic task without tag",
+            )
+            self.assertIsNone(strategy.get("exempt"))
 
     def test_build_exec_prompt_formats_exempt_verification_block(self):
         """Verifies build_exec_prompt formats category-specific verification block without Red phase assertions."""
-        prompt = generate_prompt.build_exec_prompt(
-            track_name="conductor-auto-runner_20261112",
-            phase_num=1,
-            task_num=1,
-            task_desc="Author documentation guide [exempt: docs]",
-        )
-        self.assertTrue(
-            "Targeted Verification (Exempt: docs)" in prompt or "Targeted Verification (Exempt)" in prompt,
-            "Expected exempt verification block heading in prompt",
-        )
-        self.assertIn("git diff --name-only", prompt)
-        self.assertIn("docs(conductor): Author documentation guide", prompt)
-        self.assertNotIn("(Red Phase)", prompt)
-        self.assertNotIn("run-jest-container.sh", prompt)
+        with tempfile.TemporaryDirectory() as tmp:
+            track_dir = Path(tmp) / "conductor-sample_20260101"
+            track_dir.mkdir()
+            _write_temp_track(
+                track_dir,
+                "## Phase 1: Docs\n- [ ] Task: Author documentation guide [exempt: docs]\n",
+            )
+            prompt = generate_prompt.build_exec_prompt(
+                track_name=str(track_dir),
+                phase_num=1,
+                task_num=1,
+                task_desc="Author documentation guide [exempt: docs]",
+            )
+            self.assertTrue(
+                "Targeted Verification (Exempt: docs)" in prompt or "Targeted Verification (Exempt)" in prompt,
+                "Expected exempt verification block heading in prompt",
+            )
+            self.assertIn("git diff --name-only", prompt)
+            self.assertIn("docs(conductor): Author documentation guide", prompt)
+            self.assertNotIn("(Red Phase)", prompt)
+            self.assertNotIn("run-jest-container.sh", prompt)
 
     def test_build_exec_prompt_docs_exempt_without_plan_file_inlines_subtasks(self):
         """Verifies build_exec_prompt for [exempt: docs] without a task plan file inlines subtasks and references plan.md/spec.md."""
@@ -783,7 +912,7 @@ class TestGeneratePromptModule(unittest.TestCase):
 
     def test_build_recovery_prompt_avoids_conductor_implement_skill(self):
         """Verifies build_recovery_prompt omits /conductor:implement and instructs headless recovery."""
-        prompt = generate_prompt.build_recovery_prompt("social-notification-auth_20261113", 2, 1)
+        prompt = generate_prompt.build_recovery_prompt("sample-track_20260101", 2, 1)
         self.assertNotIn("/conductor:implement", prompt)
         self.assertIn("Phase 2", prompt)
         self.assertIn("Task 1", prompt)
@@ -979,16 +1108,31 @@ class TestGeneratePromptCLI(unittest.TestCase):
         )
 
     def test_rejects_out_of_bounds_task(self):
-        result = self.run_cli(["3", "32", "--plan", "--track", "agent-resolve-token-limits_20261019"])
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("Error: Task 32 not found in Phase 3", result.stderr)
-        self.assertIn("Valid tasks for Phase 3: 1..3", result.stderr)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 1: Setup\n- [x] Task: Init [commit: 1111111]\n\n"
+                "## Phase 2: Core\n- [x] Task: Core [commit: 2222222]\n\n"
+                "## Phase 3: Budget\n"
+                "- [ ] Task: Red tests\n"
+                "- [ ] Task: Green implementation\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 3: Budget' (Protocol in workflow.md)\n",
+            )
+            result = self.run_cli(["3", "32", "--plan", "--track", str(tmp_path)])
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("Error: Task 32 not found in Phase 3", result.stderr)
+            self.assertIn("Valid tasks for Phase 3: 1..3", result.stderr)
 
     def test_rejects_non_existent_phase(self):
-        result = self.run_cli(["99", "1", "--plan", "--track", "agent-resolve-token-limits_20261019"])
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("Error: Phase 99 not found in track", result.stderr)
-        self.assertIn("Available phases: 1, 2, 3, 4, 5, 6, 7", result.stderr)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "\n".join(f"## Phase {i}: Step {i}\n- [ ] Task: Work {i}\n" for i in range(1, 8)),
+            )
+            result = self.run_cli(["99", "1", "--plan", "--track", str(tmp_path)])
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("Error: Phase 99 not found in track", result.stderr)
+            self.assertIn("Available phases: 1, 2, 3, 4, 5, 6, 7", result.stderr)
 
     def test_rejects_non_positive_numbers(self):
         result = self.run_cli(["0", "1", "--plan"])
@@ -997,22 +1141,48 @@ class TestGeneratePromptCLI(unittest.TestCase):
 
     def test_phase_only_resolves_pending_task_in_phase(self):
         # Resolves first pending task in an active phase (Phase 4)
-        phases = generate_prompt.parse_plan_tasks("agent-resolve-token-limits_20261019")
-        target_phase = 4
-        pending_task_idx = next(
-            (idx for idx, t in enumerate(phases[target_phase]["tasks"], start=1) if t["status"] in ("pending", "in_progress")),
-            1,
-        )
-        result = self.run_cli([str(target_phase), "--plan", "--track", "agent-resolve-token-limits_20261019"])
-        self.assertEqual(result.returncode, 0)
-        self.assertIn(f"Plan Phase {target_phase} Task {pending_task_idx} only", result.stdout)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 1: P1\n- [x] Task: Done 1 [commit: 1111111]\n\n"
+                "## Phase 2: P2\n- [x] Task: Done 2 [commit: 2222222]\n\n"
+                "## Phase 3: P3\n- [x] Task: Done 3 [commit: 3333333]\n\n"
+                "## Phase 4: Active Phase\n"
+                "- [x] Task: Completed step [commit: 4444444]\n"
+                "- [ ] Task: Pending step\n",
+            )
+            result = self.run_cli(["4", "--plan", "--track", str(tmp_path)])
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("Plan Phase 4 Task 2 only", result.stdout)
 
     def test_valid_exec_prompt_succeeds(self):
-        result = self.run_cli(["3", "2", "--exec", "--track", "agent-resolve-token-limits_20261019"])
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("Execute Phase 3 Task 2 following", result.stdout)
-        self.assertIn("python3.12 -m unittest scripts/agent-resolve/tests/test_tracker.py", result.stdout)
-        self.assertIn("python3.12 -m unittest scripts/agent-resolve/tests/test_llm.py", result.stdout)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = _write_temp_track(
+                Path(tmp),
+                "## Phase 1: P1\n- [x] Task: Done 1 [commit: 1111111]\n\n"
+                "## Phase 2: P2\n- [x] Task: Done 2 [commit: 2222222]\n\n"
+                "## Phase 3: Budget\n"
+                "- [x] Task: Red tests [commit: 3333331]\n"
+                "- [ ] Task: Green implementation\n"
+                "- [ ] Task: Conductor - User Manual Verification 'Phase 3: Budget' (Protocol in workflow.md)\n",
+                task_plans={
+                    "phase-3-task-2-plan.md": (
+                        "# Plan 3.2\n"
+                        "## 2. Target Files\n"
+                        "- **Path:** `scripts/agent-resolve/agent_resolve/tracker.py`\n\n"
+                        "## 3. Execution Verification Protocol\n"
+                        "```bash\n"
+                        "python3.12 -m unittest scripts/agent-resolve/tests/test_tracker.py\n"
+                        "python3.12 -m unittest scripts/agent-resolve/tests/test_llm.py\n"
+                        "```\n"
+                    ),
+                },
+            )
+            result = self.run_cli(["3", "2", "--exec", "--track", str(tmp_path)])
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("Execute Phase 3 Task 2 following", result.stdout)
+            self.assertIn("python3.12 -m unittest scripts/agent-resolve/tests/test_tracker.py", result.stdout)
+            self.assertIn("python3.12 -m unittest scripts/agent-resolve/tests/test_llm.py", result.stdout)
 
     def test_cli_checkpoint_single_prompt_output_and_pending_warning(self):
         """Verifies default CLI output on checkpoint prints only a single prompt and warns when prior tasks are incomplete."""
