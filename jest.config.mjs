@@ -37,6 +37,7 @@ const config = {
     '<rootDir>/e2e/',
     '<rootDir>/node_modules/',
     '<rootDir>/supabase/',
+    '<rootDir>/scripts/__tests__/',
     ...(isIntegration ? [] : ['\\.integration\\.test\\.']),
   ],
   ...(isIntegration ? { testMatch: ['**/*.integration.test.[jt]s?(x)'] } : {}),
