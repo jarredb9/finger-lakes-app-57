@@ -71,19 +71,19 @@
 
 ## Phase 6: Post-Turn Supervisor Verification Gates
 - [ ] Task: Write failing unit tests for `supervisor.py` (TDD Red phase)
-    - [ ] Create `scripts/conductor-tools/tests/test_supervisor.py` testing `check_plan_cache` and `assert_post_plan_invariants` (rejecting whitespace-only/empty blueprints via `parse_task_blueprint`), `parse_test_failure_markers`, `verify_red_task`, `verify_green_task`, `verify_exempt_task` (failing fast on undeclared exempt category), `audit_git_commit_and_notes`, `verify_checkpoint_commit_and_notes`, and `verify_task_execution` driven by `RepoProfile` and in-process `strategy` (zero subprocess/importlib calls)
+    - [ ] Create `scripts/conductor-tools/tests/test_supervisor.py` testing `check_plan_cache` and `assert_post_plan_invariants` (rejecting whitespace-only/empty blueprints via `parse_task_blueprint`), `parse_test_failure_markers` (including target-scoped greenfield `ModuleNotFoundError`/`ImportError`/`Cannot find module`/`TS2307` acceptance vs rejection of test-helper/stdlib imports and non-import `ERROR:` tracebacks), `verify_red_task` (including `ast.parse` syntax checks on changed `.py` test files), `verify_green_task`, `verify_exempt_task` (failing fast on undeclared exempt category), `audit_git_commit_and_notes`, `verify_checkpoint_commit_and_notes`, `revert_false_task_completion`, and `verify_task_execution` driven by `RepoProfile` and in-process `strategy` (zero subprocess/importlib calls)
     - [ ] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_supervisor.py"` and confirm expected failures
 - [ ] Task: Implement `supervisor.py` (TDD Green phase)
-    - [ ] Implement `scripts/conductor-tools/conductor_tools/supervisor.py` using `RepoProfile` and in-process `strategy` APIs
+    - [ ] Implement `scripts/conductor-tools/conductor_tools/supervisor.py` using `RepoProfile` and in-process `strategy` APIs (including target-scoped Red verification, `ast.parse` test syntax checks, and `revert_false_task_completion`)
     - [ ] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools` and confirm all Phase 6 tests pass
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Post-Turn Supervisor Verification Gates' (Protocol in workflow.md)
 
 ## Phase 7: Turn Orchestrator & `conductor-auto` CLI
 - [ ] Task: Write failing unit tests for `orchestrator.py` (TDD Red phase)
-    - [ ] Create `scripts/conductor-tools/tests/test_orchestrator.py` testing `dispatch_tier1_planning`, `dispatch_tier2_execution`, `dispatch_recovery_turn`, `dispatch_gate1_checkpoint`, `dispatch_gate2_review`, and skip-gate predicates via in-process `templates.generate_turn_prompt()`
+    - [ ] Create `scripts/conductor-tools/tests/test_orchestrator.py` testing `dispatch_tier1_planning`, `dispatch_tier2_execution` (including 1 bounded `--auto-recover` verification repair turn using `PromptMode.RECOVERY` context and reverting false `[x]` -> `[ ]` on persistent `SupervisorInvariantError`), `dispatch_recovery_turn`, `dispatch_verification_repair_turn`, `dispatch_gate1_checkpoint`, `dispatch_gate2_review`, and skip-gate predicates via in-process `templates.generate_turn_prompt()`
     - [ ] Run `python3.12 -m unittest discover -s scripts/conductor-tools/tests -t scripts/conductor-tools -p "test_orchestrator.py"` and confirm expected failures
 - [ ] Task: Implement `orchestrator.py` (TDD Green phase)
-    - [ ] Implement `scripts/conductor-tools/conductor_tools/orchestrator.py` using in-process `templates.generate_turn_prompt()`
+    - [ ] Implement `scripts/conductor-tools/conductor_tools/orchestrator.py` using in-process `templates.generate_turn_prompt()` (including bounded verification repair and false-`[x]` rollback)
     - [ ] Run `test_orchestrator.py` and confirm all tests pass
 - [ ] Task: Write failing unit tests for `auto_cli.py` (TDD Red phase)
     - [ ] Create `scripts/conductor-tools/tests/test_auto_cli.py` testing `conductor-auto` CLI flags (`-C`/`--repo-root`, `--dry-run`, `--force-plan`, `--skip-plan`, `--timeout`, `--heartbeat`, `--no-review`, `--force-review`, `--review-only`, `--auto-recover`, `--brain-dir`, model flags), erroring cleanly on `--task <checkpoint_num>`, and synthetic-repo `--dry-run` without `conductor/profile.toml` (verifying 1:1 behavioral parity across all legacy `test_conductor_auto.py` / `test_generate_prompt.py` assertions)
